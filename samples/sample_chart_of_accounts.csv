@@ -1,0 +1,28 @@
+account_number,account_name,account_type,normal_balance
+1010,Cash and Cash Equivalents,asset,debit
+1020,Accounts Receivable,asset,debit
+1030,Inventory,asset,debit
+1040,Prepaid Expenses,asset,debit
+1500,Property Plant and Equipment,asset,debit
+1510,Accumulated Depreciation,asset,credit
+1700,Goodwill,asset,debit
+2010,Accounts Payable,liability,credit
+2020,Accrued Liabilities,liability,credit
+2030,Short-term Debt,liability,credit
+2500,Long-term Debt,liability,credit
+2600,Deferred Tax Liability,liability,credit
+3010,Common Stock,equity,credit
+3020,Additional Paid-in Capital,equity,credit
+3030,Retained Earnings,equity,credit
+4010,Product Revenue,revenue,credit
+4020,Service Revenue,revenue,credit
+5010,Cost of Goods Sold,expense,debit
+5020,Cost of Services,expense,debit
+6010,Salaries and Wages,expense,debit
+6020,Rent Expense,expense,debit
+6030,Marketing Expense,expense,debit
+6040,Professional Fees,expense,debit
+6050,Depreciation Expense,expense,debit
+6060,Other G&A,expense,debit
+7010,Interest Expense,expense,debit
+8010,Income Tax Expense,expense,debit

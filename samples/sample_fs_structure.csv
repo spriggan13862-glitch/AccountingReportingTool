@@ -1,0 +1,42 @@
+code,name,statement,section,sort_order,is_subtotal,sign_flip
+BS_CASH,Cash and Cash Equivalents,BS,current_assets,10,false,false
+BS_AR,Accounts Receivable Net,BS,current_assets,20,false,false
+BS_INV,Inventory,BS,current_assets,30,false,false
+BS_PREPAID,Prepaid Expenses,BS,current_assets,40,false,false
+BS_CA_TOTAL,Total Current Assets,BS,current_assets,99,true,false
+BS_PPE_NET,Property Plant and Equipment Net,BS,non_current_assets,110,false,false
+BS_GOODWILL,Goodwill,BS,non_current_assets,120,false,false
+BS_NCA_TOTAL,Total Non-Current Assets,BS,non_current_assets,199,true,false
+BS_TOTAL_ASSETS,Total Assets,BS,assets,299,true,false
+BS_AP,Accounts Payable,BS,current_liabilities,310,false,false
+BS_ACCRUED,Accrued Liabilities,BS,current_liabilities,320,false,false
+BS_ST_DEBT,Short-term Debt,BS,current_liabilities,330,false,false
+BS_CL_TOTAL,Total Current Liabilities,BS,current_liabilities,399,true,false
+BS_LT_DEBT,Long-term Debt,BS,non_current_liabilities,410,false,false
+BS_DTL,Deferred Tax Liability,BS,non_current_liabilities,420,false,false
+BS_NCL_TOTAL,Total Non-Current Liabilities,BS,non_current_liabilities,499,true,false
+BS_TOTAL_LIAB,Total Liabilities,BS,liabilities,599,true,false
+BS_CS,Common Stock,BS,equity,610,false,false
+BS_APIC,Additional Paid-in Capital,BS,equity,620,false,false
+BS_RE,Retained Earnings,BS,equity,630,false,false
+BS_TOTAL_EQUITY,Total Equity,BS,equity,699,true,false
+BS_TOTAL_LE,Total Liabilities and Equity,BS,total,799,true,false
+IS_REV_PRODUCT,Product Revenue,IS,revenue,10,false,false
+IS_REV_SERVICE,Service Revenue,IS,revenue,20,false,false
+IS_REV_TOTAL,Total Revenue,IS,revenue,99,true,false
+IS_COGS,Cost of Goods Sold,IS,cogs,110,false,false
+IS_COS,Cost of Services,IS,cogs,120,false,false
+IS_COGS_TOTAL,Total Cost of Revenue,IS,cogs,199,true,false
+IS_GROSS_PROFIT,Gross Profit,IS,gross_profit,299,true,false
+IS_SALARIES,Salaries and Wages,IS,opex,310,false,false
+IS_RENT,Rent Expense,IS,opex,320,false,false
+IS_MARKETING,Marketing Expense,IS,opex,330,false,false
+IS_PROF_FEES,Professional Fees,IS,opex,340,false,false
+IS_DEPR,Depreciation,IS,opex,350,false,false
+IS_OTHER_GA,Other G&A,IS,opex,360,false,false
+IS_OPEX_TOTAL,Total Operating Expenses,IS,opex,399,true,false
+IS_OPERATING_INCOME,Operating Income,IS,operating_income,499,true,false
+IS_INTEREST,Interest Expense,IS,non_operating,510,false,false
+IS_PRETAX,Income Before Tax,IS,pretax,599,true,false
+IS_TAX,Income Tax Expense,IS,tax,610,false,false
+IS_NET_INCOME,Net Income,IS,net_income,999,true,false

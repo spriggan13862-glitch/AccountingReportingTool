@@ -1,0 +1,16 @@
+account_number,account_name,debit,credit
+1010,Cash and Cash Equivalents,150000,0
+1020,Accounts Receivable,80000,0
+1030,Inventory,120000,0
+1040,Prepaid Expenses,15000,0
+1500,Property Plant and Equipment,500000,0
+1510,Accumulated Depreciation,0,150000
+1700,Goodwill,200000,0
+2010,Accounts Payable,0,60000
+2020,Accrued Liabilities,0,35000
+2030,Short-term Debt,0,50000
+2500,Long-term Debt,0,300000
+2600,Deferred Tax Liability,0,25000
+3010,Common Stock,0,10000
+3020,Additional Paid-in Capital,0,290000
+3030,Retained Earnings,0,145000
