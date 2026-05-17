@@ -28,6 +28,7 @@ from app.models.account import Account
 from app.models.tb_import import TbImport
 from app.schemas.journal_entry import JournalEntryCreate, JournalEntryLineCreate
 from app.services.journal_entry_service import post_journal_entry
+from app.services.validation import ValidationResult
 
 
 class TbImportError(ValueError):
@@ -37,6 +38,36 @@ class TbImportError(ValueError):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+def preview_tb_import(
+    db: Session,
+    entity_id: int,
+    scenario_id: int,
+    as_of_date: datetime.date,
+    csv_content: str,
+    filename: str,
+) -> ValidationResult:
+    """
+    Parse and validate a trial balance CSV without importing it.
+
+    Returns a ValidationResult; errors are populated if validation fails.
+    Never raises — all failures are captured as ERROR issues in the result.
+    """
+    result = ValidationResult()
+    try:
+        parsed = _parse_csv(csv_content, filename)
+        resolved = _resolve_accounts(db, entity_id, parsed, filename)
+        aggregated = _aggregate(resolved)
+        _validate_balance(aggregated, filename)
+    except TbImportError as exc:
+        result.error(
+            code="TB_VALIDATION_ERROR",
+            message=str(exc),
+            source_type="tb_import",
+            source_id=filename,
+        )
+    return result
+
 
 def import_trial_balance(
     db: Session,

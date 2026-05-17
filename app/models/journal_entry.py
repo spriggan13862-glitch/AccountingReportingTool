@@ -11,7 +11,7 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft','posted','reversed')",
+            "status IN ('draft','posted','reversed','voided')",
             name="ck_je_status",
         ),
         Index("idx_je_date", "entry_date"),
@@ -29,7 +29,17 @@ class JournalEntry(Base):
     source = Column(String(50), nullable=False, default="manual")
     source_ref = Column(String(200), nullable=True)
     status = Column(String(20), nullable=False, default="posted")
+
+    # Reversal linkage:
+    #   reversal_of_id  — this JE is the reversal of that JE (back-pointer to original)
+    #   reversal_je_id  — that JE is the reversal of this JE (forward-pointer to reversal)
     reversal_of_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
-    created_by = Column(String(100), nullable=True)
-    created_at = Column(DateTime, nullable=False, server_default=func.now())
-    posted_at = Column(DateTime, nullable=True)
+    reversal_je_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
+
+    # Audit metadata
+    created_by  = Column(String(100), nullable=True)
+    posted_by   = Column(String(100), nullable=True)
+    created_at  = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at  = Column(DateTime, nullable=True)
+    posted_at   = Column(DateTime, nullable=True)
+    reversed_at = Column(DateTime, nullable=True)

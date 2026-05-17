@@ -1,3 +1,20 @@
+"""
+Journal entry service.
+
+Lifecycle
+---------
+  draft  ──post()──► posted ──reverse()──► reversed
+                 └──void()──► voided
+
+Rules
+-----
+- Draft entries may be freely edited or deleted.
+- Posted entries are immutable; corrections require a reversal entry.
+- Posted entries cannot be deleted.
+- Reversal entries negate the original by swapping debit ↔ credit on every line.
+"""
+
+import datetime
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -5,20 +22,139 @@ from sqlalchemy.orm import Session
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate
+from app.services.validation import ValidationResult
 
+
+# ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
 
 class JournalEntryValidationError(ValueError):
-    pass
+    """Raised when journal entry validation finds ERROR-severity issues."""
+
+    def __init__(self, message: str, result: ValidationResult | None = None) -> None:
+        super().__init__(message)
+        self.result = result if result is not None else ValidationResult()
 
 
 class JournalEntryNotFoundError(LookupError):
-    pass
+    """Raised when a requested journal entry does not exist."""
 
+
+class ImmutableEntryError(ValueError):
+    """Raised when attempting to mutate a posted, reversed, or voided entry."""
+
+
+# ---------------------------------------------------------------------------
+# Pure validation (no DB)
+# ---------------------------------------------------------------------------
+
+def validate_journal_entry(data: JournalEntryCreate) -> ValidationResult:
+    """
+    Validate a JournalEntryCreate payload without touching the database.
+
+    Returns a ValidationResult that may contain ERRORs, WARNINGs, and INFOs.
+    Never raises — callers decide what to do with the result.
+
+    Severity mapping
+    ----------------
+    ERROR   — entry cannot be posted as-is.
+    WARNING — entry is technically valid but worth reviewing.
+    INFO    — informational note.
+    """
+    result = ValidationResult()
+    src = "journal_entry"
+    ref = data.je_number
+
+    # --- Minimum line count ---
+    if len(data.lines) < 2:
+        result.error(
+            code="JE_MIN_LINES",
+            message=f"Journal entry must have at least 2 lines (got {len(data.lines)})",
+            source_type=src,
+            source_id=ref,
+        )
+        return result  # further checks would be misleading without lines
+
+    # --- Per-line: no line may carry both a debit and a credit ---
+    for line in data.lines:
+        if line.debit > Decimal("0") and line.credit > Decimal("0"):
+            result.error(
+                code="JE_LINE_BOTH_SIDES",
+                message=(
+                    f"Line {line.line_number}: a single line cannot carry both "
+                    f"a debit and a credit (debit={line.debit}, credit={line.credit})"
+                ),
+                source_type=src,
+                source_id=ref,
+                field_name=f"lines[{line.line_number}]",
+                suggested_resolution="Move one amount to a separate line.",
+            )
+
+    total_debit  = sum(l.debit  for l in data.lines)
+    total_credit = sum(l.credit for l in data.lines)
+
+    # --- Entry must balance ---
+    if total_debit != total_credit:
+        result.error(
+            code="JE_OUT_OF_BALANCE",
+            message=(
+                f"Journal entry does not balance: "
+                f"total debits={total_debit}, total credits={total_credit}"
+            ),
+            source_type=src,
+            source_id=ref,
+            suggested_resolution="Ensure total debits equal total credits.",
+        )
+
+    # --- Entry must have non-zero amounts (guard only when no balance errors) ---
+    if total_debit == Decimal("0") and not result.has_errors:
+        result.error(
+            code="JE_ZERO_AMOUNT",
+            message="Journal entry has no amounts — all lines are zero",
+            source_type=src,
+            source_id=ref,
+        )
+
+    # --- Warning: entry date more than one year in the past ---
+    cutoff = datetime.date.today() - datetime.timedelta(days=365)
+    if data.entry_date < cutoff:
+        result.warning(
+            code="JE_PRIOR_PERIOD",
+            message=(
+                f"Entry date {data.entry_date} is more than one year in the past; "
+                f"confirm this is an intentional prior-period adjustment"
+            ),
+            source_type=src,
+            source_id=ref,
+            field_name="entry_date",
+            suggested_resolution=(
+                "Review with your controller before posting. "
+                "If intentional, proceed; the entry will still be posted."
+            ),
+        )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Create / post
+# ---------------------------------------------------------------------------
 
 def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
-    """Validate and post a new journal entry. Flushes to DB; caller commits."""
-    _validate_lines(data)
+    """
+    Validate and immediately post a journal entry.
 
+    Raises JournalEntryValidationError (carrying a ValidationResult) if any
+    ERROR-severity issues are found. Warnings do not block posting.
+    Flushes to the DB; the caller is responsible for committing.
+    """
+    result = validate_journal_entry(data)
+    if result.has_errors:
+        msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
+        raise JournalEntryValidationError(msg, result=result)
+
+    now = datetime.datetime.now()
     je = JournalEntry(
         je_number=data.je_number,
         entry_date=data.entry_date,
@@ -29,19 +165,20 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
         source_ref=data.source_ref,
         created_by=data.created_by,
         status="posted",
+        posted_at=now,
     )
     db.add(je)
-    db.flush()  # obtain je.id before inserting lines
+    db.flush()
 
-    for line_data in data.lines:
+    for line in data.lines:
         db.add(JournalEntryLine(
             journal_entry_id=je.id,
-            line_number=line_data.line_number,
-            account_id=line_data.account_id,
-            entity_id=line_data.entity_id,
-            debit=line_data.debit,
-            credit=line_data.credit,
-            description=line_data.description,
+            line_number=line.line_number,
+            account_id=line.account_id,
+            entity_id=line.entity_id,
+            debit=line.debit,
+            credit=line.credit,
+            description=line.description,
         ))
 
     db.flush()
@@ -49,45 +186,262 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
     return je
 
 
+def create_draft_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
+    """
+    Create a journal entry in 'draft' status.
+
+    Draft entries skip balance validation and may be freely edited or deleted
+    later. They are excluded from all trial balance and FS queries until posted.
+    """
+    je = JournalEntry(
+        je_number=data.je_number,
+        entry_date=data.entry_date,
+        entity_id=data.entity_id,
+        scenario_id=data.scenario_id,
+        description=data.description,
+        source=data.source,
+        source_ref=data.source_ref,
+        created_by=data.created_by,
+        status="draft",
+    )
+    db.add(je)
+    db.flush()
+
+    for line in data.lines:
+        db.add(JournalEntryLine(
+            journal_entry_id=je.id,
+            line_number=line.line_number,
+            account_id=line.account_id,
+            entity_id=line.entity_id,
+            debit=line.debit,
+            credit=line.credit,
+            description=line.description,
+        ))
+
+    db.flush()
+    db.refresh(je)
+    return je
+
+
+# ---------------------------------------------------------------------------
+# Mutation (draft only)
+# ---------------------------------------------------------------------------
+
+def update_draft_journal_entry(
+    db: Session,
+    je_id: int,
+    data: JournalEntryCreate,
+) -> JournalEntry:
+    """
+    Replace the header fields and lines of a draft journal entry.
+
+    Raises ImmutableEntryError if the entry status is not 'draft'.
+    """
+    je = get_journal_entry_or_raise(db, je_id)
+    if je.status != "draft":
+        raise ImmutableEntryError(
+            f"Journal entry {je_id} has status='{je.status}' and cannot be edited; "
+            f"only 'draft' entries may be modified"
+        )
+
+    je.je_number   = data.je_number
+    je.entry_date  = data.entry_date
+    je.entity_id   = data.entity_id
+    je.scenario_id = data.scenario_id
+    je.description = data.description
+    je.source      = data.source
+    je.source_ref  = data.source_ref
+    je.updated_at  = datetime.datetime.now()
+
+    # Replace all existing lines
+    db.query(JournalEntryLine).filter(
+        JournalEntryLine.journal_entry_id == je_id
+    ).delete(synchronize_session="fetch")
+
+    for line in data.lines:
+        db.add(JournalEntryLine(
+            journal_entry_id=je.id,
+            line_number=line.line_number,
+            account_id=line.account_id,
+            entity_id=line.entity_id,
+            debit=line.debit,
+            credit=line.credit,
+            description=line.description,
+        ))
+
+    db.flush()
+    db.refresh(je)
+    return je
+
+
+def delete_draft_journal_entry(db: Session, je_id: int) -> None:
+    """
+    Permanently delete a draft journal entry and its lines.
+
+    Raises ImmutableEntryError if the entry status is not 'draft'.
+    Posted entries must be corrected through reversal, not deletion.
+    """
+    je = get_journal_entry_or_raise(db, je_id)
+    if je.status != "draft":
+        raise ImmutableEntryError(
+            f"Journal entry {je_id} has status='{je.status}' and cannot be deleted; "
+            f"posted entries must be reversed"
+        )
+    db.delete(je)
+    db.flush()
+
+
+# ---------------------------------------------------------------------------
+# Post existing draft
+# ---------------------------------------------------------------------------
+
+def post_draft_journal_entry(
+    db: Session,
+    je_id: int,
+) -> tuple[JournalEntry, ValidationResult]:
+    """
+    Validate and transition an existing draft journal entry to 'posted' status.
+
+    Returns (JournalEntry, ValidationResult) so callers can surface warnings.
+    Raises ImmutableEntryError if the entry is not draft.
+    Raises JournalEntryValidationError (with result) if validation fails.
+    """
+    je = get_journal_entry_or_raise(db, je_id)
+    if je.status != "draft":
+        raise ImmutableEntryError(
+            f"Journal entry {je_id} is '{je.status}', not 'draft'; "
+            f"only draft entries can be posted via this endpoint"
+        )
+
+    # Load current lines for validation
+    lines = db.query(JournalEntryLine).filter(
+        JournalEntryLine.journal_entry_id == je_id
+    ).all()
+
+    from app.schemas.journal_entry import JournalEntryLineCreate  # local to avoid circular
+    data = JournalEntryCreate(
+        je_number=je.je_number,
+        entry_date=je.entry_date,
+        entity_id=je.entity_id,
+        scenario_id=je.scenario_id,
+        description=je.description,
+        lines=[
+            JournalEntryLineCreate(
+                line_number=l.line_number,
+                account_id=l.account_id,
+                entity_id=l.entity_id,
+                debit=l.debit,
+                credit=l.credit,
+            )
+            for l in lines
+        ],
+    )
+
+    result = validate_journal_entry(data)
+    if result.has_errors:
+        msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
+        raise JournalEntryValidationError(msg, result=result)
+
+    now = datetime.datetime.now()
+    je.status     = "posted"
+    je.posted_at  = now
+    je.updated_at = now
+
+    db.flush()
+    db.refresh(je)
+    return je, result
+
+
+# ---------------------------------------------------------------------------
+# Reversal
+# ---------------------------------------------------------------------------
+
+def reverse_journal_entry(
+    db: Session,
+    je_id: int,
+    reversal_date: datetime.date,
+    je_number: str,
+    description: str,
+    created_by: str | None = None,
+) -> JournalEntry:
+    """
+    Create a reversal entry that negates an existing posted journal entry.
+
+    Every line from the original is mirrored with debit ↔ credit swapped,
+    producing zero net impact when both entries are included in a trial balance.
+
+    The original entry's status becomes 'reversed' and reversal_je_id is set.
+    The new reversal entry's reversal_of_id points back to the original.
+
+    Raises
+    ------
+    ImmutableEntryError
+        If the original entry is not 'posted', or has already been reversed.
+    """
+    original = get_journal_entry_or_raise(db, je_id)
+
+    if original.reversal_je_id is not None:
+        raise ImmutableEntryError(
+            f"Journal entry {je_id} has already been reversed "
+            f"(reversal_je_id={original.reversal_je_id})"
+        )
+    if original.status != "posted":
+        raise ImmutableEntryError(
+            f"Only 'posted' entries can be reversed; "
+            f"entry {je_id} has status='{original.status}'"
+        )
+
+    original_lines = (
+        db.query(JournalEntryLine)
+        .filter(JournalEntryLine.journal_entry_id == je_id)
+        .all()
+    )
+
+    now = datetime.datetime.now()
+    reversal = JournalEntry(
+        je_number=je_number,
+        entry_date=reversal_date,
+        entity_id=original.entity_id,
+        scenario_id=original.scenario_id,
+        description=description,
+        source=original.source,
+        reversal_of_id=je_id,
+        created_by=created_by,
+        status="posted",
+        posted_at=now,
+    )
+    db.add(reversal)
+    db.flush()
+
+    for line in original_lines:
+        db.add(JournalEntryLine(
+            journal_entry_id=reversal.id,
+            line_number=line.line_number,
+            account_id=line.account_id,
+            entity_id=line.entity_id,
+            debit=line.credit,   # original credit → reversal debit
+            credit=line.debit,   # original debit  → reversal credit
+            description=line.description,
+        ))
+
+    original.status        = "reversed"
+    original.reversal_je_id = reversal.id
+    original.reversed_at   = now
+    original.updated_at    = now
+
+    db.flush()
+    db.refresh(reversal)
+    db.refresh(original)
+    return reversal
+
+
+# ---------------------------------------------------------------------------
+# Lookup
+# ---------------------------------------------------------------------------
+
 def get_journal_entry_or_raise(db: Session, je_id: int) -> JournalEntry:
     """Return a JournalEntry by id, raising JournalEntryNotFoundError if absent."""
     je = db.get(JournalEntry, je_id)
     if je is None:
         raise JournalEntryNotFoundError(f"Journal entry id={je_id} not found")
     return je
-
-
-# ---------------------------------------------------------------------------
-# Internal validation
-# ---------------------------------------------------------------------------
-
-def _validate_lines(data: JournalEntryCreate) -> None:
-    if len(data.lines) == 0:
-        raise JournalEntryValidationError(
-            "Journal entry must have at least 2 lines (got 0)"
-        )
-    if len(data.lines) == 1:
-        raise JournalEntryValidationError(
-            "Journal entry must have at least 2 lines (got 1)"
-        )
-
-    for line in data.lines:
-        if line.debit > Decimal("0") and line.credit > Decimal("0"):
-            raise JournalEntryValidationError(
-                f"Line {line.line_number}: a single line cannot carry both a debit "
-                f"and a credit amount (debit={line.debit}, credit={line.credit})"
-            )
-
-    total_debit = sum(l.debit for l in data.lines)
-    total_credit = sum(l.credit for l in data.lines)
-
-    if total_debit != total_credit:
-        raise JournalEntryValidationError(
-            f"Journal entry does not balance: "
-            f"total debits={total_debit}, total credits={total_credit}"
-        )
-
-    if total_debit == Decimal("0"):
-        raise JournalEntryValidationError(
-            "Journal entry has no amounts — all lines are zero"
-        )
