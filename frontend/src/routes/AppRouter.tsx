@@ -22,6 +22,9 @@ import { ReconciliationDetailPage } from '@/pages/ReconciliationDetailPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
+import { ImportCenterPage } from '@/pages/ImportCenterPage'
+import { ImportReviewPage } from '@/pages/ImportReviewPage'
+import { MappingWorkbenchPage } from '@/pages/MappingWorkbenchPage'
 
 /**
  * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
@@ -52,6 +55,9 @@ export function AppRouter() {
           <Route path="journal-entries/new" element={<JournalEntryCreatePage />} />
           <Route path="journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="trial-balance-import" element={<TrialBalanceImportPage />} />
+          <Route path="import" element={<ImportCenterPage />} />
+          <Route path="import/:id" element={<ImportReviewPage />} />
+          <Route path="import/:id/mapping" element={<MappingWorkbenchPage />} />
           <Route path="periods" element={<PeriodsPage />} />
           <Route path="periods/:id" element={<PeriodDetailPage />} />
           <Route path="draft-preview" element={<DraftPreviewPage />} />

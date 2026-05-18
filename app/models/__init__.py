@@ -7,6 +7,10 @@ from app.models.scenario import Scenario
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.models.tb_import import TbImport
+from app.models.import_batch import ImportBatch
+from app.models.import_line import ImportLine
+from app.models.import_validation_issue import ImportValidationIssue
+from app.models.import_template import ImportTemplate
 from app.models.fs_line_item import FsLineItem
 from app.models.account_mapping import AccountMapping
 from app.models.entity_group_member import EntityGroupMember
@@ -26,7 +30,8 @@ from app.models.report_definition import ReportDefinition, ReportLine, ReportCol
 __all__ = [
     "Organization", "User", "Role", "UserRole",
     "Entity", "Account", "Scenario", "JournalEntry", "JournalEntryLine",
-    "TbImport", "FsLineItem", "AccountMapping", "EntityGroupMember",
+    "TbImport", "ImportBatch", "ImportLine", "ImportValidationIssue", "ImportTemplate",
+    "FsLineItem", "AccountMapping", "EntityGroupMember",
     "AccountingPeriod", "Document", "DocumentLink",
     "WorkflowTask", "ReviewSignoff", "WorkflowIssue",
     "ReportRun",

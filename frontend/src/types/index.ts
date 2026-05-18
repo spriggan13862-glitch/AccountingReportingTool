@@ -598,3 +598,104 @@ export interface Variance {
   amount: string
   percentage: string | null
 }
+
+// ---------------------------------------------------------------------------
+// M23: Import Batch Pipeline
+// ---------------------------------------------------------------------------
+
+export type ImportBatchStatus =
+  | 'uploaded'
+  | 'parsing'
+  | 'mapping_required'
+  | 'validating'
+  | 'validation_failed'
+  | 'ready_to_post'
+  | 'posted'
+  | 'rolled_back'
+  | 'rejected'
+
+export type ImportLineStatus = 'unmapped' | 'mapped' | 'skipped' | 'rejected'
+
+export interface ImportBatch {
+  id: number
+  organization_id: number
+  entity_id: number
+  period_id: number | null
+  scenario_id: number | null
+  filename: string
+  source_format: string
+  content_hash: string
+  column_mapping: Record<string, string>
+  as_of_date: string
+  status: ImportBatchStatus
+  row_count: number | null
+  mapped_row_count: number | null
+  unmapped_row_count: number | null
+  total_debits: string | null
+  total_credits: string | null
+  error_message: string | null
+  notes: string | null
+  posted_je_id: number | null
+  reversal_je_id: number | null
+  uploaded_by_user_id: number | null
+  reviewed_by_user_id: number | null
+  uploaded_at: string
+  reviewed_at: string | null
+}
+
+export interface ImportLine {
+  id: number
+  batch_id: number
+  line_number: number
+  raw_account_number: string | null
+  raw_account_name: string | null
+  raw_debit: string | null
+  raw_credit: string | null
+  raw_balance: string | null
+  raw_description: string | null
+  debit: string
+  credit: string
+  description: string | null
+  resolved_account_id: number | null
+  mapping_status: ImportLineStatus
+  is_manually_mapped: boolean
+  mapped_by_user_id: number | null
+  mapped_at: string | null
+  suggested_account_id: number | null
+  notes: string | null
+}
+
+export interface ImportIssue {
+  id: number
+  batch_id: number
+  import_line_id: number | null
+  severity: 'ERROR' | 'WARNING' | 'INFO'
+  code: string
+  message: string
+  field_name: string | null
+  suggested_resolution: string | null
+  resolved: boolean
+  created_at: string
+}
+
+export interface ImportTemplate {
+  id: number
+  organization_id: number
+  name: string
+  description: string | null
+  source_format: string
+  column_mapping: Record<string, string>
+  is_active: boolean
+  created_by_user_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ImportSuggestion {
+  line_id: number
+  raw_account_number: string | null
+  raw_account_name: string | null
+  suggested_account_id: number | null
+  suggested_account_number: string | null
+  suggested_account_name: string | null
+}

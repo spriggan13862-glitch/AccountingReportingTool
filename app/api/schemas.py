@@ -1017,3 +1017,127 @@ class ReportColumnOut(BaseModel):
     period_offset: int
     is_variance_column: bool
     show_percentage: bool
+
+
+# ---------------------------------------------------------------------------
+# M23 Import Pipeline
+# ---------------------------------------------------------------------------
+
+class ImportBatchOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    entity_id: int
+    period_id: int | None = None
+    scenario_id: int | None = None
+    filename: str
+    source_format: str
+    content_hash: str
+    column_mapping: dict = {}
+    as_of_date: datetime.date
+    status: str
+    row_count: int | None = None
+    mapped_row_count: int | None = None
+    unmapped_row_count: int | None = None
+    total_debits: Decimal | None = None
+    total_credits: Decimal | None = None
+    error_message: str | None = None
+    notes: str | None = None
+    posted_je_id: int | None = None
+    reversal_je_id: int | None = None
+    uploaded_by_user_id: int | None = None
+    reviewed_by_user_id: int | None = None
+    uploaded_at: datetime.datetime
+    reviewed_at: datetime.datetime | None = None
+
+
+class ImportLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    batch_id: int
+    line_number: int
+    raw_account_number: str | None = None
+    raw_account_name: str | None = None
+    raw_debit: Decimal | None = None
+    raw_credit: Decimal | None = None
+    raw_balance: Decimal | None = None
+    raw_description: str | None = None
+    debit: Decimal
+    credit: Decimal
+    description: str | None = None
+    resolved_account_id: int | None = None
+    mapping_status: str
+    is_manually_mapped: bool
+    mapped_by_user_id: int | None = None
+    suggested_account_id: int | None = None
+    notes: str | None = None
+
+
+class ImportIssueOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    batch_id: int
+    import_line_id: int | None = None
+    severity: str
+    code: str
+    message: str
+    field_name: str | None = None
+    suggested_resolution: str | None = None
+    resolved: bool
+    resolved_by_user_id: int | None = None
+    created_at: datetime.datetime
+
+
+class ImportTemplateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    name: str
+    description: str | None = None
+    source_format: str
+    column_mapping: dict = {}
+    is_active: bool
+    created_by_user_id: int | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
+
+
+class ColumnMappingUpdate(BaseModel):
+    column_mapping: dict[str, str]
+
+
+class BatchPostRequest(BaseModel):
+    je_number: str
+    notes: str | None = None
+    reversal_je_number: str | None = None
+
+
+class CreateTemplateRequest(BaseModel):
+    name: str
+    description: str | None = None
+    source_format: str = "csv"
+    column_mapping: dict[str, str]
+
+
+class MapLineRequest(BaseModel):
+    account_id: int
+
+
+class BulkMapRequest(BaseModel):
+    mappings: list[dict]  # [{"line_id": N, "account_id": M}]
+
+
+class CreateAccountFromLineRequest(BaseModel):
+    account_number: str
+    account_name: str
+    account_type: str
+    normal_balance: str
+
+
+class ImportSuggestionOut(BaseModel):
+    line_id: int
+    raw_account_number: str | None = None
+    raw_account_name: str | None = None
+    suggested_account_id: int | None = None
+    suggested_account_number: str | None = None
+    suggested_account_name: str | None = None
