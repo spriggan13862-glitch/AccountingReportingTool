@@ -22,10 +22,12 @@ Note: The closing entry is posted BEFORE the period is locked, so the
 close JE itself bypasses the period guard correctly.
 """
 
+from __future__ import annotations
+
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -35,7 +37,12 @@ from app.models.accounting_period import AccountingPeriod
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate, JournalEntryLineCreate
+from app.models.workflow_issue import WorkflowIssue
 from app.services.journal_entry_service import post_journal_entry
+from app.services.permission_service import require_permission
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +59,10 @@ class PeriodAlreadyClosedError(ValueError):
 
 class PeriodNotClosedError(ValueError):
     """Raised when attempting to reopen a period that is not closed."""
+
+
+class BlockedByCriticalIssueError(ValueError):
+    """Raised when unresolved critical workflow issues prevent period close."""
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +158,8 @@ def close_period(
     closed_by: str | None = None,
     generate_closing_entries: bool = True,
     allow_zero_income: bool = True,
+    acting_user: User | None = None,
+    enforce_issue_check: bool = True,
 ) -> CloseResult:
     """
     Validate and close an accounting period.
@@ -170,12 +183,36 @@ def close_period(
     -------
     CloseResult with the updated period and (optionally) the closing JE.
     """
+    if acting_user is not None:
+        require_permission(db, acting_user, "manage_periods")
+
     period = get_period_or_raise(db, period_id)
 
     if period.is_closed:
         raise PeriodAlreadyClosedError(
             f"Period '{period.period_name}' (id={period_id}) is already closed"
         )
+
+    if enforce_issue_check:
+        from app.models.entity import Entity
+        entity = db.get(Entity, period.entity_id)
+        if entity is not None and entity.organization_id is not None:
+            blocker = (
+                db.query(WorkflowIssue)
+                .filter(
+                    WorkflowIssue.organization_id == entity.organization_id,
+                    WorkflowIssue.related_object_type == "accounting_period",
+                    WorkflowIssue.related_object_id == period_id,
+                    WorkflowIssue.severity == "critical",
+                    WorkflowIssue.status.in_(["open", "investigating"]),
+                )
+                .first()
+            )
+            if blocker:
+                raise BlockedByCriticalIssueError(
+                    f"Period '{period.period_name}' has unresolved critical issues "
+                    f"(e.g. '{blocker.title}') that must be resolved before closing"
+                )
 
     closing_je: JournalEntry | None = None
     net_income = Decimal("0")
@@ -197,18 +234,27 @@ def close_period(
     period.is_closed = True
     period.closed_at = now
     period.closed_by = closed_by
+    if acting_user is not None:
+        period.closed_by_user_id = acting_user.id
     db.flush()
     db.refresh(period)
 
     return CloseResult(period=period, closing_je=closing_je, net_income=net_income)
 
 
-def reopen_period(db: Session, period_id: int) -> AccountingPeriod:
+def reopen_period(
+    db: Session,
+    period_id: int,
+    acting_user: User | None = None,
+) -> AccountingPeriod:
     """
     Reopen a closed accounting period (placeholder — hard-close enforcement is future work).
 
     Warning: reopening does NOT reverse closing entries; those must be reversed separately.
     """
+    if acting_user is not None:
+        require_permission(db, acting_user, "manage_periods")
+
     period = get_period_or_raise(db, period_id)
     if not period.is_closed:
         raise PeriodNotClosedError(

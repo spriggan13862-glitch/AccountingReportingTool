@@ -12,9 +12,11 @@ class Entity(Base):
             name="ck_entities_type",
         ),
         Index("idx_entities_parent", "parent_id"),
+        Index("idx_entities_org", "organization_id"),
     )
 
     id = Column(Integer, primary_key=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     code = Column(String(20), nullable=False, unique=True)
     name = Column(String(200), nullable=False)
     entity_type = Column(String(20), nullable=False)

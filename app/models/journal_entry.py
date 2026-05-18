@@ -36,9 +36,13 @@ class JournalEntry(Base):
     reversal_of_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
     reversal_je_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
 
-    # Audit metadata
+    # Audit metadata — string placeholders (kept for backward compat)
     created_by  = Column(String(100), nullable=True)
     posted_by   = Column(String(100), nullable=True)
+    # Audit metadata — user-id foreign keys (populated when acting_user is supplied)
+    created_by_user_id  = Column(Integer, ForeignKey("users.id"), nullable=True)
+    posted_by_user_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reversed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at  = Column(DateTime, nullable=False, server_default=func.now())
     updated_at  = Column(DateTime, nullable=True)
     posted_at   = Column(DateTime, nullable=True)

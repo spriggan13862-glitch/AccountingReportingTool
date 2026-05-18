@@ -300,6 +300,242 @@ class PeriodStatusOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Organizations
+# ---------------------------------------------------------------------------
+
+class OrganizationCreate(BaseModel):
+    name: str
+    slug: str
+
+
+class OrganizationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    slug: str
+    is_active: bool
+    created_at: datetime.datetime
+
+
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
+
+class UserCreate(BaseModel):
+    organization_id: int
+    email: str
+    full_name: str
+    is_active: bool = True
+    is_superuser: bool = False
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    email: str
+    full_name: str
+    is_active: bool
+    is_superuser: bool
+    created_at: datetime.datetime
+
+
+class AssignRoleRequest(BaseModel):
+    role_name: str
+    organization_id: int
+    entity_id: int | None = None
+
+
+class UserRoleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    role_name: str
+    organization_id: int
+    entity_id: int | None = None
+    created_at: datetime.datetime
+
+
+class PermissionsOut(BaseModel):
+    user_id: int
+    permissions: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Documents and attachments
+# ---------------------------------------------------------------------------
+
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    uploaded_by_user_id: int | None = None
+    file_name: str
+    original_file_name: str
+    file_extension: str
+    mime_type: str
+    file_size_bytes: int
+    storage_path: str
+    document_type: str
+    description: str | None = None
+    checksum_sha256: str
+    uploaded_at: datetime.datetime
+    is_deleted: bool
+
+
+class DocumentLinkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    document_id: int
+    linked_object_type: str
+    linked_object_id: int
+    created_at: datetime.datetime
+
+
+class AttachDocumentRequest(BaseModel):
+    linked_object_type: str
+    linked_object_id: int
+
+
+class JESupportPackageOut(BaseModel):
+    journal_entry_id: int
+    documents: list[DocumentOut] = []
+
+
+class TbImportSupportPackageOut(BaseModel):
+    tb_import_id: int
+    documents: list[DocumentOut] = []
+
+
+class PeriodSupportPackageOut(BaseModel):
+    accounting_period_id: int
+    documents: list[DocumentOut] = []
+
+
+# ---------------------------------------------------------------------------
+# Workflow tasks
+# ---------------------------------------------------------------------------
+
+class TaskCreate(BaseModel):
+    task_type: str
+    title: str
+    description: str | None = None
+    priority: str = "medium"
+    assigned_to_user_id: int | None = None
+    due_date: datetime.date | None = None
+
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    task_type: str
+    title: str
+    description: str | None = None
+    status: str
+    priority: str
+    assigned_to_user_id: int | None = None
+    created_by_user_id: int | None = None
+    reviewed_by_user_id: int | None = None
+    due_date: datetime.date | None = None
+    completed_at: datetime.datetime | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+
+
+class AssignTaskRequest(BaseModel):
+    assigned_to_user_id: int
+
+
+class UpdateTaskStatusRequest(BaseModel):
+    new_status: str
+    reviewed_by_user_id: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# Review signoffs
+# ---------------------------------------------------------------------------
+
+class SignoffCreate(BaseModel):
+    object_type: str
+    object_id: int
+    reviewer_user_id: int
+    notes: str | None = None
+
+
+class SignoffOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    object_type: str
+    object_id: int
+    reviewer_user_id: int
+    signoff_status: str
+    notes: str | None = None
+    signed_at: datetime.datetime | None = None
+    created_at: datetime.datetime
+
+
+class SignoffActionRequest(BaseModel):
+    notes: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Workflow issues
+# ---------------------------------------------------------------------------
+
+class IssueCreate(BaseModel):
+    issue_code: str
+    severity: str
+    title: str
+    description: str | None = None
+    related_object_type: str | None = None
+    related_object_id: int | None = None
+
+
+class IssueOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    related_object_type: str | None = None
+    related_object_id: int | None = None
+    issue_code: str
+    severity: str
+    title: str
+    description: str | None = None
+    resolution_notes: str | None = None
+    status: str
+    opened_by_user_id: int | None = None
+    resolved_by_user_id: int | None = None
+    opened_at: datetime.datetime
+    resolved_at: datetime.datetime | None = None
+
+
+class ResolveIssueRequest(BaseModel):
+    resolution_notes: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Workflow status views
+# ---------------------------------------------------------------------------
+
+class JEWorkflowStatusOut(BaseModel):
+    journal_entry_id: int
+    je_status: str
+    signoffs: list[SignoffOut] = []
+    issues: list[IssueOut] = []
+
+
+class PeriodWorkflowStatusOut(BaseModel):
+    period_id: int
+    period_name: str
+    period_status: str
+    has_blocking_issues: bool
+    signoffs: list[SignoffOut] = []
+    issues: list[IssueOut] = []
+
+
+# ---------------------------------------------------------------------------
 # Consolidation
 # ---------------------------------------------------------------------------
 
@@ -310,3 +546,44 @@ class SubgroupTBRequest(BaseModel):
     elim_entity_id: int | None = None
     elim_scenario_ids: list[int] = []
     ownership_pcts: dict[str, Decimal] | None = None   # str(entity_id) → pct
+
+
+# ---------------------------------------------------------------------------
+# Report Runs
+# ---------------------------------------------------------------------------
+
+class ReportRunCreate(BaseModel):
+    report_type: str
+    output_format: str = "xlsx"
+    entity_id: int | None = None
+    accounting_period_id: int | None = None
+    scenario_ids: list[int] | None = None
+    parameters: dict[str, Any] | None = None
+
+
+class ReportRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    created_by_user_id: int | None = None
+    report_type: str
+    output_format: str
+    status: str
+    entity_id: int | None = None
+    accounting_period_id: int | None = None
+    scenario_ids_json: str | None = None
+    parameters_json: str | None = None
+    storage_path: str | None = None
+    generated_document_id: int | None = None
+    created_at: datetime.datetime
+    completed_at: datetime.datetime | None = None
+
+
+class ReportRunValidationOut(BaseModel):
+    run_id: int
+    validation_summary: dict[str, Any]
+
+
+class ReportRunWorkflowOut(BaseModel):
+    run_id: int
+    workflow_summary: dict[str, Any]

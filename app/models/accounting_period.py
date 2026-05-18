@@ -31,4 +31,5 @@ class AccountingPeriod(Base):
     is_closed = Column(Boolean, nullable=False, default=False)
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(200), nullable=True)
+    closed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())

@@ -14,8 +14,11 @@ Rules
 - Reversal entries negate the original by swapping debit ↔ credit on every line.
 """
 
+from __future__ import annotations
+
 import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -23,7 +26,11 @@ from app.models.accounting_period import AccountingPeriod
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate
+from app.services.permission_service import check_entity_org_access, require_permission
 from app.services.validation import ValidationResult
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +181,11 @@ def validate_journal_entry(data: JournalEntryCreate) -> ValidationResult:
 # Create / post
 # ---------------------------------------------------------------------------
 
-def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
+def post_journal_entry(
+    db: Session,
+    data: JournalEntryCreate,
+    acting_user: User | None = None,
+) -> JournalEntry:
     """
     Validate and immediately post a journal entry.
 
@@ -182,6 +193,10 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
     ERROR-severity issues are found. Warnings do not block posting.
     Flushes to the DB; the caller is responsible for committing.
     """
+    if acting_user is not None:
+        require_permission(db, acting_user, "create_journal_entries")
+        check_entity_org_access(db, acting_user, data.entity_id)
+
     result = validate_journal_entry(data)
     if result.has_errors:
         msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
@@ -190,6 +205,7 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
     _check_period_not_closed(db, data.entity_id, data.entry_date)
 
     now = datetime.datetime.now()
+    user_id = acting_user.id if acting_user is not None else None
     je = JournalEntry(
         je_number=data.je_number,
         entry_date=data.entry_date,
@@ -201,6 +217,8 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
         created_by=data.created_by,
         status="posted",
         posted_at=now,
+        created_by_user_id=user_id,
+        posted_by_user_id=user_id,
     )
     db.add(je)
     db.flush()
@@ -221,13 +239,22 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
     return je
 
 
-def create_draft_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
+def create_draft_journal_entry(
+    db: Session,
+    data: JournalEntryCreate,
+    acting_user: User | None = None,
+) -> JournalEntry:
     """
     Create a journal entry in 'draft' status.
 
     Draft entries skip balance validation and may be freely edited or deleted
     later. They are excluded from all trial balance and FS queries until posted.
     """
+    if acting_user is not None:
+        require_permission(db, acting_user, "create_journal_entries")
+        check_entity_org_access(db, acting_user, data.entity_id)
+
+    user_id = acting_user.id if acting_user is not None else None
     je = JournalEntry(
         je_number=data.je_number,
         entry_date=data.entry_date,
@@ -238,6 +265,7 @@ def create_draft_journal_entry(db: Session, data: JournalEntryCreate) -> Journal
         source_ref=data.source_ref,
         created_by=data.created_by,
         status="draft",
+        created_by_user_id=user_id,
     )
     db.add(je)
     db.flush()
@@ -309,7 +337,11 @@ def update_draft_journal_entry(
     return je
 
 
-def delete_draft_journal_entry(db: Session, je_id: int) -> None:
+def delete_draft_journal_entry(
+    db: Session,
+    je_id: int,
+    acting_user: User | None = None,
+) -> None:
     """
     Permanently delete a draft journal entry and its lines.
 
@@ -322,6 +354,9 @@ def delete_draft_journal_entry(db: Session, je_id: int) -> None:
             f"Journal entry {je_id} has status='{je.status}' and cannot be deleted; "
             f"posted entries must be reversed"
         )
+    if acting_user is not None:
+        require_permission(db, acting_user, "create_journal_entries")
+        check_entity_org_access(db, acting_user, je.entity_id)
     db.delete(je)
     db.flush()
 
@@ -333,6 +368,7 @@ def delete_draft_journal_entry(db: Session, je_id: int) -> None:
 def post_draft_journal_entry(
     db: Session,
     je_id: int,
+    acting_user: User | None = None,
 ) -> tuple[JournalEntry, ValidationResult]:
     """
     Validate and transition an existing draft journal entry to 'posted' status.
@@ -347,6 +383,10 @@ def post_draft_journal_entry(
             f"Journal entry {je_id} is '{je.status}', not 'draft'; "
             f"only draft entries can be posted via this endpoint"
         )
+
+    if acting_user is not None:
+        require_permission(db, acting_user, "post_journal_entries")
+        check_entity_org_access(db, acting_user, je.entity_id)
 
     # Load current lines for validation
     lines = db.query(JournalEntryLine).filter(
@@ -383,6 +423,8 @@ def post_draft_journal_entry(
     je.status     = "posted"
     je.posted_at  = now
     je.updated_at = now
+    if acting_user is not None:
+        je.posted_by_user_id = acting_user.id
 
     db.flush()
     db.refresh(je)
@@ -400,6 +442,7 @@ def reverse_journal_entry(
     je_number: str,
     description: str,
     created_by: str | None = None,
+    acting_user: User | None = None,
 ) -> JournalEntry:
     """
     Create a reversal entry that negates an existing posted journal entry.
@@ -416,6 +459,10 @@ def reverse_journal_entry(
         If the original entry is not 'posted', or has already been reversed.
     """
     original = get_journal_entry_or_raise(db, je_id)
+
+    if acting_user is not None:
+        require_permission(db, acting_user, "reverse_entries")
+        check_entity_org_access(db, acting_user, original.entity_id)
 
     if original.reversal_je_id is not None:
         raise ImmutableEntryError(
@@ -437,6 +484,7 @@ def reverse_journal_entry(
     )
 
     now = datetime.datetime.now()
+    user_id = acting_user.id if acting_user is not None else None
     reversal = JournalEntry(
         je_number=je_number,
         entry_date=reversal_date,
@@ -448,6 +496,9 @@ def reverse_journal_entry(
         created_by=created_by,
         status="posted",
         posted_at=now,
+        created_by_user_id=user_id,
+        posted_by_user_id=user_id,
+        reversed_by_user_id=user_id,
     )
     db.add(reversal)
     db.flush()
