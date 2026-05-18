@@ -695,3 +695,146 @@ class DrilldownResultOut(BaseModel):
     account_name: str
     draft_net_debit: Decimal
     entries: list[DrilldownEntryOut]
+
+
+# ---------------------------------------------------------------------------
+# Reconciliation
+# ---------------------------------------------------------------------------
+
+class ReconciliationCreate(BaseModel):
+    organization_id: int
+    entity_id: int
+    account_id: int
+    period_id: int | None = None
+    reconciliation_type: str = "manual"
+    official_balance: Decimal | None = None
+    supporting_balance: Decimal | None = None
+    tolerance_amount: Decimal = Decimal("0")
+    notes: str | None = None
+
+
+class ReconciliationUpdateBalances(BaseModel):
+    official_balance: Decimal | None = None
+    supporting_balance: Decimal | None = None
+    variance_explanation: str | None = None
+    draft_preview_balance: Decimal | None = None
+
+
+class ReconciliationTransition(BaseModel):
+    target_status: str
+    user_id: int | None = None
+    comment: str | None = None
+
+
+class ReconciliationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    entity_id: int
+    account_id: int
+    period_id: int | None = None
+    reconciliation_type: str
+    status: str
+    preparer_user_id: int | None = None
+    reviewer_user_id: int | None = None
+    prepared_at: datetime.datetime | None = None
+    reviewed_at: datetime.datetime | None = None
+    official_balance: Decimal | None = None
+    supporting_balance: Decimal | None = None
+    variance_amount: Decimal | None = None
+    variance_explanation: str | None = None
+    draft_preview_balance: Decimal | None = None
+    tie_out_status: str
+    tolerance_amount: Decimal
+    rollforward_opening_balance: Decimal | None = None
+    rollforward_adjustments: Decimal | None = None
+    rollforward_closing_balance: Decimal | None = None
+    notes: str | None = None
+    reviewer_comment: str | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+
+
+class ReconciliationLineCreate(BaseModel):
+    description: str | None = None
+    source_type: str = "manual"
+    source_reference: str | None = None
+    debit: Decimal = Decimal("0")
+    credit: Decimal = Decimal("0")
+    is_reconciling_item: bool = False
+    reconciling_notes: str | None = None
+
+
+class ReconciliationLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    reconciliation_id: int
+    line_number: int
+    description: str | None = None
+    source_type: str
+    source_reference: str | None = None
+    debit: Decimal
+    credit: Decimal
+    balance: Decimal
+    is_reconciling_item: bool
+    reconciling_notes: str | None = None
+    created_at: datetime.datetime
+
+
+class SupportReferenceCreate(BaseModel):
+    reference_type: str
+    document_id: int | None = None
+    journal_entry_id: int | None = None
+    external_ref: str | None = None
+    description: str | None = None
+    added_by_user_id: int | None = None
+
+
+class SupportReferenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    reconciliation_id: int
+    reference_type: str
+    document_id: int | None = None
+    journal_entry_id: int | None = None
+    external_ref: str | None = None
+    description: str | None = None
+    added_by_user_id: int | None = None
+    added_at: datetime.datetime | None = None
+    created_at: datetime.datetime
+
+
+class RollforwardRequest(BaseModel):
+    new_period_id: int
+    new_official_balance: Decimal | None = None
+
+
+class RollforwardScheduleLineOut(BaseModel):
+    label: str
+    amount: Decimal
+    is_subtotal: bool
+
+
+class CashRollforwardRequest(BaseModel):
+    opening_balance: Decimal
+    inflows: Decimal
+    outflows: Decimal
+
+
+class ReRollforwardRequest(BaseModel):
+    beginning_re: Decimal
+    net_income: Decimal
+    dividends: Decimal = Decimal("0")
+
+
+class FaRollforwardRequest(BaseModel):
+    beginning_balance: Decimal
+    additions: Decimal
+    disposals: Decimal = Decimal("0")
+    depreciation: Decimal = Decimal("0")
+
+
+class DebtRollforwardRequest(BaseModel):
+    beginning_balance: Decimal
+    new_borrowings: Decimal
+    repayments: Decimal = Decimal("0")

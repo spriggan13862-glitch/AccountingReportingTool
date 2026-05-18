@@ -465,6 +465,69 @@ def build_preview_workbook(result: OverlayResult) -> Workbook:
     return wb
 
 
+def build_reconciliation_workbook(recon, lines, support_refs) -> Workbook:
+    """
+    Build a reconciliation workbook with:
+    - Cover sheet with RECONCILIATION label and variance summary
+    - Detail sheet with reconciliation lines
+    - Support sheet listing all support references
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Reconciliation"
+
+    # Header
+    warning_cell = ws.cell(row=1, column=1, value="ACCOUNT RECONCILIATION — PREPARED BY MANAGEMENT")
+    warning_cell.font = Font(bold=True, size=12)
+    warning_cell.fill = PatternFill("solid", fgColor="D6E4F0")
+    ws.merge_cells("A1:D1")
+
+    _write_label_value(ws, 3, "Reconciliation ID", recon.id)
+    _write_label_value(ws, 4, "Account ID", recon.account_id)
+    _write_label_value(ws, 5, "Status", recon.status)
+    _write_label_value(ws, 6, "Type", recon.reconciliation_type)
+    _write_label_value(ws, 7, "Official Balance", float(recon.official_balance) if recon.official_balance is not None else "—")
+    _write_label_value(ws, 8, "Supporting Balance", float(recon.supporting_balance) if recon.supporting_balance is not None else "—")
+    variance_val = float(recon.variance_amount) if recon.variance_amount is not None else "—"
+    _write_label_value(ws, 9, "Variance", variance_val)
+    _write_label_value(ws, 10, "Tie-Out Status", recon.tie_out_status)
+    if recon.variance_explanation:
+        _write_label_value(ws, 11, "Variance Explanation", recon.variance_explanation)
+
+    ws.column_dimensions["A"].width = 26
+    ws.column_dimensions["B"].width = 40
+
+    # Lines sheet
+    ls = wb.create_sheet("Reconciliation Lines")
+    _write_header_row(ls, ["Line #", "Description", "Source Type", "Source Ref", "Debit", "Credit", "Balance", "Reconciling Item", "Notes"])
+    for r, line in enumerate(lines, start=2):
+        ls.cell(row=r, column=1, value=line.line_number)
+        ls.cell(row=r, column=2, value=line.description)
+        ls.cell(row=r, column=3, value=line.source_type)
+        ls.cell(row=r, column=4, value=line.source_reference)
+        ls.cell(row=r, column=5, value=float(line.debit)).number_format = _NUMBER_FMT
+        ls.cell(row=r, column=6, value=float(line.credit)).number_format = _NUMBER_FMT
+        ls.cell(row=r, column=7, value=float(line.balance)).number_format = _NUMBER_FMT
+        ls.cell(row=r, column=8, value="Yes" if line.is_reconciling_item else "No")
+        ls.cell(row=r, column=9, value=line.reconciling_notes)
+    _auto_width(ls)
+
+    # Support references sheet
+    ss = wb.create_sheet("Support References")
+    _write_header_row(ss, ["ID", "Type", "Document ID", "JE ID", "External Ref", "Description"])
+    for r, ref in enumerate(support_refs, start=2):
+        ss.cell(row=r, column=1, value=ref.id)
+        ss.cell(row=r, column=2, value=ref.reference_type)
+        ss.cell(row=r, column=3, value=ref.document_id)
+        ss.cell(row=r, column=4, value=ref.journal_entry_id)
+        ss.cell(row=r, column=5, value=ref.external_ref)
+        ss.cell(row=r, column=6, value=ref.description)
+    _auto_width(ss)
+
+    _auto_width(ws)
+    return wb
+
+
 def build_lender_package_workbook(
     meta: WorkbookMeta,
     tb_rows: Sequence[TrialBalanceRow],

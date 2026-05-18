@@ -344,6 +344,101 @@ export interface PreviewRun {
   consolidation_entity_id: number | null
 }
 
+// ---------------------------------------------------------------------------
+// Reconciliation
+// ---------------------------------------------------------------------------
+
+export type ReconciliationStatus =
+  | 'not_started'
+  | 'in_progress'
+  | 'prepared'
+  | 'reviewed'
+  | 'rejected'
+  | 'rolled_forward'
+
+export type TieOutStatus = 'untested' | 'in_tolerance' | 'out_of_tolerance' | 'tied'
+
+export interface Reconciliation {
+  id: number
+  organization_id: number
+  entity_id: number
+  account_id: number
+  period_id: number | null
+  reconciliation_type: string
+  status: ReconciliationStatus
+  preparer_user_id: number | null
+  reviewer_user_id: number | null
+  prepared_at: string | null
+  reviewed_at: string | null
+  official_balance: string | null
+  supporting_balance: string | null
+  variance_amount: string | null
+  variance_explanation: string | null
+  draft_preview_balance: string | null
+  tie_out_status: TieOutStatus
+  tolerance_amount: string
+  rollforward_opening_balance: string | null
+  rollforward_adjustments: string | null
+  rollforward_closing_balance: string | null
+  notes: string | null
+  reviewer_comment: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface ReconciliationLine {
+  id: number
+  reconciliation_id: number
+  line_number: number
+  description: string | null
+  source_type: string
+  source_reference: string | null
+  debit: string
+  credit: string
+  balance: string
+  is_reconciling_item: boolean
+  reconciling_notes: string | null
+  created_at: string
+}
+
+export interface SupportReference {
+  id: number
+  reconciliation_id: number
+  reference_type: string
+  document_id: number | null
+  journal_entry_id: number | null
+  external_ref: string | null
+  description: string | null
+  added_by_user_id: number | null
+  added_at: string | null
+  created_at: string
+}
+
+export interface ReconciliationCreate {
+  organization_id: number
+  entity_id: number
+  account_id: number
+  period_id?: number | null
+  reconciliation_type?: string
+  official_balance?: string | null
+  supporting_balance?: string | null
+  tolerance_amount?: string
+  notes?: string | null
+}
+
+export interface ReconciliationUpdateBalances {
+  official_balance?: string | null
+  supporting_balance?: string | null
+  variance_explanation?: string | null
+  draft_preview_balance?: string | null
+}
+
+export interface RollforwardScheduleLine {
+  label: string
+  amount: string
+  is_subtotal: boolean
+}
+
 export const OVERLAY_GROUPS = [
   'audit_adjustments',
   'management_adjustments',

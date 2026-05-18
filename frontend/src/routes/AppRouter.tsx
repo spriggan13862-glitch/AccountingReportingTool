@@ -14,6 +14,8 @@ import { WorkflowPage } from '@/pages/WorkflowPage'
 import { IssuesPage } from '@/pages/IssuesPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 import { DraftPreviewPage } from '@/pages/DraftPreviewPage'
+import { ReconciliationPage } from '@/pages/ReconciliationPage'
+import { ReconciliationDetailPage } from '@/pages/ReconciliationDetailPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 
 export function AppRouter() {
@@ -30,6 +32,8 @@ export function AppRouter() {
           <Route path="periods" element={<PeriodsPage />} />
           <Route path="periods/:id" element={<PeriodDetailPage />} />
           <Route path="draft-preview" element={<DraftPreviewPage />} />
+          <Route path="reconciliations" element={<ReconciliationPage />} />
+          <Route path="reconciliations/:id" element={<ReconciliationDetailPage />} />
           <Route path="trial-balances" element={<PlaceholderPage title="Trial Balances" />} />
           <Route path="financial-statements" element={<PlaceholderPage title="Financial Statements" />} />
           <Route path="consolidations" element={<PlaceholderPage title="Consolidations" />} />

@@ -13,6 +13,7 @@ from app.api.routers import (
     journal_entries,
     organizations,
     preview,
+    reconciliation,
     report_runs,
     reporting,
     tb_import,
@@ -44,6 +45,12 @@ from app.services.report_service import (
     ReportValidationError,
 )
 from app.services.draft_overlay_service import OverlayValidationError
+from app.services.reconciliation_service import (
+    ReconciliationNotFoundError,
+    ReconciliationStateError,
+    ReconciliationValidationError,
+    ReviewerSeparationError as ReconReviewerSeparationError,
+)
 
 Base.metadata.create_all(bind=engine)
 
@@ -175,6 +182,7 @@ app.include_router(documents.router, prefix=API_PREFIX)
 app.include_router(workflow.router, prefix=API_PREFIX)
 app.include_router(report_runs.router, prefix=API_PREFIX)
 app.include_router(preview.router, prefix=API_PREFIX)
+app.include_router(reconciliation.router, prefix=API_PREFIX)
 
 
 @app.get("/health")
