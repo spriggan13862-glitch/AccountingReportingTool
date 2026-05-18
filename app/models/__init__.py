@@ -17,6 +17,7 @@ from app.models.workflow_task import WorkflowTask
 from app.models.review_signoff import ReviewSignoff
 from app.models.workflow_issue import WorkflowIssue
 from app.models.report_run import ReportRun
+from app.models.preview_run import PreviewRun
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -25,4 +26,5 @@ __all__ = [
     "AccountingPeriod", "Document", "DocumentLink",
     "WorkflowTask", "ReviewSignoff", "WorkflowIssue",
     "ReportRun",
+    "PreviewRun",
 ]

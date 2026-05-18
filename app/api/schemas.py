@@ -587,3 +587,111 @@ class ReportRunValidationOut(BaseModel):
 class ReportRunWorkflowOut(BaseModel):
     run_id: int
     workflow_summary: dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# Draft Overlay / Preview
+# ---------------------------------------------------------------------------
+
+class OverlayCalculateRequest(BaseModel):
+    organization_id: int
+    entity_id: int
+    as_of_date: datetime.date
+    scenario_id: int
+    preview_type: str = "trial_balance"
+    included_je_ids: list[int] | None = None
+    overlay_groups: list[str] | None = None
+    generated_by: str | None = None
+    generated_by_user_id: int | None = None
+    include_re_rollforward: bool = True
+    is_consolidated: bool = False
+    consolidation_entity_id: int | None = None
+    period_start: datetime.date | None = None
+    create_audit_record: bool = True
+
+
+class OverlayLineItemOut(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    account_type: str
+    normal_balance: str
+    official_net_debit: Decimal
+    draft_net_debit: Decimal
+    preview_net_debit: Decimal
+    official_signed_balance: Decimal
+    draft_signed_adjustment: Decimal
+    preview_signed_balance: Decimal
+    source_je_ids: list[int] = []
+    overlay_groups_used: list[str] = []
+    is_synthetic_re: bool = False
+
+
+class OverlayResultOut(BaseModel):
+    """
+    Draft-impact preview result.
+    is_preview is always True — this is never official financial data.
+    """
+    is_preview: bool = True
+    label: str
+    preview_type: str
+    organization_id: int
+    entity_id: int
+    as_of_date: datetime.date
+    scenario_id: int
+    generated_at: datetime.datetime
+    included_je_count: int
+    overlay_groups: list[str]
+    line_items: list[OverlayLineItemOut]
+    re_rollforward_applied: bool
+    re_draft_adjustment: Decimal
+    warnings: list[str] = []
+    member_entity_ids: list[int] = []
+    preview_run_id: int | None = None   # set when audit record was created
+
+
+class PreviewRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    entity_id: int | None
+    generated_by: str | None
+    generated_by_user_id: int | None
+    generated_at: datetime.datetime
+    preview_type: str
+    as_of_date: str
+    scenario_id: int | None
+    included_je_ids: str
+    overlay_groups: str | None
+    parameters: str | None
+    included_je_count: int
+    preview_label: str
+    is_consolidated: bool
+    consolidation_entity_id: int | None
+
+
+class DraftEntryOut(BaseModel):
+    je_id: int
+    je_number: str
+    entry_date: datetime.date
+    description: str
+    source: str
+    overlay_group: str
+
+
+class DrilldownEntryOut(BaseModel):
+    je_id: int
+    je_number: str
+    entry_date: str
+    debit: float
+    credit: float
+    description: str | None
+    overlay_group: str
+
+
+class DrilldownResultOut(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    draft_net_debit: Decimal
+    entries: list[DrilldownEntryOut]

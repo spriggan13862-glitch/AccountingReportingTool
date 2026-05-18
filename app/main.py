@@ -12,6 +12,7 @@ from app.api.routers import (
     fs_reporting,
     journal_entries,
     organizations,
+    preview,
     report_runs,
     reporting,
     tb_import,
@@ -42,6 +43,7 @@ from app.services.report_service import (
     ReportRunStateError,
     ReportValidationError,
 )
+from app.services.draft_overlay_service import OverlayValidationError
 
 Base.metadata.create_all(bind=engine)
 
@@ -148,6 +150,11 @@ async def report_validation_handler(request: Request, exc: ReportValidationError
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+@app.exception_handler(OverlayValidationError)
+async def overlay_validation_handler(request: Request, exc: OverlayValidationError):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
@@ -167,6 +174,7 @@ app.include_router(users.router, prefix=API_PREFIX)
 app.include_router(documents.router, prefix=API_PREFIX)
 app.include_router(workflow.router, prefix=API_PREFIX)
 app.include_router(report_runs.router, prefix=API_PREFIX)
+app.include_router(preview.router, prefix=API_PREFIX)
 
 
 @app.get("/health")

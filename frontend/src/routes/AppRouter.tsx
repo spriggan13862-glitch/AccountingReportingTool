@@ -13,6 +13,7 @@ import { ReportDetailPage } from '@/pages/ReportDetailPage'
 import { WorkflowPage } from '@/pages/WorkflowPage'
 import { IssuesPage } from '@/pages/IssuesPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
+import { DraftPreviewPage } from '@/pages/DraftPreviewPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 
 export function AppRouter() {
@@ -28,6 +29,7 @@ export function AppRouter() {
           <Route path="trial-balance-import" element={<TrialBalanceImportPage />} />
           <Route path="periods" element={<PeriodsPage />} />
           <Route path="periods/:id" element={<PeriodDetailPage />} />
+          <Route path="draft-preview" element={<DraftPreviewPage />} />
           <Route path="trial-balances" element={<PlaceholderPage title="Trial Balances" />} />
           <Route path="financial-statements" element={<PlaceholderPage title="Financial Statements" />} />
           <Route path="consolidations" element={<PlaceholderPage title="Consolidations" />} />

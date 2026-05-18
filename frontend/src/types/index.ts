@@ -258,3 +258,106 @@ export interface ApiError {
   detail: string
   validation?: ValidationResponse
 }
+
+// ---------------------------------------------------------------------------
+// Draft Overlay / Preview
+// ---------------------------------------------------------------------------
+
+export interface OverlayLineItem {
+  account_id: number
+  account_number: string
+  account_name: string
+  account_type: string
+  normal_balance: string
+  official_net_debit: string
+  draft_net_debit: string
+  preview_net_debit: string
+  official_signed_balance: string
+  draft_signed_adjustment: string
+  preview_signed_balance: string
+  source_je_ids: number[]
+  overlay_groups_used: string[]
+  is_synthetic_re: boolean
+}
+
+export interface OverlayResult {
+  is_preview: true
+  label: string
+  preview_type: string
+  organization_id: number
+  entity_id: number
+  as_of_date: string
+  scenario_id: number
+  generated_at: string
+  included_je_count: number
+  overlay_groups: string[]
+  line_items: OverlayLineItem[]
+  re_rollforward_applied: boolean
+  re_draft_adjustment: string
+  warnings: string[]
+  member_entity_ids: number[]
+  preview_run_id: number | null
+}
+
+export interface OverlayCalculateRequest {
+  organization_id: number
+  entity_id: number
+  as_of_date: string
+  scenario_id: number
+  preview_type: string
+  included_je_ids?: number[] | null
+  overlay_groups?: string[] | null
+  generated_by?: string | null
+  generated_by_user_id?: number | null
+  include_re_rollforward: boolean
+  is_consolidated: boolean
+  consolidation_entity_id?: number | null
+  period_start?: string | null
+  create_audit_record: boolean
+}
+
+export interface DraftEntry {
+  je_id: number
+  je_number: string
+  entry_date: string
+  description: string
+  source: string
+  overlay_group: string
+}
+
+export interface PreviewRun {
+  id: number
+  organization_id: number
+  entity_id: number | null
+  generated_by: string | null
+  generated_by_user_id: number | null
+  generated_at: string
+  preview_type: string
+  as_of_date: string
+  scenario_id: number | null
+  included_je_ids: string
+  overlay_groups: string | null
+  parameters: string | null
+  included_je_count: number
+  preview_label: string
+  is_consolidated: boolean
+  consolidation_entity_id: number | null
+}
+
+export const OVERLAY_GROUPS = [
+  'audit_adjustments',
+  'management_adjustments',
+  'lender_adjustments',
+  'qoe_adjustments',
+  'acquisition_adjustments',
+  'close_adjustments',
+  'tax_adjustments',
+  'eliminations',
+  'consolidation_adjustments',
+  'pro_forma_adjustments',
+  'reclasses',
+  'accruals',
+  'topsides',
+] as const
+
+export type OverlayGroup = typeof OVERLAY_GROUPS[number]

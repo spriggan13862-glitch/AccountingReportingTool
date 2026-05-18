@@ -36,6 +36,10 @@ class JournalEntry(Base):
     reversal_of_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
     reversal_je_id = Column(Integer, ForeignKey("journal_entries.id"), nullable=True)
 
+    # Draft overlay classification — used to group draft entries by purpose
+    # e.g. 'audit_adjustment', 'topside', 'elimination', 'accrual', 'pro_forma', 'tax'
+    overlay_group = Column(String(50), nullable=True)
+
     # Audit metadata — string placeholders (kept for backward compat)
     created_by  = Column(String(100), nullable=True)
     posted_by   = Column(String(100), nullable=True)

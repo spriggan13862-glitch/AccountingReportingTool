@@ -24,6 +24,7 @@ from openpyxl.utils import get_column_letter
 
 from app.services.reporting_service import TrialBalanceRow
 from app.services.fs_reporting_service import FsLineBalance
+from app.services.draft_overlay_service import OverlayResult
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +373,96 @@ def build_close_package_workbook(
         workflow_signoffs=workflow_signoffs,
         issues=issues,
     )
+
+
+def build_preview_workbook(result: OverlayResult) -> Workbook:
+    """
+    Build an Excel workbook for a draft-impact preview.
+
+    EXPORT RULES:
+    - Cover sheet MUST display the DRAFT PREVIEW warning prominently.
+    - Sheet names include "DRAFT" prefix.
+    - All numeric columns display official, adjustment, and preview amounts side-by-side.
+    - This workbook MUST NEVER be used as an official financial statement.
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Cover"
+
+    # --- DRAFT PREVIEW warning header (red, prominent) ---
+    warn_cell = ws.cell(row=1, column=1, value="⚠  DRAFT PREVIEW — NOT POSTED — NOT OFFICIAL  ⚠")
+    warn_cell.font = Font(bold=True, size=14, color="CC0000")
+    warn_cell.fill = PatternFill("solid", fgColor="FFF2CC")
+    ws.merge_cells("A1:F1")
+
+    title_cell = ws.cell(row=2, column=1, value=f"Preview Type: {result.preview_type.replace('_', ' ').title()}")
+    title_cell.font = Font(bold=True, size=13, color="1F4E79")
+    ws.merge_cells("A2:F2")
+
+    _write_label_value(ws, 4,  "Preview Label",    result.label)
+    _write_label_value(ws, 5,  "As of Date",        str(result.as_of_date))
+    _write_label_value(ws, 6,  "Entity ID",         result.entity_id)
+    _write_label_value(ws, 7,  "Scenario ID",       result.scenario_id)
+    _write_label_value(ws, 8,  "Generated At",      str(result.generated_at))
+    _write_label_value(ws, 9,  "Draft Entries Included", result.included_je_count)
+    _write_label_value(ws, 10, "Overlay Groups",    ", ".join(result.overlay_groups) if result.overlay_groups else "All")
+    _write_label_value(ws, 11, "RE Rollforward",    "Yes" if result.re_rollforward_applied else "No")
+    _write_label_value(ws, 12, "Consolidated",      "Yes" if result.member_entity_ids else "No")
+
+    ws.cell(row=14, column=1,
+            value="This file is a DRAFT PREVIEW. Do not distribute as official financial data."
+            ).font = Font(italic=True, color="CC0000", size=9)
+
+    ws.column_dimensions["A"].width = 26
+    ws.column_dimensions["B"].width = 40
+
+    # --- Preview data sheet ---
+    ds = wb.create_sheet("DRAFT PREVIEW Data")
+    headers = [
+        "Account ID", "Account Number", "Account Name", "Account Type", "Normal Balance",
+        "Official Balance (Posted)", "Draft Adjustment", "Preview Balance",
+        "Source JE IDs", "Overlay Groups",
+    ]
+    _write_header_row(ds, headers)
+
+    for r, item in enumerate(result.line_items, start=2):
+        ds.cell(row=r, column=1, value=item.account_id)
+        ds.cell(row=r, column=2, value=item.account_number)
+        ds.cell(row=r, column=3, value=item.account_name)
+        ds.cell(row=r, column=4, value=item.account_type)
+        ds.cell(row=r, column=5, value=item.normal_balance)
+        ds.cell(row=r, column=6, value=float(item.official_signed_balance)).number_format = _NUMBER_FMT
+        ds.cell(row=r, column=7, value=float(item.draft_signed_adjustment)).number_format = _NUMBER_FMT
+        ds.cell(row=r, column=8, value=float(item.preview_signed_balance)).number_format = _NUMBER_FMT
+        ds.cell(row=r, column=9, value=",".join(str(i) for i in item.source_je_ids))
+        ds.cell(row=r, column=10, value=",".join(item.overlay_groups_used))
+        if item.is_synthetic_re:
+            for col in range(1, 11):
+                ds.cell(row=r, column=col).font = Font(italic=True, color="7030A0")
+
+    _auto_width(ds)
+
+    # --- Overlay summary sheet ---
+    ss = wb.create_sheet("Overlay Summary")
+    ss.cell(row=1, column=1, value="DRAFT PREVIEW — Overlay Summary").font = Font(bold=True, size=12, color="CC0000")
+    ss.cell(row=2, column=1, value=f"Included draft JEs: {result.included_je_count}")
+    ss.cell(row=3, column=1, value=f"Overlay groups: {', '.join(result.overlay_groups) if result.overlay_groups else 'All'}")
+    ss.cell(row=4, column=1, value=f"RE rollforward applied: {'Yes' if result.re_rollforward_applied else 'No'}")
+    if result.re_rollforward_applied:
+        ss.cell(row=5, column=1, value=f"RE draft adjustment: {float(result.re_draft_adjustment):.2f}")
+
+    # By-group breakdown
+    ss.cell(row=7, column=1, value="Adjustments by Overlay Group").font = _SUBHEADER_FONT
+    group_totals: dict[str, float] = {}
+    for item in result.line_items:
+        for grp in item.overlay_groups_used:
+            group_totals[grp] = group_totals.get(grp, 0.0) + float(item.draft_signed_adjustment)
+    for r, (grp, total) in enumerate(sorted(group_totals.items()), start=8):
+        ss.cell(row=r, column=1, value=grp)
+        ss.cell(row=r, column=2, value=total).number_format = _NUMBER_FMT
+
+    _auto_width(ss)
+    return wb
 
 
 def build_lender_package_workbook(
