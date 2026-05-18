@@ -1,11 +1,15 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { journalEntriesApi } from '@/api/journalEntries'
 import { workflowApi } from '@/api/workflow'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Input } from '@/components/ui/Input'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -19,6 +23,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export function JournalEntryDetailPage() {
   const { id } = useParams<{ id: string }>()
   const jeId = Number(id)
+  const queryClient = useQueryClient()
+
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [reverseOpen, setReverseOpen] = useState(false)
+  const [reverseForm, setReverseForm] = useState({
+    reversal_date: new Date().toISOString().slice(0, 10),
+    je_number: '',
+    description: '',
+  })
 
   const { data: je, isLoading, isError, error } = useQuery({
     queryKey: ['journal-entry', jeId],
@@ -32,17 +45,100 @@ export function JournalEntryDetailPage() {
     enabled: !isNaN(jeId),
   })
 
+  const postMutation = useMutation({
+    mutationFn: () => journalEntriesApi.postDraft(jeId),
+    onSuccess: () => {
+      setActionError(null)
+      queryClient.invalidateQueries({ queryKey: ['journal-entry', jeId] })
+    },
+    onError: (err: Error) => setActionError(err.message),
+  })
+
+  const reverseMutation = useMutation({
+    mutationFn: () => journalEntriesApi.reverse(jeId, reverseForm),
+    onSuccess: () => {
+      setReverseOpen(false)
+      setActionError(null)
+      queryClient.invalidateQueries({ queryKey: ['journal-entry', jeId] })
+      queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
+    },
+    onError: (err: Error) => { setReverseOpen(false); setActionError(err.message) },
+  })
+
   if (isLoading) return <LoadingState />
   if (isError) return <ErrorState message={(error as Error).message} />
   if (!je) return null
 
+  const isDraft = je.status === 'draft'
+  const isPosted = je.status === 'posted'
+  const isImmutable = je.status === 'reversed'
+
   return (
+    <>
+    <ConfirmDialog
+      open={reverseOpen}
+      onOpenChange={setReverseOpen}
+      title="Reverse Journal Entry"
+      description="This will create a reversing entry. This action cannot be undone."
+      confirmLabel="Reverse"
+      destructive
+      onConfirm={() => reverseMutation.mutate()}
+    >
+      <div className="mt-3 space-y-2">
+        <Input
+          label="Reversal Date"
+          type="date"
+          value={reverseForm.reversal_date}
+          onChange={(e) => setReverseForm({ ...reverseForm, reversal_date: e.target.value })}
+        />
+        <Input
+          label="Reversal JE Number"
+          value={reverseForm.je_number}
+          onChange={(e) => setReverseForm({ ...reverseForm, je_number: e.target.value })}
+          placeholder="REV-JE-001"
+        />
+        <Input
+          label="Description"
+          value={reverseForm.description}
+          onChange={(e) => setReverseForm({ ...reverseForm, description: e.target.value })}
+          placeholder="Reversal of …"
+        />
+      </div>
+    </ConfirmDialog>
+
     <PageLayout
       title={je.je_number}
       subtitle={`${je.entry_date} · ${je.description}`}
-      actions={<StatusBadge status={je.status} />}
+      actions={
+        <div className="flex items-center gap-2">
+          <StatusBadge status={je.status} />
+          {isDraft && (
+            <button
+              type="button"
+              onClick={() => postMutation.mutate()}
+              disabled={postMutation.isPending}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {postMutation.isPending ? 'Posting…' : 'Post'}
+            </button>
+          )}
+          {isPosted && (
+            <button
+              type="button"
+              onClick={() => setReverseOpen(true)}
+              className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              Reverse
+            </button>
+          )}
+          {isImmutable && (
+            <span className="text-xs text-gray-400 italic">Immutable</span>
+          )}
+        </div>
+      }
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {actionError && <ErrorBanner message={actionError} className="col-span-full" />}
         {/* Metadata */}
         <Section title="Details">
           <dl className="space-y-2 text-sm">
@@ -119,5 +215,6 @@ export function JournalEntryDetailPage() {
         </div>
       </div>
     </PageLayout>
+    </>
   )
 }

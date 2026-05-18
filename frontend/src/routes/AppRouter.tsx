@@ -4,6 +4,10 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { EntitiesPage } from '@/pages/EntitiesPage'
 import { JournalEntriesPage } from '@/pages/JournalEntriesPage'
 import { JournalEntryDetailPage } from '@/pages/JournalEntryDetailPage'
+import { JournalEntryCreatePage } from '@/pages/JournalEntryCreatePage'
+import { TrialBalanceImportPage } from '@/pages/TrialBalanceImportPage'
+import { PeriodsPage } from '@/pages/PeriodsPage'
+import { PeriodDetailPage } from '@/pages/PeriodDetailPage'
 import { ReportsPage } from '@/pages/ReportsPage'
 import { ReportDetailPage } from '@/pages/ReportDetailPage'
 import { WorkflowPage } from '@/pages/WorkflowPage'
@@ -19,7 +23,11 @@ export function AppRouter() {
           <Route index element={<DashboardPage />} />
           <Route path="entities" element={<EntitiesPage />} />
           <Route path="journal-entries" element={<JournalEntriesPage />} />
+          <Route path="journal-entries/new" element={<JournalEntryCreatePage />} />
           <Route path="journal-entries/:id" element={<JournalEntryDetailPage />} />
+          <Route path="trial-balance-import" element={<TrialBalanceImportPage />} />
+          <Route path="periods" element={<PeriodsPage />} />
+          <Route path="periods/:id" element={<PeriodDetailPage />} />
           <Route path="trial-balances" element={<PlaceholderPage title="Trial Balances" />} />
           <Route path="financial-statements" element={<PlaceholderPage title="Financial Statements" />} />
           <Route path="consolidations" element={<PlaceholderPage title="Consolidations" />} />

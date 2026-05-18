@@ -1,5 +1,76 @@
 // Core domain types matching the backend Pydantic schemas
 
+// ---------------------------------------------------------------------------
+// Request / mutation types
+// ---------------------------------------------------------------------------
+
+export interface JELineCreate {
+  line_number: number
+  account_id: number
+  entity_id: number
+  debit: string   // Decimal as string
+  credit: string
+  description?: string | null
+}
+
+export interface JECreate {
+  je_number: string
+  entry_date: string
+  entity_id: number
+  scenario_id: number
+  description: string
+  source: string
+  source_ref?: string | null
+  lines: JELineCreate[]
+}
+
+export interface ReverseJERequest {
+  reversal_date: string
+  je_number: string
+  description: string
+  created_by?: string | null
+}
+
+export interface TbImportOut {
+  id: number
+  entity_id: number
+  as_of_date: string
+  filename: string
+  row_count: number | null
+  total_debits: string | null
+  total_credits: string | null
+  status: string
+  error_message: string | null
+  uploaded_by: string | null
+  uploaded_at: string
+}
+
+export interface PeriodCreate {
+  entity_id: number
+  period_name: string
+  start_date: string
+  end_date: string
+  fiscal_year: number
+  fiscal_period: number
+  period_type?: string
+}
+
+export interface ClosePeriodRequest {
+  re_account_id: number
+  scenario_id: number
+  closing_je_number: string
+  closed_by?: string | null
+  generate_closing_entries?: boolean
+}
+
+export interface PagedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
 export interface Entity {
   id: number
   code: string

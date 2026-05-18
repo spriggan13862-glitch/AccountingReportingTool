@@ -7,7 +7,9 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git config *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "PowerShell(npm test *)",
+      "PowerShell(npm run *)"
     ]
   }
 }
