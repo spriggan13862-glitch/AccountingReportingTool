@@ -1,9 +1,11 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/providers/AuthProvider'
-import { OrgProvider } from '@/providers/OrgProvider'
+import { OrgProvider, useOrg } from '@/providers/OrgProvider'
 import { AppRouter } from '@/routes/AppRouter'
+import { useAuth } from '@/providers/AuthProvider'
+import { getOrganization } from '@/api/organizations'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -15,12 +17,30 @@ const queryClient = new QueryClient({
   },
 })
 
+// Automatically loads the authenticated user's organization into OrgProvider.
+function OrgAutoLoader({ children }: { children: React.ReactNode }) {
+  const { user, isAuthenticated } = useAuth()
+  const { org, setOrg } = useOrg()
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return
+    if (org?.id === user.organization_id) return
+    getOrganization(user.organization_id)
+      .then(setOrg)
+      .catch(() => {})
+  }, [isAuthenticated, user, org, setOrg])
+
+  return <>{children}</>
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <OrgProvider>
-          <AppRouter />
+          <OrgAutoLoader>
+            <AppRouter />
+          </OrgAutoLoader>
         </OrgProvider>
       </AuthProvider>
     </QueryClientProvider>

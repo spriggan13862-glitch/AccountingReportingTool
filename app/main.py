@@ -28,6 +28,7 @@ from app.api.routers import (
     reconciliation,
     report_runs,
     reporting,
+    setup,
     tb_import,
     users,
     workflow,
@@ -226,6 +227,7 @@ async def overlay_validation_handler(request: Request, exc: OverlayValidationErr
 
 API_PREFIX = "/api/v1"
 
+app.include_router(setup.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(entities.router, prefix=API_PREFIX)
 app.include_router(accounts.router, prefix=API_PREFIX)
