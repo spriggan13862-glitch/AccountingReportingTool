@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.security import hash_password
 from app.api.schemas import (
     AssignRoleRequest,
     PermissionsOut,
@@ -29,11 +30,13 @@ def create_new_user(
     db: Session = Depends(get_db),
     acting_user=Depends(get_current_user),
 ):
+    hashed = hash_password(body.password) if body.password else None
     return create_user(
         db,
         organization_id=body.organization_id,
         email=body.email,
         full_name=body.full_name,
+        hashed_password=hashed,
         is_active=body.is_active,
         is_superuser=body.is_superuser,
         acting_user=acting_user,

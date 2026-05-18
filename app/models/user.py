@@ -11,8 +11,11 @@ class User(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     email = Column(String(255), nullable=False, unique=True)
     full_name = Column(String(200), nullable=False)
-    hashed_password = Column(String(255), nullable=True)   # placeholder — no real auth yet
+    hashed_password = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     is_superuser = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
-    last_login_at = Column(DateTime, nullable=True)        # placeholder
+    last_login_at = Column(DateTime, nullable=True)
+    # M21: auth hardening
+    failed_login_attempts = Column(Integer, nullable=False, default=0)
+    locked_at = Column(DateTime, nullable=True)

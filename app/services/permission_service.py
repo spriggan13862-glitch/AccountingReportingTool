@@ -50,17 +50,20 @@ ALL_PERMISSIONS: frozenset[str] = frozenset({
     "run_consolidations",
 })
 
+_CONTROLLER_PERMISSIONS = frozenset({
+    "create_journal_entries",
+    "post_journal_entries",
+    "reverse_entries",
+    "manage_periods",
+    "view_reports",
+    "manage_mappings",
+    "run_consolidations",
+})
+
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
-    "admin": ALL_PERMISSIONS,
-    "cfo": frozenset({
-        "create_journal_entries",
-        "post_journal_entries",
-        "reverse_entries",
-        "manage_periods",
-        "view_reports",
-        "manage_mappings",
-        "run_consolidations",
-    }),
+    "admin":      ALL_PERMISSIONS,
+    "controller": _CONTROLLER_PERMISSIONS,   # M21: primary senior-accountant role
+    "cfo":        _CONTROLLER_PERMISSIONS,   # legacy alias — same permissions as controller
     "accountant": frozenset({
         "create_journal_entries",
         "post_journal_entries",
@@ -79,7 +82,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
 
 DEFAULT_ROLES: list[tuple[str, str]] = [
     ("admin",      "Full access to all operations"),
-    ("cfo",        "Full accounting access; cannot manage users"),
+    ("controller", "Full accounting access; cannot manage users"),
+    ("cfo",        "Legacy alias for controller"),
     ("accountant", "Create and post journal entries; manage mappings"),
     ("reviewer",   "Post and reverse journal entries; read-only reports"),
     ("viewer",     "Read-only access to reports"),

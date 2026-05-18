@@ -1,11 +1,22 @@
+from __future__ import annotations
+
+import datetime
+import time
+import uuid
+
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import app.models  # noqa: F401 — registers all models with Base.metadata
+from app.core.config import settings
+from app.core.logging_config import configure_logging, get_logger
 from app.database import Base, engine
+
 from app.api.routers import (
     accounting_periods,
     accounts,
+    auth,
     consolidation,
     documents,
     entities,
@@ -53,9 +64,55 @@ from app.services.reconciliation_service import (
     ReviewerSeparationError as ReconReviewerSeparationError,
 )
 
+# ---------------------------------------------------------------------------
+# Startup: logging + schema bootstrap
+# ---------------------------------------------------------------------------
+
+configure_logging(level=settings.LOG_LEVEL, json_logs=settings.LOG_JSON)
+logger = get_logger(__name__)
+
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Accounting Tool", version="0.1.0")
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="Accounting Tool",
+    version="0.21.0",
+    description="Internal accounting platform — secure alpha deployment",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Request logging middleware
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())[:8]
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = round((time.perf_counter() - start) * 1000, 1)
+    logger.info(
+        "http method=%s path=%s status=%d duration_ms=%s req_id=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed_ms,
+        request_id,
+    )
+    response.headers["X-Request-Id"] = request_id
+    return response
+
 
 # ---------------------------------------------------------------------------
 # Exception handlers
@@ -169,6 +226,7 @@ async def overlay_validation_handler(request: Request, exc: OverlayValidationErr
 
 API_PREFIX = "/api/v1"
 
+app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(entities.router, prefix=API_PREFIX)
 app.include_router(accounts.router, prefix=API_PREFIX)
 app.include_router(journal_entries.router, prefix=API_PREFIX)
@@ -187,6 +245,33 @@ app.include_router(reconciliation.router, prefix=API_PREFIX)
 app.include_router(financial_statements.router, prefix=API_PREFIX)
 
 
-@app.get("/health")
+# ---------------------------------------------------------------------------
+# Health & readiness endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/health", tags=["ops"])
 def health_check():
-    return {"status": "ok"}
+    """Liveness: returns 200 if the process is running."""
+    return {"status": "ok", "environment": settings.ENVIRONMENT}
+
+
+@app.get("/ready", tags=["ops"])
+def readiness_check():
+    """
+    Readiness: verifies the database connection is responsive.
+
+    Returns 200 when ready to accept traffic, 503 when the DB is unreachable.
+    """
+    from sqlalchemy import text
+    from app.database import SessionLocal
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "ready", "database": "ok"}
+    except Exception as exc:
+        logger.error("readiness_check db_error=%s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "database": "unreachable"},
+        )

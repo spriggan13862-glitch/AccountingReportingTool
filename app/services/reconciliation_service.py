@@ -195,7 +195,7 @@ def transition_status(
                     "Preparer and reviewer must be different users"
                 )
             recon.preparer_user_id = user_id
-        recon.prepared_at = datetime.datetime.utcnow()
+        recon.prepared_at = datetime.datetime.now(datetime.UTC)
 
     elif target_status == "reviewed":
         if user_id is not None:
@@ -204,7 +204,7 @@ def transition_status(
                     "Preparer and reviewer must be different users"
                 )
             recon.reviewer_user_id = user_id
-        recon.reviewed_at = datetime.datetime.utcnow()
+        recon.reviewed_at = datetime.datetime.now(datetime.UTC)
         if comment:
             recon.reviewer_comment = comment
 
@@ -287,7 +287,7 @@ def add_support_reference(
         external_ref=external_ref,
         description=description,
         added_by_user_id=added_by_user_id,
-        added_at=datetime.datetime.utcnow(),
+        added_at=datetime.datetime.now(datetime.UTC),
     )
     db.add(ref)
     db.flush()

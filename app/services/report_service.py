@@ -167,7 +167,7 @@ def _dispatch_report(db: Session, run: ReportRun) -> bytes:
         entity_name=entity_name,
         organization_name=org_name,
         as_of_date=as_of_date,
-        generation_time=datetime.datetime.utcnow(),
+        generation_time=datetime.datetime.now(datetime.UTC),
     )
 
     wf_summary = json.loads(run.workflow_summary_json) if run.workflow_summary_json else {}
@@ -368,7 +368,7 @@ def execute_report_run(
         run.generated_document_id = doc.id
         run.storage_path = storage_path
         run.status = "completed"
-        run.completed_at = datetime.datetime.utcnow()
+        run.completed_at = datetime.datetime.now(datetime.UTC)
         db.flush()
 
     except Exception:

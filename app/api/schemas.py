@@ -325,6 +325,7 @@ class UserCreate(BaseModel):
     organization_id: int
     email: str
     full_name: str
+    password: str | None = None   # plain-text; hashed by auth_service before storage
     is_active: bool = True
     is_superuser: bool = False
 

@@ -138,7 +138,7 @@ class OverlayResult:
     entity_id: int = 0
     as_of_date: datetime.date = field(default_factory=datetime.date.today)
     scenario_id: int = 0
-    generated_at: datetime.datetime = field(default_factory=datetime.datetime.utcnow)
+    generated_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
     included_je_count: int = 0
     overlay_groups: list[str] = field(default_factory=list)
     line_items: list[OverlayLineItem] = field(default_factory=list)
@@ -545,7 +545,7 @@ def calculate_overlay(db: Session, params: OverlayParams) -> OverlayResult:
     """
     _validate_params(db, params)
 
-    generated_at = datetime.datetime.utcnow()
+    generated_at = datetime.datetime.now(datetime.UTC)
 
     if params.is_consolidated:
         # Get consolidation entity members

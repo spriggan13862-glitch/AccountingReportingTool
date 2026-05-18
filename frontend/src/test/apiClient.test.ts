@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { setOrganizationId, setUserId, getOrganizationId } from '@/api/client'
+import {
+  setOrganizationId,
+  getOrganizationId,
+  setAccessToken,
+  getAccessToken,
+  clearAuth,
+} from '@/api/client'
 
 describe('API client config', () => {
   beforeEach(() => {
     setOrganizationId(null)
-    setUserId(null)
+    clearAuth()
   })
 
   it('getOrganizationId returns null initially', () => {
@@ -22,7 +28,16 @@ describe('API client config', () => {
     expect(getOrganizationId()).toBeNull()
   })
 
-  it('setUserId does not crash', () => {
-    expect(() => setUserId(7)).not.toThrow()
+  it('setAccessToken stores the token and getAccessToken retrieves it', () => {
+    setAccessToken('test-jwt-token')
+    expect(getAccessToken()).toBe('test-jwt-token')
+  })
+
+  it('clearAuth removes the token and org', () => {
+    setAccessToken('some-token')
+    setOrganizationId(1)
+    clearAuth()
+    expect(getAccessToken()).toBeNull()
+    expect(getOrganizationId()).toBeNull()
   })
 })

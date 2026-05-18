@@ -1,0 +1,48 @@
+version: "3.9"
+
+# =============================================================================
+# Accounting Tool — Development Compose
+# Runs the backend API and frontend dev server side-by-side.
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source for live reload in development
+      - .:/app
+    environment:
+      ENVIRONMENT: development
+      DATABASE_URL: sqlite:////app/accounting.db
+      SECRET_KEY: dev-secret-key-change-in-production-must-be-32-chars-min
+      ALLOWED_ORIGINS: "http://localhost:5173"
+      LOG_LEVEL: DEBUG
+      LOG_JSON: "false"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: node:22-slim
+    working_dir: /app/frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    environment:
+      VITE_API_BASE_URL: "http://localhost:8000/api/v1"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      api:
+        condition: service_healthy

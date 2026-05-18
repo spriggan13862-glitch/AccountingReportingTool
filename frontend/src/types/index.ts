@@ -260,6 +260,28 @@ export interface ApiError {
 }
 
 // ---------------------------------------------------------------------------
+// Authentication (M21)
+// ---------------------------------------------------------------------------
+
+export interface TokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number  // seconds
+}
+
+export interface CurrentUser {
+  id: number
+  organization_id: number
+  email: string
+  full_name: string
+  is_active: boolean
+  is_superuser: boolean
+  created_at: string
+}
+
+export type UserRole = 'admin' | 'controller' | 'accountant' | 'reviewer' | 'viewer' | 'auditor'
+
+// ---------------------------------------------------------------------------
 // Draft Overlay / Preview
 // ---------------------------------------------------------------------------
 

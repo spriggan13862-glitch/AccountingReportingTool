@@ -1,5 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AppShell } from '@/layouts/AppShell'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { LoginPage } from '@/pages/LoginPage'
+import { UnauthorizedPage } from '@/pages/UnauthorizedPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { EntitiesPage } from '@/pages/EntitiesPage'
 import { JournalEntriesPage } from '@/pages/JournalEntriesPage'
@@ -20,11 +23,29 @@ import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 
+/**
+ * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
+ * React Router requires the layout route element to render <Outlet />,
+ * so AppShell lives inside a ProtectedRoute wrapper.
+ */
+function AuthedShell() {
+  return (
+    <ProtectedRoute>
+      <AppShell />
+    </ProtectedRoute>
+  )
+}
+
 export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<AppShell />}>
+        {/* Public routes — no auth required */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+        {/* Protected application — all child routes require authentication */}
+        <Route element={<AuthedShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="entities" element={<EntitiesPage />} />
           <Route path="journal-entries" element={<JournalEntriesPage />} />
@@ -45,7 +66,15 @@ export function AppRouter() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
           <Route path="documents" element={<DocumentsPage />} />
-          <Route path="admin" element={<PlaceholderPage title="Admin" />} />
+          {/* Admin route — requires admin role */}
+          <Route
+            path="admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <PlaceholderPage title="Admin" />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>

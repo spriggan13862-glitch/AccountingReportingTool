@@ -204,7 +204,7 @@ def _unbalanced_je(seeds):
 def test_health_check(client):
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    assert r.json()["status"] == "ok"
 
 
 # ---------------------------------------------------------------------------
