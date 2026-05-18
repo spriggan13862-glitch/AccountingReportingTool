@@ -21,6 +21,7 @@ from app.models.preview_run import PreviewRun
 from app.models.reconciliation import Reconciliation
 from app.models.reconciliation_line import ReconciliationLine
 from app.models.support_reference import SupportReference
+from app.models.report_definition import ReportDefinition, ReportLine, ReportColumn
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -31,4 +32,5 @@ __all__ = [
     "ReportRun",
     "PreviewRun",
     "Reconciliation", "ReconciliationLine", "SupportReference",
+    "ReportDefinition", "ReportLine", "ReportColumn",
 ]

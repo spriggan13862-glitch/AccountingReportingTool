@@ -554,6 +554,129 @@ def build_lender_package_workbook(
 
 
 # ---------------------------------------------------------------------------
+# Close Package / Board Package / Lender Package — M20
+# ---------------------------------------------------------------------------
+
+_WATERMARK_FILLS = {
+    "DRAFT":    PatternFill("solid", fgColor="FFF2CC"),
+    "PREVIEW":  PatternFill("solid", fgColor="FCE4D6"),
+    "INTERNAL": PatternFill("solid", fgColor="E2EFDA"),
+    "OFFICIAL": PatternFill("solid", fgColor="DEEAF1"),
+}
+_WATERMARK_FONT_COLORS = {
+    "DRAFT":    "CC7A00",
+    "PREVIEW":  "CC0000",
+    "INTERNAL": "375623",
+    "OFFICIAL": "1F4E79",
+}
+
+
+def _add_watermark_banner(ws, watermark: str, row: int = 1) -> None:
+    fill = _WATERMARK_FILLS.get(watermark, _WATERMARK_FILLS["DRAFT"])
+    color = _WATERMARK_FONT_COLORS.get(watermark, "CC0000")
+    cell = ws.cell(
+        row=row, column=1,
+        value=f"⚠  {watermark} — FOR INTERNAL USE ONLY. NOT FOR DISTRIBUTION.  ⚠"
+    )
+    cell.font = Font(bold=True, size=12, color=color)
+    cell.fill = fill
+    cell.alignment = Alignment(horizontal="center")
+
+
+def build_watermarked_close_package(
+    entity_id: int,
+    as_of_date,
+    scenario_ids: list,
+    tb_rows,
+    fs_lines,
+    cf_result=None,
+    label: str = "Close Package",
+    watermark: str = "DRAFT",
+) -> Workbook:
+    """
+    Build a complete close package workbook with watermarking.
+
+    Sheets: Cover | Trial Balance | Balance Sheet | Income Statement | Cash Flow
+    """
+    wb = Workbook()
+
+    # --- Cover sheet ---
+    ws = wb.active
+    ws.title = "Cover"
+    _add_watermark_banner(ws, watermark, row=1)
+    ws.merge_cells("A1:F1")
+    ws.cell(row=3, column=1, value=label).font = Font(bold=True, size=14)
+    ws.cell(row=4, column=1, value=f"Entity ID: {entity_id}")
+    ws.cell(row=5, column=1, value=f"As of Date: {as_of_date}")
+    ws.cell(row=6, column=1, value=f"Scenario IDs: {', '.join(str(s) for s in scenario_ids)}")
+    ws.cell(row=7, column=1, value=f"Status: {watermark}")
+    ws.column_dimensions["A"].width = 40
+
+    # --- Trial Balance sheet ---
+    _add_tb_sheet(wb, tb_rows, "Trial Balance")
+    tb_ws = wb["Trial Balance"]
+    _add_watermark_banner(tb_ws, watermark, row=1)
+
+    # --- Balance Sheet ---
+    bs_lines = [l for l in fs_lines if l.statement == "BS"]
+    if bs_lines:
+        _add_fs_sheet(wb, bs_lines, sheet_title="Balance Sheet")
+        _add_watermark_banner(wb["Balance Sheet"], watermark, row=1)
+
+    # --- Income Statement ---
+    is_lines = [l for l in fs_lines if l.statement == "IS"]
+    if is_lines:
+        _add_fs_sheet(wb, is_lines, sheet_title="Income Statement")
+        _add_watermark_banner(wb["Income Statement"], watermark, row=1)
+
+    # --- Cash Flow sheet ---
+    if cf_result is not None:
+        cfs = wb.create_sheet("Cash Flow Statement")
+        _add_watermark_banner(cfs, watermark, row=1)
+        cfs.merge_cells("A1:C1")
+        cfs.cell(row=2, column=1, value="Statement of Cash Flows (Indirect Method)").font = Font(bold=True, size=12)
+        cfs.cell(row=3, column=1, value=f"Period: {cf_result.period_start} to {cf_result.period_end}")
+
+        row = 5
+        for section in (cf_result.operating, cf_result.investing, cf_result.financing):
+            cfs.cell(row=row, column=1, value=section.label).font = _SUBHEADER_FONT
+            cfs.cell(row=row, column=1).fill = _SUBHEADER_FILL
+            row += 1
+            for line in section.lines:
+                indent = "    " if not line.is_subtotal else ""
+                cfs.cell(row=row, column=1, value=f"{indent}{line.label}")
+                cell = cfs.cell(row=row, column=2, value=float(line.amount))
+                cell.number_format = _NUMBER_FMT
+                if line.is_subtotal:
+                    cfs.cell(row=row, column=1).font = _BOLD_FONT
+                    cell.font = _BOLD_FONT
+                row += 1
+            row += 1
+
+        cfs.cell(row=row, column=1, value="Net Change in Cash").font = _BOLD_FONT
+        cfs.cell(row=row, column=2, value=float(cf_result.net_change)).number_format = _NUMBER_FMT
+        cfs.cell(row=row, column=2).font = _BOLD_FONT
+        row += 1
+        cfs.cell(row=row, column=1, value="Beginning Cash")
+        cfs.cell(row=row, column=2, value=float(cf_result.beginning_cash)).number_format = _NUMBER_FMT
+        row += 1
+        cfs.cell(row=row, column=1, value="Ending Cash")
+        cfs.cell(row=row, column=2, value=float(cf_result.ending_cash)).number_format = _NUMBER_FMT
+
+        if cf_result.warnings:
+            row += 2
+            cfs.cell(row=row, column=1, value="Warnings:").font = Font(bold=True, color="CC0000")
+            for w in cf_result.warnings:
+                row += 1
+                cfs.cell(row=row, column=1, value=w).font = Font(color="CC0000", size=9)
+
+        cfs.column_dimensions["A"].width = 40
+        cfs.column_dimensions["B"].width = 16
+
+    return wb
+
+
+# ---------------------------------------------------------------------------
 # Serialisation
 # ---------------------------------------------------------------------------
 

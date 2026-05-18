@@ -9,6 +9,7 @@ from app.api.routers import (
     consolidation,
     documents,
     entities,
+    financial_statements,
     fs_reporting,
     journal_entries,
     organizations,
@@ -183,6 +184,7 @@ app.include_router(workflow.router, prefix=API_PREFIX)
 app.include_router(report_runs.router, prefix=API_PREFIX)
 app.include_router(preview.router, prefix=API_PREFIX)
 app.include_router(reconciliation.router, prefix=API_PREFIX)
+app.include_router(financial_statements.router, prefix=API_PREFIX)
 
 
 @app.get("/health")

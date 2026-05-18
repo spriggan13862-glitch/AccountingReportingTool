@@ -456,3 +456,123 @@ export const OVERLAY_GROUPS = [
 ] as const
 
 export type OverlayGroup = typeof OVERLAY_GROUPS[number]
+
+// M20: Financial Statement Engine
+
+export interface CashFlowLine {
+  label: string
+  amount: string
+  account_ids: number[]
+  is_subtotal: boolean
+}
+
+export interface CashFlowSection {
+  label: string
+  lines: CashFlowLine[]
+  subtotal: string
+}
+
+export interface CashFlowResult {
+  entity_id: number
+  period_start: string
+  period_end: string
+  scenario_ids: number[]
+  operating: CashFlowSection
+  investing: CashFlowSection
+  financing: CashFlowSection
+  net_change: string
+  beginning_cash: string
+  ending_cash: string
+  tie_difference: string
+  warnings: string[]
+  is_preview: boolean
+}
+
+export interface EquityLine {
+  account_id: number
+  account_number: string
+  account_name: string
+  opening_balance: string
+  net_income_allocation: string
+  contributions: string
+  distributions: string
+  other_changes: string
+  closing_balance: string
+}
+
+export interface EquityStatementResult {
+  entity_id: number
+  period_start: string
+  period_end: string
+  lines: EquityLine[]
+  total_opening: string
+  total_net_income: string
+  total_contributions: string
+  total_distributions: string
+  total_closing: string
+}
+
+export interface FsValidationResult {
+  is_balanced: boolean
+  bs_difference: string
+  cf_tied: boolean
+  cf_difference: string | null
+  re_tied: boolean
+  re_difference: string | null
+  cons_tied: boolean
+  issues: string[]
+}
+
+export interface DrilldownJournalEntry {
+  je_id: number
+  je_number: string
+  entry_date: string
+  description: string
+  net_debit: string
+}
+
+export interface DrilldownAccount {
+  account_id: number
+  account_number: string
+  account_name: string
+  net_debit: string
+  signed_balance: string
+  journal_entries: DrilldownJournalEntry[]
+}
+
+export interface ReportLineDrilldown {
+  fs_line_code: string
+  fs_line_name: string
+  total_balance: string
+  accounts: DrilldownAccount[]
+}
+
+export interface TrendRow {
+  account_id: number
+  account_number: string
+  account_name: string
+  account_type: string
+  periods: Record<string, string>
+}
+
+export interface ReportDefinition {
+  id: number
+  organization_id: number
+  name: string
+  report_type: string
+  description: string | null
+  is_template: boolean
+  is_active: boolean
+}
+
+export interface ReportDefinitionCreate {
+  name: string
+  report_type: string
+  description?: string
+  is_template?: boolean
+}
+
+export interface Variance {
+  amount: string
+  percentage: string | null
+}

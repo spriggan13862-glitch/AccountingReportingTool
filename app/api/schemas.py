@@ -838,3 +838,181 @@ class DebtRollforwardRequest(BaseModel):
     beginning_balance: Decimal
     new_borrowings: Decimal
     repayments: Decimal = Decimal("0")
+
+
+# ---------------------------------------------------------------------------
+# Financial Statement Engine — M20
+# ---------------------------------------------------------------------------
+
+class CashFlowLineOut(BaseModel):
+    label: str
+    amount: Decimal
+    is_subtotal: bool = False
+
+
+class CashFlowSectionOut(BaseModel):
+    label: str
+    lines: list[CashFlowLineOut]
+    subtotal: Decimal
+
+
+class CashFlowResultOut(BaseModel):
+    entity_id: int
+    period_start: datetime.date
+    period_end: datetime.date
+    operating: CashFlowSectionOut
+    investing: CashFlowSectionOut
+    financing: CashFlowSectionOut
+    net_change: Decimal
+    beginning_cash: Decimal
+    ending_cash: Decimal
+    tie_difference: Decimal
+    warnings: list[str] = []
+    is_preview: bool = False
+
+
+class EquityLineOut(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    opening_balance: Decimal
+    net_income_allocation: Decimal
+    contributions: Decimal
+    distributions: Decimal
+    other_changes: Decimal
+    closing_balance: Decimal
+
+
+class EquityStatementOut(BaseModel):
+    entity_id: int
+    period_start: datetime.date
+    period_end: datetime.date
+    lines: list[EquityLineOut]
+    total_opening: Decimal
+    total_net_income: Decimal
+    total_contributions: Decimal
+    total_distributions: Decimal
+    total_closing: Decimal
+
+
+class FsValidationResultOut(BaseModel):
+    is_balanced: bool
+    bs_difference: Decimal
+    cf_tied: bool
+    cf_difference: Decimal
+    re_tied: bool
+    re_difference: Decimal
+    warnings: list[str] = []
+
+
+class DrilldownJeOut(BaseModel):
+    je_id: int
+    je_number: str
+    entry_date: str
+    debit: Decimal
+    credit: Decimal
+    description: str | None = None
+
+
+class DrilldownAccountOut(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    net_debit: Decimal
+    signed_balance: Decimal
+    journal_entries: list[DrilldownJeOut] = []
+
+
+class ReportLineDrilldownOut(BaseModel):
+    fs_line_code: str
+    fs_line_name: str
+    total_balance: Decimal
+    accounts: list[DrilldownAccountOut] = []
+
+
+class TrendRowOut(BaseModel):
+    account_type: str
+    label: str
+    periods: dict[str, Decimal]
+
+
+class TrendReportOut(BaseModel):
+    entity_id: int
+    period_labels: list[str]
+    rows: list[TrendRowOut]
+
+
+# ---------------------------------------------------------------------------
+# Report Definitions
+# ---------------------------------------------------------------------------
+
+class ReportDefinitionCreate(BaseModel):
+    organization_id: int
+    name: str
+    report_type: str
+    description: str | None = None
+    is_template: bool = False
+
+
+class ReportDefinitionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    name: str
+    report_type: str
+    description: str | None = None
+    is_template: bool
+    is_active: bool
+    created_at: datetime.datetime
+
+
+class ReportLineCreate(BaseModel):
+    sort_order: int = 0
+    indent_level: int = 0
+    label: str
+    section: str | None = None
+    account_ids: list[int] | None = None
+    fs_line_codes: list[str] | None = None
+    calculation_type: str = "sum"
+    sign_flip: bool = False
+    is_subtotal: bool = False
+    bold: bool = False
+
+
+class ReportLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    report_definition_id: int
+    sort_order: int
+    indent_level: int
+    label: str
+    section: str | None = None
+    account_ids_json: str | None = None
+    fs_line_codes_json: str | None = None
+    calculation_type: str
+    sign_flip: bool
+    is_subtotal: bool
+    bold: bool
+
+
+class ReportColumnCreate(BaseModel):
+    column_number: int
+    label: str
+    column_type: str
+    scenario_ids: list[int] | None = None
+    period_offset: int = 0
+    is_variance_column: bool = False
+    show_percentage: bool = False
+
+
+class ReportColumnOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    report_definition_id: int
+    column_number: int
+    label: str
+    column_type: str
+    scenario_ids_json: str | None = None
+    period_offset: int
+    is_variance_column: bool
+    show_percentage: bool
