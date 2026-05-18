@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 import app.models  # noqa: F401 — registers all models with Base.metadata
 from app.database import Base, engine
 from app.api.routers import (
+    accounting_periods,
     accounts,
     consolidation,
     entities,
@@ -12,7 +13,12 @@ from app.api.routers import (
     reporting,
     tb_import,
 )
+from app.services.accounting_period_service import (
+    PeriodAlreadyClosedError,
+    PeriodNotFoundError,
+)
 from app.services.journal_entry_service import (
+    ClosedPeriodError,
     ImmutableEntryError,
     JournalEntryNotFoundError,
     JournalEntryValidationError,
@@ -59,6 +65,21 @@ async def tb_import_error_handler(request: Request, exc: TbImportError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.exception_handler(ClosedPeriodError)
+async def closed_period_handler(request: Request, exc: ClosedPeriodError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(PeriodAlreadyClosedError)
+async def period_already_closed_handler(request: Request, exc: PeriodAlreadyClosedError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(PeriodNotFoundError)
+async def period_not_found_handler(request: Request, exc: PeriodNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
@@ -72,6 +93,7 @@ app.include_router(tb_import.router, prefix=API_PREFIX)
 app.include_router(reporting.router, prefix=API_PREFIX)
 app.include_router(fs_reporting.router, prefix=API_PREFIX)
 app.include_router(consolidation.router, prefix=API_PREFIX)
+app.include_router(accounting_periods.router, prefix=API_PREFIX)
 
 
 @app.get("/health")

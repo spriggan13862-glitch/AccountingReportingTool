@@ -249,6 +249,57 @@ class ComparativeFsRowOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Accounting Periods
+# ---------------------------------------------------------------------------
+
+class PeriodCreate(BaseModel):
+    entity_id: int
+    period_name: str
+    start_date: datetime.date
+    end_date: datetime.date
+    fiscal_year: int
+    fiscal_period: int
+    period_type: str = "monthly"    # monthly / quarterly / annual
+
+
+class PeriodOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    entity_id: int
+    period_name: str
+    start_date: datetime.date
+    end_date: datetime.date
+    fiscal_year: int
+    fiscal_period: int
+    period_type: str
+    is_closed: bool
+    closed_at: datetime.datetime | None = None
+    closed_by: str | None = None
+    created_at: datetime.datetime
+
+
+class ClosePeriodRequest(BaseModel):
+    re_account_id: int
+    scenario_id: int
+    closing_je_number: str
+    closed_by: str | None = None
+    generate_closing_entries: bool = True
+
+
+class ReopenPeriodRequest(BaseModel):
+    """Placeholder — no parameters required for soft reopen."""
+    pass
+
+
+class PeriodStatusOut(BaseModel):
+    """Response for the period-status endpoint."""
+    entity_id: int
+    date: datetime.date
+    period: PeriodOut | None = None
+    is_closed: bool = False
+
+
+# ---------------------------------------------------------------------------
 # Consolidation
 # ---------------------------------------------------------------------------
 

@@ -7,8 +7,10 @@ from app.models.tb_import import TbImport
 from app.models.fs_line_item import FsLineItem
 from app.models.account_mapping import AccountMapping
 from app.models.entity_group_member import EntityGroupMember
+from app.models.accounting_period import AccountingPeriod
 
 __all__ = [
     "Entity", "Account", "Scenario", "JournalEntry", "JournalEntryLine",
     "TbImport", "FsLineItem", "AccountMapping", "EntityGroupMember",
+    "AccountingPeriod",
 ]

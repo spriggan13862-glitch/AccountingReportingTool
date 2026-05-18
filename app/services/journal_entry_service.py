@@ -19,6 +19,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.accounting_period import AccountingPeriod
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate
@@ -43,6 +44,38 @@ class JournalEntryNotFoundError(LookupError):
 
 class ImmutableEntryError(ValueError):
     """Raised when attempting to mutate a posted, reversed, or voided entry."""
+
+
+class ClosedPeriodError(ValueError):
+    """Raised when attempting to post into a closed accounting period."""
+
+
+# ---------------------------------------------------------------------------
+# Period guard
+# ---------------------------------------------------------------------------
+
+def _check_period_not_closed(
+    db: Session,
+    entity_id: int,
+    entry_date: datetime.date,
+) -> None:
+    """Raise ClosedPeriodError if entry_date falls within any closed period for the entity."""
+    closed = (
+        db.query(AccountingPeriod)
+        .filter(
+            AccountingPeriod.entity_id == entity_id,
+            AccountingPeriod.start_date <= entry_date,
+            AccountingPeriod.end_date >= entry_date,
+            AccountingPeriod.is_closed == True,
+        )
+        .first()
+    )
+    if closed:
+        raise ClosedPeriodError(
+            f"Cannot post into closed period '{closed.period_name}' "
+            f"({closed.start_date} – {closed.end_date}); "
+            f"period was closed on {closed.closed_at}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +186,8 @@ def post_journal_entry(db: Session, data: JournalEntryCreate) -> JournalEntry:
     if result.has_errors:
         msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
         raise JournalEntryValidationError(msg, result=result)
+
+    _check_period_not_closed(db, data.entity_id, data.entry_date)
 
     now = datetime.datetime.now()
     je = JournalEntry(
@@ -342,6 +377,8 @@ def post_draft_journal_entry(
         msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
         raise JournalEntryValidationError(msg, result=result)
 
+    _check_period_not_closed(db, je.entity_id, je.entry_date)
+
     now = datetime.datetime.now()
     je.status     = "posted"
     je.posted_at  = now
@@ -390,6 +427,8 @@ def reverse_journal_entry(
             f"Only 'posted' entries can be reversed; "
             f"entry {je_id} has status='{original.status}'"
         )
+
+    _check_period_not_closed(db, original.entity_id, reversal_date)
 
     original_lines = (
         db.query(JournalEntryLine)

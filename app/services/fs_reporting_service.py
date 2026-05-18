@@ -18,12 +18,14 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Sequence
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
 from app.models.account_mapping import AccountMapping
 from app.models.fs_line_item import FsLineItem
+from app.models.journal_entry import JournalEntry
+from app.models.journal_entry_line import JournalEntryLine
 from app.services.reporting_service import TrialBalanceRow, get_trial_balance
 from app.services.validation import ValidationResult
 
@@ -58,6 +60,8 @@ def get_fs_statement(
     as_of_date: datetime.date,
     scenario_ids: Sequence[int],
     statement: str | None = None,
+    re_account_id: int | None = None,
+    fiscal_year_start: datetime.date | None = None,
 ) -> list[FsLineBalance]:
     """
     Returns FS line balances sorted by sort_order.
@@ -65,6 +69,14 @@ def get_fs_statement(
     Parameters
     ----------
     statement : 'BS', 'IS', 'CF', or None for all statements.
+    re_account_id
+        When provided, the FS line mapped to this account receives an
+        additional adjustment for current-fiscal-year net income (IS accounts
+        not yet closed to RE).  This ensures the BS retained-earnings line
+        reflects open-period earnings before formal close.
+    fiscal_year_start
+        Start of the current fiscal year for the YTD net-income calculation.
+        Defaults to January 1 of as_of_date's year.
     """
     tb_rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids)
     return build_fs_from_tb_rows(
@@ -73,6 +85,10 @@ def get_fs_statement(
         mapping_entity_id=entity_id,
         as_of_date=as_of_date,
         statement=statement,
+        re_account_id=re_account_id,
+        fiscal_year_start=fiscal_year_start,
+        re_entity_id=entity_id,
+        re_scenario_ids=list(scenario_ids),
     )
 
 
@@ -82,6 +98,10 @@ def build_fs_from_tb_rows(
     mapping_entity_id: int,
     as_of_date: datetime.date,
     statement: str | None = None,
+    re_account_id: int | None = None,
+    fiscal_year_start: datetime.date | None = None,
+    re_entity_id: int | None = None,
+    re_scenario_ids: list[int] | None = None,
 ) -> list[FsLineBalance]:
     """
     Build FS output from a pre-computed {account_id: TrialBalanceRow} dict.
@@ -91,6 +111,10 @@ def build_fs_from_tb_rows(
 
     mapping_entity_id controls which entity's account mappings are used
     (entity-specific first, then global).
+
+    When re_account_id is provided (along with re_entity_id and re_scenario_ids),
+    the FS line mapped to the RE account is adjusted by current-fiscal-year IS
+    net_debit, which incorporates open-period earnings into the BS RE line.
     """
     mappings = _effective_mappings(db, mapping_entity_id, as_of_date)
     lines_by_id = _fetch_fs_lines(db, statement)
@@ -99,6 +123,18 @@ def build_fs_from_tb_rows(
     for account_id, line_id in mappings.items():
         if line_id in own and account_id in tb_by_account_id:
             own[line_id] += tb_by_account_id[account_id].net_debit
+
+    # Retained earnings adjustment: add current fiscal-year IS net_debit to the
+    # FS line mapped to the RE account.  This ensures open-period earnings are
+    # reflected in the BS before a formal close entry moves them to the RE ledger.
+    if re_account_id is not None and re_entity_id is not None and re_scenario_ids is not None:
+        re_line_id = mappings.get(re_account_id)
+        if re_line_id is not None and re_line_id in own:
+            fy_start = fiscal_year_start or datetime.date(as_of_date.year, 1, 1)
+            ytd_is_net_debit = _ytd_is_net_debit(
+                db, re_entity_id, re_scenario_ids, fy_start, as_of_date
+            )
+            own[re_line_id] += ytd_is_net_debit
 
     totals = _rollup(own, lines_by_id)
 
@@ -250,3 +286,36 @@ def _rollup(
             compute(lid, frozenset())
 
     return totals
+
+
+def _ytd_is_net_debit(
+    db: Session,
+    entity_id: int,
+    scenario_ids: list[int],
+    fiscal_year_start: datetime.date,
+    as_of_date: datetime.date,
+) -> Decimal:
+    """
+    Sum of (debit − credit) for all IS accounts in the fiscal year to date.
+
+    Adding this to the RE account's FS-line own_balance incorporates open-period
+    earnings into the BS retained-earnings presentation before a formal close.
+
+    After a close the closing entry zeroes IS accounts, so this returns 0,
+    and the RE account's ledger balance already reflects net income.
+    """
+    raw = (
+        db.query(func.sum(JournalEntryLine.debit - JournalEntryLine.credit))
+        .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
+        .join(Account, JournalEntryLine.account_id == Account.id)
+        .filter(
+            JournalEntryLine.entity_id == entity_id,
+            JournalEntry.entry_date >= fiscal_year_start,
+            JournalEntry.entry_date <= as_of_date,
+            JournalEntry.scenario_id.in_(scenario_ids),
+            JournalEntry.status == "posted",
+            Account.account_type.in_(["revenue", "expense"]),
+        )
+        .scalar()
+    )
+    return Decimal(str(raw)) if raw is not None else Decimal("0")
