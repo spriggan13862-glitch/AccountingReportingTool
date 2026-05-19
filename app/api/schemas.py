@@ -1141,3 +1141,211 @@ class ImportSuggestionOut(BaseModel):
     suggested_account_id: int | None = None
     suggested_account_number: str | None = None
     suggested_account_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# M24: Close Management
+# ---------------------------------------------------------------------------
+
+class CloseChecklistOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    entity_id: int | None = None
+    period_id: int | None = None
+    close_type: str
+    name: str
+    status: str
+    target_close_date: datetime.date | None = None
+    actual_close_date: datetime.date | None = None
+    notes: str | None = None
+    created_by_user_id: int | None = None
+    approved_by_user_id: int | None = None
+    created_at: datetime.datetime
+    closed_at: datetime.datetime | None = None
+
+
+class CloseChecklistCreate(BaseModel):
+    organization_id: int
+    name: str
+    close_type: str = "monthly"
+    entity_id: int | None = None
+    period_id: int | None = None
+    target_close_date: datetime.date | None = None
+    notes: str | None = None
+
+
+class CloseTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    checklist_id: int
+    organization_id: int
+    entity_id: int | None = None
+    task_type: str
+    title: str
+    description: str | None = None
+    status: str
+    priority: str
+    sort_order: int
+    assigned_to_user_id: int | None = None
+    reviewer_user_id: int | None = None
+    prepared_by_user_id: int | None = None
+    reviewed_by_user_id: int | None = None
+    due_date: datetime.date | None = None
+    started_at: datetime.datetime | None = None
+    prepared_at: datetime.datetime | None = None
+    submitted_for_review_at: datetime.datetime | None = None
+    reviewed_at: datetime.datetime | None = None
+    completed_at: datetime.datetime | None = None
+    created_at: datetime.datetime
+    linked_reconciliation_id: int | None = None
+    linked_import_batch_id: int | None = None
+    linked_workpaper_id: int | None = None
+    blocker_task_ids: list[int] | None = None
+    rejection_reason: str | None = None
+    notes: str | None = None
+    is_required: bool
+
+
+class CloseTaskCreate(BaseModel):
+    title: str
+    task_type: str = "manual"
+    description: str | None = None
+    priority: str = "medium"
+    assigned_to_user_id: int | None = None
+    reviewer_user_id: int | None = None
+    due_date: datetime.date | None = None
+    entity_id: int | None = None
+    sort_order: int = 0
+    notes: str | None = None
+    blocker_task_ids: list[int] | None = None
+    is_required: bool = True
+    linked_reconciliation_id: int | None = None
+    linked_import_batch_id: int | None = None
+
+
+class CloseTaskStatusUpdate(BaseModel):
+    new_status: str
+    comment: str | None = None
+
+
+class CloseTaskCommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    task_id: int
+    author_user_id: int | None = None
+    comment_text: str
+    comment_type: str
+    prior_status: str | None = None
+    new_status: str | None = None
+    created_at: datetime.datetime
+
+
+class CloseTaskCommentCreate(BaseModel):
+    comment_text: str
+
+
+class CloseTaskAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    task_id: int
+    document_id: int | None = None
+    attachment_label: str
+    original_filename: str
+    version_number: int
+    document_category: str
+    uploaded_by_user_id: int | None = None
+    uploaded_at: datetime.datetime
+    is_superseded: bool
+    notes: str | None = None
+
+
+class CloseTaskAttachmentCreate(BaseModel):
+    attachment_label: str
+    original_filename: str
+    document_id: int | None = None
+    document_category: str = "support"
+    notes: str | None = None
+
+
+class CloseReadinessOut(BaseModel):
+    checklist_id: int
+    overall_status: str
+    completion_pct: float
+    total_tasks: int
+    required_tasks: int
+    by_status: dict[str, int]
+    overdue_count: int
+    blocked_count: int
+    tasks_under_review: int
+    unreviewed_workpapers: int
+    issues: list[str]
+
+
+class WorkpaperOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int
+    entity_id: int | None = None
+    period_id: int | None = None
+    close_task_id: int | None = None
+    title: str
+    description: str | None = None
+    workpaper_type: str
+    status: str
+    preparer_user_id: int | None = None
+    reviewer_user_id: int | None = None
+    reviewed_by_user_id: int | None = None
+    reviewer_comment: str | None = None
+    prepared_at: datetime.datetime | None = None
+    submitted_for_review_at: datetime.datetime | None = None
+    reviewed_at: datetime.datetime | None = None
+    finalized_at: datetime.datetime | None = None
+    created_by_user_id: int | None = None
+    created_at: datetime.datetime
+
+
+class WorkpaperCreate(BaseModel):
+    title: str
+    workpaper_type: str = "other"
+    description: str | None = None
+    entity_id: int | None = None
+    period_id: int | None = None
+    close_task_id: int | None = None
+    preparer_user_id: int | None = None
+    reviewer_user_id: int | None = None
+
+
+class WorkpaperReviewRequest(BaseModel):
+    approved: bool
+    comment: str | None = None
+
+
+class WorkpaperReferenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    workpaper_id: int
+    reference_type: str
+    reference_id: int
+    notes: str | None = None
+    added_by_user_id: int | None = None
+    added_at: datetime.datetime
+
+
+class WorkpaperReferenceCreate(BaseModel):
+    reference_type: str
+    reference_id: int
+    notes: str | None = None
+
+
+class AssignTaskRequest(BaseModel):
+    assigned_to_user_id: int | None = None
+    reviewer_user_id: int | None = None
+
+
+class ReviewActionRequest(BaseModel):
+    comment: str | None = None
+
+
+class RejectTaskRequest(BaseModel):
+    reason: str

@@ -26,6 +26,12 @@ from app.models.reconciliation import Reconciliation
 from app.models.reconciliation_line import ReconciliationLine
 from app.models.support_reference import SupportReference
 from app.models.report_definition import ReportDefinition, ReportLine, ReportColumn
+from app.models.close_checklist import CloseChecklist
+from app.models.close_task import CloseTask
+from app.models.close_task_comment import CloseTaskComment
+from app.models.close_task_attachment import CloseTaskAttachment
+from app.models.workpaper import Workpaper
+from app.models.workpaper_reference import WorkpaperReference
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -38,4 +44,6 @@ __all__ = [
     "PreviewRun",
     "Reconciliation", "ReconciliationLine", "SupportReference",
     "ReportDefinition", "ReportLine", "ReportColumn",
+    "CloseChecklist", "CloseTask", "CloseTaskComment", "CloseTaskAttachment",
+    "Workpaper", "WorkpaperReference",
 ]

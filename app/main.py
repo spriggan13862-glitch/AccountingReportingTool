@@ -17,6 +17,7 @@ from app.api.routers import (
     accounting_periods,
     accounts,
     auth,
+    close_management,
     consolidation,
     documents,
     entities,
@@ -58,6 +59,14 @@ from app.services.report_service import (
     ReportValidationError,
 )
 from app.services.draft_overlay_service import OverlayValidationError
+from app.services.close_management_service import (
+    CloseChecklistNotFoundError,
+    CloseTaskNotFoundError,
+    CloseTaskStateError,
+    CloseReviewerSeparationError,
+    WorkpaperNotFoundError,
+    WorkpaperStateError,
+)
 from app.services.reconciliation_service import (
     ReconciliationNotFoundError,
     ReconciliationStateError,
@@ -221,6 +230,36 @@ async def overlay_validation_handler(request: Request, exc: OverlayValidationErr
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+@app.exception_handler(CloseChecklistNotFoundError)
+async def close_checklist_not_found_handler(request: Request, exc: CloseChecklistNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(CloseTaskNotFoundError)
+async def close_task_not_found_handler(request: Request, exc: CloseTaskNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(CloseTaskStateError)
+async def close_task_state_handler(request: Request, exc: CloseTaskStateError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(CloseReviewerSeparationError)
+async def close_reviewer_separation_handler(request: Request, exc: CloseReviewerSeparationError):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
+@app.exception_handler(WorkpaperNotFoundError)
+async def workpaper_not_found_handler(request: Request, exc: WorkpaperNotFoundError):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(WorkpaperStateError)
+async def workpaper_state_handler(request: Request, exc: WorkpaperStateError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
@@ -245,6 +284,7 @@ app.include_router(report_runs.router, prefix=API_PREFIX)
 app.include_router(preview.router, prefix=API_PREFIX)
 app.include_router(reconciliation.router, prefix=API_PREFIX)
 app.include_router(financial_statements.router, prefix=API_PREFIX)
+app.include_router(close_management.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

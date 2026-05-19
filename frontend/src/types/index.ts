@@ -699,3 +699,132 @@ export interface ImportSuggestion {
   suggested_account_number: string | null
   suggested_account_name: string | null
 }
+
+// ---------------------------------------------------------------------------
+// M24: Close Management
+// ---------------------------------------------------------------------------
+
+export type CloseChecklistStatus = 'open' | 'in_progress' | 'review' | 'approved' | 'closed'
+export type CloseTaskStatus =
+  | 'not_started' | 'in_progress' | 'blocked' | 'prepared'
+  | 'under_review' | 'completed' | 'rejected'
+export type WorkpaperStatus = 'draft' | 'prepared' | 'reviewed' | 'finalized'
+
+export interface CloseChecklist {
+  id: number
+  organization_id: number
+  entity_id: number | null
+  period_id: number | null
+  close_type: string
+  name: string
+  status: CloseChecklistStatus
+  target_close_date: string | null
+  actual_close_date: string | null
+  notes: string | null
+  created_by_user_id: number | null
+  approved_by_user_id: number | null
+  created_at: string
+  closed_at: string | null
+}
+
+export interface CloseTask {
+  id: number
+  checklist_id: number
+  organization_id: number
+  entity_id: number | null
+  task_type: string
+  title: string
+  description: string | null
+  status: CloseTaskStatus
+  priority: string
+  sort_order: number
+  assigned_to_user_id: number | null
+  reviewer_user_id: number | null
+  prepared_by_user_id: number | null
+  reviewed_by_user_id: number | null
+  due_date: string | null
+  started_at: string | null
+  prepared_at: string | null
+  submitted_for_review_at: string | null
+  reviewed_at: string | null
+  completed_at: string | null
+  created_at: string
+  linked_reconciliation_id: number | null
+  linked_import_batch_id: number | null
+  linked_workpaper_id: number | null
+  blocker_task_ids: number[] | null
+  rejection_reason: string | null
+  notes: string | null
+  is_required: boolean
+}
+
+export interface CloseTaskComment {
+  id: number
+  task_id: number
+  author_user_id: number | null
+  comment_text: string
+  comment_type: string
+  prior_status: string | null
+  new_status: string | null
+  created_at: string
+}
+
+export interface CloseTaskAttachment {
+  id: number
+  task_id: number
+  document_id: number | null
+  attachment_label: string
+  original_filename: string
+  version_number: number
+  document_category: string
+  uploaded_by_user_id: number | null
+  uploaded_at: string
+  is_superseded: boolean
+  notes: string | null
+}
+
+export interface CloseReadiness {
+  checklist_id: number
+  overall_status: string
+  completion_pct: number
+  total_tasks: number
+  required_tasks: number
+  by_status: Record<string, number>
+  overdue_count: number
+  blocked_count: number
+  tasks_under_review: number
+  unreviewed_workpapers: number
+  issues: string[]
+}
+
+export interface Workpaper {
+  id: number
+  organization_id: number
+  entity_id: number | null
+  period_id: number | null
+  close_task_id: number | null
+  title: string
+  description: string | null
+  workpaper_type: string
+  status: WorkpaperStatus
+  preparer_user_id: number | null
+  reviewer_user_id: number | null
+  reviewed_by_user_id: number | null
+  reviewer_comment: string | null
+  prepared_at: string | null
+  submitted_for_review_at: string | null
+  reviewed_at: string | null
+  finalized_at: string | null
+  created_by_user_id: number | null
+  created_at: string
+}
+
+export interface WorkpaperReference {
+  id: number
+  workpaper_id: number
+  reference_type: string
+  reference_id: number
+  notes: string | null
+  added_by_user_id: number | null
+  added_at: string
+}

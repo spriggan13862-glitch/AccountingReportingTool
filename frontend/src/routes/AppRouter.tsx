@@ -25,6 +25,11 @@ import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
 import { ImportReviewPage } from '@/pages/ImportReviewPage'
 import { MappingWorkbenchPage } from '@/pages/MappingWorkbenchPage'
+import { CloseDashboardPage } from '@/pages/CloseDashboardPage'
+import { CloseChecklistPage } from '@/pages/CloseChecklistPage'
+import { CloseTaskDetailPage } from '@/pages/CloseTaskDetailPage'
+import { WorkpaperCenterPage } from '@/pages/WorkpaperCenterPage'
+import { WorkpaperDetailPage } from '@/pages/WorkpaperDetailPage'
 
 /**
  * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
@@ -72,6 +77,11 @@ export function AppRouter() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
           <Route path="documents" element={<DocumentsPage />} />
+          <Route path="close" element={<CloseDashboardPage />} />
+          <Route path="close/:id" element={<CloseChecklistPage />} />
+          <Route path="close/tasks/:id" element={<CloseTaskDetailPage />} />
+          <Route path="close/workpapers" element={<WorkpaperCenterPage />} />
+          <Route path="close/workpapers/:id" element={<WorkpaperDetailPage />} />
           {/* Admin route — requires admin role */}
           <Route
             path="admin"
