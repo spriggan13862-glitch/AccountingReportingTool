@@ -56,7 +56,7 @@ export function ImportCenterPage() {
     queryFn: () => entitiesApi.list(),
     enabled: !!orgId,
   })
-  const entityCount = Array.isArray(entityData) ? entityData.length : (entityData as any)?.total ?? 0
+  const entityCount = entityData?.length ?? 0
 
   const uploadMutation = useMutation({
     mutationFn: () => {

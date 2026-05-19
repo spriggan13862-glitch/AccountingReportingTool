@@ -30,8 +30,15 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./accounting.db"
 
-    # CORS — comma-separated origins
-    ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    # CORS — comma-separated origins (covers Vite dev ports and 127.0.0.1 variants)
+    ALLOWED_ORIGINS: str = (
+        "http://localhost:5173,"
+        "http://localhost:5174,"
+        "http://127.0.0.1:5173,"
+        "http://127.0.0.1:5174,"
+        "http://localhost:3000,"
+        "http://127.0.0.1:3000"
+    )
 
     # Logging
     LOG_LEVEL: str = "INFO"

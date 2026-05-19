@@ -98,7 +98,7 @@ export const tbImportApi = {
       .get<RawPreview>(`/tb-imports/batches/${batchId}/raw-preview`, { params: { limit } })
       .then((r) => r.data),
 
-  exportMappingsUrl: (batchId: number) => `/tb-imports/batches/${batchId}/export-mappings`,
+  exportMappingsUrl: (batchId: number) => `/api/v1/tb-imports/batches/${batchId}/export-mappings`,
 
   // M23 batch pipeline
   uploadBatch: (params: UploadBatchParams) => {

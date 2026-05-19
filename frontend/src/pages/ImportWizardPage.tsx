@@ -96,7 +96,7 @@ export function ImportWizardPage() {
     queryFn: () => entitiesApi.list(),
     enabled: !!orgId,
   })
-  const entities: Entity[] = Array.isArray(entityData) ? entityData : (entityData as any)?.items ?? []
+  const entities: Entity[] = entityData ?? []
 
   const detectMutation = useMutation({
     mutationFn: () => {

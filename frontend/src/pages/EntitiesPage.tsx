@@ -59,7 +59,7 @@ export function EntitiesPage() {
     queryFn: () => entitiesApi.list(),
   })
 
-  const entities: Entity[] = Array.isArray(data) ? data : (data as any)?.items ?? []
+  const entities: Entity[] = data ?? []
 
   const createMutation = useMutation({
     mutationFn: () => entitiesApi.create({

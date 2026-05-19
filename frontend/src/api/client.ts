@@ -1,7 +1,10 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios'
 import type { ApiError } from '@/types'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1'
+// In development the Vite proxy rewrites /api → http://localhost:8000/api,
+// so relative paths work and CORS preflight is avoided entirely.
+// Override with VITE_API_BASE_URL for production or non-proxied environments.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 // ---------------------------------------------------------------------------
 // Organization context (set by OrgProvider)

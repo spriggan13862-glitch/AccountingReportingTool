@@ -11,6 +11,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      // Proxy all /api requests to the FastAPI backend in development.
+      // This eliminates CORS preflight entirely — the browser sees same-origin.
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   // @ts-expect-error vitest config is injected via triple-slash reference above
   test: {
     globals: true,

@@ -4,6 +4,7 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { useOrg } from '@/providers/OrgProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { entitiesApi } from '@/api/entities'
+import type { Entity } from '@/types'
 
 interface InfoRowProps { label: string; value: string | number | boolean | null | undefined }
 function InfoRow({ label, value }: InfoRowProps) {
@@ -24,7 +25,7 @@ export function AdminPage() {
     enabled: !!org,
   })
 
-  const entities: any[] = Array.isArray(entityData) ? entityData : (entityData as any)?.items ?? []
+  const entities: Entity[] = entityData ?? []
 
   if (!user?.is_superuser && !user?.is_active) {
     return (
