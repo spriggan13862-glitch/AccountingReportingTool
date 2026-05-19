@@ -1,9 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from app.api.deps import get_db
 from app.api.schemas import EntityCreate, EntityOut, Page
 from app.models.entity import Entity
+
+
+class EntityUpdate(BaseModel):
+    name: str | None = None
+    entity_type: str | None = None
+    parent_id: int | None = None
+    currency: str | None = None
+    active: bool | None = None
 
 router = APIRouter(prefix="/entities", tags=["entities"])
 
@@ -52,4 +61,25 @@ def get_entity(entity_id: int, db: Session = Depends(get_db)):
     entity = db.get(Entity, entity_id)
     if entity is None:
         raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
+    return entity
+
+
+@router.patch("/{entity_id}", response_model=EntityOut)
+def update_entity(entity_id: int, body: EntityUpdate, db: Session = Depends(get_db)):
+    entity = db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
+    if body.name is not None:
+        entity.name = body.name
+    if body.entity_type is not None:
+        entity.entity_type = body.entity_type
+    if body.parent_id is not None:
+        entity.parent_id = body.parent_id
+    if body.currency is not None:
+        entity.currency = body.currency
+    if body.active is not None:
+        entity.active = body.active
+    db.flush()
+    db.refresh(entity)
+    db.commit()
     return entity

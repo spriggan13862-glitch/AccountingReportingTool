@@ -32,6 +32,8 @@ import { WorkpaperCenterPage } from '@/pages/WorkpaperCenterPage'
 import { WorkpaperDetailPage } from '@/pages/WorkpaperDetailPage'
 import { ComparativeFinancialsPage } from '@/pages/ComparativeFinancialsPage'
 import { VarianceAnalysisPage } from '@/pages/VarianceAnalysisPage'
+import { HelpCenterPage } from '@/pages/HelpCenterPage'
+import { AdminPage } from '@/pages/AdminPage'
 
 /**
  * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
@@ -86,12 +88,13 @@ export function AppRouter() {
           <Route path="close/workpapers/:id" element={<WorkpaperDetailPage />} />
           <Route path="comparative-financials" element={<ComparativeFinancialsPage />} />
           <Route path="variance-analysis" element={<VarianceAnalysisPage />} />
+          <Route path="help" element={<HelpCenterPage />} />
           {/* Admin route — requires admin role */}
           <Route
             path="admin"
             element={
               <ProtectedRoute requiredRole="admin">
-                <PlaceholderPage title="Admin" />
+                <AdminPage />
               </ProtectedRoute>
             }
           />

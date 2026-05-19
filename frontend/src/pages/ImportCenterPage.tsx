@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Clock, CheckCircle, AlertCircle, XCircle, ChevronRight } from 'lucide-react'
+import { Upload, Clock, CheckCircle, AlertCircle, XCircle, ChevronRight, HelpCircle, FileText } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useOrg } from '@/providers/OrgProvider'
+import { useToast } from '@/providers/ToastProvider'
 import type { ImportBatch, ImportBatchStatus } from '@/types'
 
 function statusBadge(status: ImportBatchStatus) {
@@ -34,6 +35,8 @@ export function ImportCenterPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
+  const toast = useToast()
+  const [showFormatHelp, setShowFormatHelp] = useState(false)
 
   const [entityId, setEntityId] = useState('')
   const [asOfDate, setAsOfDate] = useState('')
@@ -61,9 +64,10 @@ export function ImportCenterPage() {
       queryClient.invalidateQueries({ queryKey: ['import-batches', orgId] })
       setFile(null)
       setApiError(null)
+      toast(`Import uploaded: ${file?.name ?? 'file'} — review and map accounts to continue`, 'success')
       navigate(`/import/${batch.id}`)
     },
-    onError: (err: Error) => setApiError(err.message),
+    onError: (err: Error) => { setApiError(err.message); toast(err.message, 'error') },
   })
 
   function handleDrop(e: React.DragEvent) {
@@ -103,6 +107,41 @@ export function ImportCenterPage() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
             />
           </div>
+        </div>
+
+        {/* Format guidance */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setShowFormatHelp((v) => !v)}
+            className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            {showFormatHelp ? 'Hide format guidance' : 'Show accepted formats & tips'}
+          </button>
+          {showFormatHelp && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-2">
+              <p className="font-semibold">Accepted file formats:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li><strong>CSV/XLSX</strong> — must have account number, account name, and debit/credit columns</li>
+                <li><strong>QuickBooks (.QBO)</strong> — QBO transaction export</li>
+                <li><strong>NetSuite</strong> — GL detail export with "Account" and "Amount" columns</li>
+                <li><strong>Sage</strong> — trial balance export</li>
+              </ul>
+              <p className="font-semibold mt-2">Common column name patterns (auto-detected):</p>
+              <div className="grid grid-cols-2 gap-1">
+                <span>Account #, Acct, Number → account number</span>
+                <span>Name, Description → account name</span>
+                <span>Debit, Dr → debit amount</span>
+                <span>Credit, Cr → credit amount</span>
+                <span>Balance, Amount, Net → signed net balance</span>
+                <span>"1000 - Cash" → combined number/name</span>
+              </div>
+              <p className="mt-2 text-blue-600">
+                <strong>Tip:</strong> Any unmapped accounts will go to the Mapping Workbench after upload.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Drop zone */}
@@ -153,7 +192,11 @@ export function ImportCenterPage() {
         {isLoading ? (
           <p className="px-4 py-6 text-sm text-gray-400">Loading…</p>
         ) : !batches?.length ? (
-          <p className="px-4 py-6 text-sm text-gray-400">No imports yet.</p>
+          <div className="px-4 py-10 text-center">
+            <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500 font-medium">No imports yet</p>
+            <p className="text-xs text-gray-400 mt-1">Upload a trial balance or GL export above to begin.</p>
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">

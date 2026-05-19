@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/providers/AuthProvider'
 import { OrgProvider, useOrg } from '@/providers/OrgProvider'
+import { ToastProvider } from '@/providers/ToastProvider'
 import { AppRouter } from '@/routes/AppRouter'
 import { useAuth } from '@/providers/AuthProvider'
 import { getOrganization } from '@/api/organizations'
@@ -38,9 +39,11 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <OrgProvider>
-          <OrgAutoLoader>
-            <AppRouter />
-          </OrgAutoLoader>
+          <ToastProvider>
+            <OrgAutoLoader>
+              <AppRouter />
+            </OrgAutoLoader>
+          </ToastProvider>
         </OrgProvider>
       </AuthProvider>
     </QueryClientProvider>
