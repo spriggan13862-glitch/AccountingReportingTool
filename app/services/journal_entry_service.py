@@ -66,7 +66,7 @@ def _check_period_not_closed(
     entity_id: int,
     entry_date: datetime.date,
 ) -> None:
-    """Raise ClosedPeriodError if entry_date falls within any closed period for the entity."""
+    """Raise ClosedPeriodError if entry_date falls within any locked period for the entity."""
     closed = (
         db.query(AccountingPeriod)
         .filter(
@@ -78,10 +78,10 @@ def _check_period_not_closed(
         .first()
     )
     if closed:
+        status_label = getattr(closed, "period_status", "closed").replace("_", "-")
         raise ClosedPeriodError(
             f"Cannot post into closed period '{closed.period_name}' "
-            f"({closed.start_date} – {closed.end_date}); "
-            f"period was closed on {closed.closed_at}"
+            f"({closed.start_date} – {closed.end_date}) [{status_label}]"
         )
 
 

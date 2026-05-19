@@ -828,3 +828,88 @@ export interface WorkpaperReference {
   added_by_user_id: number | null
   added_at: string
 }
+
+// ---------------------------------------------------------------------------
+// M25: Period Governance & Shadow-Close
+// ---------------------------------------------------------------------------
+
+export type PeriodStatus = 'open' | 'soft_closed' | 'hard_closed' | 'reopened'
+
+export interface PeriodGovernanceEvent {
+  id: number
+  period_id: number
+  event_type: string
+  from_status: string
+  to_status: string
+  actor_user_id: number | null
+  reason: string | null
+  created_at: string
+}
+
+export interface PeriodLockSummary {
+  period_id: number
+  period_name: string
+  period_status: PeriodStatus
+  is_hard_locked: boolean
+  is_soft_locked: boolean
+  posting_allowed: boolean
+}
+
+export interface ShadowCheckResult {
+  check: string
+  status: 'valid' | 'warning' | 'blocked'
+  message: string
+  detail: Record<string, unknown>
+}
+
+export interface ShadowCloseReport {
+  period_id: number
+  entity_id: number
+  scenario_id: number | null
+  overall_status: 'valid' | 'warning' | 'blocked'
+  checks: ShadowCheckResult[]
+  run_at: string
+}
+
+export interface ShadowCloseRun {
+  id: number
+  period_id: number
+  entity_id: number
+  overall_status: string
+  run_by_user_id: number | null
+  run_at: string
+  result_json: ShadowCheckResult[]
+}
+
+export interface ComparativeLine {
+  account_id: number
+  account_number: string
+  account_name: string
+  current_amount: string
+  prior_amount: string
+  amount_variance: string
+  pct_variance: string | null
+  is_material: boolean
+}
+
+export interface ComparativeSection {
+  section: string
+  current_total: string
+  prior_total: string
+  variance_total: string
+  lines: ComparativeLine[]
+}
+
+export interface ComparativeReport {
+  report_type: string
+  entity_id: number
+  current_period_id: number
+  comparison_period_id: number
+  current_period_name: string
+  comparison_period_name: string
+  scenario_id: number | null
+  materiality_threshold: string
+  generated_at: string
+  sections: ComparativeSection[]
+  material_variances_count: number
+}

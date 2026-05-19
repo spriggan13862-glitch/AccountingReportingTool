@@ -1349,3 +1349,115 @@ class ReviewActionRequest(BaseModel):
 
 class RejectTaskRequest(BaseModel):
     reason: str
+
+
+# ---------------------------------------------------------------------------
+# M25 Period Governance
+# ---------------------------------------------------------------------------
+
+class PeriodGovernanceRequest(BaseModel):
+    reason: str | None = None
+    actor_user_id: int | None = None
+
+
+class PeriodGovernanceEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    period_id: int
+    event_type: str
+    from_status: str
+    to_status: str
+    actor_user_id: int | None
+    reason: str | None
+    created_at: datetime.datetime
+
+
+class PeriodLockSummaryOut(BaseModel):
+    period_id: int
+    period_name: str
+    period_status: str
+    is_hard_locked: bool
+    is_soft_locked: bool
+    posting_allowed: bool
+
+
+class PeriodStatusOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    period_name: str
+    period_status: str
+    is_closed: bool
+    start_date: datetime.date
+    end_date: datetime.date
+
+
+# ---------------------------------------------------------------------------
+# M25 Shadow-Close Validation
+# ---------------------------------------------------------------------------
+
+class ShadowCheckResultOut(BaseModel):
+    check: str
+    status: str          # valid | warning | blocked
+    message: str
+    detail: dict[str, Any] = {}
+
+
+class ShadowCloseReportOut(BaseModel):
+    period_id: int
+    entity_id: int
+    scenario_id: int | None
+    overall_status: str
+    checks: list[ShadowCheckResultOut]
+    run_at: str
+
+
+class ShadowCloseRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    period_id: int
+    entity_id: int
+    overall_status: str
+    run_by_user_id: int | None
+    run_at: datetime.datetime
+    result_json: list[Any]
+
+
+class ShadowCloseRequest(BaseModel):
+    entity_id: int
+    scenario_id: int | None = None
+    persist: bool = True
+
+
+# ---------------------------------------------------------------------------
+# M25 Comparative Reports
+# ---------------------------------------------------------------------------
+
+class ComparativeReportRequest(BaseModel):
+    entity_id: int
+    current_period_id: int
+    comparison_period_id: int
+    report_type: str = "income_statement"
+    scenario_id: int | None = None
+    materiality_threshold: Decimal = Decimal("1000")
+
+
+class ComparativeSectionOut(BaseModel):
+    section: str
+    current_total: str
+    prior_total: str
+    variance_total: str
+    lines: list[dict[str, Any]]
+
+
+class ComparativeReportOut(BaseModel):
+    report_type: str
+    entity_id: int
+    current_period_id: int
+    comparison_period_id: int
+    current_period_name: str
+    comparison_period_name: str
+    scenario_id: int | None
+    materiality_threshold: str
+    generated_at: str
+    sections: list[ComparativeSectionOut]
+    material_variances_count: int

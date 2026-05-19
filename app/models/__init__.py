@@ -32,6 +32,8 @@ from app.models.close_task_comment import CloseTaskComment
 from app.models.close_task_attachment import CloseTaskAttachment
 from app.models.workpaper import Workpaper
 from app.models.workpaper_reference import WorkpaperReference
+from app.models.period_governance_event import PeriodGovernanceEvent
+from app.models.shadow_close_run import ShadowCloseRun
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -46,4 +48,5 @@ __all__ = [
     "ReportDefinition", "ReportLine", "ReportColumn",
     "CloseChecklist", "CloseTask", "CloseTaskComment", "CloseTaskAttachment",
     "Workpaper", "WorkpaperReference",
+    "PeriodGovernanceEvent", "ShadowCloseRun",
 ]

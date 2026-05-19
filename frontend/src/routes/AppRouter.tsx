@@ -30,6 +30,8 @@ import { CloseChecklistPage } from '@/pages/CloseChecklistPage'
 import { CloseTaskDetailPage } from '@/pages/CloseTaskDetailPage'
 import { WorkpaperCenterPage } from '@/pages/WorkpaperCenterPage'
 import { WorkpaperDetailPage } from '@/pages/WorkpaperDetailPage'
+import { ComparativeFinancialsPage } from '@/pages/ComparativeFinancialsPage'
+import { VarianceAnalysisPage } from '@/pages/VarianceAnalysisPage'
 
 /**
  * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
@@ -82,6 +84,8 @@ export function AppRouter() {
           <Route path="close/tasks/:id" element={<CloseTaskDetailPage />} />
           <Route path="close/workpapers" element={<WorkpaperCenterPage />} />
           <Route path="close/workpapers/:id" element={<WorkpaperDetailPage />} />
+          <Route path="comparative-financials" element={<ComparativeFinancialsPage />} />
+          <Route path="variance-analysis" element={<VarianceAnalysisPage />} />
           {/* Admin route — requires admin role */}
           <Route
             path="admin"

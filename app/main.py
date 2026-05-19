@@ -33,6 +33,13 @@ from app.api.routers import (
     tb_import,
     users,
     workflow,
+    period_governance,
+    shadow_close,
+    comparative_reports,
+)
+from app.services.period_governance_service import (
+    PeriodLockedError,
+    PeriodGovernanceError,
 )
 from app.services.accounting_period_service import (
     PeriodAlreadyClosedError,
@@ -260,6 +267,16 @@ async def workpaper_state_handler(request: Request, exc: WorkpaperStateError):
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
+@app.exception_handler(PeriodLockedError)
+async def period_locked_handler(request: Request, exc: PeriodLockedError):
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(PeriodGovernanceError)
+async def period_governance_handler(request: Request, exc: PeriodGovernanceError):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
@@ -285,6 +302,9 @@ app.include_router(preview.router, prefix=API_PREFIX)
 app.include_router(reconciliation.router, prefix=API_PREFIX)
 app.include_router(financial_statements.router, prefix=API_PREFIX)
 app.include_router(close_management.router, prefix=API_PREFIX)
+app.include_router(period_governance.router, prefix=API_PREFIX)
+app.include_router(shadow_close.router, prefix=API_PREFIX)
+app.include_router(comparative_reports.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

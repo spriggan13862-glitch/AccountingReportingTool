@@ -29,6 +29,7 @@ class AccountingPeriod(Base):
     fiscal_period = Column(Integer, nullable=False)         # 1–12 monthly, 1–4 quarterly, 1 annual
     period_type = Column(String(20), nullable=False, default="monthly")
     is_closed = Column(Boolean, nullable=False, default=False)
+    period_status = Column(String(20), nullable=False, default="open")  # open|soft_closed|hard_closed|reopened
     closed_at = Column(DateTime, nullable=True)
     closed_by = Column(String(200), nullable=True)
     closed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
