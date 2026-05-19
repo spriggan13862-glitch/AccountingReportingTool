@@ -7,6 +7,7 @@ import { ToastProvider } from '@/providers/ToastProvider'
 import { AppRouter } from '@/routes/AppRouter'
 import { useAuth } from '@/providers/AuthProvider'
 import { getOrganization } from '@/api/organizations'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -36,16 +37,18 @@ function OrgAutoLoader({ children }: { children: React.ReactNode }) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <OrgProvider>
-          <ToastProvider>
-            <OrgAutoLoader>
-              <AppRouter />
-            </OrgAutoLoader>
-          </ToastProvider>
-        </OrgProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <OrgProvider>
+            <ToastProvider>
+              <OrgAutoLoader>
+                <AppRouter />
+              </OrgAutoLoader>
+            </ToastProvider>
+          </OrgProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

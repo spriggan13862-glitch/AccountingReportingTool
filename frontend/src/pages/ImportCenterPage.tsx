@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Clock, CheckCircle, AlertCircle, XCircle, ChevronRight, HelpCircle, FileText } from 'lucide-react'
+import { Upload, Clock, CheckCircle, AlertCircle, XCircle, ChevronRight, HelpCircle, FileText, Building2, ArrowRight } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
+import { entitiesApi } from '@/api/entities'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useOrg } from '@/providers/OrgProvider'
@@ -50,6 +51,13 @@ export function ImportCenterPage() {
     enabled: !!orgId,
   })
 
+  const { data: entityData } = useQuery({
+    queryKey: ['entities'],
+    queryFn: () => entitiesApi.list(),
+    enabled: !!orgId,
+  })
+  const entityCount = Array.isArray(entityData) ? entityData.length : (entityData as any)?.total ?? 0
+
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!file || !entityId || !asOfDate) throw new Error('All fields required')
@@ -92,6 +100,26 @@ export function ImportCenterPage() {
       }
     >
       {apiError && <ErrorBanner message={apiError} />}
+
+      {/* Entity-first enforcement */}
+      {entityCount === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mb-4 flex items-start gap-3">
+          <Building2 className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Create an entity first</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Imports are associated with entities. You need at least one entity before uploading trial balance data.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/entities')}
+              className="mt-2 flex items-center gap-1 text-xs text-amber-700 underline font-medium hover:text-amber-900"
+            >
+              Go to Entities <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Quick upload form */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">

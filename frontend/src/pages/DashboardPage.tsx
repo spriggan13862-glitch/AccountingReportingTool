@@ -1,14 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { workflowApi } from '@/api/workflow'
 import { reportsApi } from '@/api/reports'
 import { journalEntriesApi } from '@/api/journalEntries'
+import { tbImportApi } from '@/api/tbImport'
 import { useOrg } from '@/providers/OrgProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { SetupWizardPage } from '@/pages/SetupWizardPage'
+import { AlertCircle, Clock, CheckCircle } from 'lucide-react'
 
 function DashboardCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -44,6 +47,54 @@ function QuickLinks() {
           </Link>
         ))}
       </div>
+    </div>
+  )
+}
+
+function OperationalStatusCards({ orgId }: { orgId: number }) {
+  const navigate = useNavigate()
+  const { data: batches } = useQuery({
+    queryKey: ['import-batches', orgId],
+    queryFn: () => tbImportApi.listBatches(orgId),
+    enabled: !!orgId,
+  })
+
+  if (!batches?.length) return null
+
+  const pending = batches.filter((b) => ['mapping_required', 'validation_failed'].includes(b.status))
+  const readyToPost = batches.filter((b) => b.status === 'ready_to_post')
+  const totalUnmapped = batches.reduce((acc, b) => acc + (b.unmapped_row_count ?? 0), 0)
+
+  if (!pending.length && !readyToPost.length) return null
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+      {pending.length > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate('/import')}
+          className="flex items-center gap-3 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-left hover:bg-yellow-100 transition-colors"
+        >
+          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-yellow-800">{pending.length} import{pending.length > 1 ? 's' : ''} need attention</p>
+            <p className="text-xs text-yellow-600">{totalUnmapped} unmapped accounts</p>
+          </div>
+        </button>
+      )}
+      {readyToPost.length > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate('/import')}
+          className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-left hover:bg-green-100 transition-colors"
+        >
+          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">{readyToPost.length} import{readyToPost.length > 1 ? 's' : ''} ready to post</p>
+            <p className="text-xs text-green-600">Validated and awaiting posting</p>
+          </div>
+        </button>
+      )}
     </div>
   )
 }
@@ -91,6 +142,12 @@ export function DashboardPage() {
   return (
     <PageLayout title="Dashboard" subtitle={`Overview for ${org.name}`}>
       <div className="space-y-4">
+        {/* Guided onboarding wizard (dismissible) */}
+        <SetupWizardPage />
+
+        {/* Operational status alerts */}
+        <OperationalStatusCards orgId={orgId} />
+
         {/* Onboarding quick links */}
         <QuickLinks />
 

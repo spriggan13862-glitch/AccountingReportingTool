@@ -9,7 +9,12 @@
       "Bash(git config *)",
       "Bash(python *)",
       "PowerShell(npm test *)",
-      "PowerShell(npm run *)"
+      "PowerShell(npm run *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(alembic upgrade *)",
+      "Bash(npx vitest *)"
     ]
   }
 }

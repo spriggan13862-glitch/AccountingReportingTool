@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Upload, BookOpen, CheckCircle, EyeOff, GitPullRequest,
-  ClipboardList, TrendingUp, ChevronDown, ChevronRight, ExternalLink
+  ClipboardList, TrendingUp, ChevronDown, ChevronRight, ExternalLink,
+  Map, BarChart2, FileSpreadsheet, Download, Building2, ArrowRight,
 } from 'lucide-react'
 import { PageLayout } from '@/components/ui/PageLayout'
 
@@ -16,23 +17,52 @@ interface Guide {
 
 const guides: Guide[] = [
   {
+    icon: Building2,
+    title: 'Setting up your first entity',
+    description: 'Create entities representing legal entities, cost centers, or reporting units.',
+    route: '/entities',
+    steps: [
+      'Navigate to Entities from the sidebar.',
+      'Click "New Entity" and enter a unique code and display name.',
+      'Set the entity type (operating, holding, elimination, etc.) and base currency.',
+      'Optionally set the fiscal year end month and FY convention (calendar, 52/53-week).',
+      'Save the entity — it is now available for imports and journal entries.',
+      'Create additional entities for each legal entity or reporting unit you consolidate.',
+    ],
+  },
+  {
     icon: Upload,
-    title: 'How to import a Trial Balance',
+    title: 'How to import a trial balance',
     description: 'Upload a TB from CSV, Excel, or accounting system export.',
+    route: '/import/new',
+    steps: [
+      'Navigate to Import Center and click "New Import Wizard".',
+      'Drag & drop or browse for your CSV or XLSX file.',
+      'Select the entity and as-of date for this trial balance.',
+      'For XLSX files, select the correct worksheet containing the trial balance.',
+      'Confirm column mapping — the system auto-detects account number, name, debit/credit.',
+      'Review the data preview and proceed to upload.',
+      'Unmapped accounts automatically go to the Mapping Workbench.',
+    ],
+  },
+  {
+    icon: Map,
+    title: 'Mapping accounts in the Mapping Workbench',
+    description: 'Resolve unmapped GL accounts to your Chart of Accounts.',
     route: '/import',
     steps: [
-      'Navigate to Import Center from the sidebar.',
-      'Click "Upload Trial Balance" and select your file (CSV, XLSX, QBO).',
-      'Set the Entity ID, As-Of Date, and select a Scenario.',
-      'Review parsed rows — unmapped accounts go to Mapping Workbench.',
-      'Map all accounts to your Chart of Accounts.',
-      'Validate the import (checks balance, completeness, duplicates).',
-      'Post the import to create a Journal Entry in the ledger.',
+      'After uploading, click "Mapping Workbench" on the import review page.',
+      'Unmapped lines are shown with their raw account number and name.',
+      'AI-suggested matches appear as chips — click "Accept" to apply.',
+      'For manual mapping, type in the search box to find an account by number or name.',
+      'Use "Accept All Suggestions" to bulk-apply all AI matches at once.',
+      'Tab between rows for keyboard-driven mapping flow.',
+      'Export your completed mapping to CSV as a template for future imports.',
     ],
   },
   {
     icon: BookOpen,
-    title: 'How to create a Journal Entry',
+    title: 'How to create a journal entry',
     description: 'Post a manual JE with debit/credit lines.',
     route: '/journal-entries/new',
     steps: [
@@ -100,6 +130,34 @@ const guides: Guide[] = [
       'Use Variance Analysis for shadow-close validation alongside lock controls.',
     ],
   },
+  {
+    icon: BarChart2,
+    title: 'How to build custom reports',
+    description: 'Configure report layouts and section hierarchies.',
+    route: '/report-builder',
+    steps: [
+      'Navigate to Report Builder.',
+      'Create a new report template and select the report type.',
+      'Add sections and map account ranges to each section.',
+      'Configure subtotals, headers, and formatting.',
+      'Run the report to preview output with live data.',
+      'Save the template for recurring use.',
+    ],
+  },
+  {
+    icon: FileSpreadsheet,
+    title: 'Working with workpapers',
+    description: 'Attach and manage close workpapers and supporting schedules.',
+    route: '/close/workpapers',
+    steps: [
+      'Navigate to Close → Workpapers from the sidebar.',
+      'Create a workpaper and link it to a close task or reconciliation.',
+      'Attach a file (PDF, XLSX) or describe the supporting schedule.',
+      'Set the status (draft, in-review, finalized).',
+      'Reviewers can mark workpapers finalized during shadow-close.',
+      'Finalized workpapers are required for hard-close validation.',
+    ],
+  },
 ]
 
 const FAQ = [
@@ -127,7 +185,101 @@ const FAQ = [
     q: 'How do rollforwards work?',
     a: 'Reconciliations can be rolled forward period-to-period, carrying the prior ending balance as the next period opening balance. The rollforward service supports cash, retained earnings, fixed assets, and debt schedules.',
   },
+  {
+    q: 'How do I apply a mapping template from a prior import?',
+    a: 'After uploading, the system auto-detects your accounting system format (QuickBooks, NetSuite, Sage) and pre-fills the column mapping. You can also export a completed mapping from any import and re-upload it to pre-map a new import.',
+  },
+  {
+    q: 'What currencies are supported?',
+    a: 'Entities can be assigned any of 30 supported currencies including USD, EUR, GBP, JPY, CAD, AUD, CHF, and major emerging market currencies. All reporting and reconciliation amounts are stored in the entity\'s base currency.',
+  },
 ]
+
+interface Template {
+  name: string
+  description: string
+  filename: string
+  generate: () => string
+}
+
+const TEMPLATES: Template[] = [
+  {
+    name: 'Trial Balance Import (CSV)',
+    description: 'Standard CSV format with account number, name, debit and credit columns.',
+    filename: 'tb_import_template.csv',
+    generate: () => [
+      'Account Number,Account Name,Debit,Credit',
+      '1000,Cash,50000.00,',
+      '1100,Accounts Receivable,25000.00,',
+      '1200,Prepaid Expenses,5000.00,',
+      '1500,Property Plant Equipment,200000.00,',
+      '2000,Accounts Payable,,30000.00',
+      '2100,Accrued Liabilities,,10000.00',
+      '2500,Long-Term Debt,,150000.00',
+      '3000,Common Stock,,50000.00',
+      '3100,Retained Earnings,,40000.00',
+    ].join('\n'),
+  },
+  {
+    name: 'Trial Balance — Net Balance Format (CSV)',
+    description: 'Single signed balance column — positive for debit-normal, negative for credit-normal.',
+    filename: 'tb_net_balance_template.csv',
+    generate: () => [
+      'Account Number,Account Name,Balance',
+      '1000,Cash,50000.00',
+      '1100,Accounts Receivable,25000.00',
+      '2000,Accounts Payable,-30000.00',
+      '3000,Common Stock,-50000.00',
+      '4000,Revenue,-100000.00',
+      '5000,Cost of Goods Sold,60000.00',
+      '6000,Operating Expenses,45000.00',
+    ].join('\n'),
+  },
+  {
+    name: 'Journal Entry Import (CSV)',
+    description: 'Batch journal entry import with multiple lines per JE.',
+    filename: 'je_import_template.csv',
+    generate: () => [
+      'JE Number,Entry Date,Description,Account Number,Account Name,Debit,Credit,Memo',
+      'JE-001,2024-12-31,Dec Accruals,6100,Salaries Expense,15000.00,,Accrued salary',
+      'JE-001,2024-12-31,Dec Accruals,2100,Accrued Liabilities,,15000.00,Payroll payable',
+      'JE-002,2024-12-31,Depreciation,6200,Depreciation Expense,5000.00,,Monthly depreciation',
+      'JE-002,2024-12-31,Depreciation,1510,Accumulated Depreciation,,5000.00,PP&E depreciation',
+    ].join('\n'),
+  },
+  {
+    name: 'Chart of Accounts (CSV)',
+    description: 'Import or seed your chart of accounts with this template.',
+    filename: 'chart_of_accounts_template.csv',
+    generate: () => [
+      'Account Number,Account Name,Account Type,Normal Balance,Parent Account Number',
+      '1000,Current Assets,asset,debit,',
+      '1001,Cash and Cash Equivalents,asset,debit,1000',
+      '1100,Accounts Receivable,asset,debit,1000',
+      '1200,Inventories,asset,debit,1000',
+      '2000,Current Liabilities,liability,credit,',
+      '2001,Accounts Payable,liability,credit,2000',
+      '2100,Accrued Liabilities,liability,credit,2000',
+      '3000,Equity,equity,credit,',
+      '3001,Common Stock,equity,credit,3000',
+      '3100,Retained Earnings,equity,credit,3000',
+      '4000,Revenue,revenue,credit,',
+      '5000,Cost of Revenue,expense,debit,',
+      '6000,Operating Expenses,expense,debit,',
+    ].join('\n'),
+  },
+]
+
+function downloadCsv(template: Template) {
+  const csv = template.generate()
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = template.filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export function HelpCenterPage() {
   const navigate = useNavigate()
@@ -135,21 +287,51 @@ export function HelpCenterPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
 
   return (
-    <PageLayout title="Help Center" subtitle="Guides, walkthroughs, and FAQs for accounting workflows">
+    <PageLayout title="Help Center" subtitle="Guides, walkthroughs, templates, and FAQs">
       {/* Getting started banner */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
         <h2 className="text-sm font-semibold text-indigo-900 mb-1">Getting Started</h2>
         <p className="text-sm text-indigo-700 mb-3">
-          Recommended first steps for shadow-close testing with real historical data:
+          Recommended first steps for a new deployment:
         </p>
         <ol className="text-sm text-indigo-800 space-y-1 list-decimal list-inside">
-          <li>Create your entity (Setup → Entities)</li>
-          <li>Import a historical trial balance (Data Entry → Import Center)</li>
+          <li>Create your entity (Entities page)</li>
+          <li>Upload a historical trial balance (Import Wizard)</li>
           <li>Map any unmapped accounts to your Chart of Accounts</li>
-          <li>Validate the import and post</li>
-          <li>Run comparative financials to review period-over-period</li>
+          <li>Validate and post the import</li>
+          <li>Run comparative financials to review period-over-period data</li>
           <li>Create a close checklist and run shadow-close validation</li>
         </ol>
+        <button
+          type="button"
+          onClick={() => navigate('/entities')}
+          className="mt-3 flex items-center gap-1 text-sm text-indigo-600 font-medium hover:text-indigo-800"
+        >
+          Start with Entities <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Downloadable Templates */}
+      <div className="mb-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Downloadable Templates</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {TEMPLATES.map((tmpl, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
+              <FileSpreadsheet className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">{tmpl.name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{tmpl.description}</p>
+                <button
+                  type="button"
+                  onClick={() => downloadCsv(tmpl)}
+                  className="mt-2 flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download {tmpl.filename}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Guides */}
@@ -191,7 +373,7 @@ export function HelpCenterPage() {
                         onClick={() => navigate(guide.route!)}
                         className="mt-4 flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
                       >
-                        <ExternalLink className="w-3.5 h-3.5" /> Go to {guide.title.split(' ').slice(-2).join(' ')}
+                        <ExternalLink className="w-3.5 h-3.5" /> Open {guide.title.split(' ').pop()}
                       </button>
                     )}
                   </div>

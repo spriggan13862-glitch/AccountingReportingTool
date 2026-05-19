@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
-  Table, FileText, Layers, ArrowRight, Info, Download,
+  Table, FileText, Layers, ArrowRight, Info, Download, Building2,
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
@@ -187,6 +187,27 @@ export function ImportWizardPage() {
       <StepIndicator current={step} total={STEPS.length} />
       {apiError && <ErrorBanner message={apiError} />}
 
+      {/* Entity-first guard */}
+      {entities.length === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mb-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">No entities found</p>
+            <p className="text-xs text-amber-700 mt-1">
+              You need at least one entity before importing trial balance data.
+              Entities represent the legal entities or cost centers you report on.
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/entities')}
+              className="mt-2 text-xs text-amber-700 underline font-medium hover:text-amber-900"
+            >
+              Create an entity first →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Step 0: File + Entity + Date */}
       {step === 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
@@ -331,6 +352,38 @@ export function ImportWizardPage() {
             <h2 className="text-sm font-semibold text-gray-800">Step 3 — Confirm column mapping</h2>
             <div className="w-64">
               <ConfidenceMeter score={detected.confidence} />
+            </div>
+          </div>
+
+          {/* Mapping template presets */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-gray-600 mb-2">Apply a preset template:</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'QuickBooks', mapping: { account_number: detected.headers.find(h => /account.*num|acct.*#/i.test(h)) ?? '', account_name: detected.headers.find(h => /account.*name|description/i.test(h)) ?? '', debit: detected.headers.find(h => /debit|dr/i.test(h)) ?? '', credit: detected.headers.find(h => /credit|cr/i.test(h)) ?? '' } },
+                { label: 'NetSuite', mapping: { account_number: detected.headers.find(h => /^account$/i.test(h) || /account.*num/i.test(h)) ?? '', account_name: detected.headers.find(h => /account.*name|name/i.test(h)) ?? '', balance: detected.headers.find(h => /amount|balance|net/i.test(h)) ?? '' } },
+                { label: 'Sage', mapping: { account_number: detected.headers.find(h => /nominal|account.*code|code/i.test(h)) ?? '', account_name: detected.headers.find(h => /account.*name|description|name/i.test(h)) ?? '', debit: detected.headers.find(h => /debit/i.test(h)) ?? '', credit: detected.headers.find(h => /credit/i.test(h)) ?? '' } },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    const m: Record<string, string> = {}
+                    Object.entries(preset.mapping).forEach(([k, v]) => { if (v) m[k] = v })
+                    setColMapping(m)
+                  }}
+                  className="px-3 py-1 text-xs border border-gray-300 rounded bg-white hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 transition-colors"
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setColMapping(detected.detected_mapping)}
+                className="px-3 py-1 text-xs border border-indigo-300 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
+              >
+                Reset to auto-detected
+              </button>
             </div>
           </div>
 
