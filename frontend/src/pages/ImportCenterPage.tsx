@@ -81,12 +81,22 @@ export function ImportCenterPage() {
     <PageLayout
       title="Import Center"
       subtitle="Upload trial balance and GL files for staged review and posting"
+      actions={
+        <button
+          type="button"
+          onClick={() => navigate('/import/new')}
+          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+        >
+          <Upload className="w-4 h-4" /> New Import Wizard
+        </button>
+      }
     >
       {apiError && <ErrorBanner message={apiError} />}
 
-      {/* Upload form */}
+      {/* Quick upload form */}
       <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-        <h2 className="text-sm font-semibold text-gray-800 mb-4">New Import</h2>
+        <h2 className="text-sm font-semibold text-gray-800 mb-1">Quick Upload</h2>
+        <p className="text-xs text-gray-500 mb-4">For guided step-by-step import with sheet selection and column mapping, use the <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-600 hover:underline">Import Wizard</button>.</p>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Entity ID</label>

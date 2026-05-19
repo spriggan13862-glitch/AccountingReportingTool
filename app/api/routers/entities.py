@@ -13,6 +13,8 @@ class EntityUpdate(BaseModel):
     parent_id: int | None = None
     currency: str | None = None
     active: bool | None = None
+    fiscal_year_end_month: int | None = None
+    fiscal_year_convention: str | None = None
 
 router = APIRouter(prefix="/entities", tags=["entities"])
 
@@ -25,6 +27,8 @@ def create_entity(body: EntityCreate, db: Session = Depends(get_db)):
         entity_type=body.entity_type,
         parent_id=body.parent_id,
         currency=body.currency,
+        fiscal_year_end_month=body.fiscal_year_end_month,
+        fiscal_year_convention=body.fiscal_year_convention,
     )
     db.add(entity)
     db.flush()
@@ -79,6 +83,10 @@ def update_entity(entity_id: int, body: EntityUpdate, db: Session = Depends(get_
         entity.currency = body.currency
     if body.active is not None:
         entity.active = body.active
+    if body.fiscal_year_end_month is not None:
+        entity.fiscal_year_end_month = body.fiscal_year_end_month
+    if body.fiscal_year_convention is not None:
+        entity.fiscal_year_convention = body.fiscal_year_convention
     db.flush()
     db.refresh(entity)
     db.commit()

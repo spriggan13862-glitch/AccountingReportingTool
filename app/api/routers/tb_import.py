@@ -31,7 +31,7 @@ Templates:
 
 import datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, get_required_user
@@ -41,12 +41,14 @@ from app.api.schemas import (
     ColumnMappingUpdate,
     CreateAccountFromLineRequest,
     CreateTemplateRequest,
+    DetectResult,
     ImportBatchOut,
     ImportIssueOut,
     ImportLineOut,
     ImportSuggestionOut,
     ImportTemplateOut,
     MapLineRequest,
+    RawPreviewOut,
     TbImportOut,
     ValidationIssueOut,
     ValidationOut,
@@ -152,6 +154,26 @@ def get_import_status(import_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
+# M27: File detection (no DB writes)
+# ---------------------------------------------------------------------------
+
+@router.post("/detect", response_model=DetectResult)
+async def detect_file(
+    file: UploadFile = File(...),
+):
+    """
+    Detect worksheet names, column headers, and mapping confidence without storing anything.
+    Use this before the full upload to let users pick the right sheet and confirm column mapping.
+    """
+    content = await file.read()
+    try:
+        result = svc.detect_file(content, file.filename or "upload")
+        return result
+    except svc.ImportBatchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
 # M23 Batch pipeline — upload
 # ---------------------------------------------------------------------------
 
@@ -163,11 +185,12 @@ async def upload_batch(
     scenario_id: int | None = Form(None),
     period_id: int | None = Form(None),
     template_id: int | None = Form(None),
+    sheet_name: str | None = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Upload a TB/GL file and start the import pipeline."""
+    """Upload a TB/GL file and start the import pipeline. Pass sheet_name to select a specific XLSX sheet."""
     content = await file.read()
     try:
         batch = svc.upload_import_batch(
@@ -181,6 +204,7 @@ async def upload_batch(
             period_id=period_id,
             uploaded_by_user_id=getattr(current_user, "id", None),
             template_id=template_id,
+            sheet_name=sheet_name,
         )
         db.commit()
         db.refresh(batch)
@@ -231,6 +255,33 @@ def get_batch_issues(
 @router.get("/batches/{batch_id}/unmapped", response_model=list[ImportLineOut])
 def get_unmapped_lines(batch_id: int, db: Session = Depends(get_db)):
     return svc.get_unmapped_lines(db, batch_id)
+
+
+@router.get("/batches/{batch_id}/raw-preview", response_model=RawPreviewOut)
+def get_raw_preview(
+    batch_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """Return first N rows of raw import data for spreadsheet-like preview."""
+    try:
+        return svc.get_raw_preview(db, batch_id, limit=limit)
+    except svc.ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/batches/{batch_id}/export-mappings")
+def export_mappings(batch_id: int, db: Session = Depends(get_db)):
+    """Download current line-to-account mappings as a CSV file."""
+    try:
+        csv_content = svc.export_mappings_csv(db, batch_id)
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="mappings_batch_{batch_id}.csv"'},
+        )
+    except svc.ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/batches/{batch_id}/suggestions", response_model=list[ImportSuggestionOut])

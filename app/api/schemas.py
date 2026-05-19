@@ -63,6 +63,8 @@ class EntityCreate(BaseModel):
     entity_type: str                     # operating/consolidation/elimination/carveout
     parent_id: int | None = None
     currency: str = "USD"
+    fiscal_year_end_month: int | None = None    # 1=Jan … 12=Dec
+    fiscal_year_convention: str | None = None   # calendar|52-53-week|retail-454
 
 
 class EntityOut(BaseModel):
@@ -74,6 +76,8 @@ class EntityOut(BaseModel):
     parent_id: int | None = None
     currency: str
     active: bool
+    fiscal_year_end_month: int | None = None
+    fiscal_year_convention: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1141,6 +1145,52 @@ class ImportSuggestionOut(BaseModel):
     suggested_account_id: int | None = None
     suggested_account_number: str | None = None
     suggested_account_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# M27: Sheet detection + raw preview
+# ---------------------------------------------------------------------------
+
+class SheetInfo(BaseModel):
+    name: str
+    row_count: int
+    likely_tb_score: int
+
+
+class DetectResult(BaseModel):
+    source_format: str
+    sheets: list[SheetInfo]
+    selected_sheet: str | None = None
+    headers: list[str]
+    detected_mapping: dict[str, str]
+    unmapped_headers: list[str]
+    preview_rows: list[dict]
+    confidence: int
+
+
+class RawPreviewRow(BaseModel):
+    line_number: int
+    raw_account_number: str | None = None
+    raw_account_name: str | None = None
+    raw_debit: str | None = None
+    raw_credit: str | None = None
+    raw_balance: str | None = None
+    raw_description: str | None = None
+    debit: str
+    credit: str
+    mapping_status: str
+    resolved_account_id: int | None = None
+    suggested_account_id: int | None = None
+
+
+class RawPreviewOut(BaseModel):
+    batch_id: int
+    source_format: str
+    column_mapping: dict[str, str]
+    source_headers: list[str]
+    rows: list[RawPreviewRow]
+    total_rows: int
+    showing: int
 
 
 # ---------------------------------------------------------------------------

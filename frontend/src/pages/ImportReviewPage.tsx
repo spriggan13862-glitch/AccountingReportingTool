@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw } from 'lucide-react'
+import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw, Clock, Upload, Shield, Download } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
-import type { ImportBatch, ImportLine, ImportIssue } from '@/types'
+import type { ImportBatch, ImportLine, ImportIssue, RawPreview } from '@/types'
 
-type Tab = 'lines' | 'issues' | 'mapping'
+type Tab = 'lines' | 'issues' | 'preview' | 'mapping'
 
 function SeverityBadge({ severity }: { severity: string }) {
   const map: Record<string, string> = {
@@ -59,6 +59,12 @@ export function ImportReviewPage() {
     queryKey: ['import-issues', batchId],
     queryFn: () => tbImportApi.getBatchIssues(batchId),
     enabled: !!batchId && tab === 'issues',
+  })
+
+  const { data: rawPreview } = useQuery({
+    queryKey: ['import-raw-preview', batchId],
+    queryFn: () => tbImportApi.getRawPreview(batchId),
+    enabled: !!batchId && tab === 'preview',
   })
 
   const validateMutation = useMutation({
@@ -243,20 +249,28 @@ export function ImportReviewPage() {
 
       {/* Tab navigation */}
       <div className="flex gap-0 border-b border-gray-200 mb-4">
-        {(['lines', 'issues', 'mapping'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t === 'lines' ? 'Lines' : t === 'issues' ? 'Validation Issues' : 'Mapping Workbench'}
-          </button>
-        ))}
+        {(['lines', 'preview', 'issues', 'mapping'] as Tab[]).map((t) => {
+          const label: Record<Tab, string> = {
+            lines: 'Lines',
+            preview: 'Raw Preview',
+            issues: `Validation Issues${issues?.length ? ` (${issues.length})` : ''}`,
+            mapping: 'Mapping Workbench',
+          }
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                tab === t
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label[t]}
+            </button>
+          )
+        })}
       </div>
 
       {/* Lines tab */}
@@ -335,6 +349,83 @@ export function ImportReviewPage() {
         </div>
       )}
 
+      {/* Raw preview tab */}
+      {tab === 'preview' && (
+        <div className="space-y-3">
+          {!rawPreview ? (
+            <p className="text-sm text-gray-400">Loading preview…</p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-gray-500">
+                  Showing {rawPreview.showing} of {rawPreview.total_rows} rows · Format: <span className="font-semibold uppercase">{rawPreview.source_format}</span>
+                </p>
+                <a
+                  href={tbImportApi.exportMappingsUrl(batchId)}
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                  target="_blank" rel="noreferrer"
+                >
+                  <Download className="w-3.5 h-3.5" /> Export mappings CSV
+                </a>
+              </div>
+              <div className="overflow-x-auto border border-gray-200 rounded bg-white">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">#</th>
+                      {rawPreview.source_headers.map((h) => {
+                        const isMapped = Object.values(rawPreview.column_mapping).includes(h)
+                        const field = Object.entries(rawPreview.column_mapping).find(([, v]) => v === h)?.[0]
+                        return (
+                          <th key={h} className={`px-3 py-2 text-left font-semibold whitespace-nowrap ${isMapped ? 'text-indigo-700 bg-indigo-50' : 'text-gray-500'}`}>
+                            {h}
+                            {field && <span className="block text-indigo-400 font-normal">→ {field}</span>}
+                          </th>
+                        )
+                      })}
+                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rawPreview.rows.map((row, i) => {
+                      const statusColors: Record<string, string> = {
+                        mapped: 'text-green-600', unmapped: 'text-yellow-600',
+                        skipped: 'text-gray-400', rejected: 'text-red-500',
+                      }
+                      return (
+                        <tr key={row.line_number} className={`border-b border-gray-100 ${i % 2 === 0 ? '' : 'bg-gray-50'} ${row.mapping_status === 'unmapped' ? 'bg-yellow-50/40' : ''}`}>
+                          <td className="px-3 py-1.5 text-gray-400">{row.line_number}</td>
+                          {rawPreview.source_headers.map((h) => {
+                            const fieldMap: Record<string, keyof typeof row> = {
+                              [rawPreview.column_mapping.account_number]: 'raw_account_number',
+                              [rawPreview.column_mapping.account_name]: 'raw_account_name',
+                              [rawPreview.column_mapping.debit]: 'raw_debit',
+                              [rawPreview.column_mapping.credit]: 'raw_credit',
+                              [rawPreview.column_mapping.balance]: 'raw_balance',
+                              [rawPreview.column_mapping.description]: 'raw_description',
+                            }
+                            const field = fieldMap[h]
+                            const val = field ? row[field] : null
+                            return (
+                              <td key={h} className={`px-3 py-1.5 font-mono whitespace-nowrap ${val ? 'text-gray-800' : 'text-gray-300'}`}>
+                                {val ?? '—'}
+                              </td>
+                            )
+                          })}
+                          <td className={`px-3 py-1.5 font-medium capitalize ${statusColors[row.mapping_status] ?? 'text-gray-500'}`}>
+                            {row.mapping_status}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Mapping tab */}
       {tab === 'mapping' && (
         <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center">
@@ -350,6 +441,70 @@ export function ImportReviewPage() {
           </button>
         </div>
       )}
+
+      {/* Activity timeline */}
+      <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
+        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Activity Timeline</h3>
+        <div className="space-y-3">
+          {batch.uploaded_at && (
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Upload className="w-3 h-3 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-700">Uploaded</p>
+                <p className="text-xs text-gray-400">{new Date(batch.uploaded_at).toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+          {batch.status === 'mapping_required' && (
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-yellow-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Clock className="w-3 h-3 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-700">Awaiting account mapping</p>
+                <p className="text-xs text-gray-400">{batch.unmapped_row_count} accounts need resolution</p>
+              </div>
+            </div>
+          )}
+          {['validating', 'validation_failed', 'ready_to_post', 'posted', 'rolled_back'].includes(batch.status) && (
+            <div className="flex items-start gap-3">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${batch.status === 'validation_failed' ? 'bg-red-100' : 'bg-green-100'}`}>
+                <Shield className={`w-3 h-3 ${batch.status === 'validation_failed' ? 'text-red-500' : 'text-green-500'}`} />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-700">
+                  {batch.status === 'validation_failed' ? 'Validation failed' : 'Validation passed'}
+                </p>
+                <p className="text-xs text-gray-400">DR {Number(batch.total_debits ?? 0).toLocaleString()} / CR {Number(batch.total_credits ?? 0).toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+          {batch.status === 'posted' && batch.reviewed_at && (
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle className="w-3 h-3 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-700">Posted to ledger</p>
+                <p className="text-xs text-gray-400">JE #{batch.posted_je_id} · {new Date(batch.reviewed_at).toLocaleString()}</p>
+              </div>
+            </div>
+          )}
+          {batch.status === 'rolled_back' && (
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center shrink-0 mt-0.5">
+                <RotateCcw className="w-3 h-3 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-700">Rolled back</p>
+                <p className="text-xs text-gray-400">Reversal JE #{batch.reversal_je_id}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </PageLayout>
   )
 }

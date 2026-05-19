@@ -23,6 +23,7 @@ import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
+import { ImportWizardPage } from '@/pages/ImportWizardPage'
 import { ImportReviewPage } from '@/pages/ImportReviewPage'
 import { MappingWorkbenchPage } from '@/pages/MappingWorkbenchPage'
 import { CloseDashboardPage } from '@/pages/CloseDashboardPage'
@@ -65,6 +66,7 @@ export function AppRouter() {
           <Route path="journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="trial-balance-import" element={<TrialBalanceImportPage />} />
           <Route path="import" element={<ImportCenterPage />} />
+          <Route path="import/new" element={<ImportWizardPage />} />
           <Route path="import/:id" element={<ImportReviewPage />} />
           <Route path="import/:id/mapping" element={<MappingWorkbenchPage />} />
           <Route path="periods" element={<PeriodsPage />} />

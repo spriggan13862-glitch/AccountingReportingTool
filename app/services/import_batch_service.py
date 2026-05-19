@@ -205,7 +205,7 @@ def _parse_csv_file(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
     return headers, rows
 
 
-def _parse_xlsx_file(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
+def _parse_xlsx_file(content: bytes, sheet_name: str | None = None) -> tuple[list[str], list[dict[str, str]]]:
     """Parse XLSX bytes using openpyxl, returning (headers, rows)."""
     try:
         import openpyxl
@@ -213,7 +213,10 @@ def _parse_xlsx_file(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
         raise ImportBatchError("openpyxl is required for XLSX imports. Run: pip install openpyxl")
 
     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-    ws = wb.active
+    if sheet_name and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    else:
+        ws = wb.active
     rows_iter = ws.iter_rows(values_only=True)
 
     # Find first non-empty row as header
@@ -238,10 +241,10 @@ def _parse_xlsx_file(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
     return headers, data_rows
 
 
-def _parse_file(content: bytes, filename: str) -> tuple[list[str], list[dict[str, str]]]:
+def _parse_file(content: bytes, filename: str, sheet_name: str | None = None) -> tuple[list[str], list[dict[str, str]]]:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "csv"
     if ext in ("xlsx", "xls"):
-        return _parse_xlsx_file(content)
+        return _parse_xlsx_file(content, sheet_name=sheet_name)
     return _parse_csv_file(content)
 
 
@@ -381,15 +384,16 @@ def upload_import_batch(
     period_id: int | None = None,
     uploaded_by_user_id: int | None = None,
     template_id: int | None = None,
+    sheet_name: str | None = None,
 ) -> ImportBatch:
     """
     Upload a TB/GL file and create an ImportBatch with parsed ImportLines.
 
     Steps:
       1. Hash the content (dedup check)
-      2. Parse file (CSV or XLSX)
+      2. Parse file (CSV or XLSX, optional sheet_name for multi-sheet workbooks)
       3. Detect format and auto-map columns (or load from template)
-      4. Create ImportBatch record
+      4. Create ImportBatch record (with raw_headers stored)
       5. Parse each row into ImportLine (raw values only)
       6. Try to auto-resolve accounts
       7. Set batch status: mapping_required (if any unmapped) else validating
@@ -400,7 +404,7 @@ def upload_import_batch(
         raise ImportBatchError("File exceeds 20 MB limit")
 
     content_hash = _sha256(file_content)
-    headers, raw_rows = _parse_file(file_content, filename)
+    headers, raw_rows = _parse_file(file_content, filename, sheet_name=sheet_name)
 
     if len(raw_rows) == 0:
         raise ImportBatchError(f"{filename}: no data rows found")
@@ -433,6 +437,7 @@ def upload_import_batch(
         source_format=source_format,
         content_hash=content_hash,
         column_mapping=col_map,
+        raw_headers=headers,
         as_of_date=as_of_date,
         status="parsing",
         uploaded_by_user_id=uploaded_by_user_id,
@@ -1191,6 +1196,223 @@ def delete_template(db: Session, template_id: int) -> None:
     if tmpl:
         tmpl.is_active = False
         db.flush()
+
+
+# ---------------------------------------------------------------------------
+# M27 — sheet detection, raw preview, mapping export
+# ---------------------------------------------------------------------------
+
+# Scoring keywords for TB-likely sheet names
+_TB_SHEET_KEYWORDS = {
+    "tb": 10, "trial balance": 10, "trial_balance": 10,
+    "gl": 8, "general ledger": 8,
+    "balance sheet": 6, "bs": 5,
+    "p&l": 5, "pl": 4, "income": 4, "profit": 4,
+    "coa": 3, "chart": 3, "accounts": 3,
+    "data": 1, "export": 1,
+}
+
+
+def _score_sheet_name(name: str) -> int:
+    lower = name.lower().strip()
+    for kw, score in _TB_SHEET_KEYWORDS.items():
+        if kw in lower:
+            return score
+    return 0
+
+
+def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
+    """
+    Parse a file without creating any DB records.
+
+    Returns a detection result dict with:
+      - source_format: detected format string
+      - sheets: list of {name, row_count, likely_tb_score} (XLSX only)
+      - selected_sheet: name of highest-scoring sheet (XLSX) or None
+      - headers: list of detected column headers
+      - detected_mapping: {standard_field → source_column_header}
+      - unmapped_headers: headers not matched to any standard field
+      - preview_rows: first 5 rows as list[dict]
+      - confidence: 0-100 mapping confidence score
+    """
+    if len(file_content) == 0:
+        raise ImportBatchError("File is empty")
+
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "csv"
+
+    sheets: list[dict[str, Any]] = []
+    selected_sheet: str | None = None
+    headers: list[str] = []
+    raw_rows: list[dict[str, str]] = []
+
+    if ext in ("xlsx", "xls"):
+        try:
+            import openpyxl
+        except ImportError:
+            raise ImportBatchError("openpyxl required for XLSX detection")
+
+        wb = openpyxl.load_workbook(io.BytesIO(file_content), read_only=True, data_only=True)
+        best_score = -1
+
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            row_count = 0
+            for _ in ws.iter_rows(values_only=True):
+                row_count += 1
+            score = _score_sheet_name(sheet_name)
+            sheets.append({"name": sheet_name, "row_count": max(0, row_count - 1), "likely_tb_score": score})
+            if score > best_score:
+                best_score = score
+                selected_sheet = sheet_name
+
+        if selected_sheet:
+            ws = wb[selected_sheet]
+            rows_iter = ws.iter_rows(values_only=True)
+            for row in rows_iter:
+                cells = [str(c).strip() if c is not None else "" for c in row]
+                if any(cells):
+                    headers = cells
+                    break
+            for row in rows_iter:
+                cells = [str(c).strip() if c is not None else "" for c in row]
+                if any(cells):
+                    raw_rows.append(dict(zip(headers, cells)))
+                    if len(raw_rows) >= 5:
+                        break
+        wb.close()
+    else:
+        headers, all_rows = _parse_csv_file(file_content)
+        raw_rows = all_rows[:5]
+        sheets = []
+
+    source_format = detect_source_format(filename, headers)
+    detected_mapping = auto_detect_column_mapping(headers)
+    unmapped_headers = [h for h in headers if h not in detected_mapping.values()]
+
+    # Confidence: each mapped standard field adds to score
+    essential = {"account_number", "debit", "credit"} | {"account_number", "balance"}
+    mapped_fields = set(detected_mapping.keys())
+    has_amounts = ("debit" in mapped_fields and "credit" in mapped_fields) or "balance" in mapped_fields
+    has_account = "account_number" in mapped_fields or "account_name" in mapped_fields
+    confidence = 0
+    if has_account:
+        confidence += 40
+    if has_amounts:
+        confidence += 40
+    if "account_name" in mapped_fields:
+        confidence += 10
+    if "description" in mapped_fields:
+        confidence += 10
+
+    return {
+        "source_format": source_format,
+        "sheets": sheets,
+        "selected_sheet": selected_sheet,
+        "headers": headers,
+        "detected_mapping": detected_mapping,
+        "unmapped_headers": unmapped_headers,
+        "preview_rows": raw_rows,
+        "confidence": confidence,
+    }
+
+
+def get_raw_preview(db: Session, batch_id: int, limit: int = 50) -> dict[str, Any]:
+    """
+    Return a preview of the first N import lines for spreadsheet display.
+
+    Returns:
+      - headers: standard fields that appear in this batch
+      - source_headers: original column headers (from batch.raw_headers or column_mapping values)
+      - column_mapping: {standard_field → source_column}
+      - rows: list of dicts with raw_* fields and resolved account info
+      - total_rows: total row count
+    """
+    batch = _get_or_raise(db, batch_id)
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id)
+        .order_by(ImportLine.line_number)
+        .limit(limit)
+        .all()
+    )
+
+    col_map: dict[str, str] = batch.column_mapping or {}
+    source_headers: list[str] = batch.raw_headers or list(col_map.values())
+
+    rows = []
+    for line in lines:
+        row: dict[str, Any] = {
+            "line_number": line.line_number,
+            "raw_account_number": line.raw_account_number,
+            "raw_account_name": line.raw_account_name,
+            "raw_debit": str(line.raw_debit) if line.raw_debit is not None else None,
+            "raw_credit": str(line.raw_credit) if line.raw_credit is not None else None,
+            "raw_balance": str(line.raw_balance) if line.raw_balance is not None else None,
+            "raw_description": line.raw_description,
+            "debit": str(line.debit),
+            "credit": str(line.credit),
+            "mapping_status": line.mapping_status,
+            "resolved_account_id": line.resolved_account_id,
+            "suggested_account_id": line.suggested_account_id,
+        }
+        rows.append(row)
+
+    return {
+        "batch_id": batch_id,
+        "source_format": batch.source_format,
+        "column_mapping": col_map,
+        "source_headers": source_headers,
+        "rows": rows,
+        "total_rows": batch.row_count or 0,
+        "showing": len(rows),
+    }
+
+
+def export_mappings_csv(db: Session, batch_id: int) -> str:
+    """
+    Export the current line-to-account mappings as a CSV string.
+
+    Columns: line_number, raw_account_number, raw_account_name,
+             debit, credit, mapping_status, resolved_account_id,
+             resolved_account_number, resolved_account_name
+    """
+    batch = _get_or_raise(db, batch_id)
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id)
+        .order_by(ImportLine.line_number)
+        .all()
+    )
+
+    # Build account lookup for resolved lines
+    acct_ids = [l.resolved_account_id for l in lines if l.resolved_account_id]
+    accounts: dict[int, Account] = {}
+    if acct_ids:
+        for acct in db.query(Account).filter(Account.id.in_(acct_ids)).all():
+            accounts[acct.id] = acct
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "line_number", "raw_account_number", "raw_account_name",
+        "debit", "credit", "mapping_status",
+        "resolved_account_id", "resolved_account_number", "resolved_account_name",
+    ])
+    for line in lines:
+        acct = accounts.get(line.resolved_account_id) if line.resolved_account_id else None
+        writer.writerow([
+            line.line_number,
+            line.raw_account_number or "",
+            line.raw_account_name or "",
+            str(line.debit),
+            str(line.credit),
+            line.mapping_status,
+            line.resolved_account_id or "",
+            acct.account_number if acct else "",
+            acct.account_name if acct else "",
+        ])
+
+    return output.getvalue()
 
 
 # ---------------------------------------------------------------------------

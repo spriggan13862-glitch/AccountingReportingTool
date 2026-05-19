@@ -11,7 +11,25 @@ import { useToast } from '@/providers/ToastProvider'
 import type { Entity } from '@/types'
 
 const ENTITY_TYPES = ['operating', 'consolidation', 'elimination', 'carveout']
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY']
+
+const CURRENCIES = [
+  'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'HKD', 'SGD',
+  'SEK', 'NOK', 'DKK', 'NZD', 'MXN', 'BRL', 'INR', 'KRW', 'ZAR', 'RUB',
+  'TRY', 'AED', 'SAR', 'PLN', 'THB', 'IDR', 'MYR', 'PHP', 'CZK', 'HUF',
+]
+
+const MONTHS = [
+  { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
+  { value: 4, label: 'April' }, { value: 5, label: 'May' }, { value: 6, label: 'June' },
+  { value: 7, label: 'July' }, { value: 8, label: 'August' }, { value: 9, label: 'September' },
+  { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' },
+]
+
+const FY_CONVENTIONS = [
+  { value: 'calendar', label: 'Calendar year (Jan–Dec)' },
+  { value: '52-53-week', label: '52/53-week fiscal year' },
+  { value: 'retail-454', label: 'Retail 4-5-4 calendar' },
+]
 
 interface EntityFormState {
   code: string
@@ -19,10 +37,13 @@ interface EntityFormState {
   entity_type: string
   currency: string
   parent_id: string
+  fiscal_year_end_month: string
+  fiscal_year_convention: string
 }
 
 const emptyForm = (): EntityFormState => ({
   code: '', name: '', entity_type: 'operating', currency: 'USD', parent_id: '',
+  fiscal_year_end_month: '', fiscal_year_convention: '',
 })
 
 export function EntitiesPage() {
@@ -47,6 +68,8 @@ export function EntitiesPage() {
       entity_type: form.entity_type,
       currency: form.currency,
       parent_id: form.parent_id ? Number(form.parent_id) : null,
+      fiscal_year_end_month: form.fiscal_year_end_month ? Number(form.fiscal_year_end_month) : null,
+      fiscal_year_convention: form.fiscal_year_convention || null,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entities'] })
@@ -65,6 +88,8 @@ export function EntitiesPage() {
         entity_type: body.entity_type,
         currency: body.currency,
         active: true,
+        fiscal_year_end_month: body.fiscal_year_end_month ? Number(body.fiscal_year_end_month) : null,
+        fiscal_year_convention: body.fiscal_year_convention || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entities'] })
@@ -92,6 +117,8 @@ export function EntitiesPage() {
       entity_type: entity.entity_type,
       currency: entity.currency,
       parent_id: entity.parent_id ? String(entity.parent_id) : '',
+      fiscal_year_end_month: entity.fiscal_year_end_month ? String(entity.fiscal_year_end_month) : '',
+      fiscal_year_convention: entity.fiscal_year_convention ?? '',
     })
   }
 
@@ -153,6 +180,7 @@ export function EntitiesPage() {
                 <th className="px-4 py-2 text-left">Name</th>
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-left">Currency</th>
+                <th className="px-4 py-2 text-left">Fiscal Year End</th>
                 <th className="px-4 py-2 text-left">Status</th>
                 <th className="px-4 py-2 w-24" />
               </tr>
@@ -179,6 +207,11 @@ export function EntitiesPage() {
                     <td className="px-4 py-3 font-medium text-gray-800">{entity.name}</td>
                     <td className="px-4 py-3"><Badge>{entity.entity_type}</Badge></td>
                     <td className="px-4 py-3 text-gray-500">{entity.currency}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {entity.fiscal_year_end_month
+                        ? MONTHS.find((m) => m.value === entity.fiscal_year_end_month)?.label ?? '—'
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <Badge variant={entity.active ? 'success' : 'default'}>
                         {entity.active ? 'active' : 'inactive'}
@@ -258,6 +291,16 @@ function EntityForm({ form, onChange, onSubmit, onCancel, isPending, submitLabel
         <select value={form.currency} onChange={set('currency')}
           className="border border-gray-300 rounded px-3 py-2 text-sm">
           {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={form.fiscal_year_end_month} onChange={set('fiscal_year_end_month')}
+          className="border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">Fiscal year-end month (optional)</option>
+          {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </select>
+        <select value={form.fiscal_year_convention} onChange={set('fiscal_year_convention')}
+          className="border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">FY convention (optional)</option>
+          {FY_CONVENTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
       </div>
       <div className="flex gap-2">

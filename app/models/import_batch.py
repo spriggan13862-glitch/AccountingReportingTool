@@ -39,6 +39,9 @@ class ImportBatch(Base):
     # e.g. {"account_number": "Acct #", "debit": "Dr Amount"}
     column_mapping = Column(JSON, nullable=False, default=dict)
 
+    # Original column headers from the uploaded file (all columns, in order)
+    raw_headers = Column(JSON, nullable=True)
+
     as_of_date = Column(Date, nullable=False)
 
     # Pipeline status

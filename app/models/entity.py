@@ -23,4 +23,6 @@ class Entity(Base):
     parent_id = Column(Integer, ForeignKey("entities.id"), nullable=True)
     currency = Column(String(3), nullable=False, default="USD")
     active = Column(Boolean, nullable=False, default=True)
+    fiscal_year_end_month = Column(Integer, nullable=True)       # 1=Jan … 12=Dec; None=calendar year
+    fiscal_year_convention = Column(String(30), nullable=True)   # "calendar"|"52-53-week"|"retail-454"
     created_at = Column(DateTime, nullable=False, server_default=func.now())

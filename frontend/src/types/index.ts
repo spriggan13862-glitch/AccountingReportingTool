@@ -79,6 +79,8 @@ export interface Entity {
   parent_id: number | null
   currency: string
   active: boolean
+  fiscal_year_end_month: number | null
+  fiscal_year_convention: string | null
 }
 
 export interface Account {
@@ -698,6 +700,52 @@ export interface ImportSuggestion {
   suggested_account_id: number | null
   suggested_account_number: string | null
   suggested_account_name: string | null
+}
+
+// ---------------------------------------------------------------------------
+// M27: Sheet detection + raw preview
+// ---------------------------------------------------------------------------
+
+export interface SheetInfo {
+  name: string
+  row_count: number
+  likely_tb_score: number
+}
+
+export interface DetectResult {
+  source_format: string
+  sheets: SheetInfo[]
+  selected_sheet: string | null
+  headers: string[]
+  detected_mapping: Record<string, string>
+  unmapped_headers: string[]
+  preview_rows: Record<string, string>[]
+  confidence: number
+}
+
+export interface RawPreviewRow {
+  line_number: number
+  raw_account_number: string | null
+  raw_account_name: string | null
+  raw_debit: string | null
+  raw_credit: string | null
+  raw_balance: string | null
+  raw_description: string | null
+  debit: string
+  credit: string
+  mapping_status: string
+  resolved_account_id: number | null
+  suggested_account_id: number | null
+}
+
+export interface RawPreview {
+  batch_id: number
+  source_format: string
+  column_mapping: Record<string, string>
+  source_headers: string[]
+  rows: RawPreviewRow[]
+  total_rows: number
+  showing: number
 }
 
 // ---------------------------------------------------------------------------

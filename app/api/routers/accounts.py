@@ -29,6 +29,7 @@ def list_accounts(
     entity_id: int | None = None,
     account_type: str | None = None,
     active: bool | None = None,
+    search: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -40,6 +41,11 @@ def list_accounts(
         q = q.filter(Account.account_type == account_type)
     if active is not None:
         q = q.filter(Account.active == active)
+    if search:
+        term = f"%{search}%"
+        q = q.filter(
+            Account.account_number.ilike(term) | Account.account_name.ilike(term)
+        )
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()
     return Page(

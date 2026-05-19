@@ -7,6 +7,8 @@ import type {
   ImportIssue,
   ImportTemplate,
   ImportSuggestion,
+  DetectResult,
+  RawPreview,
 } from '@/types'
 
 export interface TbImportParams {
@@ -32,6 +34,7 @@ export interface UploadBatchParams {
   scenario_id?: number
   period_id?: number
   template_id?: number
+  sheet_name?: string
   file: File
 }
 
@@ -79,6 +82,24 @@ export const tbImportApi = {
 
   get: (id: number) => api.get<TbImportOut>(`/tb-imports/${id}`).then((r) => r.data),
 
+  // M27 detect (no DB write)
+  detectFile: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api
+      .post<DetectResult>('/tb-imports/detect', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data)
+  },
+
+  getRawPreview: (batchId: number, limit = 50) =>
+    api
+      .get<RawPreview>(`/tb-imports/batches/${batchId}/raw-preview`, { params: { limit } })
+      .then((r) => r.data),
+
+  exportMappingsUrl: (batchId: number) => `/tb-imports/batches/${batchId}/export-mappings`,
+
   // M23 batch pipeline
   uploadBatch: (params: UploadBatchParams) => {
     const fd = buildFormData({
@@ -88,6 +109,7 @@ export const tbImportApi = {
       scenario_id: params.scenario_id,
       period_id: params.period_id,
       template_id: params.template_id,
+      sheet_name: params.sheet_name,
       file: params.file,
     })
     return api

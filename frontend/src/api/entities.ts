@@ -7,6 +7,8 @@ export interface EntityCreate {
   entity_type: string
   parent_id?: number | null
   currency?: string
+  fiscal_year_end_month?: number | null
+  fiscal_year_convention?: string | null
 }
 
 export interface EntityUpdate {
@@ -15,6 +17,8 @@ export interface EntityUpdate {
   parent_id?: number | null
   currency?: string
   active?: boolean
+  fiscal_year_end_month?: number | null
+  fiscal_year_convention?: string | null
 }
 
 export const entitiesApi = {
