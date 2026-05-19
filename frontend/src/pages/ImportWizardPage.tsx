@@ -329,6 +329,23 @@ export function ImportWizardPage() {
             ))}
           </div>
 
+          {/* Header preview for selected sheet */}
+          {selectedSheet && detected.headers.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-xs font-medium text-gray-600 mb-2">
+                Detected columns in <span className="font-semibold">{selectedSheet}</span>:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {detected.headers.map((h) => (
+                  <span key={h} className="text-xs bg-white border border-gray-300 px-2 py-0.5 rounded font-mono text-gray-700">{h}</span>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Auto-detected {Object.keys(detected.detected_mapping).length} of {detected.headers.length} column mappings (confidence: {detected.confidence}%)
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-between">
             <button type="button" onClick={() => setStep(0)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
               <ChevronLeft className="w-4 h-4" /> Back

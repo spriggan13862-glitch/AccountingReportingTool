@@ -478,6 +478,9 @@ export function ImportReviewPage() {
                   {batch.status === 'validation_failed' ? 'Validation failed' : 'Validation passed'}
                 </p>
                 <p className="text-xs text-gray-400">DR {Number(batch.total_debits ?? 0).toLocaleString()} / CR {Number(batch.total_credits ?? 0).toLocaleString()}</p>
+                {batch.status === 'validation_failed' && batch.error_message && (
+                  <p className="text-xs text-red-600 mt-1 font-medium">{batch.error_message}</p>
+                )}
               </div>
             </div>
           )}
