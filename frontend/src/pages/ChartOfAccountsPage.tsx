@@ -5,6 +5,8 @@ import {
   ChevronRight, ChevronDown, Upload, Pencil, X, Check, Plus,
   MoreVertical, ArrowDownToLine, ArrowUpToLine, ArrowLeftToLine, Search,
   GripVertical, Undo2, Redo2, ChevronsDownUp, ChevronsUpDown, ArrowRightToLine,
+  Archive, Eye, Copy, Lock, Unlock, Tag, History, SlidersHorizontal,
+  AlignJustify, AlignLeft, AlignCenter, ChevronLeft,
 } from 'lucide-react'
 import { accountsApi } from '@/api/accounts'
 import type { AccountUpdate, AccountReparentResult } from '@/api/accounts'
@@ -13,11 +15,13 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { CreateAccountModal } from '@/components/ui/CreateAccountModal'
+import { BatchActionBar } from '@/components/data-grid'
 import { useToast } from '@/providers/ToastProvider'
 import type { Account, AccountNode, ReportingTaxonomyLine } from '@/types'
+import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
-// Constants
+// Constants / helpers
 // ---------------------------------------------------------------------------
 
 const TYPE_COLORS: Record<string, string> = {
@@ -35,11 +39,14 @@ const STATUS_COLORS: Record<string, string> = {
   deprecated: 'text-amber-500',
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+type GridDensity = 'compact' | 'normal' | 'comfortable'
 
-/** DFS flat list of all nodes in display order */
+const DENSITY_PY: Record<GridDensity, string> = {
+  compact:     'py-1',
+  normal:      'py-2',
+  comfortable: 'py-3',
+}
+
 function buildFlatOrder(nodes: AccountNode[]): AccountNode[] {
   const result: AccountNode[] = []
   for (const node of nodes) {
@@ -49,12 +56,9 @@ function buildFlatOrder(nodes: AccountNode[]): AccountNode[] {
   return result
 }
 
-/** All descendant IDs of a node (used to prevent drag-into-own-subtree) */
 function buildSubtreeIds(node: AccountNode): Set<number> {
   const ids = new Set<number>([node.id])
-  for (const child of node.children) {
-    buildSubtreeIds(child).forEach((id) => ids.add(id))
-  }
+  for (const child of node.children) buildSubtreeIds(child).forEach((id) => ids.add(id))
   return ids
 }
 
@@ -64,6 +68,16 @@ function reparentToast(
   const acct = `${r.account_number} ${r.account_name}`
   if (!r.new_parent_number) return `${acct} moved to root (no parent)`
   return `${acct} moved under ${r.new_parent_number} ${r.new_parent_name}`
+}
+
+function matchesSearch(node: AccountNode, q: string): boolean {
+  const lower = q.toLowerCase()
+  return (
+    node.account_number.toLowerCase().includes(lower) ||
+    node.account_name.toLowerCase().includes(lower) ||
+    (node.detail_type ?? '').toLowerCase().includes(lower) ||
+    node.account_type.toLowerCase().includes(lower)
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -80,11 +94,7 @@ interface EditState {
 
 type HierarchyAction = 'make_parent' | 'make_child' | 'outdent' | 'move_to' | 'move_to_child'
 
-interface ContextMenuState {
-  accountId: number
-  x: number
-  y: number
-}
+interface ContextMenuState { accountId: number; x: number; y: number }
 
 interface UndoEntry {
   accountId: number
@@ -94,14 +104,10 @@ interface UndoEntry {
 }
 
 type DropPosition = 'before' | 'inside' | 'after'
-
-interface DropTarget {
-  nodeId: number
-  position: DropPosition
-}
+interface DropTarget { nodeId: number; position: DropPosition }
 
 // ---------------------------------------------------------------------------
-// Hierarchy context (shared state for drag, collapse, highlight)
+// Hierarchy context
 // ---------------------------------------------------------------------------
 
 interface HierarchyCtxValue {
@@ -109,23 +115,254 @@ interface HierarchyCtxValue {
   dropTarget: DropTarget | null
   collapsedIds: Set<number>
   highlightIds: Set<number>
+  selectedIds: Set<number>
   onDragStart: (e: React.DragEvent<HTMLTableRowElement>, nodeId: number, subtreeIds: Set<number>) => void
   onDragOver: (e: React.DragEvent<HTMLTableRowElement>, nodeId: number) => void
   onDragEnd: () => void
   onDrop: (e: React.DragEvent<HTMLTableRowElement>, nodeId: number) => void
   onToggleCollapsed: (nodeId: number) => void
+  onToggleSelect: (nodeId: number) => void
+  onPreview: (nodeId: number) => void
 }
 
 const HierarchyCtx = createContext<HierarchyCtxValue | null>(null)
-
-function useHierarchyCtx(): HierarchyCtxValue {
+function useHierarchyCtx() {
   const ctx = useContext(HierarchyCtx)
   if (!ctx) throw new Error('HierarchyCtx required')
   return ctx
 }
 
 // ---------------------------------------------------------------------------
-// MoveToModal — shared for Move To Parent and Move To Child
+// AccountPreviewSidebar
+// ---------------------------------------------------------------------------
+
+interface AccountPreviewSidebarProps {
+  account: AccountNode | null
+  allAccounts: Account[]
+  taxonomyLines: ReportingTaxonomyLine[]
+  onClose: () => void
+  onEdit: () => void
+  onAddChild: () => void
+}
+
+function AccountPreviewSidebar({
+  account,
+  allAccounts,
+  taxonomyLines,
+  onClose,
+  onEdit,
+  onAddChild,
+}: AccountPreviewSidebarProps) {
+  if (!account) return null
+
+  const parent = allAccounts.find((a) => a.id === account.parent_account_id)
+  const taxonomyLine = taxonomyLines.find((t) => t.id === account.reporting_taxonomy_line_id)
+
+  return (
+    <div className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 sticky top-0">
+        <div className="min-w-0">
+          <p className="text-xs font-mono text-gray-400">{account.account_number}</p>
+          <p className="text-sm font-semibold text-gray-800 truncate">{account.account_name}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1 text-gray-400 hover:text-gray-600 shrink-0"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Type badge */}
+      <div className="px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`px-2 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[account.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
+            {account.account_type}
+          </span>
+          <span className={`text-xs capitalize ${STATUS_COLORS[account.account_status] ?? 'text-gray-600'}`}>
+            {account.account_status}
+          </span>
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
+          >
+            <Pencil className="w-3 h-3" /> Edit
+          </button>
+          <button
+            type="button"
+            onClick={onAddChild}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            <Plus className="w-3 h-3" /> Add Child
+          </button>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Account Details</p>
+        <dl className="space-y-1.5">
+          <div className="flex justify-between">
+            <dt className="text-xs text-gray-500">Normal Balance</dt>
+            <dd className="text-xs font-medium text-gray-700 capitalize">{account.normal_balance}</dd>
+          </div>
+          {account.detail_type && (
+            <div className="flex justify-between">
+              <dt className="text-xs text-gray-500">Detail Type</dt>
+              <dd className="text-xs font-medium text-gray-700">{account.detail_type}</dd>
+            </div>
+          )}
+          {account.description && (
+            <div>
+              <dt className="text-xs text-gray-500 mb-0.5">Description</dt>
+              <dd className="text-xs text-gray-700">{account.description}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
+
+      {/* Hierarchy */}
+      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Hierarchy</p>
+        {parent && (
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-gray-400">Parent:</span>
+            <span className="font-mono text-gray-400">{parent.account_number}</span>
+            <span className="text-gray-700 truncate">{parent.account_name}</span>
+          </div>
+        )}
+        {!parent && (
+          <p className="text-xs text-gray-400 italic">Root account (no parent)</p>
+        )}
+        {account.children.length > 0 && (
+          <div>
+            <p className="text-xs text-gray-500 mb-1">{account.children.length} child account{account.children.length > 1 ? 's' : ''}:</p>
+            <ul className="space-y-0.5 max-h-36 overflow-y-auto">
+              {account.children.map((child) => (
+                <li key={child.id} className="flex items-center gap-1.5 text-xs pl-2 border-l-2 border-gray-100">
+                  <span className="font-mono text-gray-400">{child.account_number}</span>
+                  <span className="text-gray-700 truncate">{child.account_name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {account.children.length === 0 && !parent && (
+          <p className="text-xs text-gray-400 italic">Standalone account</p>
+        )}
+      </div>
+
+      {/* Reporting line */}
+      <div className="px-4 py-3 border-b border-gray-100 space-y-1.5">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Reporting</p>
+        {taxonomyLine ? (
+          <div className="flex items-start gap-2">
+            <Tag className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-medium text-gray-700">{taxonomyLine.name}</p>
+              <p className="text-[10px] text-gray-400">Reporting / FSLI Line</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2 py-1.5">
+            No reporting line assigned
+          </p>
+        )}
+      </div>
+
+      {/* Import source */}
+      <div className="px-4 py-3 space-y-1.5">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Source</p>
+        <dl className="space-y-1">
+          {(account as Account & { source_system?: string }).source_system && (
+            <div className="flex justify-between">
+              <dt className="text-xs text-gray-500">Source System</dt>
+              <dd className="text-xs font-medium text-gray-700">
+                {(account as Account & { source_system?: string }).source_system}
+              </dd>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <dt className="text-xs text-gray-500">Account ID</dt>
+            <dd className="text-xs font-mono text-gray-500">#{account.id}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SettingsPanel
+// ---------------------------------------------------------------------------
+
+interface SettingsPanelProps {
+  density: GridDensity
+  onDensity: (d: GridDensity) => void
+  showInactive: boolean
+  onShowInactive: (v: boolean) => void
+  onClose: () => void
+}
+
+function SettingsPanel({ density, onDensity, showInactive, onShowInactive, onClose }: SettingsPanelProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [onClose])
+
+  const DENSITIES: { key: GridDensity; label: string; icon: React.ElementType }[] = [
+    { key: 'compact', label: 'Compact', icon: AlignJustify },
+    { key: 'normal', label: 'Normal', icon: AlignLeft },
+    { key: 'comfortable', label: 'Comfortable', icon: AlignCenter },
+  ]
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl w-56 py-2">
+      <div className="px-3 py-1.5">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Density</p>
+        <div className="flex gap-1">
+          {DENSITIES.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onDensity(key)}
+              className={cn(
+                'flex-1 flex flex-col items-center gap-1 px-2 py-1.5 rounded text-[10px] border',
+                density === key ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="border-t border-gray-100 mt-1.5 pt-1.5 px-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showInactive}
+            onChange={(e) => onShowInactive(e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600"
+          />
+          <span className="text-xs text-gray-700">Show inactive / archived</span>
+        </label>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// MoveToModal
 // ---------------------------------------------------------------------------
 
 interface MoveToModalProps {
@@ -141,7 +378,6 @@ function MoveToModal({ mode, account, flatAccounts, onSelect, onClose }: MoveToM
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
@@ -194,9 +430,6 @@ function MoveToModal({ mode, account, flatAccounts, onSelect, onClose }: MoveToM
               — Root (no parent) —
             </button>
           )}
-          {filtered.length === 0 && search && (
-            <p className="px-4 py-3 text-xs text-gray-400">No accounts match "{search}"</p>
-          )}
           {filtered.map((a) => (
             <button
               key={a.id}
@@ -210,10 +443,7 @@ function MoveToModal({ mode, account, flatAccounts, onSelect, onClose }: MoveToM
           ))}
         </div>
         <div className="p-3 border-t flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 text-sm text-gray-600 border rounded hover:bg-gray-50"
-          >
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-gray-600 border rounded hover:bg-gray-50">
             Cancel
           </button>
         </div>
@@ -223,7 +453,7 @@ function MoveToModal({ mode, account, flatAccounts, onSelect, onClose }: MoveToM
 }
 
 // ---------------------------------------------------------------------------
-// Floating context menu
+// HierarchyContextMenu
 // ---------------------------------------------------------------------------
 
 interface ContextMenuProps {
@@ -236,7 +466,6 @@ interface ContextMenuProps {
 
 function HierarchyContextMenu({ pos, account, flatOrder, onAction, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
@@ -269,9 +498,7 @@ function HierarchyContextMenu({ pos, account, flatOrder, onAction, onClose }: Co
       disabled={disabled}
       onClick={() => { if (!disabled) { onClick(); onClose() } }}
       className={`w-full text-left px-3 py-2 flex items-start gap-2.5 text-sm ${
-        disabled
-          ? 'text-gray-300 cursor-not-allowed'
-          : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700'
+        disabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700'
       }`}
       data-testid={testId}
     >
@@ -295,51 +522,114 @@ function HierarchyContextMenu({ pos, account, flatOrder, onAction, onClose }: Co
         {childCount > 0 && <span className="ml-1.5 text-indigo-400">({childCount} children)</span>}
       </div>
 
-      {item(
-        <ArrowDownToLine className="w-3.5 h-3.5" />,
-        'Make Parent',
+      {item(<ArrowDownToLine className="w-3.5 h-3.5" />, 'Make Parent',
         nextNode ? `→ parent of ${nextNode.account_number} ${nextNode.account_name}` : null,
-        () => onAction('make_parent'),
-        !nextNode,
-        'action-make-parent',
+        () => onAction('make_parent'), !nextNode, 'action-make-parent'
       )}
-
-      {item(
-        <ArrowUpToLine className="w-3.5 h-3.5" />,
-        'Make Child',
+      {item(<ArrowUpToLine className="w-3.5 h-3.5" />, 'Make Child',
         prevNode ? `→ child of ${prevNode.account_number} ${prevNode.account_name}` : null,
-        () => onAction('make_child'),
-        !prevNode || prevNode.id === account.parent_account_id,
-        'action-make-child',
+        () => onAction('make_child'), !prevNode || prevNode.id === account.parent_account_id, 'action-make-child'
       )}
-
-      {item(
-        <ArrowLeftToLine className="w-3.5 h-3.5" />,
-        'Outdent / Remove Parent',
+      {item(<ArrowLeftToLine className="w-3.5 h-3.5" />, 'Outdent / Remove Parent',
         hasParent ? 'Move to root level' : 'Already at root',
-        () => onAction('outdent'),
-        !hasParent,
-        'action-outdent',
+        () => onAction('outdent'), !hasParent, 'action-outdent'
       )}
-
       <div className="border-t border-gray-100 mt-1 pt-1">
-        {item(
-          <Search className="w-3.5 h-3.5" />,
-          'Move To Parent…',
-          'Place under any account',
-          () => onAction('move_to'),
-          false,
-          'action-move-to',
+        {item(<Search className="w-3.5 h-3.5" />, 'Move To Parent…', 'Place under any account',
+          () => onAction('move_to'), false, 'action-move-to'
         )}
-        {item(
-          <ArrowRightToLine className="w-3.5 h-3.5" />,
-          'Move To Child…',
-          'Adopt any account as child',
-          () => onAction('move_to_child'),
-          false,
-          'action-move-to-child',
+        {item(<ArrowRightToLine className="w-3.5 h-3.5" />, 'Move To Child…', 'Adopt any account as child',
+          () => onAction('move_to_child'), false, 'action-move-to-child'
         )}
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AccountRowActionMenu — full per-row action menu
+// ---------------------------------------------------------------------------
+
+interface AccountRowActionMenuProps {
+  node: AccountNode
+  onEdit: () => void
+  onAddChild: () => void
+  onDuplicate: () => void
+  onArchive: () => void
+  onActivate: () => void
+  onPreview: () => void
+}
+
+function AccountRowActionMenu({
+  node, onEdit, onAddChild, onDuplicate, onArchive, onActivate, onPreview,
+}: AccountRowActionMenuProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    function k(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', h)
+    document.addEventListener('keydown', k)
+    return () => { document.removeEventListener('mousedown', h); document.removeEventListener('keydown', k) }
+  }, [open])
+
+  const isArchived = node.account_status === 'archived'
+
+  const menuItem = (
+    icon: React.ElementType,
+    label: string,
+    onClick: () => void,
+    variant: 'default' | 'danger' = 'default',
+    separator = false
+  ) => {
+    const Icon = icon
+    return (
+      <div key={label}>
+        {separator && <div className="border-t border-gray-100 my-1" />}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setOpen(false); onClick() }}
+          className={cn(
+            'w-full text-left px-3 py-2 text-xs flex items-center gap-2',
+            variant === 'danger' ? 'text-red-600 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50'
+          )}
+        >
+          <Icon className="w-3.5 h-3.5 shrink-0 opacity-60" />
+          {label}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        className="p-1 text-gray-300 hover:text-indigo-500 opacity-0 group-hover/row:opacity-100 focus:opacity-100"
+        data-testid={`row-action-menu-${node.id}`}
+        title="Actions"
+      >
+        <MoreVertical className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-xl w-44 py-1">
+          <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 mb-1">
+            {node.account_number}
+          </div>
+          {menuItem(Pencil, 'Edit', onEdit)}
+          {menuItem(Eye, 'Preview', onPreview)}
+          {menuItem(Plus, 'Add Child Account', onAddChild)}
+          {menuItem(Copy, 'Duplicate', onDuplicate, 'default', true)}
+          {isArchived
+            ? menuItem(Unlock, 'Activate', onActivate)
+            : menuItem(Archive, 'Archive', onArchive, 'danger', true)}
+        </div>
+      )}
     </div>
   )
 }
@@ -351,6 +641,7 @@ function HierarchyContextMenu({ pos, account, flatOrder, onAction, onClose }: Co
 interface AccountRowProps {
   node: AccountNode
   depth: number
+  density: GridDensity
   taxonomyLines: ReportingTaxonomyLine[]
   flatAccounts: Account[]
   editState: EditState | null
@@ -360,43 +651,33 @@ interface AccountRowProps {
   onEditChange: (patch: Partial<EditState>) => void
   isSaving: boolean
   onOpenMenu: (accountId: number, x: number, y: number) => void
+  onAddChild: (node: AccountNode) => void
+  onDuplicate: (node: AccountNode) => void
+  onArchive: (node: AccountNode) => void
+  onActivate: (node: AccountNode) => void
 }
 
 function AccountRow({
-  node,
-  depth,
-  taxonomyLines,
-  flatAccounts,
-  editState,
-  onEdit,
-  onSave,
-  onCancel,
-  onEditChange,
-  isSaving,
-  onOpenMenu,
+  node, depth, density, taxonomyLines, flatAccounts,
+  editState, onEdit, onSave, onCancel, onEditChange, isSaving,
+  onOpenMenu, onAddChild, onDuplicate, onArchive, onActivate,
 }: AccountRowProps) {
   const {
-    dragNodeId,
-    dropTarget,
-    collapsedIds,
-    highlightIds,
-    onDragStart,
-    onDragOver,
-    onDragEnd,
-    onDrop,
-    onToggleCollapsed,
+    dragNodeId, dropTarget, collapsedIds, highlightIds, selectedIds,
+    onDragStart, onDragOver, onDragEnd, onDrop, onToggleCollapsed,
+    onToggleSelect, onPreview,
   } = useHierarchyCtx()
 
   const collapsed = collapsedIds.has(node.id)
   const isEditing = editState?.accountId === node.id
   const hasChildren = node.children.length > 0
-  const menuBtnRef = useRef<HTMLButtonElement>(null)
   const isDragging = dragNodeId === node.id
   const isDropTarget = dropTarget?.nodeId === node.id
   const dropPos = isDropTarget ? dropTarget!.position : null
   const isHighlighted = highlightIds.has(node.id)
-
+  const isSelected = selectedIds.has(node.id)
   const taxonomyName = taxonomyLines.find((t) => t.id === node.reporting_taxonomy_line_id)?.name
+  const py = DENSITY_PY[density]
 
   function openMenu(e: React.MouseEvent) {
     e.preventDefault()
@@ -414,22 +695,22 @@ function AccountRow({
     onOpenMenu(node.id, x, y)
   }
 
-  const rowClass = [
-    'hover:bg-gray-50 transition-colors',
-    isEditing ? 'bg-indigo-50' : '',
-    isHighlighted ? 'bg-amber-50 ring-1 ring-inset ring-amber-300' : '',
-    isDragging ? 'opacity-40' : '',
-    dropPos === 'inside' ? 'bg-indigo-50 ring-2 ring-inset ring-indigo-400' : '',
-    dropPos === 'before' ? 'border-t-2 border-indigo-500' : '',
-    dropPos === 'after' ? 'border-b-2 border-indigo-500' : '',
-  ].filter(Boolean).join(' ')
-
   const subtreeIdsRef = useRef<Set<number>>(new Set())
-  // Compute lazily on drag start
   function handleDragStart(e: React.DragEvent<HTMLTableRowElement>) {
     subtreeIdsRef.current = buildSubtreeIds(node)
     onDragStart(e, node.id, subtreeIdsRef.current)
   }
+
+  const rowClass = cn(
+    'group/row hover:bg-gray-50 transition-colors',
+    isEditing && 'bg-indigo-50',
+    isHighlighted && 'bg-amber-50 ring-1 ring-inset ring-amber-300',
+    isDragging && 'opacity-40',
+    isSelected && !isEditing && 'bg-blue-50',
+    dropPos === 'inside' && 'bg-indigo-50 ring-2 ring-inset ring-indigo-400',
+    dropPos === 'before' && 'border-t-2 border-indigo-500',
+    dropPos === 'after' && 'border-b-2 border-indigo-500',
+  )
 
   return (
     <>
@@ -443,49 +724,68 @@ function AccountRow({
         onContextMenu={onContextMenu}
         data-testid={`account-row-${node.id}`}
       >
+        {/* Checkbox */}
+        <td className={cn('pl-3 pr-0 w-8', py)} onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(node.id)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+            data-testid={`account-checkbox-${node.id}`}
+          />
+        </td>
+
         {/* Drag handle */}
-        <td className="pl-2 pr-0 py-2 w-6 text-gray-200 hover:text-gray-400 cursor-grab" title="Drag to reparent">
+        <td className={cn('pl-1 pr-0 w-5 text-gray-200 hover:text-gray-400 cursor-grab', py)} title="Drag to reparent">
           <GripVertical className="w-3 h-3" />
         </td>
 
         {/* Acct # */}
-        <td className="px-3 py-2 text-xs text-gray-400 font-mono w-24">
+        <td className={cn('px-3 text-xs text-gray-400 font-mono w-24', py)}>
           {node.account_number || '—'}
         </td>
 
-        {/* Account name with indent guides */}
-        <td className="px-3 py-2" style={{ paddingLeft: `${12 + depth * 20}px` }}>
+        {/* Account name with indent */}
+        <td className={cn('px-3', py)} style={{ paddingLeft: `${12 + depth * 20}px` }}>
           <div className="flex items-center gap-1">
             {hasChildren ? (
               <button
                 type="button"
                 onClick={() => onToggleCollapsed(node.id)}
                 className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                title={collapsed ? 'Expand' : 'Collapse'}
               >
                 {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
             ) : (
               <span className="w-3 h-3 flex-shrink-0 inline-block" />
             )}
-            <span className={`text-sm ${STATUS_COLORS[node.account_status] ?? 'text-gray-800'}`}>
+            <button
+              type="button"
+              onClick={() => onPreview(node.id)}
+              className={cn(
+                'text-sm text-left truncate max-w-[280px]',
+                STATUS_COLORS[node.account_status] ?? 'text-gray-800',
+                'hover:text-indigo-600'
+              )}
+              title={node.account_name}
+            >
               {node.account_name}
-            </span>
+            </button>
             {hasChildren && (
-              <span className="text-xs text-gray-300 ml-1">({node.children.length})</span>
+              <span className="text-xs text-gray-300 ml-0.5">({node.children.length})</span>
             )}
           </div>
         </td>
 
         {/* Type */}
-        <td className="px-3 py-2">
-          <span className={`px-1.5 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+        <td className={cn('px-3 w-24', py)}>
+          <span className={`px-1.5 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
             {node.account_type}
           </span>
         </td>
 
         {/* Detail type */}
-        <td className="px-3 py-2 text-xs text-gray-500">
+        <td className={cn('px-3 text-xs text-gray-500 w-36', py)}>
           {isEditing ? (
             <input
               type="text"
@@ -499,12 +799,12 @@ function AccountRow({
         </td>
 
         {/* Status */}
-        <td className="px-3 py-2">
+        <td className={cn('px-3 w-24', py)}>
           {isEditing ? (
             <select
               value={editState.account_status}
               onChange={(e) => onEditChange({ account_status: e.target.value })}
-              className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
             >
               <option value="active">active</option>
               <option value="inactive">inactive</option>
@@ -519,12 +819,12 @@ function AccountRow({
         </td>
 
         {/* Reporting taxonomy */}
-        <td className="px-3 py-2 text-xs text-gray-500 max-w-[180px] truncate">
+        <td className={cn('px-3 text-xs text-gray-500 max-w-[180px] truncate', py)}>
           {isEditing ? (
             <select
               value={editState.reporting_taxonomy_line_id}
               onChange={(e) => onEditChange({ reporting_taxonomy_line_id: e.target.value ? Number(e.target.value) : '' })}
-              className="w-44 border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-44 border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
             >
               <option value="">— none —</option>
               {taxonomyLines.map((t) => (
@@ -537,38 +837,30 @@ function AccountRow({
         </td>
 
         {/* Parent account */}
-        <td className="px-3 py-2 text-xs text-gray-500 max-w-[160px] truncate">
+        <td className={cn('px-3 text-xs text-gray-500 w-32 truncate', py)}>
           {isEditing ? (
             <select
               value={editState.parent_account_id}
               onChange={(e) => onEditChange({ parent_account_id: e.target.value ? Number(e.target.value) : '' })}
-              className="w-40 border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-40 border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
             >
               <option value="">— none (root) —</option>
-              {flatAccounts
-                .filter((a) => a.id !== node.id)
-                .map((a) => (
-                  <option key={a.id} value={a.id}>{a.account_number} {a.account_name}</option>
-                ))}
+              {flatAccounts.filter((a) => a.id !== node.id).map((a) => (
+                <option key={a.id} value={a.id}>{a.account_number} {a.account_name}</option>
+              ))}
             </select>
           ) : (
             node.parent_account_id
-              ? flatAccounts.find((a) => a.id === node.parent_account_id)?.account_number || String(node.parent_account_id)
+              ? flatAccounts.find((a) => a.id === node.parent_account_id)?.account_number || '—'
               : <span className="text-gray-300">—</span>
           )}
         </td>
 
         {/* Actions */}
-        <td className="px-3 py-2 text-right w-20">
+        <td className={cn('px-2 text-right w-20', py)}>
           {isEditing ? (
             <div className="flex items-center justify-end gap-1">
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={onSave}
-                className="p-1 text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
-                title="Save"
-              >
+              <button type="button" disabled={isSaving} onClick={onSave} className="p-1 text-emerald-600 hover:text-emerald-700 disabled:opacity-50" title="Save">
                 <Check className="w-3.5 h-3.5" />
               </button>
               <button type="button" onClick={onCancel} className="p-1 text-gray-400 hover:text-gray-600" title="Cancel">
@@ -576,17 +868,17 @@ function AccountRow({
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 hover:opacity-100 focus-within:opacity-100 [tr:hover_&]:opacity-100">
+            <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
               <button
                 type="button"
                 onClick={() => onEdit(node)}
                 className="p-1 text-gray-300 hover:text-indigo-500"
                 title="Edit"
+                data-testid={`edit-btn-${node.id}`}
               >
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
-                ref={menuBtnRef}
                 type="button"
                 onClick={openMenu}
                 className="p-1 text-gray-300 hover:text-indigo-500"
@@ -595,6 +887,15 @@ function AccountRow({
               >
                 <MoreVertical className="w-3.5 h-3.5" />
               </button>
+              <AccountRowActionMenu
+                node={node}
+                onEdit={() => onEdit(node)}
+                onAddChild={() => onAddChild(node)}
+                onDuplicate={() => onDuplicate(node)}
+                onArchive={() => onArchive(node)}
+                onActivate={() => onActivate(node)}
+                onPreview={() => onPreview(node.id)}
+              />
             </div>
           )}
         </td>
@@ -605,6 +906,7 @@ function AccountRow({
           key={child.id}
           node={child}
           depth={depth + 1}
+          density={density}
           taxonomyLines={taxonomyLines}
           flatAccounts={flatAccounts}
           editState={editState}
@@ -614,6 +916,10 @@ function AccountRow({
           onEditChange={onEditChange}
           isSaving={isSaving}
           onOpenMenu={onOpenMenu}
+          onAddChild={onAddChild}
+          onDuplicate={onDuplicate}
+          onArchive={onArchive}
+          onActivate={onActivate}
         />
       ))}
     </>
@@ -635,12 +941,19 @@ export function ChartOfAccountsPage() {
   )
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
   const [editState, setEditState] = useState<EditState | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createWithParent, setCreateWithParent] = useState<number | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [moveToState, setMoveToState] = useState<{ account: AccountNode; mode: 'parent' | 'child' } | null>(null)
   const [highlightIds, setHighlightIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [previewAccountId, setPreviewAccountId] = useState<number | null>(null)
+  const [density, setDensity] = useState<GridDensity>('normal')
+  const [showSettings, setShowSettings] = useState(false)
 
   // Undo/redo
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([])
@@ -673,14 +986,31 @@ export function ChartOfAccountsPage() {
   })
 
   const flatOrder = useMemo(() => buildFlatOrder(tree), [tree])
+  const previewAccount = useMemo(
+    () => previewAccountId ? flatOrder.find((n) => n.id === previewAccountId) ?? null : null,
+    [previewAccountId, flatOrder]
+  )
 
+  // Mutations
   const updateMutation = useMutation({
-    mutationFn: ({ id, patch }: { id: number; patch: AccountUpdate }) =>
-      accountsApi.update(id, patch),
+    mutationFn: ({ id, patch }: { id: number; patch: AccountUpdate }) => accountsApi.update(id, patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
       setEditState(null)
       toast('Account updated', 'success')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  const bulkMutation = useMutation({
+    mutationFn: ({ ids, patch }: { ids: number[]; patch: AccountUpdate }) =>
+      accountsApi.bulkUpdate(ids, patch),
+    onSuccess: (_, { ids, patch }) => {
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
+      setSelectedIds(new Set())
+      const label = patch.account_status === 'archived' ? 'archived' : 'activated'
+      toast(`${ids.length} account${ids.length > 1 ? 's' : ''} ${label}`, 'success')
     },
     onError: (err: Error) => setApiError(err.message),
   })
@@ -692,7 +1022,6 @@ export function ChartOfAccountsPage() {
       queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
       queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
       toast(reparentToast(result), 'success')
-
       const ids = new Set<number>([result.account_id])
       if (result.new_parent_id) ids.add(result.new_parent_id)
       setHighlightIds(ids)
@@ -705,7 +1034,7 @@ export function ChartOfAccountsPage() {
         accountId: result.account_id,
         oldParentId: result.old_parent_id,
         newParentId: result.new_parent_id,
-        description: `${result.account_number} ${result.account_name}${result.new_parent_number ? ` under ${result.new_parent_number} ${result.new_parent_name}` : ' to root'}`,
+        description: `${result.account_number} ${result.account_name}${result.new_parent_number ? ` under ${result.new_parent_number}` : ' to root'}`,
       }
 
       if (pendingOp === null) {
@@ -724,7 +1053,7 @@ export function ChartOfAccountsPage() {
     },
   })
 
-  // Undo
+  // Undo/redo
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0 || reparentMutation.isPending) return
     const entry = undoStack[undoStack.length - 1]
@@ -741,7 +1070,6 @@ export function ChartOfAccountsPage() {
     reparentMutation.mutate({ id: entry.accountId, parentId: entry.newParentId })
   }, [redoStack, reparentMutation])
 
-  // Keyboard shortcuts
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); handleUndo() }
@@ -775,6 +1103,85 @@ export function ChartOfAccountsPage() {
     })
   }
 
+  // Row actions
+  function handleAddChild(node: AccountNode) {
+    setCreateWithParent(node.id)
+    setShowCreateModal(true)
+  }
+
+  function handleDuplicate(node: AccountNode) {
+    // Open create modal pre-filled with same type/category
+    setCreateWithParent(node.parent_account_id ?? null)
+    setShowCreateModal(true)
+    toast(`Duplicating ${node.account_name} — fill in the new account number`, 'info')
+  }
+
+  function handleArchive(node: AccountNode) {
+    updateMutation.mutate({ id: node.id, patch: { account_status: 'archived' } })
+  }
+
+  function handleActivate(node: AccountNode) {
+    updateMutation.mutate({ id: node.id, patch: { account_status: 'active' } })
+  }
+
+  // Selection
+  const handleToggleSelect = useCallback((nodeId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(nodeId)) next.delete(nodeId)
+      else next.add(nodeId)
+      return next
+    })
+  }, [])
+
+  const selectedRows = useMemo(
+    () => flatOrder.filter((n) => selectedIds.has(n.id)),
+    [flatOrder, selectedIds]
+  )
+
+  // Batch actions
+  const batchActions = useMemo(() => [
+    {
+      key: 'archive',
+      label: 'Archive',
+      icon: Archive,
+      variant: 'danger' as const,
+      onClick: (rows: AccountNode[]) => {
+        bulkMutation.mutate({ ids: rows.map((r) => r.id), patch: { account_status: 'archived' } })
+      },
+    },
+    {
+      key: 'activate',
+      label: 'Activate',
+      icon: Unlock,
+      onClick: (rows: AccountNode[]) => {
+        bulkMutation.mutate({ ids: rows.map((r) => r.id), patch: { account_status: 'active' } })
+      },
+    },
+    {
+      key: 'export',
+      label: 'Export CSV',
+      icon: History,
+      onClick: (rows: AccountNode[]) => {
+        const lines = ['Account Number,Account Name,Type,Detail Type,Status,Reporting Line']
+        rows.forEach((r) => {
+          const tl = taxonomyLines.find((t) => t.id === r.reporting_taxonomy_line_id)?.name ?? ''
+          lines.push(`${r.account_number},"${r.account_name}",${r.account_type},"${r.detail_type ?? ''}",${r.account_status},"${tl}"`)
+        })
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'accounts_selected.csv'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      },
+    },
+  ], [bulkMutation, taxonomyLines])
+
+  // Hierarchy context menu
   const handleOpenMenu = useCallback((accountId: number, x: number, y: number) => {
     setContextMenu({ accountId, x, y })
   }, [])
@@ -788,7 +1195,6 @@ export function ChartOfAccountsPage() {
     const nextNode = flatIndex < flatOrder.length - 1 ? flatOrder[flatIndex + 1] : null
 
     setContextMenu(null)
-
     switch (action) {
       case 'make_parent':
         if (!nextNode) return
@@ -810,7 +1216,7 @@ export function ChartOfAccountsPage() {
     }
   }
 
-  // Drag/drop handlers
+  // Drag/drop
   const handleDragStart = useCallback((
     e: React.DragEvent<HTMLTableRowElement>,
     nodeId: number,
@@ -821,16 +1227,9 @@ export function ChartOfAccountsPage() {
     dragSubtreeIdsRef.current = subtreeIds
   }, [])
 
-  const handleDragOver = useCallback((
-    e: React.DragEvent<HTMLTableRowElement>,
-    nodeId: number
-  ) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLTableRowElement>, nodeId: number) => {
     e.preventDefault()
-    // Prevent drop onto self or own descendants
-    if (dragSubtreeIdsRef.current.has(nodeId)) {
-      e.dataTransfer.dropEffect = 'none'
-      return
-    }
+    if (dragSubtreeIdsRef.current.has(nodeId)) { e.dataTransfer.dropEffect = 'none'; return }
     e.dataTransfer.dropEffect = 'move'
     const rect = e.currentTarget.getBoundingClientRect()
     const ratio = (e.clientY - rect.top) / rect.height
@@ -845,34 +1244,26 @@ export function ChartOfAccountsPage() {
     setDropTarget(null)
   }, [])
 
-  const handleDrop = useCallback((
-    e: React.DragEvent<HTMLTableRowElement>,
-    targetNodeId: number
-  ) => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLTableRowElement>, targetNodeId: number) => {
     e.preventDefault()
     const dragId = dragNodeId
     const target = dropTarget
     setDragNodeId(null)
     setDropTarget(null)
-
     if (!dragId || !target || dragSubtreeIdsRef.current.has(targetNodeId)) return
-
     const targetNode = flatOrder.find((n) => n.id === targetNodeId)
     if (!targetNode) return
-
     let parentId: number | null
     if (target.position === 'inside') {
       parentId = targetNodeId
     } else {
       parentId = targetNode.parent_account_id ?? null
     }
-
-    if (dragId === parentId) return // already has this parent
-
+    if (dragId === parentId) return
     reparentMutation.mutate({ id: dragId, parentId })
   }, [dragNodeId, dropTarget, flatOrder, reparentMutation])
 
-  // Collapse handlers
+  // Expand/collapse
   const handleToggleCollapsed = useCallback((nodeId: number) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev)
@@ -889,10 +1280,7 @@ export function ChartOfAccountsPage() {
     setCollapsedIds(ids)
   }
 
-  const contextMenuAccount = contextMenu
-    ? flatOrder.find((n) => n.id === contextMenu.accountId) ?? null
-    : null
-
+  // Filtering
   function countByType(nodes: AccountNode[]): Record<string, number> {
     const counts: Record<string, number> = {}
     function walk(n: AccountNode) {
@@ -907,8 +1295,9 @@ export function ChartOfAccountsPage() {
     return nodes.flatMap((node) => {
       const filteredChildren = filterTree(node.children)
       const typeMatch = !typeFilter || node.account_type === typeFilter
-      const statusMatch = !statusFilter || node.account_status === statusFilter
-      if (typeMatch && statusMatch) return [{ ...node, children: filteredChildren }]
+      const statusMatch = showInactive || node.account_status === statusFilter || statusFilter === ''
+      const searchMatch = !globalSearch || matchesSearch(node, globalSearch)
+      if (typeMatch && statusMatch && searchMatch) return [{ ...node, children: filteredChildren }]
       if (filteredChildren.length > 0) return [{ ...node, children: filteredChildren }]
       return []
     })
@@ -916,21 +1305,20 @@ export function ChartOfAccountsPage() {
 
   const typeCounts = countByType(tree)
   const filteredTree = filterTree(tree)
+  const contextMenuAccount = contextMenu ? flatOrder.find((n) => n.id === contextMenu.accountId) ?? null : null
+  const lastUndo = undoStack[undoStack.length - 1]
+  const lastRedo = redoStack[redoStack.length - 1]
 
   const hierarchyCtxValue: HierarchyCtxValue = {
-    dragNodeId,
-    dropTarget,
-    collapsedIds,
-    highlightIds,
+    dragNodeId, dropTarget, collapsedIds, highlightIds, selectedIds,
     onDragStart: handleDragStart,
     onDragOver: handleDragOver,
     onDragEnd: handleDragEnd,
     onDrop: handleDrop,
     onToggleCollapsed: handleToggleCollapsed,
+    onToggleSelect: handleToggleSelect,
+    onPreview: setPreviewAccountId,
   }
-
-  const lastUndo = undoStack[undoStack.length - 1]
-  const lastRedo = redoStack[redoStack.length - 1]
 
   return (
     <PageLayout
@@ -939,72 +1327,107 @@ export function ChartOfAccountsPage() {
     >
       {apiError && <ErrorBanner message={apiError} />}
 
-      {/* Entity selector + action buttons */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="w-64">
-          <EntitySelect value={entityId} onChange={(v) => { setEntityId(v); setEditState(null) }} />
+          <EntitySelect value={entityId} onChange={(v) => { setEntityId(v); setEditState(null); setSelectedIds(new Set()) }} />
         </div>
+
         {entityId && (
           <>
+            {/* Global search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search accounts…"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                className="pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded-md w-52 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                data-testid="coa-search"
+              />
+              {globalSearch && (
+                <button
+                  type="button"
+                  onClick={() => setGlobalSearch('')}
+                  className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              data-testid="create-account-btn"
             >
               <Plus className="w-3.5 h-3.5" /> Create Account
             </button>
             <button
               type="button"
-              onClick={() => navigate(`/coa-import`)}
+              onClick={() => navigate('/coa-import')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-indigo-300 text-indigo-700 rounded hover:bg-indigo-50"
             >
-              <Upload className="w-3.5 h-3.5" /> Import / Update COA
+              <Upload className="w-3.5 h-3.5" /> Import COA
             </button>
 
-            {/* Undo / Redo */}
             <div className="flex items-center gap-1 ml-auto">
+              {/* Undo / Redo */}
               <button
                 type="button"
                 onClick={handleUndo}
                 disabled={undoStack.length === 0 || reparentMutation.isPending}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                title={lastUndo ? `Undo: ${lastUndo.description}` : 'Nothing to undo (Ctrl+Z)'}
+                className="flex items-center gap-1 px-2 py-1.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30"
+                title={lastUndo ? `Undo: ${lastUndo.description} (Ctrl+Z)` : 'Nothing to undo'}
                 data-testid="undo-btn"
               >
                 <Undo2 className="w-3.5 h-3.5" />
-                <span>Undo</span>
               </button>
               <button
                 type="button"
                 onClick={handleRedo}
                 disabled={redoStack.length === 0 || reparentMutation.isPending}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                title={lastRedo ? `Redo: ${lastRedo.description}` : 'Nothing to redo (Ctrl+Shift+Z)'}
+                className="flex items-center gap-1 px-2 py-1.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30"
+                title={lastRedo ? `Redo: ${lastRedo.description} (Ctrl+Shift+Z)` : 'Nothing to redo'}
                 data-testid="redo-btn"
               >
                 <Redo2 className="w-3.5 h-3.5" />
-                <span>Redo</span>
               </button>
 
-              {/* Expand / Collapse all */}
-              <button
-                type="button"
-                onClick={expandAll}
-                className="p-1.5 text-gray-400 hover:text-gray-600 border rounded hover:bg-gray-50"
-                title="Expand all"
-                data-testid="expand-all-btn"
-              >
+              {/* Expand / Collapse */}
+              <button type="button" onClick={expandAll} className="p-1.5 text-gray-400 hover:text-gray-600 border rounded hover:bg-gray-50" title="Expand all" data-testid="expand-all-btn">
                 <ChevronsUpDown className="w-3.5 h-3.5" />
               </button>
-              <button
-                type="button"
-                onClick={collapseAll}
-                className="p-1.5 text-gray-400 hover:text-gray-600 border rounded hover:bg-gray-50"
-                title="Collapse all"
-                data-testid="collapse-all-btn"
-              >
+              <button type="button" onClick={collapseAll} className="p-1.5 text-gray-400 hover:text-gray-600 border rounded hover:bg-gray-50" title="Collapse all" data-testid="collapse-all-btn">
                 <ChevronsDownUp className="w-3.5 h-3.5" />
               </button>
+
+              {/* Settings */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings((v) => !v)}
+                  className={cn(
+                    'p-1.5 border rounded hover:bg-gray-50',
+                    showSettings ? 'border-indigo-400 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                  )}
+                  title="Display settings"
+                  data-testid="settings-btn"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                </button>
+                {showSettings && (
+                  <SettingsPanel
+                    density={density}
+                    onDensity={setDensity}
+                    showInactive={showInactive}
+                    onShowInactive={(v) => { setShowInactive(v); if (v) setStatusFilter('') }}
+                    onClose={() => setShowSettings(false)}
+                  />
+                )}
+              </div>
             </div>
           </>
         )}
@@ -1013,7 +1436,7 @@ export function ChartOfAccountsPage() {
       {/* Undo label */}
       {lastUndo && (
         <p className="text-xs text-gray-400 mb-2">
-          Last action: {lastUndo.description} — press Ctrl+Z to undo
+          Last: {lastUndo.description} — Ctrl+Z to undo
         </p>
       )}
 
@@ -1037,8 +1460,8 @@ export function ChartOfAccountsPage() {
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Summary chips */}
+        <div className="space-y-3">
+          {/* Type filter chips */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -1053,81 +1476,127 @@ export function ChartOfAccountsPage() {
                 type="button"
                 onClick={() => setTypeFilter(typeFilter === type ? '' : type)}
                 className={`px-3 py-1 rounded-full text-xs font-medium border capitalize transition-colors ${
-                  typeFilter === type
-                    ? TYPE_COLORS[type] + ' border-current'
-                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                  typeFilter === type ? TYPE_COLORS[type] + ' border-current' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 {type} · {count}
               </button>
             ))}
 
-            <div className="ml-auto flex items-center gap-1.5">
-              <label className="text-xs text-gray-500">Status:</label>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
-              >
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="archived">Archived</option>
-                <option value="deprecated">Deprecated</option>
-              </select>
-            </div>
+            {!showInactive && (
+              <div className="ml-auto flex items-center gap-1.5">
+                <label className="text-xs text-gray-500">Status:</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                >
+                  <option value="">All</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="archived">Archived</option>
+                  <option value="deprecated">Deprecated</option>
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* Drag/drop hint */}
+          {/* Selection summary */}
+          {selectedIds.size > 0 && (
+            <div className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-1.5 flex items-center gap-2">
+              <span>{selectedIds.size} selected</span>
+              <button type="button" onClick={() => setSelectedIds(new Set())} className="underline hover:no-underline">
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* Hint */}
           <p className="text-xs text-gray-400">
-            Drag <GripVertical className="inline w-3 h-3" /> rows to reparent · Right-click or click <MoreVertical className="inline w-3 h-3" /> for actions · Ctrl+Z to undo
+            Drag <GripVertical className="inline w-3 h-3" /> to reparent · Right-click for hierarchy · Click name to preview · Ctrl+Z to undo
           </p>
 
-          {/* Accounts table */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-            <HierarchyCtx.Provider value={hierarchyCtxValue}>
-              <table className="w-full text-sm min-w-[1060px]">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-                  <tr>
-                    <th className="px-2 py-2 w-6" />
-                    <th className="px-3 py-2 text-left w-24">Acct #</th>
-                    <th className="px-3 py-2 text-left">Account Name</th>
-                    <th className="px-3 py-2 text-left w-24">Type</th>
-                    <th className="px-3 py-2 text-left w-36">Detail Type</th>
-                    <th className="px-3 py-2 text-left w-24">Status</th>
-                    <th className="px-3 py-2 text-left w-44">Reporting Line</th>
-                    <th className="px-3 py-2 text-left w-36">Parent</th>
-                    <th className="px-3 py-2 w-20" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredTree.length === 0 ? (
+          {/* Main layout: table + optional preview sidebar */}
+          <div className="flex gap-0 rounded-lg border border-gray-200 overflow-hidden bg-white">
+            {/* Table */}
+            <div className="flex-1 overflow-x-auto">
+              <HierarchyCtx.Provider value={hierarchyCtxValue}>
+                <table className="w-full text-sm min-w-[980px]">
+                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200 sticky top-0 z-10">
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
-                        No accounts match the current filter
-                      </td>
+                      <th className="px-3 py-2 w-8">
+                        <input
+                          type="checkbox"
+                          checked={filteredTree.length > 0 && buildFlatOrder(filteredTree).every((n) => selectedIds.has(n.id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(new Set(buildFlatOrder(filteredTree).map((n) => n.id)))
+                            } else {
+                              setSelectedIds(new Set())
+                            }
+                          }}
+                          className="rounded border-gray-300 text-indigo-600"
+                          title="Select all visible"
+                          data-testid="select-all-checkbox"
+                        />
+                      </th>
+                      <th className="px-1 py-2 w-5" />
+                      <th className="px-3 py-2 text-left w-24">Acct #</th>
+                      <th className="px-3 py-2 text-left">Account Name</th>
+                      <th className="px-3 py-2 text-left w-24">Type</th>
+                      <th className="px-3 py-2 text-left w-36">Detail Type</th>
+                      <th className="px-3 py-2 text-left w-24">Status</th>
+                      <th className="px-3 py-2 text-left w-44">Reporting Line</th>
+                      <th className="px-3 py-2 text-left w-28">Parent</th>
+                      <th className="px-3 py-2 w-20" />
                     </tr>
-                  ) : (
-                    filteredTree.map((node) => (
-                      <AccountRow
-                        key={node.id}
-                        node={node}
-                        depth={0}
-                        taxonomyLines={taxonomyLines}
-                        flatAccounts={flatAccounts}
-                        editState={editState}
-                        onEdit={handleEdit}
-                        onSave={handleSave}
-                        onCancel={() => setEditState(null)}
-                        onEditChange={(patch) => setEditState((prev) => prev ? { ...prev, ...patch } : prev)}
-                        isSaving={updateMutation.isPending}
-                        onOpenMenu={handleOpenMenu}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </HierarchyCtx.Provider>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredTree.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-400">
+                          No accounts match the current filter
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTree.map((node) => (
+                        <AccountRow
+                          key={node.id}
+                          node={node}
+                          depth={0}
+                          density={density}
+                          taxonomyLines={taxonomyLines}
+                          flatAccounts={flatAccounts}
+                          editState={editState}
+                          onEdit={handleEdit}
+                          onSave={handleSave}
+                          onCancel={() => setEditState(null)}
+                          onEditChange={(patch) => setEditState((prev) => prev ? { ...prev, ...patch } : prev)}
+                          isSaving={updateMutation.isPending}
+                          onOpenMenu={handleOpenMenu}
+                          onAddChild={handleAddChild}
+                          onDuplicate={handleDuplicate}
+                          onArchive={handleArchive}
+                          onActivate={handleActivate}
+                        />
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </HierarchyCtx.Provider>
+            </div>
+
+            {/* Account preview sidebar */}
+            {previewAccount && (
+              <AccountPreviewSidebar
+                account={previewAccount}
+                allAccounts={flatAccounts}
+                taxonomyLines={taxonomyLines}
+                onClose={() => setPreviewAccountId(null)}
+                onEdit={() => handleEdit(previewAccount)}
+                onAddChild={() => handleAddChild(previewAccount)}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1143,7 +1612,7 @@ export function ChartOfAccountsPage() {
         />
       )}
 
-      {/* Move To modal (parent or child) */}
+      {/* Move To modal */}
       {moveToState && (
         <MoveToModal
           mode={moveToState.mode}
@@ -1153,9 +1622,7 @@ export function ChartOfAccountsPage() {
             if (moveToState.mode === 'parent') {
               reparentMutation.mutate({ id: moveToState.account.id, parentId: targetId })
             } else {
-              if (targetId !== null) {
-                reparentMutation.mutate({ id: targetId, parentId: moveToState.account.id })
-              }
+              if (targetId !== null) reparentMutation.mutate({ id: targetId, parentId: moveToState.account.id })
             }
           }}
           onClose={() => setMoveToState(null)}
@@ -1167,10 +1634,23 @@ export function ChartOfAccountsPage() {
         <CreateAccountModal
           entityId={entityId as number}
           existingAccounts={tree}
-          onClose={() => setShowCreateModal(false)}
-          onCreated={() => queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })}
+          onClose={() => { setShowCreateModal(false); setCreateWithParent(null) }}
+          onCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
+            queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
+          }}
         />
       )}
+
+      {/* Batch action bar */}
+      <BatchActionBar
+        selectedCount={selectedIds.size}
+        selectedRows={selectedRows}
+        actions={batchActions}
+        onClear={() => setSelectedIds(new Set())}
+        totalCount={buildFlatOrder(filteredTree).length}
+        onSelectAll={() => setSelectedIds(new Set(buildFlatOrder(filteredTree).map((n) => n.id)))}
+      />
     </PageLayout>
   )
 }

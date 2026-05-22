@@ -129,6 +129,11 @@ class AccountOut(BaseModel):
     reporting_taxonomy_line_id: int | None = None
 
 
+class AccountBulkUpdate(BaseModel):
+    ids: list[int]
+    patch: AccountUpdate
+
+
 class AccountReparentBody(BaseModel):
     parent_account_id: int | None  # null = move to root (outdent)
 

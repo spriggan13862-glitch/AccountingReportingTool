@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.api.schemas import AccountCreate, AccountOut, AccountReparentBody, AccountReparentResult, AccountUpdate, Page
+from app.api.schemas import AccountBulkUpdate, AccountCreate, AccountOut, AccountReparentBody, AccountReparentResult, AccountUpdate, Page
 from app.models.account import Account
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
@@ -104,6 +104,24 @@ def accounts_tree(
             roots.append(node)
 
     return roots
+
+
+@router.patch("/bulk", response_model=list[AccountOut])
+def bulk_update_accounts(body: AccountBulkUpdate, db: Session = Depends(get_db)):
+    """Apply the same patch to multiple accounts atomically."""
+    if not body.ids:
+        return []
+    accounts = db.query(Account).filter(Account.id.in_(body.ids)).all()
+    patch = body.patch.model_dump(exclude_unset=True)
+    for acct in accounts:
+        for key, value in patch.items():
+            setattr(acct, key, value)
+        if "account_status" in patch:
+            acct.active = patch["account_status"] == "active"
+    db.flush()
+    for acct in accounts:
+        db.refresh(acct)
+    return accounts
 
 
 @router.get("/{account_id}", response_model=AccountOut)

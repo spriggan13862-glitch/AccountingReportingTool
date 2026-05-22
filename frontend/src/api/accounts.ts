@@ -67,6 +67,9 @@ export const accountsApi = {
 
   reparent: (id: number, parentAccountId: number | null) =>
     api.post<AccountReparentResult>(`/accounts/${id}/reparent`, { parent_account_id: parentAccountId }).then((r) => r.data),
+
+  bulkUpdate: (ids: number[], patch: AccountUpdate) =>
+    api.patch<Account[]>('/accounts/bulk', { ids, patch }).then((r) => r.data),
 }
 
 export interface AccountReparentResult {
