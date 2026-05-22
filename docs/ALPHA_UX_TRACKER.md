@@ -316,6 +316,55 @@ New test file: `tests/test_m36d_account_numbering.py` — 25 tests
 
 ---
 
+## Tier 1.5 — Stabilization Sprint (2026-05-22)
+
+Stabilization pass before Tier 2. Focus: core workflow correctness for import → COA → financial statements pipeline.
+
+### Last Test Run (post-stabilization)
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Python unit tests | 671 | 0 | 671 |
+| Frontend vitest | 360 | 0 | 360 |
+
+### Bugs Fixed
+
+| ID | Priority | Area | Bug | Root Cause | Fix | Test |
+|---|---|---|---|---|---|---|
+| T15-001 | Critical | PDF Apply | 500 error on apply due to Postgres `Numeric` cast failure | Extracted `amount` values arrive as strings with commas, parenthesized negatives, or empty. SQLAlchemy passes them raw to Postgres which rejects non-numeric strings. | Added `_safe_decimal()` helper in `pdf_import.py`; all amount fields now coerced before insert. | `tests/test_pdf_apply.py` |
+| T15-002 | Critical | PDF Apply | `name_hash` could be `None`, causing NOT NULL constraint violation | `line_data.get("name_hash")` returns None when field absent | `name_hash = line_data.get("name_hash") or ""` | same |
+| T15-003 | High | Error Display | 500 errors showed `[object Object]` in toast notifications | FastAPI returns structured `{error, message, hint, traceback}` objects in 500 detail; Axios client stringified the object | `client.ts`: extract `.message` or `.error` string from structured detail before creating Error | `tier1_shadow.test.tsx` (client indirect) |
+| T15-004 | High | PDF Apply | Better 500 diagnosis — traceback hidden in generic message | Error detail only said "apply_failed" with no traceback | Now includes `type(exc).__name__` and full `traceback.format_exc()` in detail.hint | — |
+| T15-005 | Critical | Financial Statements | Blank statements when no scenario selected | `JournalEntry.scenario_id.in_([])` is always-false SQL when list empty | `_resolve_scenario_ids()` returns all active scenario IDs when list empty, sentinel -1 when no scenarios exist | `milestone35d.test.tsx` |
+| T15-006 | Critical | Financial Statements | Blank taxonomy FS on fresh install | `taxonomy_balance_sheet` / `taxonomy_income_statement` queried `ReportingTaxonomyLine` without seeding | Added `get_or_seed(db)` at start of both FS router endpoints | same |
+| T15-007 | High | Taxonomy Auto-seed | `reporting_taxonomy_line_id` was always None on fresh DB | `get_taxonomy_id_for_account` did not seed before querying | Added `if count == 0: seed_taxonomy(db)` before lookup | `test_coa_apply_creates_accounts` |
+| T15-008 | Medium | Financial Statements | Empty state showed generic "No reporting data found" — no guidance | Single fallback message for all empty reasons | Three distinct messages: no taxonomy configured / no accounts mapped / mapped but $0 | `milestone35d.test.tsx` |
+
+### Remaining Open Issues (Deferred to Tier 2)
+
+| ID | Area | Description | Priority |
+|---|---|---|---|
+| T15-OPEN-001 | ContextBar / Pages | Per-page EntitySelect dropdowns do not auto-sync to global active entity from WorkspaceProvider | Medium |
+| T15-OPEN-002 | Entity Setup | EntitiesPage does not show account count or document count per entity | Low |
+| T15-OPEN-003 | smoke.spec.ts | 5 E2E Playwright smoke tests fail due to test infrastructure bugs (not app bugs) — see E2E-ST-001 through E2E-ST-005 | Medium |
+| T15-OPEN-004 | COA Undo | Undo/redo in ChartOfAccountsPage only covers reparent operations; ActionHistoryProvider global redo is a stub | Low |
+
+### Branch Readiness Assessment
+
+The `tier-1-global-grid-and-batch-actions` branch is **ready for visual review**.
+
+Core workflow (import → COA → Financial Statements) is now functional end-to-end:
+- PDF import apply no longer throws 500 on real PDF data
+- Taxonomy auto-seeds on first use (no manual seed step required)
+- Financial statements render correctly when no scenario filter is selected
+- Empty states provide actionable guidance instead of generic fallbacks
+
+All 671 Python tests and 360 vitest tests pass. TypeScript compiles clean.
+
+**Not yet safe to merge to main** — smoke.spec.ts E2E tests (T15-OPEN-003) are failing due to test infrastructure bugs. Fixing those is recommended before merge.
+
+---
+
 ## Tracker Rules
 
 - This file is the source of truth for alpha usability and workflow issues.
