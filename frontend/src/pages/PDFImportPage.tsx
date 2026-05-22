@@ -17,6 +17,8 @@ import { pdfImportApi } from '@/api/pdfImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
+import { StepIndicator } from '@/components/import-wizard'
+import type { WizardStep } from '@/components/import-wizard'
 import type {
   PDFImportBatch,
   PDFImportPreview,
@@ -474,6 +476,13 @@ export function PDFImportPage() {
 
   // Phase machine
   const [phase, setPhase] = useState<Phase>('upload')
+
+  const phaseIndex = phase === 'upload' ? 0 : phase === 'preview' ? 1 : 2
+  const PDF_WIZARD_STEPS: WizardStep[] = [
+    { key: 'upload', label: 'Upload', status: phaseIndex > 0 ? 'complete' : 'active' },
+    { key: 'preview', label: 'Preview', status: phaseIndex > 1 ? 'complete' : phaseIndex === 1 ? 'active' : 'pending' },
+    { key: 'applied', label: 'Applied', status: phaseIndex === 2 ? 'complete' : 'pending' },
+  ]
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [preview, setPreview] = useState<PDFImportPreview | null>(null)
@@ -642,6 +651,7 @@ export function PDFImportPage() {
         subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
       >
         {apiError && <ErrorBanner message={apiError} />}
+        <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} />
         {workflowBanner}
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
@@ -769,6 +779,7 @@ export function PDFImportPage() {
         subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
       >
         {apiError && <ErrorBanner message={apiError} />}
+        <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} />
         {workflowBanner}
 
         <div className="space-y-4">
@@ -958,6 +969,7 @@ export function PDFImportPage() {
       subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
     >
       {apiError && <ErrorBanner message={apiError} />}
+      <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} />
       {workflowBanner}
 
       {/* Applied header */}

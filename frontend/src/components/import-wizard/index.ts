@@ -16,3 +16,5 @@ export type {
   WizardState,
 } from './types'
 export type { ImportWizardHandle } from './useImportWizard'
+export { validateCOARows } from './coaValidation'
+export type { COAImportRow } from './coaValidation'
