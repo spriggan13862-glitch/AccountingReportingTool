@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -143,6 +144,23 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
 
     error_summary: list[str] = []
 
+    def _safe_decimal(raw: str | None) -> Decimal:
+        """Convert extracted amount string to Decimal for DB insert."""
+        if raw is None:
+            return Decimal("0")
+        s = str(raw).strip()
+        # Handle parenthesized negatives like (1,234.56)
+        if s.startswith("(") and s.endswith(")"):
+            s = "-" + s[1:-1]
+        # Strip commas, dollar signs, percent signs
+        s = s.replace(",", "").replace("$", "").replace("%", "").strip()
+        if not s or s == "-":
+            return Decimal("0")
+        try:
+            return Decimal(s)
+        except InvalidOperation:
+            return Decimal("0")
+
     try:
         for i, line_data in enumerate(lines_data):
             temp_code = line_data.get("temp_account_code", f"UNKNOWN-{i}")
@@ -151,12 +169,12 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
             line_obj = PDFImportLine(
                 batch_id=batch.id,
                 temp_account_code=temp_code,
-                name_hash=line_data.get("name_hash"),
+                name_hash=line_data.get("name_hash") or "",
                 official_account_code=assigned_number or None,
                 account_name=line_data.get("account_name", ""),
                 statement_type=line_data.get("statement_type", ""),
                 section=line_data.get("section", ""),
-                amount=line_data.get("amount", "0"),
+                amount=_safe_decimal(line_data.get("amount")),
                 is_subtotal=line_data.get("is_subtotal", False),
                 is_contra=line_data.get("is_contra", False),
                 sort_order=line_data.get("sort_order", i),
@@ -196,17 +214,15 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
         return batch
 
     except Exception as exc:
-        # Mark batch as failed using explicit db operations before re-raising.
-        # get_db will rollback the outer transaction, so we use a fresh update
-        # to persist the failure reason — but since rollback undoes everything,
-        # we raise with a structured error detail so the frontend can display it.
+        import traceback
         raise HTTPException(
             status_code=500,
             detail={
                 "error": "apply_failed",
-                "message": f"Failed to persist extracted lines: {exc}",
+                "message": f"Failed to persist extracted lines: {type(exc).__name__}: {exc}",
                 "batch_id": batch_id,
                 "hint": "Re-upload the PDF and try again. If the error persists, check the validation report.",
+                "traceback": traceback.format_exc(),
             },
         ) from exc
 

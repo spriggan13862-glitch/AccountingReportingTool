@@ -75,10 +75,17 @@ api.interceptors.response.use(
         window.location.href = '/login?reason=session_expired'
       }
     }
-    const detail = error.response?.data?.detail ?? error.message ?? 'Unknown error'
-    const enriched = new Error(detail) as Error & { apiError: ApiError; status: number }
+    const rawDetail = error.response?.data?.detail ?? error.message ?? 'Unknown error'
+    // Structured detail objects (e.g. 500 apply_failed) → extract human message
+    const detail = typeof rawDetail === 'object' && rawDetail !== null
+      ? (rawDetail as Record<string, unknown>).message as string
+        ?? (rawDetail as Record<string, unknown>).error as string
+        ?? JSON.stringify(rawDetail)
+      : String(rawDetail)
+    const enriched = new Error(detail) as Error & { apiError: ApiError; status: number; rawDetail: unknown }
     enriched.apiError = error.response?.data ?? { detail }
     enriched.status = error.response?.status ?? 0
+    enriched.rawDetail = rawDetail
     return Promise.reject(enriched)
   },
 )

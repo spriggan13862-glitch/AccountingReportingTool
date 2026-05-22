@@ -552,6 +552,9 @@ def get_taxonomy_id_for_account(
     )
     if code is None:
         return None, None
+    # Auto-seed taxonomy if the table is empty (e.g. fresh test DB or new installation)
+    if db.query(ReportingTaxonomyLine).count() == 0:
+        seed_taxonomy(db)
     line = db.query(ReportingTaxonomyLine).filter_by(code=code).first()
     return (line.id if line else None), evidence
 
