@@ -8,6 +8,8 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useToast } from '@/providers/ToastProvider'
+import { WizardLayout, StepIndicator, ConfirmationStep } from '@/components/import-wizard'
+import type { WizardStep } from '@/components/import-wizard'
 import type { COAImportPreview } from '@/types'
 
 const QB_FORMATS = [
@@ -61,6 +63,15 @@ export function COAImportPage() {
   const [reportingLineFilter, setReportingLineFilter] = useState<number | ''>('')
   // Overrides: row_index → reporting_taxonomy_line_id
   const [overrides, setOverrides] = useState<Record<number, number>>({})
+  // Wizard step: 0=upload 1=review 2=done
+  const [wizardStep, setWizardStep] = useState(0)
+  const [importResult, setImportResult] = useState<{ created: number; updated: number } | null>(null)
+
+  const WIZARD_STEPS: WizardStep[] = [
+    { key: 'upload', label: 'Upload', status: wizardStep > 0 ? 'complete' : wizardStep === 0 ? 'active' : 'pending' },
+    { key: 'review', label: 'Review', status: wizardStep > 1 ? 'complete' : wizardStep === 1 ? 'active' : 'pending' },
+    { key: 'done', label: 'Done', status: wizardStep === 2 ? 'complete' : 'pending' },
+  ]
 
   const { data: taxonomyLines = [] } = useQuery({
     queryKey: ['reporting-taxonomy'],
@@ -78,6 +89,7 @@ export function COAImportPage() {
       setApiError(null)
       setTypeFilter(null)
       setUnassignedOnly(false)
+      setWizardStep(1)
       setSearchQuery('')
       setReportingLineFilter('')
       setOverrides({})
@@ -97,7 +109,8 @@ export function COAImportPage() {
         `COA imported: ${batch.accounts_created} created, ${batch.accounts_updated} updated`,
         'success',
       )
-      navigate(`/accounts?entity=${entityId}`)
+      setImportResult({ created: batch.accounts_created, updated: batch.accounts_updated })
+      setWizardStep(2)
     },
     onError: (err: Error) => { setApiError(err.message) },
   })
@@ -156,6 +169,38 @@ export function COAImportPage() {
     >
       {apiError && <ErrorBanner message={apiError} />}
 
+      <StepIndicator steps={WIZARD_STEPS} currentStep={wizardStep} />
+
+      {/* Confirmation step */}
+      {wizardStep === 2 && importResult && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <ConfirmationStep
+            summary={{ totalRows: (importResult.created + importResult.updated), validRows: importResult.created + importResult.updated, errorRows: 0, warningRows: 0, skippedRows: 0 }}
+            importType="accounts"
+          >
+            {importResult.updated > 0 && (
+              <p className="text-sm text-gray-500">{importResult.updated} existing accounts updated</p>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate(`/accounts?entity=${entityId}`)}
+              className="mt-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+            >
+              View Chart of Accounts
+            </button>
+            <button
+              type="button"
+              onClick={() => { setWizardStep(0); setPreview(null); setFile(null); setImportResult(null) }}
+              className="mt-2 ml-2 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+            >
+              Import Another File
+            </button>
+          </ConfirmationStep>
+        </div>
+      )}
+
+      {wizardStep < 2 && (
+      <>
       {/* Mapping chain banner */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 mb-5 text-sm text-indigo-800">
         <p className="font-semibold mb-1 flex items-center gap-1.5">
@@ -492,6 +537,8 @@ export function COAImportPage() {
             </table>
           </div>
         </div>
+      )}
+      </>
       )}
     </PageLayout>
   )
