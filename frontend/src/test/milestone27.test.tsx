@@ -229,7 +229,7 @@ describe('MappingWorkbenchPage', () => {
   it('shows show-mapped toggle', async () => {
     render(wrap(<MappingWorkbenchPage />, '/import/42/mapping', '/import/:id/mapping'))
     await waitFor(() => {
-      expect(screen.getByText('Show mapped')).toBeInTheDocument()
+      expect(screen.getByText(/Show all \(including mapped\)/i)).toBeInTheDocument()
     })
   })
 
@@ -265,7 +265,7 @@ describe('EntitiesPage fiscal year', () => {
   it('renders Fiscal Year End column', async () => {
     render(wrap(<EntitiesPage />, '/entities'))
     await waitFor(() => {
-      expect(screen.getByText('Fiscal Year End')).toBeInTheDocument()
+      expect(screen.getByText('FY End')).toBeInTheDocument()
     })
   })
 

@@ -4,6 +4,9 @@ import { CheckCircle, AlertTriangle, XCircle, Loader, RefreshCw, Lock, Unlock } 
 import { periodGovernanceApi } from '@/api/periodGovernance'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { PeriodSelect } from '@/components/ui/PeriodSelect'
+import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import type { ShadowCloseReport, ShadowCheckResult, PeriodLockSummary, PeriodGovernanceEvent } from '@/types'
 
 function checkIcon(status: string) {
@@ -48,9 +51,9 @@ function periodStatusBadge(status: string) {
 }
 
 export function VarianceAnalysisPage() {
-  const [periodId, setPeriodId] = useState('')
-  const [entityId, setEntityId] = useState('')
-  const [scenarioId, setScenarioId] = useState('')
+  const [entityId, setEntityId] = useState<number | ''>('')
+  const [periodId, setPeriodId] = useState<number | ''>('')
+  const [scenarioId, setScenarioId] = useState<number | ''>('')
   const [reason, setReason] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
 
@@ -58,14 +61,14 @@ export function VarianceAnalysisPage() {
 
   const { data: lockSummary, refetch: refetchLock } = useQuery<PeriodLockSummary>({
     queryKey: ['lock-summary', periodId],
-    queryFn: () => periodGovernanceApi.getLockSummary(Number(periodId)),
+    queryFn: () => periodGovernanceApi.getLockSummary(periodId as number),
     enabled: !!periodId,
     retry: false,
   })
 
   const { data: history, refetch: refetchHistory } = useQuery<PeriodGovernanceEvent[]>({
     queryKey: ['gov-history', periodId],
-    queryFn: () => periodGovernanceApi.getHistory(Number(periodId)),
+    queryFn: () => periodGovernanceApi.getHistory(periodId as number),
     enabled: !!periodId,
     retry: false,
   })
@@ -79,9 +82,9 @@ export function VarianceAnalysisPage() {
     setApiError(null)
     try {
       const report = await periodGovernanceApi.runValidation(
-        Number(periodId),
-        Number(entityId),
-        scenarioId ? Number(scenarioId) : undefined,
+        periodId as number,
+        entityId as number,
+        scenarioId !== '' ? scenarioId : undefined,
         true,
       )
       setShadowReport(report)
@@ -93,19 +96,19 @@ export function VarianceAnalysisPage() {
   }
 
   const softCloseMutation = useMutation({
-    mutationFn: () => periodGovernanceApi.softClose(Number(periodId), reason || undefined),
+    mutationFn: () => periodGovernanceApi.softClose(periodId as number, reason || undefined),
     onSuccess: () => { setApiError(null); refetchLock(); refetchHistory() },
     onError: (err: Error) => setApiError(err.message),
   })
 
   const hardCloseMutation = useMutation({
-    mutationFn: () => periodGovernanceApi.hardClose(Number(periodId), reason || undefined),
+    mutationFn: () => periodGovernanceApi.hardClose(periodId as number, reason || undefined),
     onSuccess: () => { setApiError(null); refetchLock(); refetchHistory() },
     onError: (err: Error) => setApiError(err.message),
   })
 
   const reopenMutation = useMutation({
-    mutationFn: () => periodGovernanceApi.reopen(Number(periodId), reason || undefined),
+    mutationFn: () => periodGovernanceApi.reopen(periodId as number, reason || undefined),
     onSuccess: () => { setApiError(null); refetchLock(); refetchHistory() },
     onError: (err: Error) => setApiError(err.message),
   })
@@ -121,22 +124,26 @@ export function VarianceAnalysisPage() {
 
       {/* Input */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Period ID</label>
-            <input type="number" value={periodId} onChange={(e) => setPeriodId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Period ID" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Entity ID</label>
-            <input type="number" value={entityId} onChange={(e) => setEntityId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Entity ID" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Scenario ID (optional)</label>
-            <input type="number" value={scenarioId} onChange={(e) => setScenarioId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="All scenarios" />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <EntitySelect
+            label="Entity"
+            value={entityId}
+            onChange={(id) => { setEntityId(id); setPeriodId('') }}
+            required
+          />
+          <PeriodSelect
+            label="Period"
+            entityId={entityId}
+            value={periodId}
+            onChange={setPeriodId}
+            required
+          />
+          <ScenarioSelect
+            label="Scenario (optional)"
+            value={scenarioId}
+            onChange={setScenarioId}
+            placeholder="All scenarios"
+          />
         </div>
         <button
           type="button"

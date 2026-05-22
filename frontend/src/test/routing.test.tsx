@@ -1,16 +1,20 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, it, expect } from 'vitest'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
 
 function wrap(element: React.ReactNode, path = '/') {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="*" element={element} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="*" element={element} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   )
 }
 
@@ -22,7 +26,7 @@ describe('Routing', () => {
 
   it('renders DocumentsPage', () => {
     render(wrap(<DocumentsPage />))
-    expect(screen.getByText('Documents')).toBeInTheDocument()
+    expect(screen.getByText('Document Registry')).toBeInTheDocument()
   })
 
   it('placeholder shows coming soon text', () => {

@@ -3,6 +3,11 @@ from app.models.user import User
 from app.models.role import Role, UserRole
 from app.models.entity import Entity
 from app.models.account import Account
+from app.models.reporting_taxonomy import ReportingTaxonomyLine, ReportingTaxonomyView, ReportingPresentationSettings
+from app.models.coa_import_batch import COAImportBatch
+from app.models.pdf_import_batch import PDFImportBatch
+from app.models.pdf_import_line import PDFImportLine
+from app.models.pdf_account_mapping import PDFAccountMapping
 from app.models.scenario import Scenario
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
@@ -49,4 +54,6 @@ __all__ = [
     "CloseChecklist", "CloseTask", "CloseTaskComment", "CloseTaskAttachment",
     "Workpaper", "WorkpaperReference",
     "PeriodGovernanceEvent", "ShadowCloseRun",
+    "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
+    "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]

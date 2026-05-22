@@ -275,12 +275,13 @@ export function ImportReviewPage() {
 
       {/* Lines tab */}
       {tab === 'lines' && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
               <tr>
                 <th className="px-4 py-2 text-left">#</th>
-                <th className="px-4 py-2 text-left">Account</th>
+                <th className="px-4 py-2 text-left">Source Acct #</th>
+                <th className="px-4 py-2 text-left">Source Acct Name</th>
                 <th className="px-4 py-2 text-right">Debit</th>
                 <th className="px-4 py-2 text-right">Credit</th>
                 <th className="px-4 py-2 text-left">Status</th>
@@ -290,12 +291,8 @@ export function ImportReviewPage() {
               {lines?.map((l: ImportLine) => (
                 <tr key={l.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-400">{l.line_number}</td>
-                  <td className="px-4 py-2">
-                    <span className="font-mono text-gray-700">{l.raw_account_number}</span>
-                    {l.raw_account_name && (
-                      <span className="ml-2 text-gray-500">{l.raw_account_name}</span>
-                    )}
-                  </td>
+                  <td className="px-4 py-2 font-mono text-gray-700">{l.raw_account_number || '—'}</td>
+                  <td className="px-4 py-2 text-gray-600">{l.raw_account_name || '—'}</td>
                   <td className="px-4 py-2 text-right font-mono">
                     {Number(l.debit) > 0 ? Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
                   </td>
@@ -310,7 +307,7 @@ export function ImportReviewPage() {
                   </td>
                 </tr>
               )) ?? (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
               )}
             </tbody>
           </table>
@@ -320,6 +317,32 @@ export function ImportReviewPage() {
       {/* Issues tab */}
       {tab === 'issues' && (
         <div className="space-y-2">
+          {issues && issues.length > 0 && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  const rows = [
+                    ['Severity', 'Code', 'Message', 'Suggestion'],
+                    ...issues.map((i: ImportIssue) => [
+                      i.severity, i.code, i.message, i.suggested_resolution ?? '',
+                    ]),
+                  ]
+                  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+                  const blob = new Blob([csv], { type: 'text/csv' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `import-${batchId}-issues.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+              >
+                <Download className="w-3.5 h-3.5" /> Export Issues CSV
+              </button>
+            </div>
+          )}
           {!issues?.length ? (
             <div className="bg-white border border-gray-200 rounded-lg px-4 py-8 text-center">
               <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-400" />

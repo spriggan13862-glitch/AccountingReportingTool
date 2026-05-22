@@ -4,6 +4,9 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react'
 import { periodGovernanceApi } from '@/api/periodGovernance'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { PeriodSelect } from '@/components/ui/PeriodSelect'
+import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
 import type { ComparativeReport, ComparativeLine } from '@/types'
 
@@ -34,10 +37,10 @@ const REPORT_TYPES = [
 
 export function ComparativeFinancialsPage() {
   const { org } = useOrg()
-  const [entityId, setEntityId] = useState('')
-  const [currentPeriodId, setCurrentPeriodId] = useState('')
-  const [comparisonPeriodId, setComparisonPeriodId] = useState('')
-  const [scenarioId, setScenarioId] = useState('')
+  const [entityId, setEntityId] = useState<number | ''>('')
+  const [currentPeriodId, setCurrentPeriodId] = useState<number | ''>('')
+  const [comparisonPeriodId, setComparisonPeriodId] = useState<number | ''>('')
+  const [scenarioId, setScenarioId] = useState<number | ''>('')
   const [reportType, setReportType] = useState('income_statement')
   const [materiality, setMateriality] = useState('1000')
   const [submitted, setSubmitted] = useState(false)
@@ -50,7 +53,7 @@ export function ComparativeFinancialsPage() {
       current_period_id: Number(currentPeriodId),
       comparison_period_id: Number(comparisonPeriodId),
       report_type: reportType,
-      scenario_id: scenarioId ? Number(scenarioId) : undefined,
+      scenario_id: scenarioId !== '' ? scenarioId : undefined,
       materiality_threshold: materiality,
     }),
     enabled: submitted && !!entityId && !!currentPeriodId && !!comparisonPeriodId,
@@ -58,6 +61,8 @@ export function ComparativeFinancialsPage() {
   })
 
   const canRun = !!entityId && !!currentPeriodId && !!comparisonPeriodId
+
+  function reset() { setSubmitted(false) }
 
   return (
     <PageLayout
@@ -69,34 +74,40 @@ export function ComparativeFinancialsPage() {
       {/* Parameters */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Report Parameters</h3>
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Entity ID</label>
-            <input type="number" value={entityId} onChange={(e) => setEntityId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Entity ID" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Current Period ID</label>
-            <input type="number" value={currentPeriodId} onChange={(e) => setCurrentPeriodId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Current period" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Comparison Period ID</label>
-            <input type="number" value={comparisonPeriodId} onChange={(e) => setComparisonPeriodId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Prior period" />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <EntitySelect
+            label="Entity"
+            value={entityId}
+            onChange={(id) => { setEntityId(id); setCurrentPeriodId(''); setComparisonPeriodId(''); reset() }}
+            required
+          />
+          <PeriodSelect
+            label="Current Period"
+            entityId={entityId}
+            value={currentPeriodId}
+            onChange={(id) => { setCurrentPeriodId(id); reset() }}
+            required
+          />
+          <PeriodSelect
+            label="Comparison Period"
+            entityId={entityId}
+            value={comparisonPeriodId}
+            onChange={(id) => { setComparisonPeriodId(id); reset() }}
+            required
+          />
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Report Type</label>
-            <select value={reportType} onChange={(e) => setReportType(e.target.value)}
+            <select value={reportType} onChange={(e) => { setReportType(e.target.value); reset() }}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm">
               {REPORT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Scenario ID (optional)</label>
-            <input type="number" value={scenarioId} onChange={(e) => setScenarioId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Leave blank for all" />
-          </div>
+          <ScenarioSelect
+            label="Scenario (optional)"
+            value={scenarioId}
+            onChange={(id) => { setScenarioId(id); reset() }}
+            placeholder="All scenarios"
+          />
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Materiality Threshold ($)</label>
             <input type="number" value={materiality} onChange={(e) => setMateriality(e.target.value)}

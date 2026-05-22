@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "kill-e2e-ports": "node -e \"const {execSync}=require('child_process');['8002','5174'].forEach(p=>{try{execSync('netstat -ano | findstr :'+p+' | findstr LISTENING',{shell:'cmd.exe'}).toString().split('\\n').map(l=>l.trim().split(/\\s+/).pop()).filter(Boolean).forEach(pid=>execSync('taskkill /PID '+pid+' /F',{shell:'cmd.exe',stdio:'ignore'}));}catch{}})\"",
+    "test:e2e:workflow": "npm run kill-e2e-ports && python ../scripts/seed_e2e.py && playwright test --config playwright.workflow.config.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -51,6 +53,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",

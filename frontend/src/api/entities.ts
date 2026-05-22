@@ -38,4 +38,5 @@ export const entitiesApi = {
   get: (id: number) => api.get<Entity>(`/entities/${id}`).then((r) => r.data),
   create: (body: EntityCreate) => api.post<Entity>('/entities/', body).then((r) => r.data),
   update: (id: number, body: EntityUpdate) => api.patch<Entity>(`/entities/${id}`, body).then((r) => r.data),
+  delete: (id: number) => api.delete(`/entities/${id}`),
 }

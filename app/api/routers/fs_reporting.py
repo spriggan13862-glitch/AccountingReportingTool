@@ -1,11 +1,15 @@
 import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.api.schemas import FsLineOut, ValidationIssueOut
+from app.api.schemas import FsLineOut, TaxonomyFsLineOut, ValidationIssueOut
 from app.services.fs_reporting_service import get_fs_statement, validate_fs_mappings
+from app.services.taxonomy_reporting_service import (
+    get_taxonomy_fs_statement,
+    propagate_taxonomy_to_children,
+)
 
 router = APIRouter(prefix="/financial-statements", tags=["financial-statements"])
 
@@ -77,3 +81,64 @@ def income_statement(
         warn_result = validate_fs_mappings(db, entity_id, as_of_date, scenario_ids)
         response["warnings"] = [_issue_out(w) for w in warn_result.warnings]
     return response
+
+
+def _tax_fs_out(row) -> TaxonomyFsLineOut:
+    return TaxonomyFsLineOut(
+        taxonomy_id=row.taxonomy_id,
+        code=row.code,
+        name=row.name,
+        section=row.section,
+        statement_type=row.statement_type,
+        sort_order=row.sort_order,
+        parent_id=row.parent_id,
+        hierarchy_depth=row.hierarchy_depth,
+        is_subtotal=row.is_subtotal,
+        normal_balance=row.normal_balance,
+        sign_flip=row.sign_flip,
+        own_balance=row.own_balance,
+        total_balance=row.total_balance,
+        display_balance=row.display_balance,
+        account_count=row.account_count,
+    )
+
+
+@router.get("/taxonomy/balance-sheet", response_model=list[TaxonomyFsLineOut])
+def taxonomy_balance_sheet(
+    entity_id: int,
+    as_of_date: datetime.date,
+    scenario_ids: list[int] = Query(default=[]),
+    db: Session = Depends(get_db),
+):
+    """Balance sheet using ReportingTaxonomyLine hierarchy (COA-import path)."""
+    rows = get_taxonomy_fs_statement(
+        db, entity_id, as_of_date, scenario_ids, statement_type="balance_sheet"
+    )
+    return [_tax_fs_out(r) for r in rows]
+
+
+@router.get("/taxonomy/income-statement", response_model=list[TaxonomyFsLineOut])
+def taxonomy_income_statement(
+    entity_id: int,
+    as_of_date: datetime.date,
+    scenario_ids: list[int] = Query(default=[]),
+    db: Session = Depends(get_db),
+):
+    """Income statement using ReportingTaxonomyLine hierarchy (COA-import path)."""
+    rows = get_taxonomy_fs_statement(
+        db, entity_id, as_of_date, scenario_ids, statement_type="income_statement"
+    )
+    return [_tax_fs_out(r) for r in rows]
+
+
+@router.post("/taxonomy/inherit", status_code=200)
+def inherit_taxonomy(
+    entity_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Propagate taxonomy_line_id from parent accounts to children that have none.
+    Safe to call multiple times (idempotent for already-set accounts).
+    """
+    result = propagate_taxonomy_to_children(entity_id, db)
+    return result

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
+import { X, Info } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { overlayApi } from '@/api/overlay'
-import { Input } from '@/components/ui/Input'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { OVERLAY_GROUPS } from '@/types'
 import type { OverlayCalculateRequest } from '@/types'
 
@@ -39,8 +40,8 @@ export function DraftOverlayModal({
   onCalculate,
   isCalculating,
 }: DraftOverlayModalProps) {
-  const [entityId, setEntityId] = useState(String(defaultEntityId ?? ''))
-  const [scenarioId, setScenarioId] = useState(String(defaultScenarioId ?? ''))
+  const [entityId, setEntityId] = useState<number | ''>(defaultEntityId ?? '')
+  const [scenarioId, setScenarioId] = useState<number | ''>(defaultScenarioId ?? '')
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().slice(0, 10))
   const [previewType, setPreviewType] = useState('trial_balance')
   const [selectedJeIds, setSelectedJeIds] = useState<Set<number>>(new Set())
@@ -49,14 +50,14 @@ export function DraftOverlayModal({
   const [includeRe, setIncludeRe] = useState(true)
   const [createAudit, setCreateAudit] = useState(true)
 
-  const canFetchDrafts = !!entityId && !!scenarioId && !!asOfDate
+  const canFetchDrafts = entityId !== '' && scenarioId !== '' && !!asOfDate
 
   const { data: drafts } = useQuery({
     queryKey: ['draft-entries', entityId, scenarioId, asOfDate, organizationId],
     queryFn: () =>
       overlayApi.listDraftEntries({
-        entity_id: Number(entityId),
-        scenario_id: Number(scenarioId),
+        entity_id: entityId as number,
+        scenario_id: scenarioId as number,
         as_of_date: asOfDate,
         organization_id: organizationId,
       }),
@@ -84,9 +85,9 @@ export function DraftOverlayModal({
   function handleCalculate() {
     const req: OverlayCalculateRequest = {
       organization_id: organizationId,
-      entity_id: Number(entityId),
+      entity_id: entityId as number,
       as_of_date: asOfDate,
-      scenario_id: Number(scenarioId),
+      scenario_id: scenarioId as number,
       preview_type: previewType,
       included_je_ids: selectedJeIds.size > 0 ? Array.from(selectedJeIds) : null,
       overlay_groups: selectAllGroups ? null : selectedGroups.size > 0 ? Array.from(selectedGroups) : null,
@@ -97,7 +98,7 @@ export function DraftOverlayModal({
     onCalculate(req)
   }
 
-  const canCalculate = !!entityId && !!scenarioId && !!asOfDate
+  const canCalculate = entityId !== '' && scenarioId !== '' && !!asOfDate
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -125,33 +126,47 @@ export function DraftOverlayModal({
           </div>
 
           <div className="px-5 py-4 space-y-5">
+            {/* What is Draft Overlay explanation */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+              <div className="flex items-start gap-2">
+                <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold mb-1">What is a Draft Overlay?</p>
+                  <p className="text-amber-700">
+                    Draft overlays let you preview financial statements with draft adjustments <strong>without modifying official balances</strong>.
+                    Use them for pro forma analysis, QoE adjustments, lender scenarios, and management reclasses.
+                  </p>
+                  <div className="mt-2 flex items-center gap-1 text-amber-600">
+                    <span className="border border-amber-300 rounded px-1.5 py-0.5">Official</span>
+                    <span>+</span>
+                    <span className="border border-amber-300 rounded px-1.5 py-0.5">Draft Entries</span>
+                    <span>=</span>
+                    <span className="border border-amber-500 rounded px-1.5 py-0.5 font-medium">Preview Statement</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Parameters */}
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Parameters</h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Input
-                  label="Entity ID"
-                  type="number"
-                  value={entityId}
-                  onChange={(e) => setEntityId(e.target.value)}
-                  placeholder="1"
-                  required
-                />
-                <Input
-                  label="Scenario ID"
-                  type="number"
-                  value={scenarioId}
-                  onChange={(e) => setScenarioId(e.target.value)}
-                  placeholder="1"
-                  required
-                />
-                <Input
-                  label="As of Date"
-                  type="date"
-                  value={asOfDate}
-                  onChange={(e) => setAsOfDate(e.target.value)}
-                  required
-                />
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                Step 1 — Select Entity &amp; Base Scenario
+              </h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <EntitySelect value={entityId} onChange={setEntityId} label="Entity" required />
+                <ScenarioSelect value={scenarioId} onChange={setScenarioId} label="Base Scenario" required />
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3 sm:grid-cols-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-700">As of Date <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={asOfDate}
+                    onChange={(e) => setAsOfDate(e.target.value)}
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    required
+                  />
+                </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-gray-700">Preview Type</label>
                   <select
@@ -180,7 +195,7 @@ export function DraftOverlayModal({
             {/* Overlay groups */}
             <section>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Overlay Groups</h3>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 2 — Draft Entry Sets (Overlay Groups)</h3>
                 <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
                   <input
                     type="checkbox"
@@ -217,7 +232,7 @@ export function DraftOverlayModal({
               <section>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Select Draft Entries
+                    Step 3 — Select Draft Entries
                     {drafts && <span className="ml-1 text-gray-400 normal-case font-normal">({drafts.length} available)</span>}
                   </h3>
                   {drafts && drafts.length > 0 && (

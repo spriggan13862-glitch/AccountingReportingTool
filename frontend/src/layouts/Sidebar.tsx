@@ -21,6 +21,11 @@ import {
   HelpCircle,
   Map,
   ClipboardList,
+  List,
+  FileSpreadsheet,
+  Sliders,
+  Table2,
+  FileSearch,
 } from 'lucide-react'
 
 interface NavItem {
@@ -71,9 +76,19 @@ const navGroups: NavGroup[] = [
     label: 'Setup',
     items: [
       { to: '/entities', label: 'Entities', icon: Building2 },
+      { to: '/accounts', label: 'Chart of Accounts', icon: List },
+      { to: '/coa-import', label: 'COA Import', icon: FileSpreadsheet },
+      { to: '/pdf-import', label: 'PDF Import', icon: FileSearch },
       { to: '/periods', label: 'Periods', icon: Calendar },
       { to: '/consolidations', label: 'Consolidations', icon: GitMerge },
       { to: '/documents', label: 'Documents', icon: Paperclip },
+    ],
+  },
+  {
+    label: 'Configuration',
+    items: [
+      { to: '/taxonomy-admin', label: 'Taxonomy Admin', icon: Table2 },
+      { to: '/reporting-settings', label: 'Reporting Settings', icon: Sliders },
     ],
   },
   {

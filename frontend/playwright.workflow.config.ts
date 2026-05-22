@@ -21,7 +21,7 @@ const E2E_DB_URL = `sqlite:///${E2E_DB.replace(/\\/g, '/')}`
 // Requires: ports 8002 and 5174 must be free.
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['**/workflow.spec.ts', '**/accounting.spec.ts'],
+  testMatch: ['**/workflow.spec.ts', '**/accounting.spec.ts', '**/pdf_import.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,

@@ -3,20 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { journalEntriesApi } from '@/api/journalEntries'
-import type { JECreate, JELineCreate } from '@/types'
+import type { JECreate, JELineCreate, Account } from '@/types'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { ValidationAlert } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { ScenarioMultiSelect } from '@/components/ui/ScenarioMultiSelect'
+import { AccountSearch } from '@/components/ui/AccountSearch'
 
-const EMPTY_LINE = (): JELineCreate => ({
+interface LineState extends JELineCreate {
+  _selectedAccount: Account | null
+}
+
+const EMPTY_LINE = (): LineState => ({
   line_number: 0,
   account_id: 0,
   entity_id: 0,
   debit: '0',
   credit: '0',
   description: '',
+  _selectedAccount: null,
 })
 
 function parseDecimal(val: string): number {
@@ -28,16 +36,16 @@ export function JournalEntryCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
+  const [entityId, setEntityId] = useState<number | ''>('')
+  const [scenarioIds, setScenarioIds] = useState<number[]>([])
   const [form, setForm] = useState({
     je_number: '',
     entry_date: new Date().toISOString().slice(0, 10),
-    entity_id: '',
-    scenario_id: '',
     description: '',
     source: 'manual',
     source_ref: '',
   })
-  const [lines, setLines] = useState<JELineCreate[]>([EMPTY_LINE(), EMPTY_LINE()])
+  const [lines, setLines] = useState<LineState[]>([EMPTY_LINE(), EMPTY_LINE()])
   const [apiError, setApiError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<Array<{ code: string; severity: string; message: string; source_type: string; source_id: unknown }>>([])
 
@@ -46,17 +54,22 @@ export function JournalEntryCreatePage() {
   const difference = Math.abs(totalDebit - totalCredit)
   const isBalanced = difference < 0.001
 
+  // Use first selected scenario (JE supports one scenario_id)
+  const scenarioId = scenarioIds[0] ?? 0
+
   function buildPayload(): JECreate {
     return {
       ...form,
-      entity_id: Number(form.entity_id),
-      scenario_id: Number(form.scenario_id),
+      entity_id: Number(entityId),
+      scenario_id: scenarioId,
       source_ref: form.source_ref || null,
       lines: lines.map((l, i) => ({
-        ...l,
         line_number: i + 1,
-        account_id: Number(l.account_id),
-        entity_id: Number(l.entity_id) || Number(form.entity_id),
+        account_id: l.account_id,
+        entity_id: l.entity_id || Number(entityId),
+        debit: l.debit,
+        credit: l.credit,
+        description: l.description,
       })),
     }
   }
@@ -84,6 +97,14 @@ export function JournalEntryCreatePage() {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l)))
   }
 
+  function setLineAccount(idx: number, acct: Account | null) {
+    setLines((prev) =>
+      prev.map((l, i) =>
+        i === idx ? { ...l, account_id: acct?.id ?? 0, _selectedAccount: acct } : l,
+      ),
+    )
+  }
+
   function addLine() {
     setLines((prev) => [...prev, EMPTY_LINE()])
   }
@@ -93,14 +114,13 @@ export function JournalEntryCreatePage() {
   }
 
   const isPending = draftMutation.isPending || postMutation.isPending
+  const canSubmit = !!entityId && scenarioId > 0
 
   return (
     <PageLayout title="New Journal Entry" subtitle="Create a draft or post directly">
       <div className="space-y-4 max-w-4xl">
         {apiError && <ErrorBanner message={apiError} />}
-        {warnings.length > 0 && (
-          <ValidationAlert issues={warnings as never} />
-        )}
+        {warnings.length > 0 && <ValidationAlert issues={warnings as never} />}
 
         {/* Header fields */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
@@ -126,20 +146,10 @@ export function JournalEntryCreatePage() {
               onChange={(e) => setForm({ ...form, source: e.target.value })}
               placeholder="manual"
             />
-            <Input
-              label="Entity ID"
-              type="number"
-              value={form.entity_id}
-              onChange={(e) => setForm({ ...form, entity_id: e.target.value })}
-              placeholder="1"
-              required
-            />
-            <Input
-              label="Scenario ID"
-              type="number"
-              value={form.scenario_id}
-              onChange={(e) => setForm({ ...form, scenario_id: e.target.value })}
-              placeholder="1"
+            <EntitySelect
+              label="Entity"
+              value={entityId}
+              onChange={setEntityId}
               required
             />
             <Input
@@ -157,6 +167,16 @@ export function JournalEntryCreatePage() {
             placeholder="Entry description"
             required
           />
+          <div>
+            <ScenarioMultiSelect
+              label="Scenario (select one)"
+              value={scenarioIds}
+              onChange={(ids) => setScenarioIds(ids.slice(-1))}
+            />
+            {scenarioIds.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">A scenario is required before posting.</p>
+            )}
+          </div>
         </div>
 
         {/* Line item grid */}
@@ -177,11 +197,10 @@ export function JournalEntryCreatePage() {
               <thead>
                 <tr className="border-b text-xs text-gray-500">
                   <th className="pb-2 text-left w-8">#</th>
-                  <th className="pb-2 text-left">Account ID</th>
-                  <th className="pb-2 text-left">Entity ID</th>
-                  <th className="pb-2 text-right">Debit</th>
-                  <th className="pb-2 text-right">Credit</th>
-                  <th className="pb-2 text-left">Description</th>
+                  <th className="pb-2 text-left min-w-[180px]">Account</th>
+                  <th className="pb-2 text-right w-28">Debit</th>
+                  <th className="pb-2 text-right w-28">Credit</th>
+                  <th className="pb-2 text-left min-w-[140px]">Description</th>
                   <th className="pb-2 w-8"></th>
                 </tr>
               </thead>
@@ -190,23 +209,10 @@ export function JournalEntryCreatePage() {
                   <tr key={idx} className="border-b border-gray-50">
                     <td className="py-1 text-gray-400 text-xs">{idx + 1}</td>
                     <td className="py-1 pr-2">
-                      <input
-                        type="number"
-                        value={line.account_id || ''}
-                        onChange={(e) => updateLine(idx, 'account_id', e.target.value)}
-                        className="w-20 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        placeholder="acct id"
-                        aria-label={`Account ID line ${idx + 1}`}
-                      />
-                    </td>
-                    <td className="py-1 pr-2">
-                      <input
-                        type="number"
-                        value={line.entity_id || ''}
-                        onChange={(e) => updateLine(idx, 'entity_id', e.target.value)}
-                        className="w-20 rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        placeholder="entity id"
-                        aria-label={`Entity ID line ${idx + 1}`}
+                      <AccountSearch
+                        entityId={entityId}
+                        value={line.account_id || null}
+                        onChange={(acct) => setLineAccount(idx, acct)}
                       />
                     </td>
                     <td className="py-1 pr-2">
@@ -215,7 +221,7 @@ export function JournalEntryCreatePage() {
                         step="0.01"
                         value={line.debit}
                         onChange={(e) => updateLine(idx, 'debit', e.target.value)}
-                        className="w-24 rounded border border-gray-300 px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
                         aria-label={`Debit line ${idx + 1}`}
                       />
                     </td>
@@ -225,7 +231,7 @@ export function JournalEntryCreatePage() {
                         step="0.01"
                         value={line.credit}
                         onChange={(e) => updateLine(idx, 'credit', e.target.value)}
-                        className="w-24 rounded border border-gray-300 px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-28 rounded border border-gray-300 px-2 py-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
                         aria-label={`Credit line ${idx + 1}`}
                       />
                     </td>
@@ -285,7 +291,7 @@ export function JournalEntryCreatePage() {
           <button
             type="button"
             onClick={() => { setApiError(null); draftMutation.mutate(buildPayload()) }}
-            disabled={isPending}
+            disabled={isPending || !canSubmit}
             className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             {draftMutation.isPending ? 'Saving…' : 'Save Draft'}
@@ -293,7 +299,7 @@ export function JournalEntryCreatePage() {
           <button
             type="button"
             onClick={() => { setApiError(null); postMutation.mutate(buildPayload()) }}
-            disabled={isPending || !isBalanced}
+            disabled={isPending || !isBalanced || !canSubmit}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {postMutation.isPending ? 'Posting…' : 'Post Entry'}

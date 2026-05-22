@@ -136,11 +136,11 @@ describe('SetupWizardPage', () => {
     render(wrap(<SetupWizardPage />))
     await waitFor(() => {
       expect(screen.getByText('Create your first entity')).toBeInTheDocument()
-      expect(screen.getByText('Upload a trial balance')).toBeInTheDocument()
-      expect(screen.getByText('Map all accounts')).toBeInTheDocument()
-      expect(screen.getByText('Post your first import')).toBeInTheDocument()
-      expect(screen.getByText('Record a journal entry')).toBeInTheDocument()
-      expect(screen.getByText('Run your first report')).toBeInTheDocument()
+      expect(screen.getByText('Upload your Chart of Accounts')).toBeInTheDocument()
+      expect(screen.getByText('Review auto-classification')).toBeInTheDocument()
+      expect(screen.getByText(/Upload a trial balance/i)).toBeInTheDocument()
+      expect(screen.getByText('Resolve mapping exceptions')).toBeInTheDocument()
+      expect(screen.getByText('Generate your first report')).toBeInTheDocument()
     })
   })
 

@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Building2, Pencil, Check } from 'lucide-react'
+import { Plus, Building2, Pencil, Check, Trash2, PowerOff } from 'lucide-react'
 import { entitiesApi } from '@/api/entities'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { Badge } from '@/components/ui/Badge'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/providers/ToastProvider'
+import { useOrg } from '@/providers/OrgProvider'
 import type { Entity } from '@/types'
 
 const ENTITY_TYPES = ['operating', 'consolidation', 'elimination', 'carveout']
@@ -46,13 +48,23 @@ const emptyForm = (): EntityFormState => ({
   fiscal_year_end_month: '', fiscal_year_convention: '',
 })
 
+function formIsValid(form: EntityFormState): boolean {
+  return !!(form.code && form.name && form.fiscal_year_end_month && form.fiscal_year_convention)
+}
+
 export function EntitiesPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { org } = useOrg()
+  const orgId = org?.id ?? 0
   const [apiError, setApiError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<EntityFormState>(emptyForm())
+
+  // Delete confirm dialog state
+  const [deleteTarget, setDeleteTarget] = useState<Entity | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<Entity | null>(null)
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['entities'],
@@ -61,6 +73,12 @@ export function EntitiesPage() {
 
   const entities: Entity[] = data ?? []
 
+  function invalidateRelated() {
+    queryClient.invalidateQueries({ queryKey: ['entities'] })
+    queryClient.invalidateQueries({ queryKey: ['entities-list'] })
+    queryClient.invalidateQueries({ queryKey: ['onboarding-status', orgId] })
+  }
+
   const createMutation = useMutation({
     mutationFn: () => entitiesApi.create({
       code: form.code,
@@ -68,11 +86,11 @@ export function EntitiesPage() {
       entity_type: form.entity_type,
       currency: form.currency,
       parent_id: form.parent_id ? Number(form.parent_id) : null,
-      fiscal_year_end_month: form.fiscal_year_end_month ? Number(form.fiscal_year_end_month) : null,
-      fiscal_year_convention: form.fiscal_year_convention || null,
+      fiscal_year_end_month: Number(form.fiscal_year_end_month),
+      fiscal_year_convention: form.fiscal_year_convention,
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entities'] })
+      invalidateRelated()
       setShowCreate(false)
       setForm(emptyForm())
       setApiError(null)
@@ -88,11 +106,11 @@ export function EntitiesPage() {
         entity_type: body.entity_type,
         currency: body.currency,
         active: true,
-        fiscal_year_end_month: body.fiscal_year_end_month ? Number(body.fiscal_year_end_month) : null,
-        fiscal_year_convention: body.fiscal_year_convention || null,
+        fiscal_year_end_month: body.fiscal_year_end_month ? Number(body.fiscal_year_end_month) : undefined,
+        fiscal_year_convention: body.fiscal_year_convention || undefined,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entities'] })
+      invalidateRelated()
       setEditingId(null)
       setApiError(null)
       toast('Entity updated', 'success')
@@ -103,10 +121,25 @@ export function EntitiesPage() {
   const deactivateMutation = useMutation({
     mutationFn: (id: number) => entitiesApi.update(id, { active: false }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entities'] })
-      toast('Entity deactivated', 'info')
+      invalidateRelated()
+      setDeactivateTarget(null)
+      toast('Entity deactivated — history preserved', 'info')
     },
-    onError: (err: Error) => toast(err.message, 'error'),
+    onError: (err: Error) => { toast(err.message, 'error'); setDeactivateTarget(null) },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => entitiesApi.delete(id),
+    onSuccess: () => {
+      invalidateRelated()
+      setDeleteTarget(null)
+      toast('Entity permanently deleted', 'info')
+    },
+    onError: (err: Error) => {
+      toast(err.message, 'error')
+      setDeleteTarget(null)
+      setApiError(err.message)
+    },
   })
 
   function startEdit(entity: Entity) {
@@ -180,16 +213,16 @@ export function EntitiesPage() {
                 <th className="px-4 py-2 text-left">Name</th>
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-left">Currency</th>
-                <th className="px-4 py-2 text-left">Fiscal Year End</th>
+                <th className="px-4 py-2 text-left">FY End</th>
                 <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 w-24" />
+                <th className="px-4 py-2 w-28" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {entities.map((entity) => (
                 editingId === entity.id ? (
                   <tr key={entity.id} className="bg-indigo-50">
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
                       <EntityForm
                         form={form}
                         onChange={(f) => setForm(f)}
@@ -210,7 +243,7 @@ export function EntitiesPage() {
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {entity.fiscal_year_end_month
                         ? MONTHS.find((m) => m.value === entity.fiscal_year_end_month)?.label ?? '—'
-                        : <span className="text-gray-300">—</span>}
+                        : <span className="text-red-400">Not set</span>}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={entity.active ? 'success' : 'default'}>
@@ -230,13 +263,21 @@ export function EntitiesPage() {
                         {entity.active && (
                           <button
                             type="button"
-                            onClick={() => deactivateMutation.mutate(entity.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 rounded text-xs"
-                            title="Deactivate"
+                            onClick={() => setDeactivateTarget(entity)}
+                            className="p-1.5 text-gray-400 hover:text-yellow-600 rounded"
+                            title="Deactivate (preserves history)"
                           >
-                            ×
+                            <PowerOff className="w-3.5 h-3.5" />
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(entity)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 rounded"
+                          title="Delete (only if no accounting data)"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -246,6 +287,27 @@ export function EntitiesPage() {
           </table>
         </div>
       )}
+
+      {/* Deactivate confirm */}
+      <ConfirmDialog
+        open={!!deactivateTarget}
+        onOpenChange={(o) => !o && setDeactivateTarget(null)}
+        title={`Deactivate ${deactivateTarget?.name}?`}
+        description="This entity will be hidden from active workflows but all journal entries, imports, and reports are preserved. You can reactivate it at any time."
+        confirmLabel="Deactivate"
+        onConfirm={() => deactivateTarget && deactivateMutation.mutate(deactivateTarget.id)}
+      />
+
+      {/* Delete confirm */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={`Permanently delete ${deleteTarget?.name}?`}
+        description="This action cannot be undone. Delete is only allowed if the entity has no journal entries, import batches, or accounting periods. If it does, deactivate instead."
+        confirmLabel="Delete Permanently"
+        destructive
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+      />
     </PageLayout>
   )
 }
@@ -266,49 +328,87 @@ function EntityForm({ form, onChange, onSubmit, onCancel, isPending, submitLabel
   const set = (k: keyof EntityFormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     onChange({ ...form, [k]: e.target.value })
 
+  const valid = formIsValid(form)
+  const missingFields = [
+    !form.code && 'Entity code',
+    !form.name && 'Legal name',
+    !form.fiscal_year_end_month && 'Fiscal year-end month',
+    !form.fiscal_year_convention && 'FY convention',
+  ].filter(Boolean)
+
   return (
     <div>
       <div className={`grid gap-3 mb-3 ${compact ? 'grid-cols-4' : 'grid-cols-2'}`}>
-        <input
-          type="text"
-          value={form.code}
-          onChange={set('code')}
-          className="border border-gray-300 rounded px-3 py-2 text-sm"
-          placeholder="Code (e.g. ACME-US) *"
-          disabled={compact} // code not editable after creation
-        />
-        <input
-          type="text"
-          value={form.name}
-          onChange={set('name')}
-          className="border border-gray-300 rounded px-3 py-2 text-sm"
-          placeholder="Legal name *"
-        />
-        <select value={form.entity_type} onChange={set('entity_type')}
-          className="border border-gray-300 rounded px-3 py-2 text-sm">
-          {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select value={form.currency} onChange={set('currency')}
-          className="border border-gray-300 rounded px-3 py-2 text-sm">
-          {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <select value={form.fiscal_year_end_month} onChange={set('fiscal_year_end_month')}
-          className="border border-gray-300 rounded px-3 py-2 text-sm">
-          <option value="">Fiscal year-end month (optional)</option>
-          {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
-        <select value={form.fiscal_year_convention} onChange={set('fiscal_year_convention')}
-          className="border border-gray-300 rounded px-3 py-2 text-sm">
-          <option value="">FY convention (optional)</option>
-          {FY_CONVENTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </select>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">Entity Code <span className="text-red-500">*</span></label>
+          <input
+            type="text"
+            value={form.code}
+            onChange={set('code')}
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
+            placeholder="e.g. ACME-US"
+            disabled={compact}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">Legal Name <span className="text-red-500">*</span></label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={set('name')}
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
+            placeholder="Full legal name"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">Entity Type <span className="text-red-500">*</span></label>
+          <select value={form.entity_type} onChange={set('entity_type')}
+            className="border border-gray-300 rounded px-3 py-2 text-sm">
+            {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">Currency <span className="text-red-500">*</span></label>
+          <select value={form.currency} onChange={set('currency')}
+            className="border border-gray-300 rounded px-3 py-2 text-sm">
+            {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">
+            Fiscal Year-End Month <span className="text-red-500">*</span>
+          </label>
+          <select value={form.fiscal_year_end_month} onChange={set('fiscal_year_end_month')}
+            className={`border rounded px-3 py-2 text-sm ${!form.fiscal_year_end_month ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}>
+            <option value="">Select month…</option>
+            {MONTHS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-700">
+            FY Convention <span className="text-red-500">*</span>
+          </label>
+          <select value={form.fiscal_year_convention} onChange={set('fiscal_year_convention')}
+            className={`border rounded px-3 py-2 text-sm ${!form.fiscal_year_convention ? 'border-amber-400 bg-amber-50' : 'border-gray-300'}`}>
+            <option value="">Select convention…</option>
+            {FY_CONVENTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
       </div>
+
+      {missingFields.length > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+          Required: {missingFields.join(', ')}. Fiscal year settings are needed for period governance and close workflows.
+        </p>
+      )}
+
       <div className="flex gap-2">
         <button
           type="button"
-          disabled={!form.code || !form.name || isPending}
+          disabled={!valid || isPending}
           onClick={onSubmit}
           className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+          data-testid="entity-form-submit"
         >
           {isPending ? 'Saving…' : <><Check className="w-3.5 h-3.5" /> {submitLabel}</>}
         </button>

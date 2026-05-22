@@ -25,13 +25,15 @@ logger = get_logger(__name__)
 class OnboardingStatusOut(BaseModel):
     entity_count: int
     active_entity_count: int
+    coa_batch_count: int           # COA imports uploaded
+    coa_applied_count: int         # COA imports applied (accounts created)
     import_batch_count: int
-    pending_imports: int          # mapping_required + validation_failed
+    pending_imports: int           # mapping_required + validation_failed
     posted_imports: int
     unmapped_line_count: int
     has_journal_entries: bool
-    setup_steps_complete: list[str]   # which of 6 onboarding steps are done
-    setup_progress: int               # 0-100
+    setup_steps_complete: list[str]    # which of 6 onboarding steps are done
+    setup_progress: int                # 0-100
 
 
 class FirstAdminCreate(BaseModel):
@@ -48,14 +50,30 @@ class SetupStatusOut(BaseModel):
 
 @router.get("/onboarding-status", response_model=OnboardingStatusOut)
 def onboarding_status(db: Session = Depends(get_db)):
-    """Return operational onboarding progress for the dashboard setup wizard."""
+    """
+    Return operational onboarding progress for the dashboard setup wizard.
+
+    New COA-first workflow (M32):
+      1. entity_created          — any entity exists
+      2. coa_uploaded            — any COA import batch exists
+      3. coa_applied             — any COA import batch with status=applied
+      4. tb_uploaded             — any trial-balance ImportBatch exists
+      5. mapping_exceptions_resolved — unmapped_line_count=0 AND tb batches exist
+      6. first_report_generated  — at least one TB import posted to ledger
+    """
     from app.models.entity import Entity
     from app.models.import_batch import ImportBatch
     from app.models.import_line import ImportLine
     from app.models.journal_entry import JournalEntry
+    from app.models.coa_import_batch import COAImportBatch
 
     entity_count = db.query(Entity).count()
     active_entity_count = db.query(Entity).filter(Entity.active.is_(True)).count()
+
+    coa_batch_count = db.query(COAImportBatch).count()
+    coa_applied_count = (
+        db.query(COAImportBatch).filter(COAImportBatch.status == "applied").count()
+    )
 
     import_batch_count = db.query(ImportBatch).count()
     pending_imports = (
@@ -76,22 +94,24 @@ def onboarding_status(db: Session = Depends(get_db)):
     steps_complete: list[str] = []
     if entity_count > 0:
         steps_complete.append("entity_created")
+    if coa_batch_count > 0:
+        steps_complete.append("coa_uploaded")
+    if coa_applied_count > 0:
+        steps_complete.append("coa_applied")
     if import_batch_count > 0:
-        steps_complete.append("first_import_uploaded")
+        steps_complete.append("tb_uploaded")
     if unmapped_line_count == 0 and import_batch_count > 0:
-        steps_complete.append("accounts_mapped")
+        steps_complete.append("mapping_exceptions_resolved")
     if posted_imports > 0:
-        steps_complete.append("first_import_posted")
-    if has_journal_entries:
-        steps_complete.append("journal_entry_created")
-    if active_entity_count > 0 and posted_imports > 0:
-        steps_complete.append("operational_ready")
+        steps_complete.append("first_report_generated")
 
     progress = int(len(steps_complete) / 6 * 100)
 
     return OnboardingStatusOut(
         entity_count=entity_count,
         active_entity_count=active_entity_count,
+        coa_batch_count=coa_batch_count,
+        coa_applied_count=coa_applied_count,
         import_batch_count=import_batch_count,
         pending_imports=pending_imports,
         posted_imports=posted_imports,

@@ -18,6 +18,8 @@ from app.api.routers import (
     accounts,
     auth,
     close_management,
+    coa_import,
+    pdf_import,
     consolidation,
     documents,
     entities,
@@ -29,7 +31,10 @@ from app.api.routers import (
     reconciliation,
     report_runs,
     reporting,
+    reporting_taxonomy,
+    scenarios,
     setup,
+
     tb_import,
     users,
     workflow,
@@ -305,6 +310,12 @@ app.include_router(close_management.router, prefix=API_PREFIX)
 app.include_router(period_governance.router, prefix=API_PREFIX)
 app.include_router(shadow_close.router, prefix=API_PREFIX)
 app.include_router(comparative_reports.router, prefix=API_PREFIX)
+app.include_router(scenarios.router, prefix=API_PREFIX)
+app.include_router(reporting_taxonomy.router, prefix=API_PREFIX)
+app.include_router(reporting_taxonomy.views_router, prefix=API_PREFIX)
+app.include_router(reporting_taxonomy.settings_router, prefix=API_PREFIX)
+app.include_router(coa_import.router, prefix=API_PREFIX)
+app.include_router(pdf_import.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------

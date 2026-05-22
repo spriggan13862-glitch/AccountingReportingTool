@@ -7,6 +7,22 @@ from app.api.schemas import EntityCreate, EntityOut, Page
 from app.models.entity import Entity
 
 
+def _has_accounting_data(db: Session, entity_id: int) -> list[str]:
+    """Return a list of data types that reference this entity (non-empty = cannot delete)."""
+    from app.models.journal_entry import JournalEntry
+    from app.models.import_batch import ImportBatch
+    from app.models.accounting_period import AccountingPeriod
+
+    blockers: list[str] = []
+    if db.query(JournalEntry).filter(JournalEntry.entity_id == entity_id).count():
+        blockers.append("journal entries")
+    if db.query(ImportBatch).filter(ImportBatch.entity_id == entity_id).count():
+        blockers.append("import batches")
+    if db.query(AccountingPeriod).filter(AccountingPeriod.entity_id == entity_id).count():
+        blockers.append("accounting periods")
+    return blockers
+
+
 class EntityUpdate(BaseModel):
     name: str | None = None
     entity_type: str | None = None
@@ -91,3 +107,24 @@ def update_entity(entity_id: int, body: EntityUpdate, db: Session = Depends(get_
     db.refresh(entity)
     db.commit()
     return entity
+
+
+@router.delete("/{entity_id}", status_code=204)
+def delete_entity(entity_id: int, db: Session = Depends(get_db)):
+    """
+    Permanently delete an entity.
+    Blocked if the entity has any journal entries, import batches, or accounting periods.
+    Use PATCH active=false to deactivate instead of deleting.
+    """
+    entity = db.get(Entity, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
+    blockers = _has_accounting_data(db, entity_id)
+    if blockers:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot delete entity: it has existing {', '.join(blockers)}. "
+                   f"Deactivate it instead to preserve history.",
+        )
+    db.delete(entity)
+    db.commit()

@@ -92,6 +92,128 @@ export interface Account {
   normal_balance: string
   parent_account_id: number | null
   active: boolean
+  detail_type: string | null
+  account_status: string
+  description: string | null
+  tax_line: string | null
+  source_system: string | null
+  reporting_taxonomy_line_id: number | null
+}
+
+export interface AccountNode extends Account {
+  children: AccountNode[]
+}
+
+export interface ReportingTaxonomyLine {
+  id: number
+  code: string
+  name: string
+  short_name: string | null
+  section: string
+  statement_type: string | null
+  sort_order: number
+  hierarchy_depth: number
+  is_subtotal: boolean
+  normal_balance: string | null
+  sign_behavior: string | null
+  parent_id: number | null
+  description: string | null
+  active: boolean
+  editable: boolean
+  system_defined: boolean
+  sec_xbrl_tag: string | null
+}
+
+export interface ReportingTaxonomyView {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  is_default: boolean
+  is_system_defined: boolean
+  active: boolean
+}
+
+export interface ReportingPresentationSettings {
+  id: number
+  org_id: number | null
+  display_scaling: string
+  decimal_places: number
+  negative_format: string
+  show_account_numbers: boolean
+  collapse_subtotals: boolean
+  show_hierarchy_indent: boolean
+  show_zero_balance: boolean
+  hide_inactive: boolean
+  date_format: string
+  currency_symbol: string
+  bold_subtotals: boolean
+  underline_totals: boolean
+  alternate_row_shading: boolean
+  default_view_id: number | null
+}
+
+export interface TaxonomyImportPreview {
+  rows: TaxonomyImportRow[]
+  create_count: number
+  update_count: number
+  error_count: number
+  errors: string[]
+}
+
+export interface TaxonomyImportRow {
+  taxonomy_code: string
+  taxonomy_name: string
+  statement_type: string | null
+  parent_line: string | null
+  display_order: number | null
+  normal_balance: string | null
+  active: boolean
+  description: string | null
+  sign_behavior: string | null
+  short_name: string | null
+}
+
+export interface COAImportBatch {
+  id: number
+  entity_id: number
+  filename: string
+  source_system: string | null
+  row_count: number | null
+  accounts_created: number | null
+  accounts_updated: number | null
+  status: string
+  error_message: string | null
+}
+
+export interface COAImportPreviewRow {
+  row_index: number
+  account_number: string
+  account_name: string
+  raw_type: string
+  account_type: string | null
+  normal_balance: string
+  detail_type: string | null
+  description: string | null
+  tax_line: string | null
+  suggested_reporting_line: string | null
+  source_evidence: string | null
+  parent_account_number: string | null
+  parent_account_name: string | null
+  hierarchy_depth: number
+  indent: number
+  parent_row_idx: number | null
+}
+
+export interface COAImportPreview {
+  batch_id: number
+  entity_id: number
+  filename: string
+  source_system: string
+  detected_columns: Record<string, string | null>
+  rows: COAImportPreviewRow[]
+  row_count: number
+  warnings: string[]
 }
 
 export interface JELine {
@@ -960,4 +1082,188 @@ export interface ComparativeReport {
   generated_at: string
   sections: ComparativeSection[]
   material_variances_count: number
+}
+
+export interface Scenario {
+  id: number
+  code: string
+  name: string
+  scenario_type: string
+  description: string | null
+  active: boolean
+}
+
+export interface TBRow {
+  account_id: number
+  account_number: string
+  account_name: string
+  account_type: string
+  normal_balance: string
+  total_debit: string
+  total_credit: string
+  net_debit: string
+  signed_balance: string
+}
+
+export interface TaxonomyFsLine {
+  taxonomy_id: number
+  code: string
+  name: string
+  section: string
+  statement_type: string | null
+  sort_order: number
+  parent_id: number | null
+  hierarchy_depth: number
+  is_subtotal: boolean
+  normal_balance: string | null
+  sign_flip: boolean
+  own_balance: string
+  total_balance: string
+  display_balance: string
+  account_count: number
+}
+
+// ---------------------------------------------------------------------------
+// M36 PDF Import
+// ---------------------------------------------------------------------------
+
+export interface PDFImportBatch {
+  id: number
+  entity_id: number | null
+  filename: string
+  source_entity_name: string | null
+  statement_date: string | null
+  basis_of_accounting: string | null
+  page_count: number | null
+  line_count: number | null
+  accounts_created: number | null
+  status: string
+  error_message: string | null
+  created_at: string
+}
+
+export interface PDFImportPreviewLine {
+  temp_account_code: string
+  account_name: string
+  statement_type: string
+  section: string
+  amount: string
+  is_subtotal: boolean
+  is_contra: boolean
+  sort_order: number
+  suggested_taxonomy_code: string | null
+  mapping_confidence: string | null
+  mapping_evidence: string | null
+  page_number: number | null
+  source_line_text: string | null
+}
+
+export interface PDFImportPreview {
+  batch_id: number
+  entity_id: number | null
+  filename: string
+  source_entity_name: string | null
+  statement_date: string | null
+  basis_of_accounting: string | null
+  page_count: number
+  line_count: number
+  subtotal_count: number
+  lines: PDFImportPreviewLine[]
+  validation: PDFImportValidation
+  warnings: string[]
+}
+
+export interface PDFValidationCheck {
+  key: string
+  label: string
+  extracted: string
+  expected: string
+  difference: string
+  status: 'pass' | 'fail'
+}
+
+export interface PDFImportValidation {
+  checks: PDFValidationCheck[]
+  passing: number
+  failing: number
+  total: number
+}
+
+export interface PDFImportValidationReport {
+  batch_id: number
+  checks: PDFValidationCheck[]
+  passing: number
+  failing: number
+  total: number
+}
+
+export interface PDFMappingSourceLine {
+  temp_account_code: string
+  account_name: string
+  amount: string
+  statement_type: string
+  section: string
+  confidence: string
+  evidence: string
+}
+
+export interface PDFMappingBucket {
+  taxonomy_code: string
+  source_lines: PDFMappingSourceLine[]
+  total_amount: string
+  confidence: string
+  evidence: string
+}
+
+export interface PDFImportMappingOut {
+  batch_id: number
+  buckets: PDFMappingBucket[]
+  unmapped_lines: PDFMappingSourceLine[]
+  bucket_count: number
+  unmapped_count: number
+}
+
+export interface PDFLineOut {
+  id: number
+  batch_id: number
+  temp_account_code: string
+  name_hash: string | null
+  official_account_code: string | null
+  account_name: string
+  statement_type: string
+  section: string
+  amount: string
+  is_subtotal: boolean
+  is_contra: boolean
+  sort_order: number
+  suggested_taxonomy_code: string | null
+  taxonomy_code: string | null
+  taxonomy_source: string | null
+  taxonomy_locked: boolean
+  legal_entity_code: string | null
+  consolidation_group: string | null
+  mapping_confidence: string | null
+  mapping_evidence: string | null
+  page_number: number | null
+  source_line_text: string | null
+}
+
+export interface PDFLineUpdateRequest {
+  official_account_code?: string | null
+  taxonomy_code?: string | null
+  taxonomy_locked?: boolean
+  legal_entity_code?: string | null
+  consolidation_group?: string | null
+  mapping_notes?: string | null
+}
+
+export interface PDFAuditTrail {
+  batch_id: number
+  filename: string
+  source_entity_name: string | null
+  statement_date: string | null
+  basis_of_accounting: string | null
+  status: string
+  line_count: number
+  lines: PDFLineOut[]
 }

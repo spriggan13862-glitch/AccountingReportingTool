@@ -95,6 +95,8 @@ def seeds(client, api_session_factory):
         "name": "API Test Entity",
         "entity_type": "operating",
         "currency": "USD",
+        "fiscal_year_end_month": 12,
+        "fiscal_year_convention": "calendar",
     })
     assert r.status_code == 201
     entity_id = r.json()["id"]
@@ -217,6 +219,8 @@ def test_create_entity_returns_201(client):
         "name": "New Entity",
         "entity_type": "operating",
         "currency": "EUR",
+        "fiscal_year_end_month": 12,
+        "fiscal_year_convention": "calendar",
     })
     assert r.status_code == 201
     body = r.json()

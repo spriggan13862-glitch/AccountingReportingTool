@@ -20,6 +20,7 @@ import { DraftPreviewPage } from '@/pages/DraftPreviewPage'
 import { ReconciliationPage } from '@/pages/ReconciliationPage'
 import { ReconciliationDetailPage } from '@/pages/ReconciliationDetailPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { TrialBalancesPage } from '@/pages/TrialBalancesPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
@@ -35,6 +36,11 @@ import { ComparativeFinancialsPage } from '@/pages/ComparativeFinancialsPage'
 import { VarianceAnalysisPage } from '@/pages/VarianceAnalysisPage'
 import { HelpCenterPage } from '@/pages/HelpCenterPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { COAImportPage } from '@/pages/COAImportPage'
+import { PDFImportPage } from '@/pages/PDFImportPage'
+import { ChartOfAccountsPage } from '@/pages/ChartOfAccountsPage'
+import { TaxonomyAdminPage } from '@/pages/TaxonomyAdminPage'
+import { ReportingSettingsPage } from '@/pages/ReportingSettingsPage'
 
 /**
  * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
@@ -74,7 +80,7 @@ export function AppRouter() {
           <Route path="draft-preview" element={<DraftPreviewPage />} />
           <Route path="reconciliations" element={<ReconciliationPage />} />
           <Route path="reconciliations/:id" element={<ReconciliationDetailPage />} />
-          <Route path="trial-balances" element={<PlaceholderPage title="Trial Balances" />} />
+          <Route path="trial-balances" element={<TrialBalancesPage />} />
           <Route path="financial-statements" element={<FinancialStatementsPage />} />
           <Route path="report-builder" element={<ReportBuilderPage />} />
           <Route path="consolidations" element={<PlaceholderPage title="Consolidations" />} />
@@ -90,6 +96,11 @@ export function AppRouter() {
           <Route path="close/workpapers/:id" element={<WorkpaperDetailPage />} />
           <Route path="comparative-financials" element={<ComparativeFinancialsPage />} />
           <Route path="variance-analysis" element={<VarianceAnalysisPage />} />
+          <Route path="coa-import" element={<COAImportPage />} />
+          <Route path="pdf-import" element={<PDFImportPage />} />
+          <Route path="accounts" element={<ChartOfAccountsPage />} />
+          <Route path="taxonomy-admin" element={<TaxonomyAdminPage />} />
+          <Route path="reporting-settings" element={<ReportingSettingsPage />} />
           <Route path="help" element={<HelpCenterPage />} />
           {/* Admin route — requires admin role */}
           <Route

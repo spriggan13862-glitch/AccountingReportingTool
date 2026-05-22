@@ -14,10 +14,11 @@ Issues are **not marked resolved until the corresponding E2E test passes**.
 |---|---|---|---|---|
 | 2026-05-22 | `workflow.spec.ts` | 38 | 0 | 38 |
 | 2026-05-22 | `accounting.spec.ts` | 22 | 0 | 22 |
+| 2026-05-22 | `pdf_import.spec.ts` | pending E2E run | — | 19 |
 | 2026-05-22 | `shadow.spec.ts` | 17 | 0 | 17 |
 | 2026-05-22 | `smoke.spec.ts` | 2 | 5 | 7 |
-| 2026-05-22 | Python unit tests | 578 | 0 | 578 |
-| 2026-05-22 | Frontend vitest | 283 | 0 | 283 |
+| 2026-05-22 | Python unit tests | 670 | 0 | 670 |
+| 2026-05-22 | Frontend vitest | 332 | 0 | 332 |
 
 ### E2E Failures
 
@@ -78,6 +79,240 @@ All tests written in `tests/test_accounting_correctness.py` (64 Python tests) an
 - **Taxonomy codes**: all unique; statement_type matches section category
 - **Inheritance**: `propagate_taxonomy_to_children` walks parent chain and assigns nearest ancestor's taxonomy_line_id
 - **Cycle guard**: `_rollup` handles circular parent references without infinite recursion
+
+---
+
+## Milestone 36 — PDF Financial Statement Ingestion (2026-05-22)
+
+Hero Group, Inc. — no account numbers, external legal entity, income tax basis compiled financial statements.
+PDF: `tests/fixtures/pdf/hero_group_financial_statements_2025.pdf` (6 pages, extractable text, no OCR required).
+
+### Validation Targets — All 13 Passing
+
+| Subtotal | Expected | Status |
+|---|---|---|
+| Total Current Assets | $632,140.51 | PASS |
+| Net Fixed Assets | $699,621.80 | PASS |
+| Total Other Assets | $6,525.49 | PASS |
+| Total Assets | $1,338,287.80 | PASS |
+| Total Current Liabilities | $13,570.36 | PASS |
+| Total Long-Term Liabilities | $1,226,328.51 | PASS |
+| Total Equity | $98,388.93 | PASS |
+| Total Income | $5,334,329.47 | PASS |
+| Total COGS | $3,374,287.08 | PASS |
+| Gross Profit | $1,960,042.39 | PASS |
+| Total Operating Expenses | $1,185,609.23 | PASS |
+| Total Other Income | $66,521.74 | PASS |
+| Net Income | $840,954.90 | PASS |
+
+### Taxonomy Mapping Bugs Fixed
+
+| ID | Account | Wrong Mapping | Correct Mapping | Fix |
+|---|---|---|---|---|
+| M36-001 | Mortgage Payable Bank of Tampa 1510 | `cash_equivalents` (matched "bank" keyword first) | `long_term_debt` | Moved "mortgage payable" / "mortgage" before "bank" in name keyword list |
+| M36-002 | Interest Exp - Credit Cards | `short_term_debt` (matched "credit card" before "interest exp") | `interest_expense` | Moved "interest exp" / "interest expense" before "credit card" in list |
+
+### Architecture
+
+- **Extraction service**: `app/services/pdf_extraction_service.py` — pdfplumber text extraction, section detection, IS two-column YTD parsing (index -2 of 4 numeric tokens)
+- **Mapping service**: `app/services/entity_mapping_service.py` — groups lines by taxonomy code into buckets for consolidation prep
+- **Router**: `app/api/routers/pdf_import.py` — upload, apply, list, validate, mapping, lines, audit endpoints
+- **Migrations**: `alembic/versions/009_m36_pdf_import.py` — `pdf_import_batches` + `pdf_import_lines`; `alembic/versions/010_m36b_pdf_stable_codes.py` — `name_hash`, `official_account_code`, `pdf_account_mappings`
+- **Frontend page**: `frontend/src/pages/PDFImportPage.tsx` — three-phase workflow (upload / preview / applied)
+- **API client**: `frontend/src/api/pdfImport.ts` — all 9 endpoints including lines, updateLine, audit
+
+### M36b — Deterministic Stable Codes & Mapping Layer
+
+Stable code format: `{PREFIX}-{STMT}-{CAT}-{HASH8}` where `HASH8` = first 8 uppercase hex chars of SHA-256(`"{STMT}:{CAT}:{NORMALIZED_NAME}"`). Same line always produces same code across re-extractions.
+
+Four-layer `pdf_account_mappings` table:
+- **Layer 1** (source identity): `source_account_code`, `official_account_code` (override slot), `name_hash` (full 64-char SHA-256 for cross-run matching)
+- **Layer 2** (taxonomy): `taxonomy_code`, `taxonomy_source` (auto/manual/inherited), `taxonomy_locked` (prevents auto-remap)
+- **Layer 3** (legal entity): `entity_account_id` FK, `legal_entity_code`
+- **Layer 4** (consolidation): `consolidation_group` string
+
+New API endpoints: `GET /{id}/lines`, `PATCH /{id}/lines/{line_id}`, `GET /{id}/audit`
+
+### M36c — Applied View, Inline Editing, Export, Audit Trail
+
+Frontend usability pass on the PDF import workflow. Three-phase page state machine:
+- **Phase 1 (upload)**: Drop zone + batch history table showing recent imports with "View" links
+- **Phase 2 (preview)**: Validation table, section-grouped preview lines, statement filter, apply button
+- **Phase 3 (applied)**: Full `PDFLineOut` table with all M36b fields + inline editing + two-tab layout
+
+Applied view features:
+- **Stable codes** displayed in indigo badge (monospace) with `name_hash` tooltip
+- **Official code** inline editable (click → input → Enter/blur → PATCH)
+- **Taxonomy code** inline editable; edit auto-sets `taxonomy_locked: true`; lock icon toggles `taxonomy_locked`
+- **Legal entity code** displayed per line (Layer 3)
+- **Consolidation group** inline editable (Layer 4)
+- **Export CSV** button: client-side CSV of all non-subtotal lines with all mapping fields
+- **Audit Trail tab**: full extraction evidence — source_line_text, page_number, taxonomy chain
+- **New Import** button resets to upload step
+- **Batch history** on upload step: lists applied batches with one-click navigation to applied view
+
+### Test Coverage
+
+- Python: `tests/test_m36_pdf_import.py` — 67 tests (metadata, line counts, all 13 validations, account codes, taxonomy quality, contra flags, entity mapping, error handling, stable codes ×9, mapping layer ×6)
+- Frontend: `frontend/src/test/accounting_m36_shadow.test.tsx` — 22 vitest tests (upload step, preview, validation, filters)
+- Frontend: `frontend/src/test/accounting_m36c.test.tsx` — 27 vitest tests (applied view, stable codes, taxonomy edit, official code edit, legal entity, consolidation, audit trail, batch history)
+- E2E: `frontend/e2e/pdf_import.spec.ts` — 19 Playwright tests (8 API-level: P1–P8; 9 UI-level: UI P1–P9)
+
+### Known Limitations
+
+| ID | Limitation | Impact |
+|---|---|---|
+| M36-LIM-001 | PDF parser is tuned for Hero Group layout (IS two-column with percentages). Other PDF formats may require parser extension. | Other PDFs may produce incorrect YTD amounts |
+| M36-LIM-002 | Apply endpoint persists extracted lines to `pdf_import_lines` table but does NOT create entity accounts in the main COA. Full entity creation + TB import from extracted lines is out of scope for M36. | Cannot yet generate Hero standalone statements |
+| M36-LIM-003 | Legal entity mapping produces bucket groupings for consolidation prep but does not yet create journal entries or consolidation entries between Hero and Live Marketing. | Pro forma consolidation requires M37 |
+
+---
+
+## Milestone 36d — COA Intelligence, Periods UX, DataGrid, Document Registry (2026-05-22)
+
+### Summary
+
+M36d delivered foundational infrastructure for alpha usability: a global data grid framework, intelligent account numbering, redesigned Periods UX, a unified document registry, and a global entity context bar.
+
+### S1 — PDF Apply Stabilization
+
+- Apply endpoint now returns 422 if batch status is `failed` (prevents silent re-retry)
+- Validates `raw_preview` JSON before entering try block (prevents masked crashes)
+- Structured 500 error: `{"error": "apply_failed", "message": ..., "batch_id": ..., "hint": ...}`
+- Stores `validation_summary` JSON on the batch after apply
+- Removed unreliable `batch.status = "failed"` in except block (rolled back by `get_db` anyway)
+- CORS headers confirmed working via Vite proxy (no raw CORS errors on apply)
+
+### S2 — Intelligent Account Numbering
+
+New service: `app/services/account_number_generator.py`
+
+- `TAXONOMY_RANGES`: 30+ taxonomy → `(start, end)` pairs covering all standard account types
+- Ranges: Assets 1xxx, Liabilities 2xxx, Equity 3xxx, Revenue 4xxx, COGS 5xxx, Expenses 6xxx, Other 7–8xxx, Fallback 9xxx
+- No range overlaps (verified by `test_no_range_overlaps`)
+- `generate_account_numbers(lines)`: assigns sequential numbers within each taxonomy range, step=10
+- Global `used: set[int]` shared across all taxonomy groups — no duplicate numbers possible
+- Subtotals (`is_subtotal=True`) receive empty string `""`
+- Section fallback: `None` taxonomy falls back via `_SECTION_FALLBACK` dict
+- Unknown taxonomies fall back to 9010–9999
+- Integrated into PDF apply endpoint: each line and mapping record gets `official_account_code` on apply
+
+Helper functions: `get_range_for_taxonomy(code)`, `get_account_series(code)` (returns "1000 series — Assets" etc.)
+
+### S3 — Global DataGrid Framework
+
+New component: `frontend/src/components/ui/DataGrid.tsx`
+
+- `GridColumn<T>` interface: `key`, `header`, `sortValue?`, `render`, `noExport?`, `csvValue?`, `className?`
+- Column sort: click header cycles `none → asc → desc → none`; `SortIcon` component
+- Global search: filters all rows by any `sortValue` output (case-insensitive)
+- Pagination: configurable `pageSize`, prev/next + numbered page buttons (shows 5 near current)
+- CSV export: `downloadCSV()` via Blob URL; skips `noExport` columns
+- Loading skeleton: `loading` prop shows 5 rows × N columns with `animate-pulse`
+- `toolbarLeft`, `rowClassName`, `emptyMessage` customization props
+- `data-testid` propagated to search, export, column headers, pagination controls
+
+Used by: PeriodsPage, DocumentsPage (existing pages upgraded)
+
+### S4 — Accounting Periods UX Redesign
+
+Page: `frontend/src/pages/PeriodsPage.tsx`
+
+- Replaced raw entity ID input with `EntitySelect` dropdown
+- FY filter + period type filter dropdowns (dynamic options from loaded data)
+- Stats bar: open count / closed count / total (shown when entity selected and data present)
+- `PeriodStatusBadge`: green CheckCircle = Open, gray Lock = Closed
+- `PeriodActions`: Close / Reopen buttons per row with `data-testid="close-period-{id}"` / `data-testid="reopen-period-{id}"`
+- `DataGrid` replaces flat table — sortable, searchable, exportable
+- `closeMutation` + `reopenMutation` with error display
+- Create form auto-fills `entity_id` from the selected entity
+- Empty/loading/error states properly handled
+
+### S5 — COA Undo System
+
+**Deferred.** Too complex for this session. Requires undo stack in `pdf_account_mappings`, diff endpoint, and UI revision history panel.
+
+### S6 — Entity Visibility / Context Bar
+
+New provider: `frontend/src/providers/WorkspaceProvider.tsx`
+- Stores `{ id, code, name }` in `localStorage` as `workspace_entity`
+- `useWorkspace()` hook for any component to read/set the active entity
+- Persists across page navigations and browser refreshes
+
+New component: `frontend/src/components/ui/ContextBar.tsx`
+- Thin 8px bar below TopNav (above `<main>`)
+- Shows Building2 icon + active entity (`CODE — Name`) with dropdown to switch entity
+- `data-testid="context-bar-entity-btn"` — click to open entity picker
+- `data-testid="context-bar-clear"` — X button to clear active entity
+- Entity list from `['entities-list']` query (shared with EntitySelect, no extra fetch)
+
+Wired into: `AppShell.tsx` (between TopNav and main), `main.tsx` (WorkspaceProvider wraps entire app)
+
+### S7 — Document Registry
+
+New endpoint: `GET /import-registry` in `app/api/routers/documents.py`
+- Aggregates: PDFImportBatch + ImportBatch (TB) + COAImportBatch
+- Normalizes fields: `source_module`, `source_id`, `filename`, `entity_id`, `source_entity_name`, `status`, `line_count`, `description`, `created_at`, `statement_date`
+- Returns sorted by `created_at` descending
+
+New API client: `frontend/src/api/importRegistry.ts`
+
+Redesigned page: `frontend/src/pages/DocumentsPage.tsx`
+- Module icon + colored badge (purple=PDF, blue=TB, green=COA)
+- StatusBadge with color map (applied/posted/completed=green, uploaded=blue, preview=yellow, failed/error=red)
+- EntitySelect filter with clear button
+- "Go to source" ExternalLink button navigates to source module
+- `DataGrid` with all registry columns, `data-testid="document-registry-grid"`
+- `DocumentList` export preserved for attachment display by other pages
+
+### S8 — Entity Setup Enhancements
+
+**Not started.** Deferred to M37.
+
+### Test Results
+
+| Suite | Before | After | Delta |
+|---|---|---|---|
+| Python unit tests | 645 | 670 | +25 |
+| Frontend vitest | 332 | 332 | 0 (routing test fixed) |
+| TypeScript `--noEmit` | — | 0 errors | clean |
+
+New test file: `tests/test_m36d_account_numbering.py` — 25 tests
+- `TestGenerateAccountNumbers` (13): empty input, subtotals, per-taxonomy range checks, sequential increment, global deduplication, section fallback, unknown fallback
+- `TestTaxonomyRanges` (5): asset/revenue coverage, no overlaps, known range, unknown fallback, series labels
+- `TestHeroGroupIntegration` (7): all detail lines get numbers, subtotals get none, BS assets in 1xxx, revenue in 4xxx, expenses in 5–6xxx, no duplicates within batch
+
+### Files Changed
+
+**Backend (new)**
+- `app/services/account_number_generator.py`
+- `app/api/routers/documents.py` — import registry endpoint
+- `tests/test_m36d_account_numbering.py`
+
+**Backend (modified)**
+- `app/api/routers/pdf_import.py` — apply stabilization + account number generation
+
+**Frontend (new)**
+- `frontend/src/providers/WorkspaceProvider.tsx`
+- `frontend/src/components/ui/DataGrid.tsx`
+- `frontend/src/components/ui/ContextBar.tsx`
+- `frontend/src/api/importRegistry.ts`
+
+**Frontend (modified)**
+- `frontend/src/pages/PeriodsPage.tsx` — full UX redesign
+- `frontend/src/pages/DocumentsPage.tsx` — registry-backed redesign
+- `frontend/src/layouts/AppShell.tsx` — ContextBar wired in
+- `frontend/src/main.tsx` — WorkspaceProvider added
+- `frontend/src/test/routing.test.tsx` — QueryClientProvider + title fix
+
+### Known Limitations
+
+| ID | Limitation | Impact |
+|---|---|---|
+| M36d-LIM-001 | ContextBar entity selection is independent of per-page EntitySelect dropdowns. Pages do not auto-sync to the global active entity. | User must select entity twice (once in context bar, once on page). Full sync deferred to M37. |
+| M36d-LIM-002 | Account numbers generated on PDF apply are only stored on `pdf_import_lines.official_account_code` and `pdf_account_mappings.official_account_code`. They are not yet pushed to the main `accounts` table. | Hero Group COA is not created from extracted data; must still be imported via COA Import or created manually. |
+| M36d-LIM-003 | COA undo/revision system (S5) was deferred. No way to roll back taxonomy or account number assignments. | Manual corrections overwrite prior values with no history. |
+| M36d-LIM-004 | Document registry endpoint uses `created_at` for PDFImportBatch and COAImportBatch, but `uploaded_at` for ImportBatch (TB). Sorting is by created_at descending; TB batches without created_at appear at bottom. | Mixed sort order in registry for TB imports. |
 
 ---
 

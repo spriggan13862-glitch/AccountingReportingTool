@@ -1,9 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, Circle, ArrowRight, Building2, Upload, Map, FileCheck, BookOpen, Rocket } from 'lucide-react'
-import { entitiesApi } from '@/api/entities'
-import { tbImportApi } from '@/api/tbImport'
+import { CheckCircle, ArrowRight, Building2, Upload, FileSearch, FileCheck, AlertCircle, Rocket, List } from 'lucide-react'
 import { useOrg } from '@/providers/OrgProvider'
 
 const STORAGE_KEY = 'setup_wizard_dismissed'
@@ -27,42 +25,42 @@ const STEPS: StepDef[] = [
     route: '/entities',
   },
   {
-    key: 'first_import_uploaded',
+    key: 'coa_uploaded',
     icon: <Upload className="w-5 h-5" />,
+    title: 'Upload your Chart of Accounts',
+    description: 'Import your QuickBooks or custom COA to define account structure before importing trial balances.',
+    action: 'Import COA',
+    route: '/coa-import',
+  },
+  {
+    key: 'coa_applied',
+    icon: <List className="w-5 h-5" />,
+    title: 'Review auto-classification',
+    description: 'Verify account types, detail types, and reporting taxonomy assignments.',
+    action: 'Review COA',
+    route: '/accounts',
+  },
+  {
+    key: 'tb_uploaded',
+    icon: <FileCheck className="w-5 h-5" />,
     title: 'Upload a trial balance',
-    description: 'Import a CSV or XLSX trial balance to seed your chart of accounts.',
-    action: 'Start Import Wizard',
+    description: 'Import a trial balance — accounts will auto-map to your COA.',
+    action: 'Start Import',
     route: '/import/new',
   },
   {
-    key: 'accounts_mapped',
-    icon: <Map className="w-5 h-5" />,
-    title: 'Map all accounts',
-    description: 'Resolve any unmapped GL accounts in the Mapping Workbench.',
+    key: 'mapping_exceptions_resolved',
+    icon: <AlertCircle className="w-5 h-5" />,
+    title: 'Resolve mapping exceptions',
+    description: 'Handle any accounts that could not be auto-mapped to your COA.',
     action: 'Open Import Center',
     route: '/import',
   },
   {
-    key: 'first_import_posted',
-    icon: <FileCheck className="w-5 h-5" />,
-    title: 'Post your first import',
-    description: 'Validate and post the trial balance to create journal entries.',
-    action: 'Open Import Center',
-    route: '/import',
-  },
-  {
-    key: 'journal_entry_created',
-    icon: <BookOpen className="w-5 h-5" />,
-    title: 'Record a journal entry',
-    description: 'Optionally create a manual adjustment or accrual entry.',
-    action: 'New Journal Entry',
-    route: '/journal-entries/new',
-  },
-  {
-    key: 'operational_ready',
+    key: 'first_report_generated',
     icon: <Rocket className="w-5 h-5" />,
-    title: 'Run your first report',
-    description: 'Generate a financial statement to verify your data is complete.',
+    title: 'Generate your first report',
+    description: 'Run a financial statement to verify your data is complete.',
     action: 'Open Reports',
     route: '/financial-statements',
   },
@@ -77,7 +75,7 @@ export function SetupWizardPage() {
   const { data: status, isLoading } = useQuery({
     queryKey: ['onboarding-status', orgId],
     queryFn: async () => {
-      const res = await fetch('/api/setup/onboarding-status')
+      const res = await fetch('/api/v1/setup/onboarding-status')
       if (!res.ok) throw new Error('Failed to load onboarding status')
       return res.json() as Promise<{
         entity_count: number
@@ -87,6 +85,8 @@ export function SetupWizardPage() {
         posted_imports: number
         unmapped_line_count: number
         has_journal_entries: boolean
+        coa_batch_count: number
+        coa_applied_count: number
         setup_steps_complete: string[]
         setup_progress: number
       }>

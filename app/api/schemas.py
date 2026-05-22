@@ -63,8 +63,8 @@ class EntityCreate(BaseModel):
     entity_type: str                     # operating/consolidation/elimination/carveout
     parent_id: int | None = None
     currency: str = "USD"
-    fiscal_year_end_month: int | None = None    # 1=Jan … 12=Dec
-    fiscal_year_convention: str | None = None   # calendar|52-53-week|retail-454
+    fiscal_year_end_month: int           # 1=Jan … 12=Dec; required for period governance
+    fiscal_year_convention: str          # calendar|52-53-week|retail-454; required
 
 
 class EntityOut(BaseModel):
@@ -91,6 +91,24 @@ class AccountCreate(BaseModel):
     account_type: str                    # asset/liability/equity/revenue/expense
     normal_balance: str                  # debit/credit
     parent_account_id: int | None = None
+    detail_type: str | None = None
+    description: str | None = None
+    tax_line: str | None = None
+    source_system: str | None = None
+    reporting_taxonomy_line_id: int | None = None
+
+
+class AccountUpdate(BaseModel):
+    account_name: str | None = None
+    account_type: str | None = None
+    normal_balance: str | None = None
+    detail_type: str | None = None
+    description: str | None = None
+    tax_line: str | None = None
+    account_status: str | None = None     # active/inactive/archived/deprecated
+    reporting_taxonomy_line_id: int | None = None
+    parent_account_id: int | None = None
+    active: bool | None = None
 
 
 class AccountOut(BaseModel):
@@ -103,6 +121,232 @@ class AccountOut(BaseModel):
     normal_balance: str
     parent_account_id: int | None = None
     active: bool
+    detail_type: str | None = None
+    account_status: str = "active"
+    description: str | None = None
+    tax_line: str | None = None
+    source_system: str | None = None
+    reporting_taxonomy_line_id: int | None = None
+
+
+class AccountReparentBody(BaseModel):
+    parent_account_id: int | None  # null = move to root (outdent)
+
+
+class AccountReparentResult(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    old_parent_id: int | None = None
+    old_parent_number: str | None = None
+    old_parent_name: str | None = None
+    new_parent_id: int | None = None
+    new_parent_number: str | None = None
+    new_parent_name: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Reporting Taxonomy
+# ---------------------------------------------------------------------------
+
+class ReportingTaxonomyLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    name: str
+    short_name: str | None = None
+    section: str
+    statement_type: str | None = None
+    sort_order: int
+    hierarchy_depth: int = 0
+    is_subtotal: bool
+    normal_balance: str | None = None
+    sign_behavior: str | None = None
+    parent_id: int | None = None
+    description: str | None = None
+    active: bool = True
+    editable: bool = True
+    system_defined: bool = False
+    sec_xbrl_tag: str | None = None
+
+
+class ReportingTaxonomyLineCreate(BaseModel):
+    code: str
+    name: str
+    short_name: str | None = None
+    section: str
+    statement_type: str | None = None
+    sort_order: int = 0
+    is_subtotal: bool = False
+    normal_balance: str | None = None
+    sign_behavior: str = "positive"
+    parent_id: int | None = None
+    description: str | None = None
+    active: bool = True
+    editable: bool = True
+    sec_xbrl_tag: str | None = None
+
+
+class ReportingTaxonomyLineUpdate(BaseModel):
+    name: str | None = None
+    short_name: str | None = None
+    section: str | None = None
+    statement_type: str | None = None
+    sort_order: int | None = None
+    is_subtotal: bool | None = None
+    normal_balance: str | None = None
+    sign_behavior: str | None = None
+    parent_id: int | None = None
+    description: str | None = None
+    active: bool | None = None
+    editable: bool | None = None
+    sec_xbrl_tag: str | None = None
+
+
+class TaxonomyImportRow(BaseModel):
+    """One row in a taxonomy import CSV."""
+    taxonomy_code: str
+    taxonomy_name: str
+    statement_type: str | None = None
+    parent_line: str | None = None  # code of parent
+    display_order: int | None = None
+    normal_balance: str | None = None
+    active: bool = True
+    description: str | None = None
+    sign_behavior: str | None = None
+    short_name: str | None = None
+
+
+class TaxonomyImportPreview(BaseModel):
+    rows: list[TaxonomyImportRow]
+    create_count: int
+    update_count: int
+    error_count: int
+    errors: list[str]
+
+
+class TaxonomyImportApplyResult(BaseModel):
+    created: int
+    updated: int
+    errors: list[str]
+
+
+# Reporting Views
+
+class ReportingTaxonomyViewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    name: str
+    description: str | None = None
+    is_default: bool
+    is_system_defined: bool
+    active: bool
+
+
+class ReportingTaxonomyViewCreate(BaseModel):
+    code: str
+    name: str
+    description: str | None = None
+    is_default: bool = False
+
+
+class ReportingTaxonomyViewUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    is_default: bool | None = None
+    active: bool | None = None
+
+
+# Presentation Settings
+
+class ReportingPresentationSettingsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    org_id: int | None = None
+    display_scaling: str
+    decimal_places: int
+    negative_format: str
+    show_account_numbers: bool
+    collapse_subtotals: bool
+    show_hierarchy_indent: bool
+    show_zero_balance: bool
+    hide_inactive: bool
+    date_format: str
+    currency_symbol: str
+    bold_subtotals: bool
+    underline_totals: bool
+    alternate_row_shading: bool
+    default_view_id: int | None = None
+
+
+class ReportingPresentationSettingsUpdate(BaseModel):
+    display_scaling: str | None = None
+    decimal_places: int | None = None
+    negative_format: str | None = None
+    show_account_numbers: bool | None = None
+    collapse_subtotals: bool | None = None
+    show_hierarchy_indent: bool | None = None
+    show_zero_balance: bool | None = None
+    hide_inactive: bool | None = None
+    date_format: str | None = None
+    currency_symbol: str | None = None
+    bold_subtotals: bool | None = None
+    underline_totals: bool | None = None
+    alternate_row_shading: bool | None = None
+    default_view_id: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# COA Import
+# ---------------------------------------------------------------------------
+
+class COAImportBatchOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    entity_id: int
+    filename: str
+    source_system: str | None = None
+    row_count: int | None = None
+    accounts_created: int | None = None
+    accounts_updated: int | None = None
+    status: str
+    error_message: str | None = None
+
+
+class COAApplyRequest(BaseModel):
+    # row_index (int) → reporting_taxonomy_line_id user override
+    overrides: dict[int, int] | None = None
+
+
+class COAImportPreviewRow(BaseModel):
+    row_index: int
+    account_number: str
+    account_name: str
+    raw_type: str
+    account_type: str | None
+    normal_balance: str
+    detail_type: str | None = None
+    description: str | None = None
+    tax_line: str | None = None
+    suggested_reporting_line: str | None = None
+    source_evidence: str | None = None
+    parent_account_number: str | None = None
+    parent_account_name: str | None = None
+    hierarchy_depth: int = 0
+    indent: int
+    parent_row_idx: int | None = None
+
+
+class COAImportPreview(BaseModel):
+    batch_id: int
+    entity_id: int
+    filename: str
+    source_system: str
+    detected_columns: dict
+    rows: list[COAImportPreviewRow]
+    row_count: int
+    warnings: list[str]
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +410,58 @@ class TbImportOut(BaseModel):
     error_message: str | None = None
     uploaded_by: str | None = None
     uploaded_at: datetime.datetime
+
+
+# ---------------------------------------------------------------------------
+# Scenarios
+# ---------------------------------------------------------------------------
+
+class ScenarioCreate(BaseModel):
+    code: str
+    name: str
+    scenario_type: str           # actual/topside/pro_forma/elimination/carveout/budget/forecast
+    description: str | None = None
+    organization_id: int | None = None
+    active: bool = True
+
+
+class ScenarioUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    active: bool | None = None
+
+
+class ScenarioOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    code: str
+    name: str
+    scenario_type: str
+    description: str | None = None
+    active: bool
+
+
+# ---------------------------------------------------------------------------
+# Taxonomy-based Financial Statements
+# ---------------------------------------------------------------------------
+
+class TaxonomyFsLineOut(BaseModel):
+    """FS line built from ReportingTaxonomyLine + Account.reporting_taxonomy_line_id."""
+    taxonomy_id: int
+    code: str
+    name: str
+    section: str
+    statement_type: str | None = None
+    sort_order: int
+    parent_id: int | None = None
+    hierarchy_depth: int = 0
+    is_subtotal: bool = False
+    normal_balance: str | None = None
+    sign_flip: bool = False
+    own_balance: Decimal = Decimal("0")
+    total_balance: Decimal = Decimal("0")
+    display_balance: Decimal = Decimal("0")
+    account_count: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -1511,3 +1807,145 @@ class ComparativeReportOut(BaseModel):
     generated_at: str
     sections: list[ComparativeSectionOut]
     material_variances_count: int
+
+
+# ---------------------------------------------------------------------------
+# M36 PDF Import
+# ---------------------------------------------------------------------------
+
+class PDFImportBatchOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    entity_id: int | None
+    filename: str
+    source_entity_name: str | None
+    statement_date: str | None
+    basis_of_accounting: str | None
+    page_count: int | None
+    line_count: int | None
+    accounts_created: int | None
+    status: str
+    error_message: str | None
+    created_at: datetime.datetime
+
+
+class PDFImportPreviewLine(BaseModel):
+    temp_account_code: str
+    name_hash: str | None = None
+    account_name: str
+    statement_type: str
+    section: str
+    amount: str
+    is_subtotal: bool
+    is_contra: bool
+    sort_order: int
+    suggested_taxonomy_code: str | None
+    mapping_confidence: str | None
+    mapping_evidence: str | None
+    page_number: int | None
+    source_line_text: str | None
+
+
+class PDFImportPreview(BaseModel):
+    batch_id: int
+    entity_id: int | None
+    filename: str
+    source_entity_name: str | None
+    statement_date: str | None
+    basis_of_accounting: str | None
+    page_count: int
+    line_count: int
+    subtotal_count: int
+    lines: list[PDFImportPreviewLine]
+    validation: dict[str, Any]
+    warnings: list[str]
+
+
+class PDFValidationCheck(BaseModel):
+    key: str
+    label: str
+    extracted: str
+    expected: str
+    difference: str
+    status: str  # pass | fail
+
+
+class PDFImportValidationReport(BaseModel):
+    batch_id: int
+    checks: list[PDFValidationCheck]
+    passing: int
+    failing: int
+    total: int
+
+
+class PDFMappingBucket(BaseModel):
+    taxonomy_code: str
+    source_lines: list[dict[str, Any]]
+    total_amount: str
+    confidence: str
+    evidence: str
+
+
+class PDFImportMappingOut(BaseModel):
+    batch_id: int
+    buckets: list[PDFMappingBucket]
+    unmapped_lines: list[dict[str, Any]]
+    bucket_count: int
+    unmapped_count: int
+
+
+# ---------------------------------------------------------------------------
+# M36b — Stable codes, mapping layer, audit trail
+# ---------------------------------------------------------------------------
+
+class PDFLineOut(BaseModel):
+    """A persisted PDF import line with its full mapping layer."""
+    id: int
+    batch_id: int
+    # Layer 1 — source identity
+    temp_account_code: str
+    name_hash: str | None
+    official_account_code: str | None
+    account_name: str
+    statement_type: str
+    section: str
+    amount: str
+    is_subtotal: bool
+    is_contra: bool
+    sort_order: int
+    # Layer 2 — taxonomy (live mapping record values, not just extraction suggestion)
+    suggested_taxonomy_code: str | None
+    taxonomy_code: str | None
+    taxonomy_source: str
+    taxonomy_locked: bool
+    # Layer 3 — legal entity
+    legal_entity_code: str | None
+    # Layer 4 — consolidation
+    consolidation_group: str | None
+    # Extraction audit
+    mapping_confidence: str | None
+    mapping_evidence: str | None
+    page_number: int | None
+    source_line_text: str | None
+
+
+class PDFLineUpdateRequest(BaseModel):
+    """Partial update for a persisted PDF import line."""
+    official_account_code: str | None = None
+    taxonomy_code: str | None = None
+    taxonomy_locked: bool | None = None
+    legal_entity_code: str | None = None
+    consolidation_group: str | None = None
+    mapping_notes: str | None = None
+
+
+class PDFAuditTrail(BaseModel):
+    """Full audit trail linking source document → extracted lines → mapping records."""
+    batch_id: int
+    filename: str
+    source_entity_name: str | None
+    statement_date: str | None
+    basis_of_accounting: str | None
+    status: str
+    line_count: int
+    lines: list[dict[str, Any]]

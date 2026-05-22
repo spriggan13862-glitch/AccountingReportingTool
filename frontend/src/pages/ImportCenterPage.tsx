@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Upload, Clock, CheckCircle, AlertCircle, XCircle, ChevronRight, HelpCircle, FileText, Building2, ArrowRight } from 'lucide-react'
+import { Upload, Clock, CheckCircle, AlertCircle, XCircle, ChevronRight, HelpCircle, FileText, Building2, ArrowRight, Download } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
 import type { ImportBatch, ImportBatchStatus } from '@/types'
@@ -39,7 +40,7 @@ export function ImportCenterPage() {
   const toast = useToast()
   const [showFormatHelp, setShowFormatHelp] = useState(false)
 
-  const [entityId, setEntityId] = useState('')
+  const [entityId, setEntityId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -62,7 +63,7 @@ export function ImportCenterPage() {
     mutationFn: () => {
       if (!file || !entityId || !asOfDate) throw new Error('All fields required')
       return tbImportApi.uploadBatch({
-        entity_id: Number(entityId),
+        entity_id: entityId as number,
         organization_id: orgId,
         as_of_date: asOfDate,
         file,
@@ -127,14 +128,8 @@ export function ImportCenterPage() {
         <p className="text-xs text-gray-500 mb-4">For guided step-by-step import with sheet selection and column mapping, use the <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-600 hover:underline">Import Wizard</button>.</p>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Entity ID</label>
-            <input
-              type="number"
-              value={entityId}
-              onChange={(e) => setEntityId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              placeholder="e.g. 1"
-            />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Entity</label>
+            <EntitySelect value={entityId} onChange={setEntityId} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">As-of Date</label>
@@ -158,15 +153,16 @@ export function ImportCenterPage() {
             {showFormatHelp ? 'Hide format guidance' : 'Show accepted formats & tips'}
           </button>
           {showFormatHelp && (
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-2">
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-3">
               <p className="font-semibold">Accepted file formats:</p>
               <ul className="space-y-1 list-disc list-inside">
-                <li><strong>CSV/XLSX</strong> — must have account number, account name, and debit/credit columns</li>
+                <li><strong>CSV/XLSX</strong> — account number, account name, and debit/credit or signed-amount columns</li>
                 <li><strong>QuickBooks (.QBO)</strong> — QBO transaction export</li>
                 <li><strong>NetSuite</strong> — GL detail export with "Account" and "Amount" columns</li>
                 <li><strong>Sage</strong> — trial balance export</li>
               </ul>
-              <p className="font-semibold mt-2">Common column name patterns (auto-detected):</p>
+
+              <p className="font-semibold">Common column name patterns (auto-detected):</p>
               <div className="grid grid-cols-2 gap-1">
                 <span>Account #, Acct, Number → account number</span>
                 <span>Name, Description → account name</span>
@@ -175,8 +171,43 @@ export function ImportCenterPage() {
                 <span>Balance, Amount, Net → signed net balance</span>
                 <span>"1000 - Cash" → combined number/name</span>
               </div>
-              <p className="mt-2 text-blue-600">
-                <strong>Tip:</strong> Any unmapped accounts will go to the Mapping Workbench after upload.
+
+              <div>
+                <p className="font-semibold mb-1">Download starter templates:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Format A — Debit/Credit', filename: 'template_debit_credit.csv',
+                      content: 'Account Number,Account Name,Debit,Credit\n1000,Cash,50000.00,0.00\n4000,Revenue,0.00,50000.00\n' },
+                    { label: 'Format B — Signed Amount', filename: 'template_signed_amount.csv',
+                      content: 'Account Number,Account Name,Amount\n1000,Cash,50000.00\n4000,Revenue,-50000.00\n' },
+                    { label: 'Format C — Combined Account', filename: 'template_combined.csv',
+                      content: 'Account,Debit,Credit\n1000 - Cash,50000.00,0.00\n4000 - Revenue,0.00,50000.00\n' },
+                    { label: 'Format D — Mapping Template', filename: 'template_mapping.csv',
+                      content: 'Source Account Number,Source Account Name,Internal Account Number,Internal Account Name,Account Type,Detail Type,Reporting Line\n1000,Cash,1000,Cash,asset,current_asset,Current Assets\n4000,Revenue,4000,Revenue,revenue,operating_revenue,Revenue\n' },
+                  ].map(({ label, filename, content }) => (
+                    <button
+                      key={filename}
+                      type="button"
+                      onClick={() => {
+                        const blob = new Blob([content], { type: 'text/csv' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = filename
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-blue-300 rounded text-blue-700 hover:bg-blue-100 font-medium"
+                    >
+                      <Download className="w-3 h-3 flex-shrink-0" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-blue-600">
+                <strong>Tip:</strong> Any unmapped accounts go to the Mapping Workbench after upload.
               </p>
             </div>
           )}

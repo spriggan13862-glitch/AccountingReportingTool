@@ -1,7 +1,23 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import {
+  ExternalLink,
+  FileSpreadsheet,
+  FileText,
+  Table2,
+} from 'lucide-react'
+import { importRegistryApi, type ImportRegistryEntry } from '@/api/importRegistry'
 import { PageLayout } from '@/components/ui/PageLayout'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { DataGrid, type GridColumn } from '@/components/ui/DataGrid'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { Badge } from '@/components/ui/Badge'
 import type { Document } from '@/types'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -9,13 +25,55 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const MODULE_LABELS: Record<string, string> = {
+  pdf_import: 'PDF Import',
+  tb_import: 'Trial Balance',
+  coa_import: 'COA Import',
+}
+
+const MODULE_COLORS: Record<string, string> = {
+  pdf_import: 'bg-purple-50 text-purple-700 border-purple-200',
+  tb_import: 'bg-blue-50 text-blue-700 border-blue-200',
+  coa_import: 'bg-green-50 text-green-700 border-green-200',
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  applied: 'bg-green-50 text-green-700',
+  posted: 'bg-green-50 text-green-700',
+  completed: 'bg-green-50 text-green-700',
+  uploaded: 'bg-blue-50 text-blue-700',
+  preview: 'bg-yellow-50 text-yellow-700',
+  failed: 'bg-red-50 text-red-700',
+  error: 'bg-red-50 text-red-700',
+}
+
+function ModuleIcon({ module }: { module: string }) {
+  if (module === 'pdf_import') return <FileText className="w-3.5 h-3.5 text-purple-500" />
+  if (module === 'coa_import') return <Table2 className="w-3.5 h-3.5 text-green-500" />
+  return <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500" />
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {status}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// DocumentList (used by other pages for attachment display)
+// ---------------------------------------------------------------------------
+
 interface DocumentListProps {
   documents: Document[]
 }
 
 export function DocumentList({ documents }: DocumentListProps) {
   if (documents.length === 0) {
-    return <EmptyState title="No documents" description="No attachments found." />
+    return (
+      <div className="py-6 text-center text-sm text-gray-400">No documents attached.</div>
+    )
   }
   return (
     <ul className="divide-y divide-gray-100">
@@ -37,14 +95,161 @@ export function DocumentList({ documents }: DocumentListProps) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Main page — Import Registry
+// ---------------------------------------------------------------------------
+
 export function DocumentsPage() {
+  const navigate = useNavigate()
+  const [entityId, setEntityId] = useState<number | ''>('')
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['import-registry', entityId],
+    queryFn: () => importRegistryApi.list(entityId !== '' ? entityId : undefined),
+  })
+
+  function navToSource(entry: ImportRegistryEntry) {
+    if (entry.source_module === 'pdf_import') {
+      navigate('/pdf-import')
+    } else if (entry.source_module === 'tb_import') {
+      navigate(`/import/${entry.source_id}`)
+    } else if (entry.source_module === 'coa_import') {
+      navigate('/coa-import')
+    }
+  }
+
+  const columns: GridColumn<ImportRegistryEntry>[] = [
+    {
+      key: 'module',
+      header: 'Source',
+      sortValue: (e) => e.source_module,
+      render: (e) => (
+        <div className="flex items-center gap-1.5">
+          <ModuleIcon module={e.source_module} />
+          <span
+            className={`px-1.5 py-0.5 rounded text-xs font-medium border ${MODULE_COLORS[e.source_module] ?? 'bg-gray-100 text-gray-600'}`}
+          >
+            {MODULE_LABELS[e.source_module] ?? e.source_module}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'filename',
+      header: 'File',
+      sortValue: (e) => e.filename ?? '',
+      render: (e) => (
+        <span className="font-mono text-xs text-gray-700 truncate max-w-[220px] block" title={e.filename ?? ''}>
+          {e.filename || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'entity',
+      header: 'Entity',
+      sortValue: (e) => e.source_entity_name ?? String(e.entity_id ?? ''),
+      render: (e) => (
+        <span className="text-xs text-gray-600">
+          {e.source_entity_name ?? (e.entity_id ? `Entity #${e.entity_id}` : '—')}
+        </span>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      sortValue: (e) => e.description,
+      render: (e) => <span className="text-xs text-gray-500">{e.description}</span>,
+    },
+    {
+      key: 'statement_date',
+      header: 'Period / Date',
+      sortValue: (e) => e.statement_date ?? '',
+      render: (e) => (
+        <span className="text-xs text-gray-500">{e.statement_date ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'lines',
+      header: 'Lines',
+      sortValue: (e) => e.line_count ?? 0,
+      render: (e) => (
+        <span className="text-xs text-gray-500">{e.line_count ?? '—'}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortValue: (e) => e.status,
+      render: (e) => <StatusBadge status={e.status} />,
+    },
+    {
+      key: 'created_at',
+      header: 'Uploaded',
+      sortValue: (e) => e.created_at ?? '',
+      render: (e) => (
+        <span className="text-xs text-gray-400">
+          {e.created_at ? e.created_at.slice(0, 10) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'link',
+      header: '',
+      noExport: true,
+      render: (e) => (
+        <button
+          type="button"
+          onClick={(ev) => { ev.stopPropagation(); navToSource(e) }}
+          className="text-blue-600 hover:text-blue-800"
+          title="Go to source"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </button>
+      ),
+    },
+  ]
+
   return (
-    <PageLayout title="Documents" subtitle="Uploaded files and attachments">
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <EmptyState
-          title="Select an object to view documents"
-          description="Documents are attached to journal entries, periods, and other objects."
-        />
+    <PageLayout
+      title="Document Registry"
+      subtitle="All uploaded files and imports across all modules"
+    >
+      <div className="space-y-4">
+        {/* Entity filter */}
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <EntitySelect
+              label="Filter by Entity"
+              value={entityId}
+              onChange={setEntityId}
+              className="min-w-[220px]"
+            />
+            {entityId !== '' && (
+              <button
+                type="button"
+                onClick={() => setEntityId('')}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <LoadingState />
+        ) : (
+          <DataGrid
+            columns={columns}
+            data={data}
+            rowKey={(e) => e.id}
+            onRowClick={navToSource}
+            exportFilename="import_registry"
+            pageSize={50}
+            emptyMessage="No import records found. Uploads from PDF Import, Trial Balance, and COA Import will appear here."
+            data-testid="document-registry-grid"
+          />
+        )}
       </div>
     </PageLayout>
   )

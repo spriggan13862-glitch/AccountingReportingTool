@@ -19,6 +19,10 @@ class Account(Base):
             "normal_balance IN ('debit', 'credit')",
             name="ck_accounts_normal_balance",
         ),
+        CheckConstraint(
+            "account_status IN ('active', 'inactive', 'archived', 'deprecated')",
+            name="ck_accounts_status",
+        ),
         Index("idx_accounts_number", "account_number"),
         Index("idx_accounts_type", "account_type"),
     )
@@ -32,3 +36,14 @@ class Account(Base):
     parent_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    # M32 additions — COA-first architecture
+    detail_type = Column(String(100), nullable=True)    # QB-style detail type
+    account_status = Column(String(20), nullable=False, default="active")
+    description = Column(String(500), nullable=True)
+    tax_line = Column(String(200), nullable=True)       # QB tax line
+    source_system = Column(String(50), nullable=True)   # quickbooks, netsuite, sage, manual
+    source_account_id = Column(String(100), nullable=True)
+    reporting_taxonomy_line_id = Column(
+        Integer, ForeignKey("reporting_taxonomy_lines.id"), nullable=True
+    )

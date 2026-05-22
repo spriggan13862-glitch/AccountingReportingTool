@@ -282,10 +282,7 @@ export function MappingWorkbenchPage() {
   }
 
   function handleExportMappings() {
-    const url = tbImportApi.exportMappingsUrl(batchId)
-    // Derive base URL from api client base
-    const base = (window as any).__API_BASE__ ?? ''
-    window.open(`${base}/api${url}`, '_blank')
+    window.open(tbImportApi.exportMappingsUrl(batchId), '_blank')
   }
 
   function getOrCreateRef(lineId: number): React.RefObject<HTMLInputElement> {
@@ -329,6 +326,22 @@ export function MappingWorkbenchPage() {
     >
       {apiError && <ErrorBanner message={apiError} />}
 
+      {/* Mapping explanation */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-xs text-blue-800">
+        <p className="font-semibold mb-1">How mapping works</p>
+        <p className="mb-1.5">
+          Each imported source account must be mapped to an account in your entity's Chart of Accounts.
+          COA accounts then link to financial statement reporting lines.
+        </p>
+        <div className="flex items-center gap-2 font-mono text-blue-700">
+          <span className="bg-blue-100 px-2 py-0.5 rounded">Source Account</span>
+          <span>→</span>
+          <span className="bg-blue-100 px-2 py-0.5 rounded">Entity COA Account</span>
+          <span>→</span>
+          <span className="bg-blue-100 px-2 py-0.5 rounded">Reporting Line</span>
+        </div>
+      </div>
+
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         {/* Search */}
@@ -356,7 +369,7 @@ export function MappingWorkbenchPage() {
           >
             <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showMapped ? 'translate-x-4' : ''}`} />
           </div>
-          Show mapped
+          Show all (including mapped)
         </label>
 
         {/* Stats */}
@@ -405,7 +418,7 @@ export function MappingWorkbenchPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
               <tr>

@@ -1,0 +1,1074 @@
+import { useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  AlertCircle,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Download,
+  FileText,
+  History,
+  Lock,
+  Unlock,
+  Upload,
+} from 'lucide-react'
+import { pdfImportApi } from '@/api/pdfImport'
+import { PageLayout } from '@/components/ui/PageLayout'
+import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { useToast } from '@/providers/ToastProvider'
+import type {
+  PDFImportBatch,
+  PDFImportPreview,
+  PDFImportPreviewLine,
+  PDFLineOut,
+  PDFLineUpdateRequest,
+  PDFValidationCheck,
+} from '@/types'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const SECTION_LABELS: Record<string, string> = {
+  current_assets:        'Current Assets',
+  fixed_assets:          'Fixed Assets',
+  other_assets:          'Other Assets',
+  current_liabilities:   'Current Liabilities',
+  long_term_liabilities: 'Long-Term Liabilities',
+  equity:                'Stockholders\' Equity',
+  revenue:               'Income',
+  cogs:                  'Cost of Sales',
+  operating_expenses:    'Operating Expenses',
+  other_income:          'Other Income & Expense',
+}
+
+const STMT_LABELS: Record<string, string> = {
+  balance_sheet:    'Balance Sheet',
+  income_statement: 'Income Statement',
+}
+
+const CONFIDENCE_COLORS: Record<string, string> = {
+  high:   'bg-green-50 text-green-700 border-green-200',
+  medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  low:    'bg-red-50 text-red-700 border-red-200',
+}
+
+type StmtFilter = 'all' | 'balance_sheet' | 'income_statement'
+type Phase = 'upload' | 'preview' | 'applied'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function fmt(amount: string): string {
+  const n = parseFloat(amount)
+  if (isNaN(n)) return amount
+  const abs = Math.abs(n)
+  const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n < 0 ? `(${formatted})` : formatted
+}
+
+function groupLines<T extends { statement_type: string; section: string }>(
+  lines: T[],
+): Record<string, { section: string; lines: T[] }> {
+  const groups: Record<string, { section: string; lines: T[] }> = {}
+  for (const line of lines) {
+    const key = `${line.statement_type}::${line.section}`
+    if (!groups[key]) groups[key] = { section: line.section, lines: [] }
+    groups[key].lines.push(line)
+  }
+  return groups
+}
+
+function exportLinesCSV(lines: PDFLineOut[], batchId: number) {
+  const headers = [
+    'stable_code', 'official_code', 'account_name',
+    'statement', 'section', 'amount',
+    'taxonomy_code', 'taxonomy_source', 'taxonomy_locked',
+    'legal_entity_code', 'consolidation_group',
+    'mapping_confidence', 'page_number',
+  ]
+  const esc = (v: string | null) => {
+    if (v == null) return ''
+    if (v.includes(',') || v.includes('"') || v.includes('\n')) return `"${v.replace(/"/g, '""')}"`
+    return v
+  }
+  const rows = lines
+    .filter((l) => !l.is_subtotal)
+    .map((l) => [
+      esc(l.temp_account_code),
+      esc(l.official_account_code),
+      esc(l.account_name),
+      esc(l.statement_type),
+      esc(l.section),
+      esc(l.amount),
+      esc(l.taxonomy_code ?? l.suggested_taxonomy_code),
+      esc(l.taxonomy_source),
+      String(l.taxonomy_locked),
+      esc(l.legal_entity_code),
+      esc(l.consolidation_group),
+      esc(l.mapping_confidence),
+      l.page_number != null ? String(l.page_number) : '',
+    ])
+  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `coa_export_batch${batchId}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StmtFilterBar({
+  value,
+  onChange,
+}: {
+  value: StmtFilter
+  onChange: (v: StmtFilter) => void
+}) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {(['all', 'balance_sheet', 'income_statement'] as const).map((f) => (
+        <button
+          key={f}
+          type="button"
+          onClick={() => onChange(f)}
+          className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+            value === f
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          {f === 'all' ? 'All' : STMT_LABELS[f]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ValidationTable({ checks }: { checks: PDFValidationCheck[] }) {
+  return (
+    <table className="w-full text-xs">
+      <thead className="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th className="px-3 py-2 text-left">Subtotal</th>
+          <th className="px-3 py-2 text-right">Extracted</th>
+          <th className="px-3 py-2 text-right">Expected (PDF)</th>
+          <th className="px-3 py-2 text-right">Diff</th>
+          <th className="px-3 py-2 text-center w-16">Status</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {checks.map((c) => (
+          <tr key={c.key} className={c.status === 'fail' ? 'bg-red-50' : ''}>
+            <td className="px-3 py-1.5 text-gray-700">{c.label}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{fmt(c.extracted)}</td>
+            <td className="px-3 py-1.5 text-right font-mono">{fmt(c.expected)}</td>
+            <td className="px-3 py-1.5 text-right font-mono text-gray-400">{fmt(c.difference)}</td>
+            <td className="px-3 py-1.5 text-center">
+              {c.status === 'pass' ? (
+                <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-500 mx-auto" />
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function EditableCell({
+  value,
+  placeholder,
+  onSave,
+  testId,
+  mono,
+}: {
+  value: string | null
+  placeholder?: string
+  onSave: (v: string) => void
+  testId?: string
+  mono?: boolean
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+
+  function commit() {
+    setEditing(false)
+    if (draft.trim() !== (value ?? '').trim()) onSave(draft.trim())
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
+        }}
+        className={`w-full px-1 py-0.5 text-xs border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 ${mono ? 'font-mono' : ''}`}
+        data-testid={testId ? `${testId}-input` : undefined}
+      />
+    )
+  }
+
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={() => { setDraft(value ?? ''); setEditing(true) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { setDraft(value ?? ''); setEditing(true) } }}
+      className={`cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 hover:text-blue-700 transition-colors ${mono ? 'font-mono' : ''} text-xs`}
+      title="Click to edit"
+      data-testid={testId}
+    >
+      {value || <span className="text-gray-300 italic">{placeholder ?? '—'}</span>}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Applied lines table
+// ---------------------------------------------------------------------------
+
+function AppliedLinesTable({
+  lines,
+  onUpdateLine,
+}: {
+  lines: PDFLineOut[]
+  onUpdateLine: (lineId: number, patch: PDFLineUpdateRequest) => void
+}) {
+  const groups = groupLines(lines)
+
+  return (
+    <div className="space-y-3">
+      {Object.entries(groups).map(([groupKey, { section, lines: groupLines }]) => {
+        const [stmtType] = groupKey.split('::')
+        const stmtLabel = STMT_LABELS[stmtType] ?? stmtType
+        const sectionLabel = SECTION_LABELS[section] ?? section
+        const detailCount = groupLines.filter((l) => !l.is_subtotal).length
+
+        return (
+          <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                {stmtLabel}
+              </span>
+              <ChevronRight className="w-3 h-3 text-gray-300" />
+              <span className="text-xs font-semibold text-gray-700">{sectionLabel}</span>
+              <span className="ml-auto text-xs text-gray-400">
+                {detailCount} line{detailCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[860px]">
+                <thead className="text-gray-500 border-b border-gray-100 bg-gray-50/50">
+                  <tr>
+                    <th className="px-3 py-2 text-left w-44 font-medium">Stable Code</th>
+                    <th className="px-3 py-2 text-left w-32 font-medium">Official Code</th>
+                    <th className="px-3 py-2 text-left font-medium">Account Name</th>
+                    <th className="px-3 py-2 text-left w-36 font-medium">Taxonomy</th>
+                    <th className="px-3 py-2 text-left w-24 font-medium">Legal Entity</th>
+                    <th className="px-3 py-2 text-left w-28 font-medium">Consol. Group</th>
+                    <th className="px-3 py-2 text-right w-28 font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {groupLines.map((line) => (
+                    <tr
+                      key={line.id}
+                      className={`hover:bg-gray-50/50 ${line.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}
+                      data-testid={`line-row-${line.id}`}
+                      data-subtotal={line.is_subtotal ? 'true' : undefined}
+                    >
+                      {/* Stable generated code */}
+                      <td className="px-3 py-1.5">
+                        <span
+                          className="font-mono text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100"
+                          data-testid="stable-code"
+                          title={`name_hash: ${line.name_hash ?? 'n/a'}`}
+                        >
+                          {line.temp_account_code}
+                        </span>
+                      </td>
+
+                      {/* Official code override (editable) */}
+                      <td className="px-3 py-1.5">
+                        {!line.is_subtotal ? (
+                          <EditableCell
+                            value={line.official_account_code}
+                            placeholder="assign…"
+                            mono
+                            onSave={(v) => onUpdateLine(line.id, { official_account_code: v || null })}
+                            testId={`official-code-${line.id}`}
+                          />
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Account name */}
+                      <td className="px-3 py-1.5 text-gray-800">
+                        {line.account_name}
+                        {line.is_contra && (
+                          <span className="ml-1.5 text-xs text-orange-500">(contra)</span>
+                        )}
+                      </td>
+
+                      {/* Taxonomy code (editable) + lock toggle */}
+                      <td className="px-3 py-1.5">
+                        {!line.is_subtotal ? (
+                          <div className="flex items-center gap-1">
+                            <EditableCell
+                              value={line.taxonomy_code ?? line.suggested_taxonomy_code}
+                              placeholder="unmapped"
+                              onSave={(v) =>
+                                onUpdateLine(line.id, { taxonomy_code: v || null, taxonomy_locked: true })
+                              }
+                              testId={`taxonomy-code-${line.id}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onUpdateLine(line.id, { taxonomy_locked: !line.taxonomy_locked })
+                              }
+                              title={line.taxonomy_locked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
+                              className="text-gray-300 hover:text-gray-600 transition-colors flex-shrink-0"
+                              data-testid={`taxonomy-lock-${line.id}`}
+                            >
+                              {line.taxonomy_locked ? (
+                                <Lock className="w-3 h-3 text-amber-500" />
+                              ) : (
+                                <Unlock className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Legal entity code */}
+                      <td className="px-3 py-1.5 text-xs text-gray-500" data-testid="legal-entity-cell">
+                        {line.legal_entity_code ?? <span className="text-gray-300">—</span>}
+                      </td>
+
+                      {/* Consolidation group */}
+                      <td className="px-3 py-1.5 text-xs text-gray-500" data-testid="consol-group-cell">
+                        {!line.is_subtotal ? (
+                          <EditableCell
+                            value={line.consolidation_group}
+                            placeholder="none"
+                            onSave={(v) =>
+                              onUpdateLine(line.id, { consolidation_group: v || null })
+                            }
+                            testId={`consol-group-${line.id}`}
+                          />
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Amount */}
+                      <td className="px-3 py-1.5 text-right font-mono">
+                        {fmt(line.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail panel
+// ---------------------------------------------------------------------------
+
+function AuditTrailPanel({ lines }: { lines: Record<string, unknown>[] }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+        <ClipboardList className="w-4 h-4 text-gray-400" />
+        <span className="text-xs font-semibold text-gray-700">
+          Extraction Audit Trail — {lines.length} lines
+        </span>
+        <span className="text-xs text-gray-400 ml-auto">
+          Source document → extracted line → stable code → taxonomy mapping
+        </span>
+      </div>
+      <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
+        <table className="w-full text-xs min-w-[860px]">
+          <thead className="text-gray-500 border-b border-gray-100 bg-gray-50/50 sticky top-0">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium w-8">#</th>
+              <th className="px-3 py-2 text-left font-medium w-44">Stable Code</th>
+              <th className="px-3 py-2 text-left font-medium">Account Name</th>
+              <th className="px-3 py-2 text-left font-medium w-36">Taxonomy</th>
+              <th className="px-3 py-2 text-left font-medium w-16">Source</th>
+              <th className="px-3 py-2 text-right font-medium w-24">Amount</th>
+              <th className="px-3 py-2 text-left font-medium w-8">Pg</th>
+              <th className="px-3 py-2 text-left font-medium">Source Line Text</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {lines.map((line, i) => {
+              const mapping = (line.mapping ?? {}) as Record<string, unknown>
+              return (
+                <tr
+                  key={String(line.line_id ?? i)}
+                  className={String(line.is_subtotal) === 'true' ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50/50'}
+                  data-testid="audit-row"
+                >
+                  <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
+                  <td className="px-3 py-1.5 font-mono text-indigo-700">{String(line.temp_account_code ?? '')}</td>
+                  <td className="px-3 py-1.5 text-gray-800">{String(line.account_name ?? '')}</td>
+                  <td className="px-3 py-1.5 text-indigo-600 text-xs">
+                    {String(mapping.taxonomy_code ?? '—')}
+                    {mapping.taxonomy_locked && (
+                      <Lock className="w-3 h-3 text-amber-500 inline ml-1" />
+                    )}
+                  </td>
+                  <td className="px-3 py-1.5 text-xs text-gray-400">{String(mapping.taxonomy_source ?? 'auto')}</td>
+                  <td className="px-3 py-1.5 text-right font-mono">{fmt(String(line.amount ?? '0'))}</td>
+                  <td className="px-3 py-1.5 text-gray-400 text-center">{String(line.page_number ?? '—')}</td>
+                  <td className="px-3 py-1.5 text-gray-400 truncate max-w-[220px]" title={String(line.source_line_text ?? '')}>
+                    {String(line.source_line_text ?? '—')}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
+export function PDFImportPage() {
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const toast = useToast()
+
+  // Phase machine
+  const [phase, setPhase] = useState<Phase>('upload')
+  const [file, setFile] = useState<File | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const [preview, setPreview] = useState<PDFImportPreview | null>(null)
+  const [appliedBatch, setAppliedBatch] = useState<PDFImportBatch | null>(null)
+  const [apiError, setApiError] = useState<string | null>(null)
+
+  // Preview filters
+  const [stmtFilter, setStmtFilter] = useState<StmtFilter>('all')
+  const [showSubtotals, setShowSubtotals] = useState(false)
+  const [showMapping, setShowMapping] = useState(false)
+
+  // Applied view state
+  const [activeTab, setActiveTab] = useState<'lines' | 'audit'>('lines')
+  const [appliedStmtFilter, setAppliedStmtFilter] = useState<StmtFilter>('all')
+  const [appliedShowSubtotals, setAppliedShowSubtotals] = useState(false)
+
+  const appliedBatchId = appliedBatch?.id ?? null
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
+  const { data: recentBatches = [] } = useQuery({
+    queryKey: ['pdf-batches'],
+    queryFn: () => pdfImportApi.list(),
+    enabled: phase === 'upload',
+  })
+
+  const { data: appliedLines = [], isLoading: linesLoading } = useQuery({
+    queryKey: ['pdf-lines', appliedBatchId],
+    queryFn: () => pdfImportApi.lines(appliedBatchId!),
+    enabled: phase === 'applied' && appliedBatchId != null,
+  })
+
+  const { data: auditTrail, isLoading: auditLoading } = useQuery({
+    queryKey: ['pdf-audit', appliedBatchId],
+    queryFn: () => pdfImportApi.audit(appliedBatchId!),
+    enabled: phase === 'applied' && appliedBatchId != null && activeTab === 'audit',
+  })
+
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+
+  const uploadMutation = useMutation({
+    mutationFn: () => {
+      if (!file) throw new Error('No file selected')
+      return pdfImportApi.upload(file)
+    },
+    onSuccess: (data) => {
+      setPreview(data)
+      setApiError(null)
+      setPhase('preview')
+      setStmtFilter('all')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  const applyMutation = useMutation({
+    mutationFn: () => {
+      if (!preview) throw new Error('No preview')
+      return pdfImportApi.apply(preview.batch_id)
+    },
+    onSuccess: (batch) => {
+      setAppliedBatch(batch)
+      setPhase('applied')
+      setActiveTab('lines')
+      setPreview(null)
+      qc.invalidateQueries({ queryKey: ['pdf-batches'] })
+      toast(`PDF applied: ${batch.line_count ?? 0} lines with stable codes and taxonomy mappings persisted`, 'success')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  const updateLineMutation = useMutation({
+    mutationFn: ({ lineId, patch }: { lineId: number; patch: PDFLineUpdateRequest }) =>
+      pdfImportApi.updateLine(appliedBatchId!, lineId, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pdf-lines', appliedBatchId] })
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files[0]
+    if (f?.name.toLowerCase().endsWith('.pdf')) {
+      setFile(f)
+      setPreview(null)
+      setPhase('upload')
+    }
+  }
+
+  function resetToUpload() {
+    setPhase('upload')
+    setFile(null)
+    setPreview(null)
+    setAppliedBatch(null)
+    setApiError(null)
+  }
+
+  function viewBatchFromHistory(batch: PDFImportBatch) {
+    setAppliedBatch(batch)
+    setPhase('applied')
+    setActiveTab('lines')
+    setApiError(null)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
+
+  const visiblePreviewLines = (preview?.lines ?? []).filter((l) => {
+    if (!showSubtotals && l.is_subtotal) return false
+    if (stmtFilter !== 'all' && l.statement_type !== stmtFilter) return false
+    return true
+  })
+
+  const visibleAppliedLines = appliedLines.filter((l) => {
+    if (!appliedShowSubtotals && l.is_subtotal) return false
+    if (appliedStmtFilter !== 'all' && l.statement_type !== appliedStmtFilter) return false
+    return true
+  })
+
+  const checks = preview?.validation?.checks ?? []
+  const passingCount = checks.filter((c) => c.status === 'pass').length
+  const failingCount = checks.filter((c) => c.status === 'fail').length
+
+  const previewGroups = groupLines(visiblePreviewLines)
+
+  // ---------------------------------------------------------------------------
+  // Workflow banner (shared)
+  // ---------------------------------------------------------------------------
+
+  const workflowBanner = (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-5 text-sm text-blue-800">
+      <p className="font-semibold mb-1 flex items-center gap-1.5">
+        <FileText className="w-4 h-4" /> PDF Ingestion Workflow
+      </p>
+      <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono text-blue-600">
+        {(['Upload PDF', 'Extract Lines', 'Validate Subtotals', 'Map to Taxonomy', 'Apply / Consolidate'] as const).map(
+          (step, i, arr) => (
+            <span key={step} className="flex items-center gap-1.5">
+              <span className="bg-blue-100 px-2 py-0.5 rounded">{step}</span>
+              {i < arr.length - 1 && <ChevronRight className="w-3 h-3" />}
+            </span>
+          ),
+        )}
+      </div>
+    </div>
+  )
+
+  // ---------------------------------------------------------------------------
+  // PHASE: upload
+  // ---------------------------------------------------------------------------
+
+  if (phase === 'upload') {
+    return (
+      <PageLayout
+        title="PDF Financial Statement Import"
+        subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
+      >
+        {apiError && <ErrorBanner message={apiError} />}
+        {workflowBanner}
+
+        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
+          <h2 className="text-sm font-semibold text-gray-800">Step 1 — Upload PDF financial statement</h2>
+          <p className="text-xs text-gray-500">
+            Supports compiled or reviewed financial statements with extractable text (no scanned images).
+            Income tax basis, GAAP, and cash basis PDFs are all accepted.
+          </p>
+
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+            className={`border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-colors ${
+              dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'
+            }`}
+            data-testid="pdf-drop-zone"
+          >
+            <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+            {file ? (
+              <p className="text-sm font-medium text-gray-700">{file.name}</p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600">Drag & drop your PDF, or click to browse</p>
+                <p className="text-xs text-gray-400 mt-1">PDF only — must have extractable (not scanned) text</p>
+              </>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              data-testid="pdf-file-input"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) { setFile(f); setPreview(null) }
+              }}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={!file || uploadMutation.isPending}
+              onClick={() => uploadMutation.mutate()}
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+              data-testid="parse-pdf-btn"
+            >
+              {uploadMutation.isPending ? 'Extracting…' : 'Extract & Preview'}
+            </button>
+          </div>
+        </div>
+
+        {/* Batch history */}
+        {recentBatches.length > 0 && (
+          <div className="mt-4 bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+              <History className="w-4 h-4 text-gray-400" />
+              <span className="text-xs font-semibold text-gray-700">Recent Imports</span>
+            </div>
+            <table className="w-full text-xs" data-testid="batch-history">
+              <thead className="text-gray-500 border-b border-gray-100">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">File</th>
+                  <th className="px-4 py-2 text-left font-medium">Entity</th>
+                  <th className="px-4 py-2 text-left font-medium">Date</th>
+                  <th className="px-4 py-2 text-center font-medium">Lines</th>
+                  <th className="px-4 py-2 text-center font-medium">Status</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {recentBatches.slice(0, 10).map((b) => (
+                  <tr key={b.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-700 font-mono truncate max-w-[200px]" title={b.filename}>
+                      {b.filename}
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">{b.source_entity_name ?? '—'}</td>
+                    <td className="px-4 py-2 text-gray-500">{b.statement_date ?? '—'}</td>
+                    <td className="px-4 py-2 text-center text-gray-500">{b.line_count ?? '—'}</td>
+                    <td className="px-4 py-2 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          b.status === 'applied'
+                            ? 'bg-green-100 text-green-700'
+                            : b.status === 'error'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {b.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {b.status === 'applied' && (
+                        <button
+                          type="button"
+                          onClick={() => viewBatchFromHistory(b)}
+                          className="text-blue-600 hover:text-blue-800 text-xs underline"
+                          data-testid={`view-batch-${b.id}`}
+                        >
+                          View
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </PageLayout>
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // PHASE: preview
+  // ---------------------------------------------------------------------------
+
+  if (phase === 'preview' && preview) {
+    return (
+      <PageLayout
+        title="PDF Financial Statement Import"
+        subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
+      >
+        {apiError && <ErrorBanner message={apiError} />}
+        {workflowBanner}
+
+        <div className="space-y-4">
+          {/* Header summary */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-800">Step 2 — Review extracted lines</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  <span className="font-medium">{preview.source_entity_name}</span>
+                  {' · '}
+                  {preview.statement_date ?? 'Unknown date'}
+                  {' · '}
+                  <span className="capitalize">{preview.basis_of_accounting?.replace('_', ' ') ?? 'unknown basis'}</span>
+                  {' · '}
+                  {preview.page_count} pages · {preview.line_count} detail lines · {preview.subtotal_count} subtotals
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={resetToUpload}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+              >
+                Upload different file
+              </button>
+            </div>
+
+            {/* Validation summary */}
+            <div
+              className={`rounded-lg px-4 py-3 mb-4 ${
+                failingCount > 0 ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {failingCount > 0 ? (
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                )}
+                <span className="text-sm font-semibold text-gray-800">
+                  Subtotal Validation — {passingCount}/{checks.length} passing
+                  {failingCount > 0 && ` · ${failingCount} mismatch(es)`}
+                </span>
+              </div>
+              {checks.length > 0 && (
+                <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                  <ValidationTable checks={checks} />
+                </div>
+              )}
+            </div>
+
+            {/* Warnings */}
+            {preview.warnings.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-4">
+                {preview.warnings.map((w, i) => (
+                  <p key={i} className="text-xs text-amber-800 flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {w}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Statement filter + options */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <StmtFilterBar value={stmtFilter} onChange={setStmtFilter} />
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-2">
+                <input
+                  type="checkbox"
+                  checked={showSubtotals}
+                  onChange={(e) => setShowSubtotals(e.target.checked)}
+                  className="rounded"
+                />
+                Show subtotals
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showMapping}
+                  onChange={(e) => setShowMapping(e.target.checked)}
+                  className="rounded"
+                />
+                Show taxonomy mapping
+              </label>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                disabled={applyMutation.isPending || failingCount > 0}
+                onClick={() => applyMutation.mutate()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                data-testid="apply-pdf-btn"
+                title={failingCount > 0 ? 'Fix subtotal mismatches before applying' : undefined}
+              >
+                <CheckCircle className="w-4 h-4" />
+                {applyMutation.isPending ? 'Applying…' : `Apply ${preview.line_count} Lines`}
+              </button>
+            </div>
+          </div>
+
+          {/* Extracted lines table — preview (grouped by statement + section) */}
+          {Object.entries(previewGroups).map(([groupKey, { section, lines: groupLines }]) => {
+            const [stmtType] = groupKey.split('::')
+            const stmtLabel = STMT_LABELS[stmtType] ?? stmtType
+            const sectionLabel = SECTION_LABELS[section] ?? section
+            const detailCount = groupLines.filter((l) => !l.is_subtotal).length
+
+            return (
+              <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
+                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{stmtLabel}</span>
+                  <ChevronRight className="w-3 h-3 text-gray-300" />
+                  <span className="text-xs font-semibold text-gray-700">{sectionLabel}</span>
+                  <span className="ml-auto text-xs text-gray-400">{detailCount} line{detailCount !== 1 ? 's' : ''}</span>
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="text-xs text-gray-500 border-b border-gray-100">
+                    <tr>
+                      <th className="px-3 py-2 text-left w-44">Code</th>
+                      <th className="px-3 py-2 text-left">Account Name</th>
+                      {showMapping && (
+                        <>
+                          <th className="px-3 py-2 text-left w-36">Taxonomy</th>
+                          <th className="px-3 py-2 text-left w-20">Confidence</th>
+                          <th className="px-3 py-2 text-left w-32">Evidence</th>
+                        </>
+                      )}
+                      <th className="px-3 py-2 text-right w-28">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {groupLines.map((line) => (
+                      <tr
+                        key={line.temp_account_code}
+                        className={`hover:bg-gray-50 ${line.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}
+                        data-subtotal={line.is_subtotal ? 'true' : undefined}
+                      >
+                        <td className="px-3 py-1.5 font-mono text-xs text-indigo-700">
+                          {line.temp_account_code}
+                        </td>
+                        <td className="px-3 py-1.5 text-gray-800">
+                          {line.account_name}
+                          {line.is_contra && (
+                            <span className="ml-1.5 text-xs text-orange-500">(contra)</span>
+                          )}
+                        </td>
+                        {showMapping && (
+                          <>
+                            <td className="px-3 py-1.5 text-xs text-indigo-600">
+                              {line.suggested_taxonomy_code ?? '—'}
+                            </td>
+                            <td className="px-3 py-1.5">
+                              {line.mapping_confidence && (
+                                <span className={`px-1.5 py-0.5 rounded text-xs border ${CONFIDENCE_COLORS[line.mapping_confidence] ?? ''}`}>
+                                  {line.mapping_confidence}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-1.5 text-xs text-gray-400 truncate max-w-[128px]" title={line.mapping_evidence ?? ''}>
+                              {line.mapping_evidence ?? '—'}
+                            </td>
+                          </>
+                        )}
+                        <td className="px-3 py-1.5 text-right font-mono text-sm">
+                          {fmt(line.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // PHASE: applied
+  // ---------------------------------------------------------------------------
+
+  return (
+    <PageLayout
+      title="PDF Financial Statement Import"
+      subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
+    >
+      {apiError && <ErrorBanner message={apiError} />}
+      {workflowBanner}
+
+      {/* Applied header */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <h2 className="text-sm font-semibold text-gray-800">
+                Applied — {appliedBatch?.source_entity_name ?? 'Unknown Entity'}
+              </h2>
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                {appliedBatch?.status ?? 'applied'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">
+              {appliedBatch?.filename ?? '—'}
+              {' · '}
+              {appliedBatch?.statement_date ?? '—'}
+              {' · '}
+              {appliedBatch?.line_count ?? appliedLines.filter((l) => !l.is_subtotal).length} detail lines
+              {' · '}
+              Batch #{appliedBatchId}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => exportLinesCSV(appliedLines, appliedBatchId ?? 0)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+              data-testid="export-csv-btn"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={resetToUpload}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+              data-testid="new-import-btn"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              New Import
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-4 border-b border-gray-200">
+        {(['lines', 'audit'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+            data-testid={`tab-${tab}`}
+          >
+            {tab === 'lines' ? 'Extracted Lines' : 'Audit Trail'}
+          </button>
+        ))}
+      </div>
+
+      {/* Lines tab */}
+      {activeTab === 'lines' && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <StmtFilterBar value={appliedStmtFilter} onChange={setAppliedStmtFilter} />
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-2">
+              <input
+                type="checkbox"
+                checked={appliedShowSubtotals}
+                onChange={(e) => setAppliedShowSubtotals(e.target.checked)}
+                className="rounded"
+              />
+              Show subtotals
+            </label>
+            <span className="ml-auto text-xs text-gray-400 italic">
+              Click any taxonomy code or official code cell to edit
+            </span>
+          </div>
+
+          {linesLoading ? (
+            <div className="text-sm text-gray-400 py-8 text-center">Loading lines…</div>
+          ) : (
+            <AppliedLinesTable
+              lines={visibleAppliedLines}
+              onUpdateLine={(lineId, patch) =>
+                updateLineMutation.mutate({ lineId, patch })
+              }
+            />
+          )}
+        </div>
+      )}
+
+      {/* Audit Trail tab */}
+      {activeTab === 'audit' && (
+        <div>
+          {auditLoading ? (
+            <div className="text-sm text-gray-400 py-8 text-center">Loading audit trail…</div>
+          ) : auditTrail ? (
+            <AuditTrailPanel lines={auditTrail.lines as Record<string, unknown>[]} />
+          ) : (
+            <div className="text-sm text-gray-400 py-8 text-center">No audit data</div>
+          )}
+        </div>
+      )}
+    </PageLayout>
+  )
+}
