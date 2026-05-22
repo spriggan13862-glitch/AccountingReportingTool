@@ -9,6 +9,17 @@ from sqlalchemy.orm import Session
 from app.models.account import Account
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
+from app.models.scenario import Scenario
+
+
+def _resolve_scenario_ids(db: Session, entity_id: int, scenario_ids: Sequence[int]) -> list[int]:
+    """If scenario_ids is empty, return all active scenario IDs (scenarios are org-wide).
+    An empty list causes IN () → always false in SQL, returning no rows.
+    """
+    if scenario_ids:
+        return list(scenario_ids)
+    all_ids = [r[0] for r in db.query(Scenario.id).filter(Scenario.active == True).all()]  # noqa: E712
+    return all_ids or [-1]  # -1 is a sentinel that matches nothing (no scenarios exist)
 
 
 @dataclass
@@ -37,6 +48,7 @@ def get_account_balance(
     Positive  → net debit position  (normal for assets / expenses)
     Negative  → net credit position (normal for liabilities / equity / revenue)
     """
+    resolved_ids = _resolve_scenario_ids(db, entity_id, scenario_ids)
     raw = (
         db.query(func.sum(JournalEntryLine.debit - JournalEntryLine.credit))
         .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
@@ -44,7 +56,7 @@ def get_account_balance(
             JournalEntryLine.account_id == account_id,
             JournalEntryLine.entity_id == entity_id,
             JournalEntry.entry_date <= as_of_date,
-            JournalEntry.scenario_id.in_(scenario_ids),
+            JournalEntry.scenario_id.in_(resolved_ids),
             JournalEntry.status == "posted",
         )
         .scalar()
@@ -61,7 +73,9 @@ def get_trial_balance(
     """
     Returns one TrialBalanceRow per account that has posted activity through as_of_date.
     Rows are sorted by account_number.
+    When scenario_ids is empty, all scenarios for the entity are included.
     """
+    resolved_ids = _resolve_scenario_ids(db, entity_id, scenario_ids)
     rows = (
         db.query(
             Account,
@@ -73,7 +87,7 @@ def get_trial_balance(
         .filter(
             JournalEntryLine.entity_id == entity_id,
             JournalEntry.entry_date <= as_of_date,
-            JournalEntry.scenario_id.in_(scenario_ids),
+            JournalEntry.scenario_id.in_(resolved_ids),
             JournalEntry.status == "posted",
         )
         .group_by(Account.id)

@@ -10,6 +10,7 @@ from app.services.taxonomy_reporting_service import (
     get_taxonomy_fs_statement,
     propagate_taxonomy_to_children,
 )
+from app.services.reporting_taxonomy_service import get_or_seed
 
 router = APIRouter(prefix="/financial-statements", tags=["financial-statements"])
 
@@ -110,7 +111,10 @@ def taxonomy_balance_sheet(
     scenario_ids: list[int] = Query(default=[]),
     db: Session = Depends(get_db),
 ):
-    """Balance sheet using ReportingTaxonomyLine hierarchy (COA-import path)."""
+    """Balance sheet using ReportingTaxonomyLine hierarchy (COA-import path).
+    Auto-seeds taxonomy if the table is empty (new installation or fresh test DB).
+    """
+    get_or_seed(db)
     rows = get_taxonomy_fs_statement(
         db, entity_id, as_of_date, scenario_ids, statement_type="balance_sheet"
     )
@@ -124,7 +128,10 @@ def taxonomy_income_statement(
     scenario_ids: list[int] = Query(default=[]),
     db: Session = Depends(get_db),
 ):
-    """Income statement using ReportingTaxonomyLine hierarchy (COA-import path)."""
+    """Income statement using ReportingTaxonomyLine hierarchy (COA-import path).
+    Auto-seeds taxonomy if the table is empty (new installation or fresh test DB).
+    """
+    get_or_seed(db)
     rows = get_taxonomy_fs_statement(
         db, entity_id, as_of_date, scenario_ids, statement_type="income_statement"
     )

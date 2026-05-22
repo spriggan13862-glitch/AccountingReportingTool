@@ -313,8 +313,8 @@ describe('FinancialStatementsPage — empty states and inherit feedback', () => 
       expect(sel.disabled).toBe(false)
     })
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
-    await waitFor(() => screen.getByText(/No reporting data found/i))
-    expect(screen.getByText(/No reporting data found/i)).toBeTruthy()
+    await waitFor(() => screen.getByText(/No taxonomy lines configured/i))
+    expect(screen.getByText(/No taxonomy lines configured/i)).toBeTruthy()
   })
 
   it('shows Inherit Taxonomy button when entity is selected', async () => {

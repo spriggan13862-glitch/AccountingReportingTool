@@ -19,7 +19,7 @@ const isDev = import.meta.env.DEV
 // TaxonomyTable
 // ---------------------------------------------------------------------------
 
-function TaxonomyTable({ rows, isLoading }: { rows: TaxonomyFsLine[]; isLoading: boolean }) {
+function TaxonomyTable({ rows, isLoading, entityId }: { rows: TaxonomyFsLine[]; isLoading: boolean; entityId: number | '' }) {
   if (isLoading) {
     return (
       <div className="py-12 text-center">
@@ -33,24 +33,47 @@ function TaxonomyTable({ rows, isLoading }: { rows: TaxonomyFsLine[]; isLoading:
     return (
       <div className="py-12 text-center">
         <AlertTriangle className="w-6 h-6 text-amber-400 mx-auto mb-3" />
-        <p className="text-sm font-medium text-gray-700 mb-1">No reporting data found</p>
-        <p className="text-xs text-gray-500 max-w-sm mx-auto">
-          No taxonomy lines are configured. Import a chart of accounts or assign accounts to reporting lines
-          in the <strong>Chart of Accounts</strong> page, then click <strong>Inherit Taxonomy</strong>.
-        </p>
+        <p className="text-sm font-medium text-gray-700 mb-1">No taxonomy lines configured</p>
+        <div className="text-xs text-gray-500 max-w-sm mx-auto space-y-1">
+          <p>Taxonomy lines are not yet seeded for this installation. This usually resolves automatically when you:</p>
+          <ol className="list-decimal list-inside mt-2 space-y-1 text-left">
+            <li>Import a Chart of Accounts (COA Import page)</li>
+            <li>Or visit the <strong>Reporting Taxonomy</strong> page to initialize lines</li>
+            <li>Then click <strong>Inherit Taxonomy</strong> on this page</li>
+          </ol>
+        </div>
       </div>
     )
   }
 
   const unmapped = rows.filter((r) => r.account_count === 0 && !r.is_subtotal)
   const allZero = rows.every((r) => parseFloat(r.display_balance) === 0)
+  const mappedCount = rows.reduce((s, r) => s + (r.is_subtotal ? 0 : r.account_count), 0)
 
   return (
     <div>
-      {allZero && !unmapped.length && (
-        <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex items-center gap-2">
+      {allZero && mappedCount === 0 && (
+        <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">No accounts mapped to taxonomy lines.</p>
+            <p className="mt-0.5">Import a Chart of Accounts or assign reporting lines on the Chart of Accounts page, then click <strong>Inherit Taxonomy</strong>.</p>
+          </div>
+        </div>
+      )}
+      {allZero && mappedCount > 0 && (
+        <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Accounts are mapped ({mappedCount}) but all balances are $0.</p>
+            <p className="mt-0.5">No posted trial balance data found for this entity and date. Import a trial balance or post journal entries to a scenario first.</p>
+          </div>
+        </div>
+      )}
+      {!allZero && unmapped.length > 0 && (
+        <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 flex items-center gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          All balances are $0. No trial balance data found for this entity and date. Post journal entries or import a trial balance first.
+          {unmapped.length} taxonomy line{unmapped.length !== 1 ? 's' : ''} have no mapped accounts — run <strong>Inherit Taxonomy</strong> to propagate from parent accounts.
         </div>
       )}
 
@@ -384,10 +407,10 @@ export function FinancialStatementsPage() {
 
           <div className="p-4">
             {tab === 'BS' && (
-              <TaxonomyTable rows={bsRows} isLoading={bsLoading} />
+              <TaxonomyTable rows={bsRows} isLoading={bsLoading} entityId={entityId} />
             )}
             {tab === 'IS' && (
-              <TaxonomyTable rows={isRows} isLoading={isLoading_} />
+              <TaxonomyTable rows={isRows} isLoading={isLoading_} entityId={entityId} />
             )}
             {tab === 'CF' && (
               <CashFlowStatement
