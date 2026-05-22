@@ -15,13 +15,12 @@ import {
 import { periodsApi } from '@/api/periods'
 import type { AccountingPeriod, PeriodCreate } from '@/types'
 import { PageLayout } from '@/components/ui/PageLayout'
-import { DataGrid, type GridColumn } from '@/components/ui/DataGrid'
+import { AccountingDataGrid } from '@/components/data-grid'
+import type { GridColumn, RowAction, BatchAction } from '@/components/data-grid'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { Input } from '@/components/ui/Input'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
-import { LoadingState } from '@/components/ui/LoadingState'
-import { ErrorState } from '@/components/ui/ErrorState'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 
 const PERIOD_TYPES = ['monthly', 'quarterly', 'annual']
 
@@ -96,8 +95,9 @@ function PeriodActions({
 export function PeriodsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { activeEntity } = useWorkspace()
 
-  const [entityId, setEntityId] = useState<number | ''>('')
+  const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [showForm, setShowForm] = useState(false)
   const [fyFilter, setFyFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -149,6 +149,7 @@ export function PeriodsPage() {
     {
       key: 'period_name',
       header: 'Period',
+      sortable: true,
       sortValue: (p) => p.period_name,
       render: (p) => (
         <div className="flex items-center gap-2">
@@ -160,6 +161,7 @@ export function PeriodsPage() {
     {
       key: 'dates',
       header: 'Start → End',
+      sortable: true,
       sortValue: (p) => p.start_date,
       render: (p) => (
         <span className="text-xs font-mono text-gray-600">
@@ -170,6 +172,7 @@ export function PeriodsPage() {
     {
       key: 'fy',
       header: 'FY / Period',
+      sortable: true,
       sortValue: (p) => p.fiscal_year * 100 + p.fiscal_period,
       render: (p) => (
         <span className="text-xs text-gray-600">
@@ -180,6 +183,7 @@ export function PeriodsPage() {
     {
       key: 'type',
       header: 'Type',
+      sortable: true,
       sortValue: (p) => p.period_type,
       render: (p) => (
         <span className="px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600 font-medium capitalize">
@@ -190,12 +194,14 @@ export function PeriodsPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       sortValue: (p) => (p.is_closed ? 1 : 0),
       render: (p) => <PeriodStatusBadge period={p} />,
     },
     {
       key: 'closed_at',
       header: 'Closed At',
+      sortable: true,
       sortValue: (p) => p.closed_at ?? '',
       render: (p) => (
         <span className="text-xs text-gray-400">
@@ -203,18 +209,50 @@ export function PeriodsPage() {
         </span>
       ),
     },
+  ]
+
+  const rowActions: RowAction<AccountingPeriod>[] = [
     {
-      key: 'actions',
-      header: '',
-      noExport: true,
-      render: (p) => (
-        <PeriodActions
-          period={p}
-          onClose={(id) => closeMutation.mutate(id)}
-          onReopen={(id) => reopenMutation.mutate(id)}
-          isPending={isPending}
-        />
-      ),
+      key: 'view',
+      label: 'View Detail',
+      onClick: (p) => navigate(`/periods/${p.id}`),
+    },
+    {
+      key: 'close',
+      label: 'Close Period',
+      icon: <Lock className="w-3.5 h-3.5" />,
+      hidden: (p) => p.is_closed,
+      onClick: (p) => closeMutation.mutate(p.id),
+    },
+    {
+      key: 'reopen',
+      label: 'Reopen Period',
+      icon: <LockOpen className="w-3.5 h-3.5" />,
+      hidden: (p) => !p.is_closed,
+      onClick: (p) => reopenMutation.mutate(p.id),
+    },
+  ]
+
+  const batchActions: BatchAction<AccountingPeriod>[] = [
+    {
+      key: 'batch-close',
+      label: 'Close Selected',
+      icon: <Lock className="w-3.5 h-3.5" />,
+      onClick: async (rows) => {
+        for (const p of rows.filter((r) => !r.is_closed)) {
+          await closeMutation.mutateAsync(p.id)
+        }
+      },
+    },
+    {
+      key: 'batch-reopen',
+      label: 'Reopen Selected',
+      icon: <LockOpen className="w-3.5 h-3.5" />,
+      onClick: async (rows) => {
+        for (const p of rows.filter((r) => r.is_closed)) {
+          await reopenMutation.mutateAsync(p.id)
+        }
+      },
     },
   ]
 
@@ -367,22 +405,20 @@ export function PeriodsPage() {
             </p>
           </div>
         )}
-        {entityId && isLoading && <LoadingState />}
-        {entityId && isError && <ErrorState message={(error as Error).message} />}
-        {entityId && !isLoading && data.length === 0 && (
-          <EmptyState
-            title="No periods for this entity"
-            description="Create the first accounting period using the button above."
-          />
-        )}
-        {data.length > 0 && (
-          <DataGrid
+        {entityId && (
+          <AccountingDataGrid
             columns={columns}
             data={data}
             rowKey={(p) => p.id}
             onRowClick={(p) => navigate(`/periods/${p.id}`)}
+            rowActions={rowActions}
+            batchActions={batchActions}
+            selectionEnabled
             exportFilename={`periods_entity${entityId}`}
             pageSize={25}
+            loading={isLoading}
+            error={isError ? (error as Error).message : null}
+            emptyMessage="No periods found. Create the first accounting period using the button above."
             data-testid="periods-grid"
           />
         )}
