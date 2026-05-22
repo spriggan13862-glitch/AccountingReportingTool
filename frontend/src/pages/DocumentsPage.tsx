@@ -9,9 +9,9 @@ import {
 } from 'lucide-react'
 import { importRegistryApi, type ImportRegistryEntry } from '@/api/importRegistry'
 import { PageLayout } from '@/components/ui/PageLayout'
-import { DataGrid, type GridColumn } from '@/components/ui/DataGrid'
+import { AccountingDataGrid } from '@/components/data-grid'
+import type { GridColumn } from '@/components/data-grid'
 import { EntitySelect } from '@/components/ui/EntitySelect'
-import { LoadingState } from '@/components/ui/LoadingState'
 import { Badge } from '@/components/ui/Badge'
 import type { Document } from '@/types'
 
@@ -122,6 +122,7 @@ export function DocumentsPage() {
     {
       key: 'module',
       header: 'Source',
+      sortable: true,
       sortValue: (e) => e.source_module,
       render: (e) => (
         <div className="flex items-center gap-1.5">
@@ -137,6 +138,7 @@ export function DocumentsPage() {
     {
       key: 'filename',
       header: 'File',
+      sortable: true,
       sortValue: (e) => e.filename ?? '',
       render: (e) => (
         <span className="font-mono text-xs text-gray-700 truncate max-w-[220px] block" title={e.filename ?? ''}>
@@ -147,6 +149,7 @@ export function DocumentsPage() {
     {
       key: 'entity',
       header: 'Entity',
+      sortable: true,
       sortValue: (e) => e.source_entity_name ?? String(e.entity_id ?? ''),
       render: (e) => (
         <span className="text-xs text-gray-600">
@@ -157,12 +160,14 @@ export function DocumentsPage() {
     {
       key: 'description',
       header: 'Description',
+      sortable: true,
       sortValue: (e) => e.description,
       render: (e) => <span className="text-xs text-gray-500">{e.description}</span>,
     },
     {
       key: 'statement_date',
       header: 'Period / Date',
+      sortable: true,
       sortValue: (e) => e.statement_date ?? '',
       render: (e) => (
         <span className="text-xs text-gray-500">{e.statement_date ?? '—'}</span>
@@ -171,6 +176,7 @@ export function DocumentsPage() {
     {
       key: 'lines',
       header: 'Lines',
+      sortable: true,
       sortValue: (e) => e.line_count ?? 0,
       render: (e) => (
         <span className="text-xs text-gray-500">{e.line_count ?? '—'}</span>
@@ -179,12 +185,14 @@ export function DocumentsPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       sortValue: (e) => e.status,
       render: (e) => <StatusBadge status={e.status} />,
     },
     {
       key: 'created_at',
       header: 'Uploaded',
+      sortable: true,
       sortValue: (e) => e.created_at ?? '',
       render: (e) => (
         <span className="text-xs text-gray-400">
@@ -214,43 +222,25 @@ export function DocumentsPage() {
       title="Document Registry"
       subtitle="All uploaded files and imports across all modules"
     >
-      <div className="space-y-4">
-        {/* Entity filter */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <EntitySelect
-              label="Filter by Entity"
-              value={entityId}
-              onChange={setEntityId}
-              className="min-w-[220px]"
-            />
-            {entityId !== '' && (
-              <button
-                type="button"
-                onClick={() => setEntityId('')}
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
-              >
-                Clear filter
-              </button>
-            )}
-          </div>
-        </div>
-
-        {isLoading ? (
-          <LoadingState />
-        ) : (
-          <DataGrid
-            columns={columns}
-            data={data}
-            rowKey={(e) => e.id}
-            onRowClick={navToSource}
-            exportFilename="import_registry"
-            pageSize={50}
-            emptyMessage="No import records found. Uploads from PDF Import, Trial Balance, and COA Import will appear here."
-            data-testid="document-registry-grid"
+      <AccountingDataGrid
+        columns={columns}
+        data={data}
+        rowKey={(e) => e.id}
+        onRowClick={navToSource}
+        exportFilename="import_registry"
+        pageSize={50}
+        loading={isLoading}
+        emptyMessage="No import records found. Uploads from PDF Import, Trial Balance, and COA Import will appear here."
+        toolbarLeft={
+          <EntitySelect
+            value={entityId}
+            onChange={setEntityId}
+            placeholder="All entities"
+            className="min-w-[180px] text-sm"
           />
-        )}
-      </div>
+        }
+        data-testid="document-registry-grid"
+      />
     </PageLayout>
   )
 }
