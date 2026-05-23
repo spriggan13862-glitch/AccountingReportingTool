@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/utils/cn'
 import {
@@ -19,13 +20,15 @@ import {
   EyeOff,
   Calendar,
   HelpCircle,
-  Map,
   ClipboardList,
   List,
   FileSpreadsheet,
   Sliders,
   Table2,
   FileSearch,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Wand2,
 } from 'lucide-react'
 
 interface NavItem {
@@ -59,6 +62,7 @@ const navGroups: NavGroup[] = [
     label: 'Reporting',
     items: [
       { to: '/financial-statements', label: 'Financial Statements', icon: FileText },
+      { to: '/fs-builder', label: 'FS Builder', icon: Wand2 },
       { to: '/comparative-financials', label: 'Comparative', icon: TrendingUp },
       { to: '/draft-preview', label: 'Draft Preview', icon: EyeOff },
       { to: '/reports', label: 'Reports', icon: FilePieChart },
@@ -102,28 +106,67 @@ const navGroups: NavGroup[] = [
   },
 ]
 
+const LS_KEY = 'sidebar_collapsed'
+
 export function Sidebar() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(LS_KEY) === 'true' } catch { return false }
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem(LS_KEY, String(collapsed)) } catch { /* ignore */ }
+  }, [collapsed])
+
   return (
-    <aside className="flex h-full w-56 flex-col border-r border-gray-200 bg-white">
-      <div className="flex h-14 items-center border-b border-gray-200 px-4">
-        <span className="text-sm font-bold tracking-tight text-gray-900">Accounting Tool</span>
+    <aside
+      className={cn(
+        'flex h-full flex-col border-r border-gray-200 bg-white transition-all duration-200',
+        collapsed ? 'w-12' : 'w-56',
+      )}
+    >
+      {/* Header */}
+      <div className="flex h-14 items-center border-b border-gray-200 px-2 justify-between">
+        {!collapsed && (
+          <span className="text-sm font-bold tracking-tight text-gray-900 truncate px-2">
+            Accounting Tool
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          className={cn(
+            'flex-shrink-0 rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors',
+            collapsed && 'mx-auto',
+          )}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
       </div>
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-1.5 py-2">
         {navGroups.map((group) => (
-          <div key={group.label} className="mb-3">
-            {group.label && (
+          <div key={group.label || '__home'} className="mb-3">
+            {group.label && !collapsed && (
               <p className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {group.label}
               </p>
+            )}
+            {collapsed && group.label && (
+              <div className="my-1 border-t border-gray-100" />
             )}
             {group.items.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
+                title={collapsed ? label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                    'flex items-center rounded-md transition-colors',
+                    collapsed ? 'justify-center px-0 py-1.5' : 'gap-2.5 px-3 py-1.5',
+                    'text-sm font-medium',
                     isActive
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
@@ -131,7 +174,7 @@ export function Sidebar() {
                 }
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                {label}
+                {!collapsed && label}
               </NavLink>
             ))}
           </div>
