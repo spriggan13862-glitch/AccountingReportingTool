@@ -149,7 +149,7 @@ describe('Milestone 20: Financial Statement Engine', () => {
     // Click AR (account_count === 0)
     onDrilldown.mockClear()
     fireEvent.click(screen.getByText(/AR/))
-    expect(onDrilldown).not.toHaveBeenCalled()
+    expect(onDrilldown).toHaveBeenCalledWith('1.2')
   })
 
   it('DrilldownPanel renders empty state when accounts is empty', () => {

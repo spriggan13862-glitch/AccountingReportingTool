@@ -154,7 +154,13 @@ test.describe('Workflow: COA Import', () => {
     // Click the Import Accounts button
     await page.getByRole('button', { name: /import.*accounts/i }).click()
 
-    // Should navigate to /accounts after successful import
+    // Wait for import complete confirmation step
+    await expect(page.getByText('Import Complete')).toBeVisible({ timeout: 15_000 })
+
+    // Click the View Chart of Accounts button to navigate to /accounts
+    await page.getByRole('button', { name: /view chart of accounts/i }).click()
+
+    // Should navigate to /accounts after successful import and click
     await expect(page).toHaveURL(/\/accounts/, { timeout: 15_000 })
   })
 })
@@ -232,17 +238,10 @@ test.describe('Workflow: Financial Statements', () => {
 
   test('step 15 — financial statements shows entity selector', async ({ page }) => {
     await page.goto('/financial-statements')
-    // Before entity/date selected, should show either entity selector or empty state
-    const hasEntitySelector = await page
-      .locator('select, [role="combobox"]')
-      .first()
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
-    const hasEmptyState = await page
-      .getByText(/select an entity|no data/i)
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
-    expect(hasEntitySelector || hasEmptyState).toBeTruthy()
+    // Wait for the page to load and check if the entity selector is visible
+    await expect(page.locator('[data-testid="entity-select"]').first()).toBeVisible({ timeout: 10_000 })
+    // Also assert that the empty state helper text is displayed
+    await expect(page.getByText('Select an entity and date')).toBeVisible({ timeout: 5_000 })
   })
 
   test('step 16 — financial statements with entity selected renders tabs', async ({ page }) => {

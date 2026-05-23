@@ -19,6 +19,10 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
 import * as path from 'path'
 import * as fs from 'fs'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const ADMIN_EMAIL = 'admin@livemarketing.test'
 const ADMIN_PASSWORD = 'Test1234!'
@@ -208,6 +212,8 @@ test('UI P3 — Upload Hero Group PDF and see preview', async ({ page }) => {
   await login(page)
   await page.goto('/pdf-import')
 
+  await page.locator('[data-testid="entity-select"]').selectOption('1')
+
   const fileInput = page.locator('[data-testid="pdf-file-input"]')
   await fileInput.setInputFiles(PDF_PATH)
 
@@ -230,6 +236,8 @@ test('UI P4 — Preview shows passing validation', async ({ page }) => {
   await login(page)
   await page.goto('/pdf-import')
 
+  await page.locator('[data-testid="entity-select"]').selectOption('1')
+
   const fileInput = page.locator('[data-testid="pdf-file-input"]')
   await fileInput.setInputFiles(PDF_PATH)
   await page.locator('[data-testid="parse-pdf-btn"]').click()
@@ -245,14 +253,16 @@ test('UI P5 — Preview table shows extracted accounts', async ({ page }) => {
   await login(page)
   await page.goto('/pdf-import')
 
+  await page.locator('[data-testid="entity-select"]').selectOption('1')
+
   const fileInput = page.locator('[data-testid="pdf-file-input"]')
   await fileInput.setInputFiles(PDF_PATH)
   await page.locator('[data-testid="parse-pdf-btn"]').click()
   await expect(page.locator('[data-testid="apply-pdf-btn"]')).toBeVisible({ timeout: 15_000 })
 
   // Verify some known accounts appear
-  await expect(page.getByText('PETTY CASH')).toBeVisible()
-  await expect(page.getByText('Current Assets')).toBeVisible()
+  await expect(page.getByText('PETTY CASH', { exact: false }).first()).toBeVisible()
+  await expect(page.getByText('Current Assets', { exact: false }).first()).toBeVisible()
 })
 
 // ---------------------------------------------------------------------------
@@ -362,6 +372,8 @@ test('UI P6 — Upload, apply, and see applied view with stable codes', async ({
   await login(page)
   await page.goto('/pdf-import')
 
+  await page.locator('[data-testid="entity-select"]').selectOption('1')
+
   // Upload PDF
   const fileInput = page.locator('[data-testid="pdf-file-input"]')
   await fileInput.setInputFiles(PDF_PATH)
@@ -392,6 +404,8 @@ test('UI P7 — Applied view shows all M36b columns', async ({ page }) => {
   await login(page)
   await page.goto('/pdf-import')
 
+  await page.locator('[data-testid="entity-select"]').selectOption('1')
+
   const fileInput = page.locator('[data-testid="pdf-file-input"]')
   await fileInput.setInputFiles(PDF_PATH)
   await page.locator('[data-testid="parse-pdf-btn"]').click()
@@ -403,11 +417,10 @@ test('UI P7 — Applied view shows all M36b columns', async ({ page }) => {
   await expect(page.locator('[data-testid="stable-code"]').first()).toBeVisible({ timeout: 10_000 })
 
   // Column headers visible
-  await expect(page.getByText('Stable Code')).toBeVisible()
-  await expect(page.getByText('Official Code')).toBeVisible()
-  await expect(page.getByText('Taxonomy')).toBeVisible()
-  await expect(page.getByText('Legal Entity')).toBeVisible()
-  await expect(page.getByText('Consol. Group')).toBeVisible()
+  await expect(page.getByText('Acct #').first()).toBeVisible()
+  await expect(page.getByText('Taxonomy').first()).toBeVisible()
+  await expect(page.getByText('Legal Entity').first()).toBeVisible()
+  await expect(page.getByText('Consol. Group').first()).toBeVisible()
 
   // Legal entity and consolidation group cells present
   await expect(page.locator('[data-testid="legal-entity-cell"]').first()).toBeVisible()
@@ -417,6 +430,8 @@ test('UI P7 — Applied view shows all M36b columns', async ({ page }) => {
 test('UI P8 — Audit trail tab shows extraction evidence', async ({ page }) => {
   await login(page)
   await page.goto('/pdf-import')
+
+  await page.locator('[data-testid="entity-select"]').selectOption('1')
 
   const fileInput = page.locator('[data-testid="pdf-file-input"]')
   await fileInput.setInputFiles(PDF_PATH)

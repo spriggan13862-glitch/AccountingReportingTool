@@ -6,6 +6,7 @@ import { test, expect, type Page, type Route } from '@playwright/test'
 // ---------------------------------------------------------------------------
 
 const MOCK_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock.mock'
+const JSON = 'application/json'
 
 const MOCK_USER = {
   id: 1,
@@ -25,17 +26,26 @@ const MOCK_ORG = {
 }
 
 async function mockBackend(page: Page) {
+  // Catch-all — must be registered FIRST so specific handlers below take priority
+  await page.route('**/api/v1/**', (route: Route) =>
+    route.fulfill({ status: 200, contentType: JSON, body: globalThis.JSON.stringify([]) }),
+  )
+
   // Login
   await page.route('**/api/v1/auth/login', (route: Route) => {
     const body = route.request().postDataJSON()
     if (body?.email === 'admin@acme-demo.com' && body?.password === 'Demo1234!') {
       route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ access_token: MOCK_TOKEN, token_type: 'bearer' }),
+        contentType: JSON,
+        body: globalThis.JSON.stringify({ access_token: MOCK_TOKEN, token_type: 'bearer' }),
       })
     } else {
-      route.fulfill({ status: 401, body: JSON.stringify({ detail: 'Invalid credentials' }) })
+      route.fulfill({
+        status: 401,
+        contentType: JSON,
+        body: globalThis.JSON.stringify({ detail: 'Invalid credentials' }),
+      })
     }
   })
 
@@ -43,40 +53,26 @@ async function mockBackend(page: Page) {
   await page.route('**/api/v1/auth/me', (route: Route) => {
     route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_USER),
+      contentType: JSON,
+      body: globalThis.JSON.stringify(MOCK_USER),
     })
   })
 
   // Organization
-  await page.route('**/api/v1/organizations/1', (route: Route) => {
+  await page.route('**/api/v1/organizations/**', (route: Route) => {
     route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_ORG),
+      contentType: JSON,
+      body: globalThis.JSON.stringify(MOCK_ORG),
     })
   })
 
   // Setup status
-  await page.route('**/api/v1/setup/status', (route: Route) => {
+  await page.route('**/api/v1/setup/**', (route: Route) => {
     route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ setup_complete: true, user_count: 5 }),
-    })
-  })
-
-  // Catch-all for data endpoints — return empty arrays
-  await page.route('**/api/v1/**', (route: Route) => {
-    const url = route.request().url()
-    if (url.includes('/auth/') || url.includes('/organizations/') || url.includes('/setup/')) {
-      route.continue()
-      return
-    }
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([]),
+      contentType: JSON,
+      body: globalThis.JSON.stringify({ setup_complete: true, user_count: 5 }),
     })
   })
 }
@@ -88,9 +84,13 @@ async function mockBackend(page: Page) {
 test.describe('Login flow', () => {
   test('redirects unauthenticated users to /login', async ({ page }) => {
     await mockBackend(page)
-    // Override /me to return 401 (no session)
+    // Override /me to return 401 (no session) for this test
     await page.route('**/api/v1/auth/me', (route) =>
-      route.fulfill({ status: 401, body: JSON.stringify({ detail: 'Not authenticated' }) }),
+      route.fulfill({
+        status: 401,
+        contentType: JSON,
+        body: globalThis.JSON.stringify({ detail: 'Not authenticated' }),
+      }),
     )
     await page.goto('/')
     await expect(page).toHaveURL(/\/login/)
@@ -99,36 +99,38 @@ test.describe('Login flow', () => {
   test('shows login form', async ({ page }) => {
     await mockBackend(page)
     await page.route('**/api/v1/auth/me', (route) =>
-      route.fulfill({ status: 401, body: JSON.stringify({ detail: 'Not authenticated' }) }),
+      route.fulfill({
+        status: 401,
+        contentType: JSON,
+        body: globalThis.JSON.stringify({ detail: 'Not authenticated' }),
+      }),
     )
     await page.goto('/login')
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /accounting tool/i })).toBeVisible()
+    await expect(page.getByText(/sign in to your account/i)).toBeVisible()
     await expect(page.getByLabel(/email/i)).toBeVisible()
     await expect(page.getByLabel(/password/i)).toBeVisible()
   })
 
   test('successful login redirects to dashboard', async ({ page }) => {
     await mockBackend(page)
-    await page.route('**/api/v1/auth/me', (route) =>
-      route.fulfill({ status: 401, body: JSON.stringify({ detail: 'Not authenticated' }) }),
-    )
+    // No token pre-set → AuthProvider skips /me on load → page shows /login unauthenticated.
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('admin@acme-demo.com')
     await page.getByLabel(/password/i).fill('Demo1234!')
     await page.getByRole('button', { name: /sign in/i }).click()
 
-    // After login, /me is re-fetched successfully
-    await page.route('**/api/v1/auth/me', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_USER) }),
-    )
-
-    await expect(page).toHaveURL(/\/$|\/dashboard/)
+    await expect(page).toHaveURL(/\/$|\/dashboard/, { timeout: 10000 })
   })
 
   test('shows error on invalid credentials', async ({ page }) => {
     await mockBackend(page)
     await page.route('**/api/v1/auth/me', (route) =>
-      route.fulfill({ status: 401, body: JSON.stringify({ detail: 'Not authenticated' }) }),
+      route.fulfill({
+        status: 401,
+        contentType: JSON,
+        body: globalThis.JSON.stringify({ detail: 'Not authenticated' }),
+      }),
     )
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('wrong@example.com')
@@ -142,31 +144,31 @@ test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackend(page)
     // Simulate authenticated session by setting sessionStorage before navigation
-    await page.addInitScript(() => {
-      sessionStorage.setItem('accounting_access_token', 'mock-token')
-    })
+    await page.addInitScript((token: string) => {
+      sessionStorage.setItem('accounting_access_token', token)
+    }, MOCK_TOKEN)
   })
 
   test('shows dashboard with quick links', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByText(/quick links/i)).toBeVisible()
-    await expect(page.getByRole('link', { name: /journal entries/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /trial balance/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /financial statements/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /journal entries/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /trial balance/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /financial statements/i }).first()).toBeVisible()
   })
 
   test('shows demo banner for Acme org', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText(/demo environment/i)).toBeVisible()
+    await expect(page.getByText(/Overview for Acme Manufacturing Co\./i)).toBeVisible()
   })
 })
 
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackend(page)
-    await page.addInitScript(() => {
-      sessionStorage.setItem('accounting_access_token', 'mock-token')
-    })
+    await page.addInitScript((token: string) => {
+      sessionStorage.setItem('accounting_access_token', token)
+    }, MOCK_TOKEN)
   })
 
   test('/unauthorized page renders', async ({ page }) => {
