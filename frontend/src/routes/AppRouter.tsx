@@ -41,6 +41,7 @@ import { PDFImportPage } from '@/pages/PDFImportPage'
 import { ChartOfAccountsPage } from '@/pages/ChartOfAccountsPage'
 import { TaxonomyAdminPage } from '@/pages/TaxonomyAdminPage'
 import { ReportingSettingsPage } from '@/pages/ReportingSettingsPage'
+import { FSBuilderPage } from '@/pages/FSBuilderPage'
 
 /**
  * Auth-guarded shell — renders ProtectedRoute, then AppShell as layout.
@@ -82,6 +83,7 @@ export function AppRouter() {
           <Route path="reconciliations/:id" element={<ReconciliationDetailPage />} />
           <Route path="trial-balances" element={<TrialBalancesPage />} />
           <Route path="financial-statements" element={<FinancialStatementsPage />} />
+          <Route path="fs-builder" element={<FSBuilderPage />} />
           <Route path="report-builder" element={<ReportBuilderPage />} />
           <Route path="consolidations" element={<PlaceholderPage title="Consolidations" />} />
           <Route path="workflow" element={<WorkflowPage />} />
