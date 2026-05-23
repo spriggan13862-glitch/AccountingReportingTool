@@ -9,6 +9,12 @@ import type {
   PDFAuditTrail,
 } from '@/types'
 
+export interface PDFPreviewLinePatch {
+  account_name?: string | null
+  section?: string | null
+  suggested_taxonomy_code?: string | null
+}
+
 export const pdfImportApi = {
   upload: (file: File, entityId?: number): Promise<PDFImportPreview> => {
     const form = new FormData()
@@ -53,4 +59,7 @@ export const pdfImportApi = {
 
   audit: (batchId: number): Promise<PDFAuditTrail> =>
     api.get<PDFAuditTrail>(`/pdf-imports/${batchId}/audit`).then((r) => r.data),
+
+  patchPreviewLine: (batchId: number, lineIndex: number, patch: PDFPreviewLinePatch): Promise<{ line_index: number; updated: Record<string, unknown> }> =>
+    api.patch(`/pdf-imports/${batchId}/preview-lines/${lineIndex}`, patch).then((r) => r.data),
 }

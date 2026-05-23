@@ -50,6 +50,8 @@ function renderPage() {
 function makeLine(overrides: Partial<PDFImportPreviewLine> = {}): PDFImportPreviewLine {
   return {
     temp_account_code: 'HERO-BS-CASH-001',
+    name_hash: null,
+    proposed_account_code: null,
     account_name: 'Petty Cash',
     statement_type: 'balance_sheet',
     section: 'current_assets',

@@ -1144,6 +1144,8 @@ export interface PDFImportBatch {
 
 export interface PDFImportPreviewLine {
   temp_account_code: string
+  name_hash: string | null
+  proposed_account_code: string | null
   account_name: string
   statement_type: string
   section: string

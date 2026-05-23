@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -10,8 +10,10 @@ import {
   FileText,
   History,
   Lock,
+  Search,
   Unlock,
   Upload,
+  X,
 } from 'lucide-react'
 import { pdfImportApi } from '@/api/pdfImport'
 import { PageLayout } from '@/components/ui/PageLayout'
@@ -249,9 +251,13 @@ function EditableCell({
 function AppliedLinesTable({
   lines,
   onUpdateLine,
+  collapsedSections,
+  onToggleSection,
 }: {
   lines: PDFLineOut[]
   onUpdateLine: (lineId: number, patch: PDFLineUpdateRequest) => void
+  collapsedSections: Set<string>
+  onToggleSection: (key: string) => void
 }) {
   const groups = groupLines(lines)
 
@@ -262,11 +268,20 @@ function AppliedLinesTable({
         const stmtLabel = STMT_LABELS[stmtType] ?? stmtType
         const sectionLabel = SECTION_LABELS[section] ?? section
         const detailCount = groupLines.filter((l) => !l.is_subtotal).length
+        const isCollapsed = collapsedSections.has(groupKey)
 
         return (
           <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+            <button
+              type="button"
+              onClick={() => onToggleSection(groupKey)}
+              className="w-full bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 hover:bg-gray-100 transition-colors text-left"
+              data-testid={`applied-section-header-${groupKey}`}
+            >
+              {isCollapsed
+                ? <ChevronRight className="w-4 h-4 text-gray-400" />
+                : <ChevronDown className="w-4 h-4 text-gray-400" />
+              }
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 {stmtLabel}
               </span>
@@ -275,13 +290,12 @@ function AppliedLinesTable({
               <span className="ml-auto text-xs text-gray-400">
                 {detailCount} line{detailCount !== 1 ? 's' : ''}
               </span>
-            </div>
-            <div className="overflow-x-auto">
+            </button>
+            {!isCollapsed && <div className="overflow-x-auto">
               <table className="w-full text-xs min-w-[860px]">
                 <thead className="text-gray-500 border-b border-gray-100 bg-gray-50/50">
                   <tr>
-                    <th className="px-3 py-2 text-left w-44 font-medium">Stable Code</th>
-                    <th className="px-3 py-2 text-left w-32 font-medium">Official Code</th>
+                    <th className="px-3 py-2 text-left w-28 font-medium">Acct #</th>
                     <th className="px-3 py-2 text-left font-medium">Account Name</th>
                     <th className="px-3 py-2 text-left w-36 font-medium">Taxonomy</th>
                     <th className="px-3 py-2 text-left w-24 font-medium">Legal Entity</th>
@@ -297,27 +311,25 @@ function AppliedLinesTable({
                       data-testid={`line-row-${line.id}`}
                       data-subtotal={line.is_subtotal ? 'true' : undefined}
                     >
-                      {/* Stable generated code */}
-                      <td className="px-3 py-1.5">
-                        <span
-                          className="font-mono text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100"
-                          data-testid="stable-code"
-                          title={`name_hash: ${line.name_hash ?? 'n/a'}`}
-                        >
-                          {line.temp_account_code}
-                        </span>
-                      </td>
-
-                      {/* Official code override (editable) */}
+                      {/* Official/assigned account number (editable) + stable code as audit ref */}
                       <td className="px-3 py-1.5">
                         {!line.is_subtotal ? (
-                          <EditableCell
-                            value={line.official_account_code}
-                            placeholder="assign…"
-                            mono
-                            onSave={(v) => onUpdateLine(line.id, { official_account_code: v || null })}
-                            testId={`official-code-${line.id}`}
-                          />
+                          <>
+                            <EditableCell
+                              value={line.official_account_code}
+                              placeholder="assign…"
+                              mono
+                              onSave={(v) => onUpdateLine(line.id, { official_account_code: v || null })}
+                              testId={`official-code-${line.id}`}
+                            />
+                            <span
+                              className="block font-mono text-[10px] text-gray-300 mt-0.5 truncate"
+                              data-testid="stable-code"
+                              title={`Stable code: ${line.temp_account_code}`}
+                            >
+                              {line.temp_account_code}
+                            </span>
+                          </>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -393,7 +405,7 @@ function AppliedLinesTable({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </div>}
           </div>
         )
       })}
@@ -489,10 +501,22 @@ export function PDFImportPage() {
   const [appliedBatch, setAppliedBatch] = useState<PDFImportBatch | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
 
-  // Preview filters
+  // Preview filters + search
   const [stmtFilter, setStmtFilter] = useState<StmtFilter>('all')
   const [showSubtotals, setShowSubtotals] = useState(false)
   const [showMapping, setShowMapping] = useState(false)
+  const [previewSearch, setPreviewSearch] = useState('')
+
+  // Section collapse/expand state (shared across preview and applied views)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const toggleSection = useCallback((key: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   // Applied view state
   const [activeTab, setActiveTab] = useState<'lines' | 'audit'>('lines')
@@ -566,6 +590,23 @@ export function PDFImportPage() {
     onError: (err: Error) => setApiError(err.message),
   })
 
+  const patchPreviewLineMutation = useMutation({
+    mutationFn: ({ lineIndex, patch }: {
+      lineIndex: number
+      patch: { account_name?: string; section?: string; suggested_taxonomy_code?: string }
+    }) => pdfImportApi.patchPreviewLine(preview!.batch_id, lineIndex, patch),
+    onSuccess: (_data, { lineIndex, patch }) => {
+      // Apply the edit locally so the user sees it immediately without a refetch
+      setPreview((prev) => {
+        if (!prev) return prev
+        const lines = [...prev.lines]
+        lines[lineIndex] = { ...lines[lineIndex], ...patch }
+        return { ...prev, lines }
+      })
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
   // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
@@ -587,6 +628,13 @@ export function PDFImportPage() {
     setPreview(null)
     setAppliedBatch(null)
     setApiError(null)
+    setPreviewSearch('')
+    setCollapsedSections(new Set())
+  }
+
+  function handleStepClick(idx: number) {
+    if (idx === 0 && phase !== 'upload') resetToUpload()
+    if (idx === 1 && phase === 'applied' && preview) setPhase('preview')
   }
 
   function viewBatchFromHistory(batch: PDFImportBatch) {
@@ -603,6 +651,15 @@ export function PDFImportPage() {
   const visiblePreviewLines = (preview?.lines ?? []).filter((l) => {
     if (!showSubtotals && l.is_subtotal) return false
     if (stmtFilter !== 'all' && l.statement_type !== stmtFilter) return false
+    if (previewSearch) {
+      const q = previewSearch.toLowerCase()
+      const matches =
+        l.account_name.toLowerCase().includes(q) ||
+        (l.proposed_account_code ?? '').toLowerCase().includes(q) ||
+        l.temp_account_code.toLowerCase().includes(q) ||
+        l.section.toLowerCase().includes(q)
+      if (!matches) return false
+    }
     return true
   })
 
@@ -651,7 +708,7 @@ export function PDFImportPage() {
         subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
       >
         {apiError && <ErrorBanner message={apiError} />}
-        <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} />
+        <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} onStepClick={handleStepClick} />
         {workflowBanner}
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
@@ -779,7 +836,7 @@ export function PDFImportPage() {
         subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
       >
         {apiError && <ErrorBanner message={apiError} />}
-        <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} />
+        <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} onStepClick={handleStepClick} />
         {workflowBanner}
 
         <div className="space-y-4">
@@ -842,17 +899,38 @@ export function PDFImportPage() {
               </div>
             )}
 
-            {/* Statement filter + options */}
-            <div className="flex flex-wrap items-center gap-2 mb-4">
+            {/* Search + statement filter + options */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {/* Global search */}
+              <div className="relative flex-1 min-w-[180px] max-w-xs">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search accounts…"
+                  value={previewSearch}
+                  onChange={(e) => setPreviewSearch(e.target.value)}
+                  className="w-full pl-8 pr-7 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                  data-testid="preview-search"
+                />
+                {previewSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
               <StmtFilterBar value={stmtFilter} onChange={setStmtFilter} />
-              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-2">
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-1">
                 <input
                   type="checkbox"
                   checked={showSubtotals}
                   onChange={(e) => setShowSubtotals(e.target.checked)}
                   className="rounded"
                 />
-                Show subtotals
+                Subtotals
               </label>
               <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
                 <input
@@ -865,7 +943,10 @@ export function PDFImportPage() {
               </label>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs text-gray-400 italic">
+                Click account name or section to edit before applying
+              </p>
               <button
                 type="button"
                 disabled={applyMutation.isPending || failingCount > 0}
@@ -886,71 +967,101 @@ export function PDFImportPage() {
             const stmtLabel = STMT_LABELS[stmtType] ?? stmtType
             const sectionLabel = SECTION_LABELS[section] ?? section
             const detailCount = groupLines.filter((l) => !l.is_subtotal).length
+            const isCollapsed = collapsedSections.has(groupKey)
 
             return (
               <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2">
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                <button
+                  type="button"
+                  onClick={() => toggleSection(groupKey)}
+                  className="w-full bg-gray-50 px-4 py-2.5 border-b border-gray-200 flex items-center gap-2 hover:bg-gray-100 transition-colors text-left"
+                  data-testid={`section-header-${groupKey}`}
+                >
+                  {isCollapsed
+                    ? <ChevronRight className="w-4 h-4 text-gray-400" />
+                    : <ChevronDown className="w-4 h-4 text-gray-400" />
+                  }
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{stmtLabel}</span>
                   <ChevronRight className="w-3 h-3 text-gray-300" />
                   <span className="text-xs font-semibold text-gray-700">{sectionLabel}</span>
                   <span className="ml-auto text-xs text-gray-400">{detailCount} line{detailCount !== 1 ? 's' : ''}</span>
-                </div>
-                <table className="w-full text-sm">
-                  <thead className="text-xs text-gray-500 border-b border-gray-100">
-                    <tr>
-                      <th className="px-3 py-2 text-left w-44">Code</th>
-                      <th className="px-3 py-2 text-left">Account Name</th>
-                      {showMapping && (
-                        <>
-                          <th className="px-3 py-2 text-left w-36">Taxonomy</th>
-                          <th className="px-3 py-2 text-left w-20">Confidence</th>
-                          <th className="px-3 py-2 text-left w-32">Evidence</th>
-                        </>
-                      )}
-                      <th className="px-3 py-2 text-right w-28">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {groupLines.map((line) => (
-                      <tr
-                        key={line.temp_account_code}
-                        className={`hover:bg-gray-50 ${line.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}
-                        data-subtotal={line.is_subtotal ? 'true' : undefined}
-                      >
-                        <td className="px-3 py-1.5 font-mono text-xs text-indigo-700">
-                          {line.temp_account_code}
-                        </td>
-                        <td className="px-3 py-1.5 text-gray-800">
-                          {line.account_name}
-                          {line.is_contra && (
-                            <span className="ml-1.5 text-xs text-orange-500">(contra)</span>
-                          )}
-                        </td>
+                </button>
+                {!isCollapsed && (
+                  <table className="w-full text-sm">
+                    <thead className="text-xs text-gray-500 border-b border-gray-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left w-24">Acct #</th>
+                        <th className="px-3 py-2 text-left">Account Name</th>
                         {showMapping && (
                           <>
-                            <td className="px-3 py-1.5 text-xs text-indigo-600">
-                              {line.suggested_taxonomy_code ?? '—'}
-                            </td>
-                            <td className="px-3 py-1.5">
-                              {line.mapping_confidence && (
-                                <span className={`px-1.5 py-0.5 rounded text-xs border ${CONFIDENCE_COLORS[line.mapping_confidence] ?? ''}`}>
-                                  {line.mapping_confidence}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-1.5 text-xs text-gray-400 truncate max-w-[128px]" title={line.mapping_evidence ?? ''}>
-                              {line.mapping_evidence ?? '—'}
-                            </td>
+                            <th className="px-3 py-2 text-left w-36">Taxonomy</th>
+                            <th className="px-3 py-2 text-left w-20">Confidence</th>
+                            <th className="px-3 py-2 text-left w-32">Evidence</th>
                           </>
                         )}
-                        <td className="px-3 py-1.5 text-right font-mono text-sm">
-                          {fmt(line.amount)}
-                        </td>
+                        <th className="px-3 py-2 text-right w-28">Amount</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {groupLines.map((line) => {
+                        const lineIndex = (preview?.lines ?? []).indexOf(line)
+                        return (
+                          <tr
+                            key={line.temp_account_code}
+                            className={`hover:bg-gray-50 ${line.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}
+                            data-subtotal={line.is_subtotal ? 'true' : undefined}
+                          >
+                            {/* Proposed account number (friendly), temp code as fallback and tooltip */}
+                            <td className="px-3 py-1.5">
+                              <span
+                                className="font-mono text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100"
+                                title={`Internal stable code: ${line.temp_account_code}`}
+                              >
+                                {line.proposed_account_code ?? line.temp_account_code}
+                              </span>
+                            </td>
+                            <td className="px-3 py-1.5 text-gray-800">
+                              {!line.is_subtotal && lineIndex >= 0 ? (
+                                <EditableCell
+                                  value={line.account_name}
+                                  onSave={(v) =>
+                                    patchPreviewLineMutation.mutate({ lineIndex, patch: { account_name: v } })
+                                  }
+                                  testId={`preview-name-${lineIndex}`}
+                                />
+                              ) : (
+                                line.account_name
+                              )}
+                              {line.is_contra && (
+                                <span className="ml-1.5 text-xs text-orange-500">(contra)</span>
+                              )}
+                            </td>
+                            {showMapping && (
+                              <>
+                                <td className="px-3 py-1.5 text-xs text-indigo-600">
+                                  {line.suggested_taxonomy_code ?? '—'}
+                                </td>
+                                <td className="px-3 py-1.5">
+                                  {line.mapping_confidence && (
+                                    <span className={`px-1.5 py-0.5 rounded text-xs border ${CONFIDENCE_COLORS[line.mapping_confidence] ?? ''}`}>
+                                      {line.mapping_confidence}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-1.5 text-xs text-gray-400 truncate max-w-[128px]" title={line.mapping_evidence ?? ''}>
+                                  {line.mapping_evidence ?? '—'}
+                                </td>
+                              </>
+                            )}
+                            <td className="px-3 py-1.5 text-right font-mono text-sm">
+                              {fmt(line.amount)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             )
           })}
@@ -1064,6 +1175,8 @@ export function PDFImportPage() {
               onUpdateLine={(lineId, patch) =>
                 updateLineMutation.mutate({ lineId, patch })
               }
+              collapsedSections={collapsedSections}
+              onToggleSection={toggleSection}
             />
           )}
         </div>
