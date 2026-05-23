@@ -86,6 +86,9 @@ function matchesSearch(node: AccountNode, q: string): boolean {
 
 interface EditState {
   accountId: number
+  account_number: string
+  account_name: string
+  account_type: string
   detail_type: string
   account_status: string
   reporting_taxonomy_line_id: number | ''
@@ -742,7 +745,16 @@ function AccountRow({
 
         {/* Acct # */}
         <td className={cn('px-3 text-xs text-gray-400 font-mono w-24', py)}>
-          {node.account_number || '—'}
+          {isEditing ? (
+            <input
+              type="text"
+              value={editState.account_number}
+              onChange={(e) => onEditChange({ account_number: e.target.value })}
+              className="w-20 border border-indigo-300 rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            />
+          ) : (
+            node.account_number || '—'
+          )}
         </td>
 
         {/* Account name with indent */}
@@ -759,19 +771,28 @@ function AccountRow({
             ) : (
               <span className="w-3 h-3 flex-shrink-0 inline-block" />
             )}
-            <button
-              type="button"
-              onClick={() => onPreview(node.id)}
-              className={cn(
-                'text-sm text-left truncate max-w-[280px]',
-                STATUS_COLORS[node.account_status] ?? 'text-gray-800',
-                'hover:text-indigo-600'
-              )}
-              title={node.account_name}
-            >
-              {node.account_name}
-            </button>
-            {hasChildren && (
+            {isEditing ? (
+              <input
+                type="text"
+                value={editState.account_name}
+                onChange={(e) => onEditChange({ account_name: e.target.value })}
+                className="flex-1 min-w-0 border border-indigo-300 rounded px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => onPreview(node.id)}
+                className={cn(
+                  'text-sm text-left truncate max-w-[280px]',
+                  STATUS_COLORS[node.account_status] ?? 'text-gray-800',
+                  'hover:text-indigo-600'
+                )}
+                title={node.account_name}
+              >
+                {node.account_name}
+              </button>
+            )}
+            {hasChildren && !isEditing && (
               <span className="text-xs text-gray-300 ml-0.5">({node.children.length})</span>
             )}
           </div>
@@ -779,9 +800,23 @@ function AccountRow({
 
         {/* Type */}
         <td className={cn('px-3 w-24', py)}>
-          <span className={`px-1.5 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
-            {node.account_type}
-          </span>
+          {isEditing ? (
+            <select
+              value={editState.account_type}
+              onChange={(e) => onEditChange({ account_type: e.target.value })}
+              className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
+            >
+              <option value="asset">asset</option>
+              <option value="liability">liability</option>
+              <option value="equity">equity</option>
+              <option value="revenue">revenue</option>
+              <option value="expense">expense</option>
+            </select>
+          ) : (
+            <span className={`px-1.5 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
+              {node.account_type}
+            </span>
+          )}
         </td>
 
         {/* Detail type */}
@@ -1086,6 +1121,9 @@ export function ChartOfAccountsPage() {
   function handleEdit(node: AccountNode) {
     setEditState({
       accountId: node.id,
+      account_number: node.account_number,
+      account_name: node.account_name,
+      account_type: node.account_type,
       detail_type: node.detail_type ?? '',
       account_status: node.account_status,
       reporting_taxonomy_line_id: node.reporting_taxonomy_line_id ?? '',
@@ -1098,6 +1136,9 @@ export function ChartOfAccountsPage() {
     updateMutation.mutate({
       id: editState.accountId,
       patch: {
+        account_number: editState.account_number || undefined,
+        account_name: editState.account_name || undefined,
+        account_type: editState.account_type || undefined,
         detail_type: editState.detail_type || null,
         account_status: editState.account_status,
         reporting_taxonomy_line_id: editState.reporting_taxonomy_line_id || null,

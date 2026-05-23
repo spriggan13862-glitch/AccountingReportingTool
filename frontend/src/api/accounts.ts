@@ -16,6 +16,7 @@ export interface AccountCreate {
 }
 
 export interface AccountUpdate {
+  account_number?: string
   account_name?: string
   account_type?: string
   normal_balance?: string
