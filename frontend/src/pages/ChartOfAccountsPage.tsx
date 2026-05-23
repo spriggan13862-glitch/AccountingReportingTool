@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, createContext, useCo
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ChevronRight, ChevronDown, Upload, Pencil, X, Check, Plus,
+  ChevronRight, ChevronDown, ChevronUp, Upload, Pencil, X, Check, Plus,
   MoreVertical, ArrowDownToLine, ArrowUpToLine, ArrowLeftToLine, Search,
   GripVertical, Undo2, Redo2, ChevronsDownUp, ChevronsUpDown, ArrowRightToLine,
   Archive, Eye, Copy, Lock, Unlock, Tag, History, SlidersHorizontal,
@@ -943,6 +943,9 @@ export function ChartOfAccountsPage() {
   const [statusFilter, setStatusFilter] = useState('active')
   const [globalSearch, setGlobalSearch] = useState('')
   const [showInactive, setShowInactive] = useState(false)
+  // Column sort — key corresponds to AccountNode field; null = natural tree order
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [editState, setEditState] = useState<EditState | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -1304,7 +1307,24 @@ export function ChartOfAccountsPage() {
   }
 
   const typeCounts = countByType(tree)
-  const filteredTree = filterTree(tree)
+
+  // Sort each tree level by the chosen column (preserves hierarchy).
+  function sortNodes(nodes: AccountNode[]): AccountNode[] {
+    if (!sortKey) return nodes
+    const sorted = [...nodes].sort((a, b) => {
+      const av = String((a as Record<string, unknown>)[sortKey] ?? '')
+      const bv = String((b as Record<string, unknown>)[sortKey] ?? '')
+      const cmp = av.localeCompare(bv, undefined, { numeric: true })
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return sorted.map((n) => ({ ...n, children: sortNodes(n.children) }))
+  }
+  function handleColSort(key: string) {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const filteredTree = sortNodes(filterTree(tree))
   const contextMenuAccount = contextMenu ? flatOrder.find((n) => n.id === contextMenu.accountId) ?? null : null
   const lastUndo = undoStack[undoStack.length - 1]
   const lastRedo = redoStack[redoStack.length - 1]
@@ -1541,13 +1561,33 @@ export function ChartOfAccountsPage() {
                         />
                       </th>
                       <th className="px-1 py-2 w-5" />
-                      <th className="px-3 py-2 text-left w-24">Acct #</th>
-                      <th className="px-3 py-2 text-left">Account Name</th>
-                      <th className="px-3 py-2 text-left w-24">Type</th>
-                      <th className="px-3 py-2 text-left w-36">Detail Type</th>
-                      <th className="px-3 py-2 text-left w-24">Status</th>
-                      <th className="px-3 py-2 text-left w-44">Reporting Line</th>
-                      <th className="px-3 py-2 text-left w-28">Parent</th>
+                      {([
+                        ['account_number', 'Acct #', 'w-24'],
+                        ['account_name', 'Account Name', ''],
+                        ['account_type', 'Type', 'w-24'],
+                        ['detail_type', 'Detail Type', 'w-36'],
+                        ['account_status', 'Status', 'w-24'],
+                        ['reporting_taxonomy_line_id', 'Reporting Line', 'w-44'],
+                        ['parent_account_id', 'Parent', 'w-28'],
+                      ] as [string, string, string][]).map(([key, label, width]) => (
+                        <th
+                          key={key}
+                          className={`px-3 py-2 text-left cursor-pointer select-none hover:bg-gray-100 transition-colors ${width}`}
+                          onClick={() => handleColSort(key)}
+                          data-testid={`col-sort-${key}`}
+                        >
+                          <span className="flex items-center gap-1">
+                            {label}
+                            {sortKey === key ? (
+                              sortDir === 'asc'
+                                ? <ChevronUp className="w-3 h-3 text-indigo-500" />
+                                : <ChevronDown className="w-3 h-3 text-indigo-500" />
+                            ) : (
+                              <ChevronsUpDown className="w-3 h-3 opacity-20" />
+                            )}
+                          </span>
+                        </th>
+                      ))}
                       <th className="px-3 py-2 w-20" />
                     </tr>
                   </thead>
