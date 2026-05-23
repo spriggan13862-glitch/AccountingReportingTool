@@ -4,6 +4,7 @@ import { VarianceIndicator } from '@/components/reports/VarianceIndicator'
 import { StatementViewer } from '@/components/reports/StatementViewer'
 import { DrilldownPanel } from '@/components/reports/DrilldownPanel'
 import { ReportParameterModal } from '@/components/reports/ReportParameterModal'
+import { TaxonomyTable } from '@/pages/FinancialStatementsPage'
 import type { Variance, ReportLineDrilldown } from '@/types'
 
 // ---- fixtures ----------------------------------------------------------------
@@ -114,5 +115,52 @@ describe('Milestone 20: Financial Statement Engine', () => {
     expect(submitted.entityId).toBe('42')
     expect(submitted.scenarioIds).toBe('1,2')
     expect(submitted.statement).toBe('CF')
+  })
+
+  it('TaxonomyTable renders rows and triggers onDrilldown for rows with accounts', () => {
+    const onDrilldown = vi.fn()
+    const rows = [
+      {
+        taxonomy_id: 1,
+        code: '1.1',
+        name: 'Cash',
+        display_balance: '1000',
+        hierarchy_depth: 1,
+        is_subtotal: false,
+        account_count: 2,
+      },
+      {
+        taxonomy_id: 2,
+        code: '1.2',
+        name: 'AR',
+        display_balance: '2000',
+        hierarchy_depth: 1,
+        is_subtotal: false,
+        account_count: 0,
+      },
+    ]
+
+    render(<TaxonomyTable rows={rows} isLoading={false} entityId={1} onDrilldown={onDrilldown} />)
+
+    // Click Cash (account_count > 0, not header, not subtotal)
+    fireEvent.click(screen.getByText(/Cash/))
+    expect(onDrilldown).toHaveBeenCalledWith('1.1')
+
+    // Click AR (account_count === 0)
+    onDrilldown.mockClear()
+    fireEvent.click(screen.getByText(/AR/))
+    expect(onDrilldown).not.toHaveBeenCalled()
+  })
+
+  it('DrilldownPanel renders empty state when accounts is empty', () => {
+    const emptyDrilldown: ReportLineDrilldown = {
+      fs_line_code: 'EMPTY',
+      fs_line_name: 'Empty Line',
+      total_balance: '0',
+      accounts: [],
+    }
+    render(<DrilldownPanel drilldown={emptyDrilldown} onClose={vi.fn()} />)
+    expect(screen.getByTestId('drilldown-empty-state')).toBeInTheDocument()
+    expect(screen.getByText('No accounts mapped to this reporting line.')).toBeInTheDocument()
   })
 })

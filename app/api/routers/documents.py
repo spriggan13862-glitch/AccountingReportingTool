@@ -196,6 +196,10 @@ def import_registry(
     from app.models.pdf_import_batch import PDFImportBatch
     from app.models.import_batch import ImportBatch
     from app.models.coa_import_batch import COAImportBatch
+    from app.models.entity import Entity
+
+    entities = db.query(Entity).all()
+    entity_map = {e.id: e.name for e in entities}
 
     entries: list[dict[str, Any]] = []
 
@@ -210,10 +214,10 @@ def import_registry(
             "source_id": b.id,
             "filename": b.filename,
             "entity_id": b.entity_id,
-            "source_entity_name": b.source_entity_name,
+            "source_entity_name": entity_map.get(b.entity_id) or b.source_entity_name,
             "status": b.status,
             "line_count": b.line_count,
-            "description": f"PDF financial statement — {b.source_entity_name or 'unknown entity'}",
+            "description": f"PDF financial statement — {entity_map.get(b.entity_id) or b.source_entity_name or 'unknown entity'}",
             "created_at": b.created_at.isoformat() if b.created_at else None,
             "basis_of_accounting": b.basis_of_accounting,
             "statement_date": b.statement_date,
@@ -230,10 +234,10 @@ def import_registry(
             "source_id": b.id,
             "filename": b.filename,
             "entity_id": b.entity_id,
-            "source_entity_name": None,
+            "source_entity_name": entity_map.get(b.entity_id),
             "status": b.status,
             "line_count": b.row_count,
-            "description": "Trial balance import",
+            "description": f"Trial balance import — {entity_map.get(b.entity_id) or 'unknown entity'}",
             "created_at": b.uploaded_at.isoformat() if b.uploaded_at else None,
             "basis_of_accounting": None,
             "statement_date": str(b.as_of_date) if b.as_of_date else None,
@@ -245,16 +249,17 @@ def import_registry(
         if entity_id is not None:
             coa_q = coa_q.filter(COAImportBatch.entity_id == entity_id)
         for b in coa_q.order_by(COAImportBatch.id.desc()).limit(limit).all():
+            b_entity_id = getattr(b, "entity_id", None)
             entries.append({
                 "id": f"coa-{b.id}",
                 "source_module": "coa_import",
                 "source_id": b.id,
                 "filename": getattr(b, "filename", None) or getattr(b, "original_filename", "COA Import"),
-                "entity_id": getattr(b, "entity_id", None),
-                "source_entity_name": None,
+                "entity_id": b_entity_id,
+                "source_entity_name": entity_map.get(b_entity_id) if b_entity_id else None,
                 "status": getattr(b, "status", "unknown"),
                 "line_count": getattr(b, "row_count", None) or getattr(b, "line_count", None),
-                "description": "Chart of accounts import",
+                "description": f"Chart of accounts import — {entity_map.get(b_entity_id) if b_entity_id else 'unknown entity'}",
                 "created_at": b.created_at.isoformat() if hasattr(b, "created_at") and b.created_at else None,
                 "basis_of_accounting": None,
                 "statement_date": None,

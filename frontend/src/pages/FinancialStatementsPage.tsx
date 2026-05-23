@@ -19,7 +19,17 @@ const isDev = import.meta.env.DEV
 // TaxonomyTable
 // ---------------------------------------------------------------------------
 
-function TaxonomyTable({ rows, isLoading, entityId }: { rows: TaxonomyFsLine[]; isLoading: boolean; entityId: number | '' }) {
+export function TaxonomyTable({
+  rows,
+  isLoading,
+  entityId,
+  onDrilldown,
+}: {
+  rows: TaxonomyFsLine[]
+  isLoading: boolean
+  entityId: number | ''
+  onDrilldown?: (code: string) => void
+}) {
   if (isLoading) {
     return (
       <div className="py-12 text-center">
@@ -85,19 +95,20 @@ function TaxonomyTable({ rows, isLoading, entityId }: { rows: TaxonomyFsLine[]; 
             const isSubtotal = row.is_subtotal
             const balance = parseFloat(row.display_balance)
             const isEmpty = balance === 0 && row.account_count === 0
+            const isClickable = !!onDrilldown && row.account_count > 0 && !isHeader && !isSubtotal
+
+            const rowClasses = [
+              isHeader ? 'bg-gray-50 border-t border-b font-semibold' : '',
+              isSubtotal ? 'border-t font-medium' : '',
+              isEmpty ? 'text-gray-400' : '',
+              isClickable ? 'cursor-pointer hover:bg-blue-50/50 text-indigo-600 font-semibold' : '',
+            ].filter(Boolean).join(' ')
 
             return (
               <tr
                 key={row.taxonomy_id}
-                className={
-                  isHeader
-                    ? 'bg-gray-50 border-t border-b font-semibold'
-                    : isSubtotal
-                    ? 'border-t font-medium'
-                    : isEmpty
-                    ? 'text-gray-400'
-                    : ''
-                }
+                onClick={isClickable ? () => onDrilldown!(row.code) : undefined}
+                className={rowClasses || undefined}
               >
                 <td className="py-1.5" style={{ paddingLeft: `${indent + 12}px` }}>
                   {row.name}
@@ -407,10 +418,10 @@ export function FinancialStatementsPage() {
 
           <div className="p-4">
             {tab === 'BS' && (
-              <TaxonomyTable rows={bsRows} isLoading={bsLoading} entityId={entityId} />
+              <TaxonomyTable rows={bsRows} isLoading={bsLoading} entityId={entityId} onDrilldown={setDrilldownCode} />
             )}
             {tab === 'IS' && (
-              <TaxonomyTable rows={isRows} isLoading={isLoading_} entityId={entityId} />
+              <TaxonomyTable rows={isRows} isLoading={isLoading_} entityId={entityId} onDrilldown={setDrilldownCode} />
             )}
             {tab === 'CF' && (
               <CashFlowStatement

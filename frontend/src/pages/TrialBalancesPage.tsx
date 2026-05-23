@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { reportingApi } from '@/api/reporting'
 import { PageLayout } from '@/components/ui/PageLayout'
@@ -117,7 +117,7 @@ export function TrialBalancesPage() {
                 </thead>
                 <tbody>
                   {groups.map(({ type, rows: typeRows }) => (
-                    <>
+                    <Fragment key={`group-${type}`}>
                       <tr key={`hdr-${type}`} className="bg-gray-50">
                         <td colSpan={5} className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                           {type}
@@ -132,7 +132,7 @@ export function TrialBalancesPage() {
                           <td className="px-4 py-2 text-right font-mono tabular-nums font-medium text-gray-900">{fmtSigned(row.signed_balance)}</td>
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-gray-300">

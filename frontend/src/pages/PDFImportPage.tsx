@@ -652,7 +652,15 @@ export function PDFImportPage() {
 
   function handleStepClick(idx: number) {
     if (idx === 0 && phase !== 'upload') resetToUpload()
-    if (idx === 1 && phase === 'applied' && preview) setPhase('preview')
+    if (idx === 1) {
+      if (phase === 'applied') {
+        if (preview) {
+          setPhase('preview')
+        } else {
+          toast('This batch has already been applied. You cannot edit the raw preview.', 'warning')
+        }
+      }
+    }
   }
 
   function viewBatchFromHistory(batch: PDFImportBatch) {

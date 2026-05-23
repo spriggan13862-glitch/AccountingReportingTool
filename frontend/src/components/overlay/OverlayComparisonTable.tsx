@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import type { OverlayLineItem } from '@/types'
@@ -126,7 +126,7 @@ export function OverlayComparisonTable({
               const isOpen = expanded.has(item.account_id)
               const changed = parseFloat(item.draft_signed_adjustment) !== 0
               return (
-                <>
+                <Fragment key={`row-${item.account_id}`}>
                   <tr
                     key={item.account_id}
                     className={cn(
@@ -184,7 +184,7 @@ export function OverlayComparisonTable({
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
             {visible.length === 0 && (
