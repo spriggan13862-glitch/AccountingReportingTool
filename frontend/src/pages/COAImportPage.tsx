@@ -169,7 +169,13 @@ export function COAImportPage() {
     >
       {apiError && <ErrorBanner message={apiError} />}
 
-      <StepIndicator steps={WIZARD_STEPS} currentStep={wizardStep} />
+      <StepIndicator
+        steps={WIZARD_STEPS}
+        currentStep={wizardStep}
+        onStepClick={(idx) => {
+          if (idx === 0 && wizardStep > 0) { setPreview(null); setFile(null); setWizardStep(0) }
+        }}
+      />
 
       {/* Confirmation step */}
       {wizardStep === 2 && importResult && (
