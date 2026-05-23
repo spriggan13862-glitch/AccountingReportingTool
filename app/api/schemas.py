@@ -99,6 +99,7 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
+    account_number: str | None = None
     account_name: str | None = None
     account_type: str | None = None
     normal_balance: str | None = None

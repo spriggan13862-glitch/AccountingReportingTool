@@ -138,6 +138,8 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
     if account is None:
         raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
 
+    if body.account_number is not None:
+        account.account_number = body.account_number
     if body.account_name is not None:
         account.account_name = body.account_name
     if body.account_type is not None:
@@ -219,6 +221,18 @@ def reparent_account(
     old_parent = db.get(Account, old_parent_id) if old_parent_id is not None else None
 
     account.parent_account_id = new_parent_id
+
+    # Inherit from new parent: taxonomy line (always), detail_type and account_type if unset
+    if new_parent_id is not None:
+        new_parent_acct = db.get(Account, new_parent_id)
+        if new_parent_acct is not None:
+            if new_parent_acct.reporting_taxonomy_line_id is not None:
+                account.reporting_taxonomy_line_id = new_parent_acct.reporting_taxonomy_line_id
+            if not account.detail_type and new_parent_acct.detail_type:
+                account.detail_type = new_parent_acct.detail_type
+            if new_parent_acct.account_type:
+                account.account_type = new_parent_acct.account_type
+
     db.flush()
     db.refresh(account)
 
