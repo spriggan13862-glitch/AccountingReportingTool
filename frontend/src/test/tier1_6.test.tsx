@@ -97,6 +97,19 @@ vi.mock('@/providers/ToastProvider', () => ({
   useToast: () => vi.fn(),
 }))
 
+vi.mock('@/components/ui/EntitySelect', () => ({
+  EntitySelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
+    <select
+      data-testid="entity-select"
+      value={String(value)}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+    >
+      <option value="">—</option>
+      <option value="1">Test Entity</option>
+    </select>
+  ),
+}))
+
 async function uploadAndPreview() {
   const { pdfImportApi } = await import('@/api/pdfImport')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,6 +122,7 @@ async function uploadAndPreview() {
   ;(pdfImportApi.audit as any).mockResolvedValue({ batch_id: 42, filename: 'test.pdf', source_entity_name: null, statement_date: null, basis_of_accounting: null, status: 'applied', line_count: 2, lines: [] })
 
   renderPage()
+  fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
   const input = screen.getByTestId('pdf-file-input') as HTMLInputElement
   const file = new File(['pdf'], 'test.pdf', { type: 'application/pdf' })
   fireEvent.change(input, { target: { files: [file] } })

@@ -18,6 +18,7 @@ import {
 import { pdfImportApi } from '@/api/pdfImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import type { WizardStep } from '@/components/import-wizard'
@@ -83,6 +84,20 @@ function groupLines<T extends { statement_type: string; section: string }>(
     groups[key].lines.push(line)
   }
   return groups
+}
+
+function getGroupTotals(lines: PDFImportPreviewLine[]): {
+  calculated: number
+  pdfSubtotal: number | null
+  variance: number | null
+} {
+  const subtotalLine = lines.find((l) => l.is_subtotal)
+  const calculated = lines
+    .filter((l) => !l.is_subtotal)
+    .reduce((sum, l) => sum + parseFloat(l.amount || '0'), 0)
+  const pdfSubtotal = subtotalLine ? parseFloat(subtotalLine.amount || '0') : null
+  const variance = pdfSubtotal !== null ? calculated - pdfSubtotal : null
+  return { calculated, pdfSubtotal, variance }
 }
 
 function exportLinesCSV(lines: PDFLineOut[], batchId: number) {
@@ -495,6 +510,7 @@ export function PDFImportPage() {
     { key: 'preview', label: 'Preview', status: phaseIndex > 1 ? 'complete' : phaseIndex === 1 ? 'active' : 'pending' },
     { key: 'applied', label: 'Applied', status: phaseIndex === 2 ? 'complete' : 'pending' },
   ]
+  const [entityId, setEntityId] = useState<number | ''>('')
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [preview, setPreview] = useState<PDFImportPreview | null>(null)
@@ -554,7 +570,8 @@ export function PDFImportPage() {
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!file) throw new Error('No file selected')
-      return pdfImportApi.upload(file)
+      if (!entityId) throw new Error('Entity required')
+      return pdfImportApi.upload(file, entityId as number)
     },
     onSuccess: (data) => {
       setPreview(data)
@@ -625,6 +642,7 @@ export function PDFImportPage() {
   function resetToUpload() {
     setPhase('upload')
     setFile(null)
+    setEntityId('')
     setPreview(null)
     setAppliedBatch(null)
     setApiError(null)
@@ -674,6 +692,7 @@ export function PDFImportPage() {
   const failingCount = checks.filter((c) => c.status === 'fail').length
 
   const previewGroups = groupLines(visiblePreviewLines)
+  const allPreviewGroups = groupLines(preview?.lines ?? [])
 
   // ---------------------------------------------------------------------------
   // Workflow banner (shared)
@@ -712,7 +731,13 @@ export function PDFImportPage() {
         {workflowBanner}
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-800">Step 1 — Upload PDF financial statement</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Step 1 — Select entity and upload PDF</h2>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
+            <EntitySelect value={entityId} onChange={setEntityId} />
+          </div>
+
           <p className="text-xs text-gray-500">
             Supports compiled or reviewed financial statements with extractable text (no scanned images).
             Income tax basis, GAAP, and cash basis PDFs are all accepted.
@@ -753,7 +778,7 @@ export function PDFImportPage() {
           <div className="flex justify-end">
             <button
               type="button"
-              disabled={!file || uploadMutation.isPending}
+              disabled={!file || !entityId || uploadMutation.isPending}
               onClick={() => uploadMutation.mutate()}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
               data-testid="parse-pdf-btn"
@@ -968,6 +993,7 @@ export function PDFImportPage() {
             const sectionLabel = SECTION_LABELS[section] ?? section
             const detailCount = groupLines.filter((l) => !l.is_subtotal).length
             const isCollapsed = collapsedSections.has(groupKey)
+            const { calculated, pdfSubtotal, variance } = getGroupTotals(allPreviewGroups[groupKey]?.lines ?? [])
 
             return (
               <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -984,7 +1010,18 @@ export function PDFImportPage() {
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{stmtLabel}</span>
                   <ChevronRight className="w-3 h-3 text-gray-300" />
                   <span className="text-xs font-semibold text-gray-700">{sectionLabel}</span>
-                  <span className="ml-auto text-xs text-gray-400">{detailCount} line{detailCount !== 1 ? 's' : ''}</span>
+                  <span className="ml-2 text-xs text-gray-400">{detailCount} line{detailCount !== 1 ? 's' : ''}</span>
+                  <span className="ml-auto flex items-center gap-3 text-xs font-mono">
+                    <span className="text-gray-500" title="Calculated total">{fmt(String(calculated))}</span>
+                    {pdfSubtotal !== null && (
+                      <>
+                        <span className="text-gray-300">/ PDF {fmt(String(pdfSubtotal))}</span>
+                        <span className={variance !== null && Math.abs(variance) > 0.005 ? 'text-red-500 font-semibold' : 'text-green-600'}>
+                          {variance !== null && Math.abs(variance) > 0.005 ? `Δ ${fmt(String(variance))}` : '✓'}
+                        </span>
+                      </>
+                    )}
+                  </span>
                 </button>
                 {!isCollapsed && (
                   <table className="w-full text-sm">

@@ -206,6 +206,19 @@ vi.mock('@/api/pdfImport', () => ({
   },
 }))
 
+vi.mock('@/components/ui/EntitySelect', () => ({
+  EntitySelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
+    <select
+      data-testid="entity-select"
+      value={String(value)}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+    >
+      <option value="">—</option>
+      <option value="1">Test Entity</option>
+    </select>
+  ),
+}))
+
 import { pdfImportApi } from '@/api/pdfImport'
 const mockUpload = pdfImportApi.upload as ReturnType<typeof vi.fn>
 const mockApply = pdfImportApi.apply as ReturnType<typeof vi.fn>
@@ -226,6 +239,8 @@ async function uploadPreviewApply() {
   mockList.mockResolvedValue([MOCK_BATCH])
 
   renderPage()
+
+  fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
 
   const input = screen.getByTestId('pdf-file-input')
   const file = new File(['%PDF-1.4'], 'test.pdf', { type: 'application/pdf' })
@@ -446,6 +461,7 @@ describe('PDFImportPage — legal entity and consolidation group', () => {
     mockList.mockResolvedValue([MOCK_BATCH])
 
     renderPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
     const input = screen.getByTestId('pdf-file-input')
     fireEvent.change(input, { target: { files: [new File(['%PDF'], 'f.pdf', { type: 'application/pdf' })] } })
     fireEvent.click(screen.getByTestId('parse-pdf-btn'))
