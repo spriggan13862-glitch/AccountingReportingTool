@@ -547,9 +547,43 @@ All 671 Python tests and 360 vitest tests pass. TypeScript compiles clean.
 
 | ID | Area | Issue | Reason Deferred | Target |
 |---|---|---|---|---|
-| UX-DEF-01 | Hierarchy Inheritance Engine (P3) | Children should inherit parent's reporting line, account type, normal balance on reparent. Cascade prompt when parent mapping changes. | Complex service-layer change; requires override flag schema additions and cascade UI. | Tier 2 |
+| UX-DEF-01 | Hierarchy Inheritance Engine (P3) | Children should inherit parent's reporting line, account type, normal balance on reparent. Cascade prompt when parent mapping changes. | Complex service-layer change; requires override flag schema additions and cascade UI. | Resolved in Tier 1.7 (P3) |
 | UX-DEF-02 | PDF Section Tree Full Behavior (P6) | Drag/drop between sections, user-added sections, section totals on collapse. | Section drag requires significant DnD state work beyond simple collapse. | Tier 2 |
 | UX-DEF-03 | Documents Center (P7) | Download original file, inline PDF preview, go-to-source import link, file-missing error. | Need file storage/serving infrastructure changes. | Tier 2 |
 | UX-DEF-04 | Import Center Reorganization (P8) | Left nav Import Center with sub-routes for each import type, overview page, recent imports actions. | Nav refactor + new pages; low visual review risk to defer. | Tier 2 |
 | UX-DEF-05 | Recent Imports Full Actions (P9) | Continue incomplete import, view validation report, apply from list, view created accounts. | Builds on Documents Center and Import Center — deferred together. | Tier 2 |
 | UX-DEF-06 | Financial Statement Account Preview (P10) | Account path in FS (BS > Current Assets > Cash), inherited vs manual mapping, balances by period. | Requires sidebar redesign and taxonomy path computation. | Tier 2 |
+
+---
+
+## Tier 1.7 Issues (2026-05-22)
+
+Pre-Tier 2 stabilization sprint. Fixes repeated visual review blockers.
+
+### Last Test Run (post-Tier 1.7)
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Python unit tests | 671 | 0 | 671 |
+| Frontend vitest | 373 | 0 | 373 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+
+### Fixes Applied
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| UX-078 | P0 | PDF Import / Entity Required | PDF import Step 1 had no entity selector — entity was never associated with a batch. COA import already required entity on Step 1 but PDF import did not. | `EntitySelect` (required) added to PDF import upload form. Parse button disabled without entity. `entityId` passed to `pdfImportApi.upload()`. `resetToUpload()` clears entity. Backend `upload` endpoint already accepted `entity_id`. | Resolved |
+| UX-079 | P2 | PDF Import / Section Group Totals | PDF section headers (e.g. "Balance Sheet > Current Assets") showed only line count. Calculated total, PDF subtotal, and variance were not visible without scrolling to the subtotal row. | Section headers in preview now show: **calculated total** (sum of non-subtotal amounts), **PDF subtotal** (from subtotal line if present), and **variance indicator** (green ✓ if zero, red Δ with amount if non-zero). Uses unfiltered `allPreviewGroups` so totals are stable regardless of search filter. | Resolved |
+| UX-080 | P3 | COA / Hierarchy Inheritance | Reparent endpoint only updated `parent_account_id` with no cascade. Moved accounts kept their original taxonomy line, type, and detail type regardless of parent. | `reparent_account` now inherits from new parent: `reporting_taxonomy_line_id` (always, if parent has one), `account_type` (always from parent), `detail_type` (if child currently has none). Runs before `db.flush()`. | Resolved |
+| UX-081 | P4 | COA / Inline Edit Fields | Inline edit row in ChartOfAccountsPage only exposed: detail_type, account_status, reporting_taxonomy_line_id, parent_account_id. Missing: account_number, account_name, account_type. | `EditState` interface extended with `account_number`, `account_name`, `account_type`. AccountRow renders inline inputs for all three. `handleEdit` populates them from the node. `handleSave` passes them to `accountsApi.update()`. `AccountUpdate` frontend interface and backend schema both updated to include `account_number`. | Resolved |
+| UX-082 | P7 | COA Import / No Back Navigation | COAImportPage rendered `StepIndicator` without `onStepClick` — completed Upload step was not clickable to navigate back. | `onStepClick` handler added: clicking step 0 from step 1+ calls `setPreview(null); setFile(null); setWizardStep(0)` to reset to upload form. | Resolved |
+| UX-083 | P8 | Sidebar / Always Expanded | Sidebar was static `w-56` with no collapse option. Long nav list occupied screen space on small displays. | Sidebar now toggles between `w-56` (expanded) and `w-12` (icon-only, collapsed). State persisted in `localStorage` under key `sidebar_collapsed`. Toggle button uses `PanelLeftClose`/`PanelLeftOpen` icons in sidebar header. Section labels hidden in collapsed mode; nav items show `title` tooltip for accessibility. | Resolved |
+| UX-084 | P9 | Financial Statement Builder | No wizard for building custom FS outputs. FinancialStatementsPage showed results but had no guided flow for selecting entity, taxonomy, period, and scenario. | `FSBuilderPage` skeleton created at `/fs-builder`. 6-step wizard: Entity → Taxonomy → Period → Scenario → Accounts → Preview. StepIndicator with back navigation. Each step has next/back buttons; Export PDF and Save Statement disabled in skeleton pending reporting engine connection. Added to sidebar under Reporting group. | Resolved |
+
+### Deferred (Tier 1.7)
+
+| ID | Area | Issue | Reason Deferred | Target |
+|---|---|---|---|---|
+| UX-DEF-07 | PDF Review / Full Edit | PDF review should match COA review: full editable fields (amount, taxonomy, section, include/exclude), sort/filter/batch/undo-redo/drag-drop between sections. | Significant effort — requires bulk edit UX, undo stack, and drag-drop section reparenting. | Tier 2 |
+| UX-DEF-08 | COA / Global Optional Columns | COA table should have optional hidden columns (internal ID, source system, etc.) toggleable via a column visibility panel. | Low complexity but non-critical; deferred to keep scope focused. | Tier 2 |
+| UX-DEF-09 | Account Preview / FS Excerpt | Account detail sidebar should show FS hierarchy context (QuickBooks-style: which statement, section, line it falls on) with inherited vs manual mapping indicator. | Requires taxonomy path computation and sidebar redesign. | Tier 2 |
