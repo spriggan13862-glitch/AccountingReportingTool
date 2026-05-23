@@ -1,4 +1,4 @@
-import { ColumnMapping } from './types'
+import type { ColumnMapping } from './types'
 
 interface TargetField {
   key: string

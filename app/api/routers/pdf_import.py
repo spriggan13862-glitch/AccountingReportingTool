@@ -32,6 +32,7 @@ from app.api.schemas import (
     PDFLineUpdateRequest,
     PDFLineOut,
     PDFAuditTrail,
+    PDFPreviewLinePatch,
 )
 from app.models.pdf_import_batch import PDFImportBatch
 from app.models.pdf_import_line import PDFImportLine
@@ -72,6 +73,10 @@ async def upload_pdf(
     detail_lines = [l for l in lines_data if not l["is_subtotal"]]
     subtotal_lines = [l for l in lines_data if l["is_subtotal"]]
 
+    # Generate accountant-friendly numbers at upload time so the preview can
+    # show them instead of the internal hash codes.
+    proposed_numbers = generate_account_numbers(lines_data)
+
     batch = PDFImportBatch(
         entity_id=entity_id,
         filename=filename,
@@ -88,7 +93,7 @@ async def upload_pdf(
     db.flush()
     db.refresh(batch)
 
-    preview_lines = [PDFImportPreviewLine(**_line_to_schema(l)) for l in lines_data]
+    preview_lines = [PDFImportPreviewLine(**_line_to_schema(l, proposed_numbers)) for l in lines_data]
 
     return PDFImportPreview(
         batch_id=batch.id,
@@ -255,7 +260,8 @@ def get_pdf_preview(batch_id: int, db: Session = Depends(get_db)):
     lines_data = extracted.get("lines", [])
     detail_lines = [l for l in lines_data if not l["is_subtotal"]]
     subtotal_lines = [l for l in lines_data if l["is_subtotal"]]
-    preview_lines = [PDFImportPreviewLine(**_line_to_schema(l)) for l in lines_data]
+    proposed_numbers = generate_account_numbers(lines_data)
+    preview_lines = [PDFImportPreviewLine(**_line_to_schema(l, proposed_numbers)) for l in lines_data]
 
     return PDFImportPreview(
         batch_id=batch.id,
@@ -495,13 +501,67 @@ def get_pdf_audit(batch_id: int, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
+# Preview line editing — update raw_preview before apply
+# ---------------------------------------------------------------------------
+
+@router.patch("/{batch_id}/preview-lines/{line_index}", status_code=200)
+def patch_preview_line(
+    batch_id: int,
+    line_index: int,
+    body: PDFPreviewLinePatch,
+    db: Session = Depends(get_db),
+):
+    """Mutate a single line in raw_preview (account_name, section, taxonomy).
+
+    The client calls this when the user edits a line in the preview table.
+    When /apply is subsequently called it will read the updated raw_preview,
+    so the corrected values are persisted to pdf_import_lines.
+    """
+    batch = db.get(PDFImportBatch, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "applied":
+        raise HTTPException(status_code=409, detail="Batch already applied — lines are read-only")
+    if not batch.raw_preview:
+        raise HTTPException(status_code=422, detail="No preview data")
+
+    try:
+        extracted = json.loads(batch.raw_preview)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Corrupt preview data: {exc}") from exc
+
+    lines_data = extracted.get("lines", [])
+    if line_index < 0 or line_index >= len(lines_data):
+        raise HTTPException(status_code=404, detail=f"Line index {line_index} out of range (0–{len(lines_data) - 1})")
+
+    line = lines_data[line_index]
+    if body.account_name is not None:
+        line["account_name"] = body.account_name
+    if body.section is not None:
+        line["section"] = body.section
+    if body.suggested_taxonomy_code is not None:
+        line["suggested_taxonomy_code"] = body.suggested_taxonomy_code
+
+    extracted["lines"] = lines_data
+    batch.raw_preview = json.dumps(extracted)
+    db.flush()
+
+    return {"line_index": line_index, "updated": line}
+
+
+# ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 
-def _line_to_schema(line_data: dict) -> dict:
+def _line_to_schema(line_data: dict, proposed_numbers: dict[str, str] | None = None) -> dict:
+    temp_code = line_data["temp_account_code"]
+    proposed = None
+    if proposed_numbers is not None and not line_data.get("is_subtotal"):
+        proposed = proposed_numbers.get(temp_code) or None
     return {
-        "temp_account_code": line_data["temp_account_code"],
+        "temp_account_code": temp_code,
         "name_hash": line_data.get("name_hash"),
+        "proposed_account_code": proposed,
         "account_name": line_data["account_name"],
         "statement_type": line_data["statement_type"],
         "section": line_data["section"],

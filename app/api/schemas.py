@@ -1837,6 +1837,8 @@ class PDFImportBatchOut(BaseModel):
 class PDFImportPreviewLine(BaseModel):
     temp_account_code: str
     name_hash: str | None = None
+    # Proposed accountant-friendly number generated at upload time
+    proposed_account_code: str | None = None
     account_name: str
     statement_type: str
     section: str
@@ -1849,6 +1851,12 @@ class PDFImportPreviewLine(BaseModel):
     mapping_evidence: str | None
     page_number: int | None
     source_line_text: str | None
+
+
+class PDFPreviewLinePatch(BaseModel):
+    account_name: str | None = None
+    section: str | None = None
+    suggested_taxonomy_code: str | None = None
 
 
 class PDFImportPreview(BaseModel):
