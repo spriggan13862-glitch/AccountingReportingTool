@@ -6,11 +6,13 @@ import {
   FileSpreadsheet,
   FileText,
   Table2,
+  Download,
 } from 'lucide-react'
 import { importRegistryApi, type ImportRegistryEntry } from '@/api/importRegistry'
+import { documentsApi } from '@/api/documents'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { AccountingDataGrid } from '@/components/data-grid'
-import type { GridColumn } from '@/components/data-grid'
+import type { GridColumn, RowAction } from '@/components/data-grid'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { Badge } from '@/components/ui/Badge'
 import type { Document } from '@/types'
@@ -202,18 +204,54 @@ export function DocumentsPage() {
     },
     {
       key: 'link',
-      header: '',
+      header: 'Actions',
       noExport: true,
       render: (e) => (
-        <button
-          type="button"
-          onClick={(ev) => { ev.stopPropagation(); navToSource(e) }}
-          className="text-blue-600 hover:text-blue-800"
-          title="Go to source"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {e.document_id ? (
+            <button
+              type="button"
+              onClick={(ev) => { ev.stopPropagation(); documentsApi.download(e.document_id!) }}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100"
+              title="Download original file"
+            >
+              <Download className="w-3 h-3" /> Download
+            </button>
+          ) : (
+            <span className="text-gray-400 text-xs font-medium px-2">—</span>
+          )}
+          <button
+            type="button"
+            onClick={(ev) => { ev.stopPropagation(); navToSource(e) }}
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+            title="Go to source import"
+          >
+            <ExternalLink className="w-3 h-3" /> View Import
+          </button>
+        </div>
       ),
+    },
+  ]
+
+  const rowActions: RowAction<ImportRegistryEntry>[] = [
+    {
+      key: 'download',
+      label: 'Download Original File',
+      icon: Download,
+      disabled: (e) => !e.document_id,
+      onClick: (e) => {
+        if (e.document_id) {
+          documentsApi.download(e.document_id)
+        }
+      },
+    },
+    {
+      key: 'view_import',
+      label: 'View Import Module',
+      icon: ExternalLink,
+      onClick: (e) => {
+        navToSource(e)
+      },
     },
   ]
 
@@ -227,6 +265,7 @@ export function DocumentsPage() {
         data={data}
         rowKey={(e) => e.id}
         onRowClick={navToSource}
+        rowActions={rowActions}
         exportFilename="import_registry"
         pageSize={50}
         loading={isLoading}

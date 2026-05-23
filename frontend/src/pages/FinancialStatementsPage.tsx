@@ -95,12 +95,12 @@ export function TaxonomyTable({
             const isSubtotal = row.is_subtotal
             const balance = parseFloat(row.display_balance)
             const isEmpty = balance === 0 && row.account_count === 0
-            const isClickable = !!onDrilldown && row.account_count > 0 && !isHeader && !isSubtotal
+            const isClickable = !!onDrilldown && !isHeader && !isSubtotal
 
             const rowClasses = [
               isHeader ? 'bg-gray-50 border-t border-b font-semibold' : '',
               isSubtotal ? 'border-t font-medium' : '',
-              isEmpty ? 'text-gray-400' : '',
+              isEmpty && !isClickable ? 'text-gray-400' : '',
               isClickable ? 'cursor-pointer hover:bg-blue-50/50 text-indigo-600 font-semibold' : '',
             ].filter(Boolean).join(' ')
 

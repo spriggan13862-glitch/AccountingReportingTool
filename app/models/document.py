@@ -13,6 +13,8 @@ DOCUMENT_TYPES = frozenset({
     "consolidation_support",
     "memo",
     "other",
+    "pdf_import",
+    "coa_import",
 })
 
 

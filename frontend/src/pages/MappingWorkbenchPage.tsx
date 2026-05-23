@@ -10,6 +10,8 @@ import { accountsApi } from '@/api/accounts'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
+import { AccountingDataGrid } from '@/components/data-grid'
+import type { GridColumn, BatchAction, RowAction } from '@/components/data-grid/types'
 import type { ImportLine, ImportSuggestion, Account } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -179,7 +181,6 @@ export function MappingWorkbenchPage() {
 
   // Filters
   const [showMapped, setShowMapped] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
 
   // Per-line state
   const [selectedAccounts, setSelectedAccounts] = useState<Record<number, Account | null>>({})
@@ -211,17 +212,6 @@ export function MappingWorkbenchPage() {
 
   // Derived: filter lines
   const lines: ImportLine[] = allLines ?? []
-  const displayLines = lines.filter((l) => {
-    if (!showMapped && l.mapping_status !== 'unmapped') return false
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      return (
-        l.raw_account_number?.toLowerCase().includes(q) ||
-        l.raw_account_name?.toLowerCase().includes(q)
-      )
-    }
-    return true
-  })
 
   const unmappedCount = lines.filter((l) => l.mapping_status === 'unmapped').length
   const suggestCount = lines.filter(
@@ -293,13 +283,293 @@ export function MappingWorkbenchPage() {
   }
 
   function focusNextUnmapped(currentLineId: number) {
-    const unmapped = displayLines.filter((l) => l.mapping_status === 'unmapped')
+    const unmapped = lines.filter((l) => l.mapping_status === 'unmapped')
     const idx = unmapped.findIndex((l) => l.id === currentLineId)
     if (idx >= 0 && idx < unmapped.length - 1) {
       const nextId = unmapped[idx + 1].id
       rowInputRefs.current[nextId]?.current?.focus()
     }
   }
+
+  const gridData = lines.filter((l) => {
+    if (!showMapped && l.mapping_status !== 'unmapped') return false
+    return true
+  })
+
+  const toolbarLeft = (
+    <div className="flex items-center gap-4">
+      <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
+        <div
+          onClick={() => setShowMapped((v) => !v)}
+          className={`w-9 h-5 rounded-full relative transition-colors cursor-pointer ${showMapped ? 'bg-indigo-600' : 'bg-gray-300'}`}
+          data-testid="show-all-toggle"
+        >
+          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showMapped ? 'translate-x-4' : ''}`} />
+        </div>
+        Show all (including mapped)
+      </label>
+      <div className="flex items-center gap-3 text-xs text-gray-500 border-l pl-4 border-gray-200 animate-in fade-in duration-300">
+        <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">
+          {unmappedCount} unmapped
+        </span>
+        <span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
+          {(batch?.row_count ?? 0) - unmappedCount} mapped
+        </span>
+      </div>
+    </div>
+  )
+
+  const toolbarRight = suggestCount > 0 ? (
+    <button
+      type="button"
+      onClick={applyBulkSuggestions}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs rounded hover:bg-amber-700 font-medium transition-colors shadow-sm"
+      data-testid="accept-all-btn"
+    >
+      <Lightbulb className="w-3.5 h-3.5 text-white" />
+      Accept all {suggestCount} suggestion{suggestCount !== 1 ? 's' : ''}
+    </button>
+  ) : undefined
+
+  const gridColumns: GridColumn<ImportLine>[] = [
+    {
+      key: 'line_number',
+      header: '#',
+      sortable: true,
+      sortValue: (line: ImportLine) => line.line_number,
+      render: (line: ImportLine) => <span className="text-gray-400 text-xs font-semibold">{line.line_number}</span>,
+      width: '60px',
+    },
+    {
+      key: 'raw_account',
+      header: 'Source Account',
+      sortable: true,
+      sortValue: (line: ImportLine) => line.raw_account_number || '',
+      filterable: true,
+      render: (line: ImportLine) => (
+        <div>
+          <span className="font-mono text-xs font-semibold text-gray-700">{line.raw_account_number || '—'}</span>
+          {line.raw_account_name && (
+            <span className="ml-2 text-gray-500 text-xs">{line.raw_account_name}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'raw_debit',
+      header: 'DR',
+      sortable: true,
+      sortValue: (line: ImportLine) => line.raw_debit ? parseFloat(line.raw_debit) : 0,
+      render: (line: ImportLine) => (
+        <div className="text-right font-mono text-xs text-gray-600">
+          {line.raw_debit != null && Number(line.raw_debit) !== 0
+            ? Number(line.raw_debit).toLocaleString(undefined, { minimumFractionDigits: 2 })
+            : '—'}
+        </div>
+      ),
+    },
+    {
+      key: 'raw_credit',
+      header: 'CR',
+      sortable: true,
+      sortValue: (line: ImportLine) => line.raw_credit ? parseFloat(line.raw_credit) : 0,
+      render: (line: ImportLine) => (
+        <div className="text-right font-mono text-xs text-gray-600">
+          {line.raw_credit != null && Number(line.raw_credit) !== 0
+            ? Number(line.raw_credit).toLocaleString(undefined, { minimumFractionDigits: 2 })
+            : '—'}
+        </div>
+      ),
+    },
+    {
+      key: 'raw_balance',
+      header: 'Balance',
+      sortable: true,
+      sortValue: (line: ImportLine) => line.raw_balance ? parseFloat(line.raw_balance) : 0,
+      render: (line: ImportLine) => (
+        <div className="text-right font-mono text-xs text-gray-600">
+          {line.raw_balance != null
+            ? Number(line.raw_balance).toLocaleString(undefined, { minimumFractionDigits: 2 })
+            : '—'}
+        </div>
+      ),
+    },
+    {
+      key: 'suggestion',
+      header: 'Suggestion',
+      sortable: true,
+      sortValue: (line: ImportLine) => suggestMap[line.id]?.suggested_account_number || '',
+      render: (line: ImportLine) => {
+        const suggestion = suggestMap[line.id]
+        if (!suggestion?.suggested_account_id || line.mapping_status !== 'unmapped') return <span className="text-gray-300">—</span>
+
+        const isNumberMatch = !!(line.raw_account_number && suggestion.suggested_account_number?.startsWith(line.raw_account_number))
+        const confidence = isNumberMatch ? 'High' : 'Medium'
+        const evidence = isNumberMatch
+          ? `Prefix match on account number "${line.raw_account_number}"`
+          : `Substring match on account name "${line.raw_account_name}"`
+
+        const confBadgeColor = isNumberMatch
+          ? 'bg-green-50 text-green-700 border-green-200'
+          : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+
+        return (
+          <div className="flex flex-col gap-1 py-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono text-xs font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                {suggestion.suggested_account_number}
+              </span>
+              <span className="text-xs text-gray-800 font-medium truncate max-w-[120px]" title={suggestion.suggested_account_name ?? ''}>
+                {suggestion.suggested_account_name}
+              </span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${confBadgeColor}`}>
+                {confidence}
+              </span>
+            </div>
+            <span className="text-[10px] text-gray-400 truncate max-w-[200px]" title={evidence}>
+              {evidence}
+            </span>
+            <div className="mt-0.5">
+              <button
+                type="button"
+                onClick={() => mapMutation.mutate({ lineId: line.id, accountId: suggestion.suggested_account_id! })}
+                className="text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100 transition-colors"
+                data-testid={`accept-suggestion-${line.id}`}
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        )
+      }
+    },
+    {
+      key: 'map_to_account',
+      header: 'Map to Account',
+      render: (line: ImportLine) => {
+        const selectedAcct = selectedAccounts[line.id]
+        const isMapped = line.mapping_status === 'mapped'
+        const isSkipped = line.mapping_status === 'skipped'
+        const isCreating = createLineId === line.id
+        const entityId = batch?.entity_id ?? 0
+        const inputRef = getOrCreateRef(line.id)
+
+        if (isMapped) {
+          return (
+            <span className="text-xs font-medium text-green-700 flex items-center gap-1 bg-green-50 border border-green-200 px-2 py-0.5 rounded w-max">
+              <Check className="w-3.5 h-3.5" /> Mapped
+            </span>
+          )
+        }
+        if (isSkipped) {
+          return (
+            <span className="text-xs text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded w-max">
+              Skipped
+            </span>
+          )
+        }
+        if (isCreating) {
+          return (
+            <CreateAccountForm
+              defaultNumber={line.raw_account_number ?? ''}
+              defaultName={line.raw_account_name ?? ''}
+              isPending={createMutation.isPending}
+              onSubmit={(data) => createMutation.mutate({ lineId: line.id, data })}
+              onCancel={() => setCreateLineId(null)}
+            />
+          )
+        }
+
+        return (
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-1 min-w-[160px]">
+              <AccountSearch
+                entityId={entityId}
+                value={selectedAcct?.id ?? null}
+                onChange={(acct) => setSelectedAccounts((p) => ({ ...p, [line.id]: acct }))}
+                inputRef={inputRef as React.RefObject<HTMLInputElement>}
+                onTab={() => focusNextUnmapped(line.id)}
+              />
+            </div>
+            {selectedAcct && (
+              <button
+                type="button"
+                disabled={mapMutation.isPending}
+                onClick={() => mapMutation.mutate({ lineId: line.id, accountId: selectedAcct.id })}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 disabled:opacity-50 shrink-0 font-medium transition-colors"
+                data-testid={`map-btn-${line.id}`}
+              >
+                <Check className="w-3.5 h-3.5" /> Map
+              </button>
+            )}
+          </div>
+        )
+      }
+    }
+  ]
+
+  const rowActions: RowAction<ImportLine>[] = [
+    {
+      key: 'create_account',
+      label: 'Create Account',
+      icon: Plus,
+      hidden: (row) => row.mapping_status !== 'unmapped',
+      onClick: (row) => setCreateLineId(row.id),
+    },
+    {
+      key: 'skip_line',
+      label: 'Skip Line',
+      icon: SkipForward,
+      hidden: (row) => row.mapping_status !== 'unmapped',
+      onClick: (row) => skipMutation.mutate(row.id),
+    },
+  ]
+
+  const batchActions: BatchAction<ImportLine>[] = [
+    {
+      key: 'batch_accept',
+      label: 'Accept Suggestions',
+      icon: Lightbulb,
+      disabled: (rows) => !rows.some((r) => r.mapping_status === 'unmapped' && suggestMap[r.id]?.suggested_account_id != null),
+      onClick: async (rows) => {
+        const selectedSuggestions = rows
+          .filter((r) => r.mapping_status === 'unmapped' && suggestMap[r.id]?.suggested_account_id != null)
+          .map((r) => ({ line_id: r.id, account_id: suggestMap[r.id].suggested_account_id! }))
+
+        if (selectedSuggestions.length > 0) {
+          try {
+            await tbImportApi.bulkMap(batchId, selectedSuggestions)
+            queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+            queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+            queryClient.invalidateQueries({ queryKey: ['import-suggestions', batchId] })
+            toast(`${selectedSuggestions.length} suggestions applied`, 'success')
+          } catch (err: any) {
+            setApiError(err.message)
+          }
+        }
+      },
+    },
+    {
+      key: 'batch_skip',
+      label: 'Skip Lines',
+      icon: SkipForward,
+      variant: 'default',
+      disabled: (rows) => !rows.some((r) => r.mapping_status === 'unmapped'),
+      onClick: async (rows) => {
+        const toSkip = rows.filter((r) => r.mapping_status === 'unmapped')
+        if (toSkip.length > 0) {
+          try {
+            await Promise.all(toSkip.map((r) => tbImportApi.skipLine(batchId, r.id)))
+            queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+            queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+            toast(`${toSkip.length} lines skipped`, 'success')
+          } catch (err: any) {
+            setApiError(err.message)
+          }
+        }
+      },
+    },
+  ]
 
   return (
     <PageLayout
@@ -310,14 +580,14 @@ export function MappingWorkbenchPage() {
           <button
             type="button"
             onClick={handleExportMappings}
-            className="flex items-center gap-1 text-xs px-2.5 py-1.5 border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 border border-gray-300 text-gray-600 rounded hover:bg-gray-50 font-medium"
           >
             <Download className="w-3.5 h-3.5" /> Export Mappings
           </button>
           <button
             type="button"
             onClick={() => navigate(`/import/${batchId}`)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 font-medium"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Review
           </button>
@@ -342,227 +612,24 @@ export function MappingWorkbenchPage() {
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        {/* Search */}
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter by account # or name…"
-            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded text-sm focus:border-indigo-400 focus:outline-none"
-          />
-          {searchQuery && (
-            <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Unmapped-only toggle */}
-        <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
-          <div
-            onClick={() => setShowMapped((v) => !v)}
-            className={`w-9 h-5 rounded-full relative transition-colors cursor-pointer ${showMapped ? 'bg-indigo-600' : 'bg-gray-300'}`}
-          >
-            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showMapped ? 'translate-x-4' : ''}`} />
-          </div>
-          Show all (including mapped)
-        </label>
-
-        {/* Stats */}
-        <div className="flex items-center gap-3 text-xs text-gray-500 ml-auto">
-          <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
-            {unmappedCount} unmapped
-          </span>
-          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-            {(batch?.row_count ?? 0) - unmappedCount} mapped
-          </span>
-        </div>
-
-        {/* Bulk accept */}
-        {suggestCount > 0 && (
-          <button
-            type="button"
-            onClick={applyBulkSuggestions}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white text-xs rounded hover:bg-amber-700"
-          >
-            <Lightbulb className="w-3.5 h-3.5" />
-            Accept {suggestCount} suggestion{suggestCount !== 1 ? 's' : ''}
-          </button>
-        )}
-      </div>
-
-      {/* Line table */}
+      {/* Grid */}
       {isLoading ? (
         <p className="text-sm text-gray-400">Loading lines…</p>
-      ) : displayLines.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-12 text-center">
-          <Check className="w-10 h-10 mx-auto mb-2 text-green-400" />
-          <p className="text-sm font-medium text-gray-700">
-            {unmappedCount === 0 ? 'All lines are mapped!' : 'No lines match the current filter.'}
-          </p>
-          {unmappedCount === 0 && (
-            <>
-              <p className="text-xs text-gray-400 mt-1">Return to Import Review to run validation and post.</p>
-              <button
-                type="button"
-                onClick={() => navigate(`/import/${batchId}`)}
-                className="mt-3 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
-              >
-                Go to Import Review
-              </button>
-            </>
-          )}
-        </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-2 text-left w-8">#</th>
-                <th className="px-4 py-2 text-left">Source Account</th>
-                <th className="px-4 py-2 text-right">DR</th>
-                <th className="px-4 py-2 text-right">CR</th>
-                <th className="px-4 py-2 text-right">Balance</th>
-                <th className="px-4 py-2 text-left">Map to Account</th>
-                <th className="px-4 py-2 w-20" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {displayLines.map((line) => {
-                const suggestion = suggestMap[line.id]
-                const selectedAcct = selectedAccounts[line.id]
-                const isMapped = line.mapping_status === 'mapped'
-                const isSkipped = line.mapping_status === 'skipped'
-                const isCreating = createLineId === line.id
-                const entityId = batch?.entity_id ?? 0
-                const inputRef = getOrCreateRef(line.id)
-
-                return (
-                  <tr
-                    key={line.id}
-                    className={`group ${
-                      isMapped ? 'bg-green-50/30' : isSkipped ? 'bg-gray-50/50' : 'hover:bg-amber-50/30'
-                    }`}
-                  >
-                    {/* Line # */}
-                    <td className="px-4 py-2 text-gray-400 text-xs">{line.line_number}</td>
-
-                    {/* Source account */}
-                    <td className="px-4 py-2">
-                      <span className="font-mono text-xs text-gray-700">{line.raw_account_number || '—'}</span>
-                      {line.raw_account_name && (
-                        <span className="ml-2 text-gray-500 text-xs">{line.raw_account_name}</span>
-                      )}
-                      {/* Suggestion chip */}
-                      {suggestion?.suggested_account_id && line.mapping_status === 'unmapped' && (
-                        <div className="mt-0.5 flex items-center gap-1">
-                          <Lightbulb className="w-3 h-3 text-amber-400" />
-                          <span className="text-xs text-amber-700">
-                            Suggestion: <span className="font-mono">{suggestion.suggested_account_number}</span> {suggestion.suggested_account_name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => mapMutation.mutate({ lineId: line.id, accountId: suggestion.suggested_account_id! })}
-                            className="ml-1 text-xs px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded hover:bg-amber-200"
-                          >
-                            Accept
-                          </button>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Amounts */}
-                    <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">
-                      {line.raw_debit != null && Number(line.raw_debit) !== 0
-                        ? Number(line.raw_debit).toLocaleString(undefined, { minimumFractionDigits: 2 })
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">
-                      {line.raw_credit != null && Number(line.raw_credit) !== 0
-                        ? Number(line.raw_credit).toLocaleString(undefined, { minimumFractionDigits: 2 })
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-xs text-gray-600">
-                      {line.raw_balance != null
-                        ? Number(line.raw_balance).toLocaleString(undefined, { minimumFractionDigits: 2 })
-                        : '—'}
-                    </td>
-
-                    {/* Map to account */}
-                    <td className="px-4 py-2">
-                      {isMapped ? (
-                        <span className="text-xs text-green-700 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" /> Mapped
-                        </span>
-                      ) : isSkipped ? (
-                        <span className="text-xs text-gray-400">Skipped</span>
-                      ) : isCreating ? (
-                        <CreateAccountForm
-                          defaultNumber={line.raw_account_number ?? ''}
-                          defaultName={line.raw_account_name ?? ''}
-                          isPending={createMutation.isPending}
-                          onSubmit={(data) => createMutation.mutate({ lineId: line.id, data })}
-                          onCancel={() => setCreateLineId(null)}
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 min-w-40">
-                            <AccountSearch
-                              entityId={entityId}
-                              value={selectedAcct?.id ?? null}
-                              onChange={(acct) => setSelectedAccounts((p) => ({ ...p, [line.id]: acct }))}
-                              inputRef={inputRef as React.RefObject<HTMLInputElement>}
-                              onTab={() => focusNextUnmapped(line.id)}
-                            />
-                          </div>
-                          {selectedAcct && (
-                            <button
-                              type="button"
-                              disabled={mapMutation.isPending}
-                              onClick={() => mapMutation.mutate({ lineId: line.id, accountId: selectedAcct.id })}
-                              className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 disabled:opacity-50 shrink-0"
-                            >
-                              <Check className="w-3 h-3" /> Map
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-2">
-                      {!isMapped && !isSkipped && !isCreating && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => setCreateLineId(line.id)}
-                            title="Create new account"
-                            className="p-1 text-gray-400 hover:text-green-600 rounded"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => skipMutation.mutate(line.id)}
-                            title="Skip this line"
-                            disabled={skipMutation.isPending}
-                            className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                          >
-                            <SkipForward className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AccountingDataGrid
+          columns={gridColumns}
+          data={gridData}
+          rowKey={(l) => l.id}
+          rowActions={rowActions}
+          batchActions={batchActions}
+          selectionEnabled={true}
+          toolbarLeft={toolbarLeft}
+          toolbarRight={toolbarRight}
+          searchPlaceholder="Filter by account # or name…"
+          exportFilename={`mapping_workbench_${batchId}`}
+          pageSize={50}
+          data-testid="mapping-workbench-grid"
+        />
       )}
 
       {/* Footer navigation */}
@@ -573,7 +640,7 @@ export function MappingWorkbenchPage() {
           <button
             type="button"
             onClick={() => navigate(`/import/${batchId}`)}
-            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+            className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 font-medium"
           >
             Go to Import Review
           </button>

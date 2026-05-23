@@ -15,7 +15,10 @@ import json
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user, get_storage
+from app.services.storage_service import StorageBackend
+from app.services.organization_service import get_organization_or_raise
+from app.services.document_service import upload_document, attach_document
 from app.api.schemas import COAApplyRequest, COAImportBatchOut, COAImportPreview, COAImportPreviewRow
 from app.models.coa_import_batch import COAImportBatch
 from app.services.coa_import_service import apply_coa_import, parse_coa_file
@@ -28,9 +31,39 @@ async def upload_coa(
     entity_id: int = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    storage: StorageBackend = Depends(get_storage),
 ):
     content = await file.read()
     filename = file.filename or "upload.csv"
+
+    from app.models.entity import Entity
+    entity = db.get(Entity, entity_id)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
+
+    organization_id = entity.organization_id or 1
+    try:
+        org = get_organization_or_raise(db, organization_id)
+    except Exception:
+        from app.models.organization import Organization
+        org = db.query(Organization).filter(Organization.slug == "default-org").first()
+        if not org:
+            org = Organization(name="Default Org", slug="default-org", is_active=True)
+            db.add(org)
+            db.flush()
+        organization_id = org.id
+
+    doc = upload_document(
+        db=db,
+        organization_id=organization_id,
+        content=content,
+        original_file_name=filename,
+        document_type="coa_import",
+        storage=storage,
+        org_slug=org.slug,
+        acting_user=current_user,
+    )
 
     try:
         parsed = parse_coa_file(content, filename)
@@ -51,6 +84,14 @@ async def upload_coa(
     db.add(batch)
     db.flush()
     db.refresh(batch)
+
+    attach_document(
+        db=db,
+        doc_id=doc.id,
+        linked_object_type="coa_import",
+        linked_object_id=batch.id,
+        acting_user=current_user,
+    )
 
     rows = [COAImportPreviewRow(**r) for r in parsed["rows"]]
 

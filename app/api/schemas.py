@@ -1858,6 +1858,8 @@ class PDFPreviewLinePatch(BaseModel):
     account_name: str | None = None
     section: str | None = None
     suggested_taxonomy_code: str | None = None
+    proposed_account_code: str | None = None
+    amount: str | None = None
 
 
 class PDFImportPreview(BaseModel):
@@ -1951,6 +1953,8 @@ class PDFLineUpdateRequest(BaseModel):
     legal_entity_code: str | None = None
     consolidation_group: str | None = None
     mapping_notes: str | None = None
+    account_name: str | None = None
+    amount: str | None = None
 
 
 class PDFAuditTrail(BaseModel):

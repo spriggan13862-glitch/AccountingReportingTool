@@ -10,6 +10,8 @@ LINKED_OBJECT_TYPES = frozenset({
     "entity",
     "report_run",
     "consolidation_run",
+    "pdf_import",
+    "coa_import",
 })
 
 

@@ -132,6 +132,20 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
     return account
 
 
+def propagate_taxonomy_to_children(parent_id: int, old_taxonomy_id: int | None, new_taxonomy_id: int | None, db: Session):
+    """
+    Recursively propagate taxonomy changes from a parent account to its children.
+    A child is considered to have inherited the mapping if its current `reporting_taxonomy_line_id`
+    matches the parent's `old_reporting_taxonomy_line_id` or is `None`/unset.
+    """
+    children = db.query(Account).filter(Account.parent_account_id == parent_id).all()
+    for child in children:
+        if child.reporting_taxonomy_line_id == old_taxonomy_id or child.reporting_taxonomy_line_id is None:
+            old_child_tax = child.reporting_taxonomy_line_id
+            child.reporting_taxonomy_line_id = new_taxonomy_id
+            propagate_taxonomy_to_children(child.id, old_child_tax, new_taxonomy_id, db)
+
+
 @router.patch("/{account_id}", response_model=AccountOut)
 def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(get_db)):
     account = db.get(Account, account_id)
@@ -156,7 +170,11 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
         account.account_status = body.account_status
         account.active = body.account_status == "active"
     if body.reporting_taxonomy_line_id is not None:
-        account.reporting_taxonomy_line_id = body.reporting_taxonomy_line_id
+        old_tax_id = account.reporting_taxonomy_line_id
+        new_tax_id = body.reporting_taxonomy_line_id
+        account.reporting_taxonomy_line_id = new_tax_id
+        if old_tax_id != new_tax_id:
+            propagate_taxonomy_to_children(account.id, old_tax_id, new_tax_id, db)
     if body.parent_account_id is not None:
         account.parent_account_id = body.parent_account_id
     if body.active is not None:
@@ -227,7 +245,11 @@ def reparent_account(
         new_parent_acct = db.get(Account, new_parent_id)
         if new_parent_acct is not None:
             if new_parent_acct.reporting_taxonomy_line_id is not None:
-                account.reporting_taxonomy_line_id = new_parent_acct.reporting_taxonomy_line_id
+                old_tax_id = account.reporting_taxonomy_line_id
+                new_tax_id = new_parent_acct.reporting_taxonomy_line_id
+                account.reporting_taxonomy_line_id = new_tax_id
+                if old_tax_id != new_tax_id:
+                    propagate_taxonomy_to_children(account.id, old_tax_id, new_tax_id, db)
             if not account.detail_type and new_parent_acct.detail_type:
                 account.detail_type = new_parent_acct.detail_type
             if new_parent_acct.account_type:

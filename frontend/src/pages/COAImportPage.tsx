@@ -9,8 +9,10 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useToast } from '@/providers/ToastProvider'
 import { WizardLayout, StepIndicator, ConfirmationStep } from '@/components/import-wizard'
+import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard'
-import type { COAImportPreview } from '@/types'
+import type { GridColumn } from '@/components/data-grid'
+import type { COAImportPreview, COAImportPreviewRow } from '@/types'
 
 const QB_FORMATS = [
   {
@@ -427,121 +429,157 @@ export function COAImportPage() {
                 Accounts will be created or updated. QB Tax Line drives Reporting / FSLI assignment.
                 Use the Reporting Line column below to override before importing.
               </p>
-              <button
-                type="button"
-                disabled={applyMutation.isPending}
-                onClick={() => applyMutation.mutate()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
-              >
-                <CheckCircle className="w-4 h-4" />
-                {applyMutation.isPending
-                  ? 'Importing…'
-                  : `Import ${typeFilter ? `${visibleRows.length} filtered` : preview.row_count} Accounts`}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setWizardStep(0); setPreview(null); setFile(null) }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                  data-testid="coa-back-btn"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={applyMutation.isPending}
+                  onClick={() => applyMutation.mutate()}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+                  data-testid="apply-coa-btn"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {applyMutation.isPending
+                    ? 'Importing…'
+                    : `Import ${typeFilter ? `${visibleRows.length} filtered` : preview.row_count} Accounts`}
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Preview table */}
-          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[1100px]">
-              <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
-                <tr>
-                  <th className="px-3 py-2 text-left w-8">#</th>
-                  <th className="px-3 py-2 text-left w-20">Acct #</th>
-                  <th className="px-3 py-2 text-left">Account Name</th>
-                  <th className="px-3 py-2 text-left w-20">Type</th>
-                  <th className="px-3 py-2 text-left w-28">Detail Type</th>
-                  <th className="px-3 py-2 text-left w-32">Parent Account</th>
-                  <th className="px-3 py-2 text-left w-36">QB Tax Line</th>
-                  <th className="px-3 py-2 text-left w-44">
-                    <span className="flex items-center gap-1">
-                      Reporting Line
-                      <span title="Assigned using QB Tax Line (primary), then Detail Type, then Account Name keywords. Authoritative QB types (Fixed Asset, AR, AP, COGS, Credit Card) always override. Override manually using the dropdown.">
-                        <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                      </span>
-                    </span>
-                  </th>
-                  <th className="px-3 py-2 text-left w-28">Evidence</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {visibleRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
-                      No accounts match the current filters
-                    </td>
-                  </tr>
-                ) : (
-                  visibleRows.map((row) => {
-                    const overrideId = overrides[row.row_index]
-                    const overrideName = overrideId
-                      ? taxonomyLines.find((t) => t.id === overrideId)?.name
-                      : null
-                    const displayLine = overrideName ?? row.suggested_reporting_line
-
-                    return (
-                      <tr key={row.row_index} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-400 text-xs">{row.row_index + 1}</td>
-                        <td className="px-3 py-2 font-mono text-xs text-gray-700">{row.account_number || '—'}</td>
-                        <td
-                          className="px-3 py-2 text-gray-800 text-sm"
-                          style={{ paddingLeft: `${12 + (row.hierarchy_depth ?? row.indent) * 12}px` }}
-                        >
-                          {row.account_name}
-                        </td>
-                        <td className="px-3 py-2">
-                          {row.account_type && (
-                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium capitalize border ${ACCOUNT_TYPE_COLORS[row.account_type] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                              {row.account_type}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-500">{row.detail_type || '—'}</td>
-                        <td className="px-3 py-2 text-xs text-gray-400" title={row.parent_account_name ?? ''}>
-                          {row.parent_account_number
-                            ? <span className="font-mono">{row.parent_account_number}</span>
-                            : <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-400 truncate max-w-[128px]" title={row.tax_line ?? ''}>
-                          {row.tax_line || <span className="text-gray-300">—</span>}
-                        </td>
-                        <td className="px-3 py-2">
-                          <select
-                            value={overrideId ?? ''}
-                            onChange={(e) => {
-                              const val = e.target.value ? Number(e.target.value) : undefined
-                              setOverrides((prev) => {
-                                const next = { ...prev }
-                                if (val) next[row.row_index] = val
-                                else delete next[row.row_index]
-                                return next
-                              })
-                            }}
-                            className={`w-full border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 ${
-                              overrideId ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200'
-                            }`}
-                            title={displayLine ?? 'No suggestion — select a reporting line'}
-                          >
-                            <option value="">
-                              {displayLine ? `✓ ${displayLine}` : '— no suggestion —'}
-                            </option>
-                            {taxonomyLines.map((t) => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-400 truncate max-w-[112px]" title={row.source_evidence ?? ''}>
-                          {row.source_evidence
-                            ? <span className="text-indigo-500">{row.source_evidence}</span>
-                            : <span className="text-gray-300">—</span>}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          <AccountingDataGrid
+            columns={[
+              {
+                key: 'row_index',
+                header: '#',
+                sortable: true,
+                sortValue: (r: COAImportPreviewRow) => r.row_index,
+                render: (r: COAImportPreviewRow) => <span className="text-gray-400 text-xs">{r.row_index + 1}</span>,
+              },
+              {
+                key: 'account_number',
+                header: 'Acct #',
+                sortable: true,
+                filterable: true,
+                sortValue: (r: COAImportPreviewRow) => r.account_number || '',
+                render: (r: COAImportPreviewRow) => <span className="font-mono text-xs text-gray-700">{r.account_number || '—'}</span>,
+              },
+              {
+                key: 'account_name',
+                header: 'Account Name',
+                sortable: true,
+                filterable: true,
+                sortValue: (r: COAImportPreviewRow) => r.account_name,
+                render: (r: COAImportPreviewRow) => (
+                  <span
+                    className="text-gray-800 text-xs"
+                    style={{ paddingLeft: `${(r.hierarchy_depth ?? r.indent ?? 0) * 12}px` }}
+                  >
+                    {r.account_name}
+                  </span>
+                ),
+              },
+              {
+                key: 'account_type',
+                header: 'Type',
+                sortable: true,
+                filterable: true,
+                sortValue: (r: COAImportPreviewRow) => r.account_type || '',
+                render: (r: COAImportPreviewRow) => r.account_type ? (
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium capitalize border ${ACCOUNT_TYPE_COLORS[r.account_type] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                    {r.account_type}
+                  </span>
+                ) : <span className="text-gray-300">—</span>,
+              },
+              {
+                key: 'detail_type',
+                header: 'Detail Type',
+                sortable: true,
+                filterable: true,
+                sortValue: (r: COAImportPreviewRow) => r.detail_type || '',
+                render: (r: COAImportPreviewRow) => <span className="text-gray-500 text-xs">{r.detail_type || '—'}</span>,
+              },
+              {
+                key: 'parent_account_number',
+                header: 'Parent Account',
+                sortable: true,
+                sortValue: (r: COAImportPreviewRow) => r.parent_account_number || '',
+                render: (r: COAImportPreviewRow) => r.parent_account_number ? (
+                  <span className="font-mono text-xs text-gray-500">{r.parent_account_number}</span>
+                ) : <span className="text-gray-300">—</span>,
+              },
+              {
+                key: 'tax_line',
+                header: 'QB Tax Line',
+                sortable: true,
+                sortValue: (r: COAImportPreviewRow) => r.tax_line || '',
+                render: (r: COAImportPreviewRow) => <span className="text-gray-400 text-xs truncate max-w-[128px]" title={r.tax_line ?? ''}>{r.tax_line || '—'}</span>,
+              },
+              {
+                key: 'reporting_line',
+                header: 'Reporting Line',
+                sortable: true,
+                sortValue: (r: COAImportPreviewRow) => {
+                  const overrideId = overrides[r.row_index]
+                  const overrideName = overrideId ? taxonomyLines.find((t) => t.id === overrideId)?.name : null
+                  return overrideName ?? r.suggested_reporting_line ?? ''
+                },
+                render: (r: COAImportPreviewRow) => {
+                  const overrideId = overrides[r.row_index]
+                  const overrideName = overrideId ? taxonomyLines.find((t) => t.id === overrideId)?.name : null
+                  const displayLine = overrideName ?? r.suggested_reporting_line
+                  return (
+                    <select
+                      value={overrideId ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value ? Number(e.target.value) : undefined
+                        setOverrides((prev) => {
+                          const next = { ...prev }
+                          if (val) next[r.row_index] = val
+                          else delete next[r.row_index]
+                          return next
+                        })
+                      }}
+                      className={`w-full border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 ${
+                        overrideId ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200'
+                      }`}
+                      title={displayLine ?? 'No suggestion — select a reporting line'}
+                    >
+                      <option value="">
+                        {displayLine ? `✓ ${displayLine}` : '— no suggestion —'}
+                      </option>
+                      {taxonomyLines.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  )
+                },
+              },
+              {
+                key: 'source_evidence',
+                header: 'Evidence',
+                sortable: true,
+                sortValue: (r: COAImportPreviewRow) => r.source_evidence || '',
+                render: (r: COAImportPreviewRow) => r.source_evidence ? (
+                  <span className="text-indigo-500 text-xs">{r.source_evidence}</span>
+                ) : <span className="text-gray-300">—</span>,
+              },
+            ]}
+            data={visibleRows}
+            rowKey={(r) => r.row_index}
+            exportFilename="coa_classification_preview"
+            selectionEnabled={false}
+            pageSize={100}
+            data-testid="coa-preview-grid"
+          />
         </div>
       )}
       </>

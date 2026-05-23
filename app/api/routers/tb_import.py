@@ -34,7 +34,10 @@ import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user, get_required_user
+from app.api.deps import get_db, get_current_user, get_required_user, get_storage
+from app.services.storage_service import StorageBackend
+from app.services.organization_service import get_organization_or_raise
+from app.services.document_service import upload_document, attach_document
 from app.api.schemas import (
     BatchPostRequest,
     BulkMapRequest,
@@ -189,10 +192,31 @@ async def upload_batch(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    storage: StorageBackend = Depends(get_storage),
 ):
     """Upload a TB/GL file and start the import pipeline. Pass sheet_name to select a specific XLSX sheet."""
     content = await file.read()
     try:
+        try:
+            org = get_organization_or_raise(db, organization_id)
+        except Exception:
+            from app.models.organization import Organization
+            org = db.query(Organization).filter(Organization.slug == "default-org").first()
+            if not org:
+                org = Organization(name="Default Org", slug="default-org", is_active=True)
+                db.add(org)
+                db.flush()
+            organization_id = org.id
+        doc = upload_document(
+            db=db,
+            organization_id=organization_id,
+            content=content,
+            original_file_name=file.filename or "upload.csv",
+            document_type="tb_import",
+            storage=storage,
+            org_slug=org.slug,
+            acting_user=current_user,
+        )
         batch = svc.upload_import_batch(
             db=db,
             file_content=content,
@@ -205,6 +229,13 @@ async def upload_batch(
             uploaded_by_user_id=getattr(current_user, "id", None),
             template_id=template_id,
             sheet_name=sheet_name,
+        )
+        attach_document(
+            db=db,
+            doc_id=doc.id,
+            linked_object_type="tb_import",
+            linked_object_id=batch.id,
+            acting_user=current_user,
         )
         db.commit()
         db.refresh(batch)

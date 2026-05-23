@@ -94,6 +94,7 @@ export interface AccountingDataGridProps<T> {
   toolbarLeft?: React.ReactNode
   toolbarRight?: React.ReactNode
   exportFilename?: string
+  searchPlaceholder?: string
 
   // Pagination
   pageSize?: number
@@ -133,6 +134,7 @@ export function AccountingDataGrid<T>({
   toolbarLeft,
   toolbarRight,
   exportFilename = 'export',
+  searchPlaceholder,
   pageSize: initialPageSize = 50,
   loading = false,
   error = null,
@@ -230,6 +232,7 @@ export function AccountingDataGrid<T>({
         hiddenColumns={state.hiddenColumns}
         search={state.search}
         onSearch={setSearch}
+        searchPlaceholder={searchPlaceholder}
         density={state.density}
         onDensity={setDensity}
         pageSize={state.pageSize}

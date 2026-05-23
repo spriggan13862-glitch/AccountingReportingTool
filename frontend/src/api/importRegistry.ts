@@ -13,6 +13,7 @@ export interface ImportRegistryEntry {
   created_at: string | null
   basis_of_accounting: string | null
   statement_date: string | null
+  document_id?: number | null
 }
 
 export const importRegistryApi = {

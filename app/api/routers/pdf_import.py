@@ -22,7 +22,10 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user, get_storage
+from app.services.storage_service import StorageBackend
+from app.services.organization_service import get_organization_or_raise
+from app.services.document_service import upload_document, attach_document
 from app.api.schemas import (
     PDFImportBatchOut,
     PDFImportPreview,
@@ -49,12 +52,45 @@ async def upload_pdf(
     file: UploadFile = File(...),
     entity_id: int | None = Form(default=None),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    storage: StorageBackend = Depends(get_storage),
 ):
     content = await file.read()
     filename = file.filename or "upload.pdf"
 
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
+
+    organization_id = None
+    if entity_id is not None:
+        from app.models.entity import Entity
+        entity = db.get(Entity, entity_id)
+        if entity:
+            organization_id = entity.organization_id
+    if organization_id is None:
+        organization_id = getattr(current_user, "organization_id", None) or 1
+
+    try:
+        org = get_organization_or_raise(db, organization_id)
+    except Exception:
+        from app.models.organization import Organization
+        org = db.query(Organization).filter(Organization.slug == "default-org").first()
+        if not org:
+            org = Organization(name="Default Org", slug="default-org", is_active=True)
+            db.add(org)
+            db.flush()
+        organization_id = org.id
+
+    doc = upload_document(
+        db=db,
+        organization_id=organization_id,
+        content=content,
+        original_file_name=filename,
+        document_type="pdf_import",
+        storage=storage,
+        org_slug=org.slug,
+        acting_user=current_user,
+    )
 
     # Write to a temp file for pdfplumber
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -92,6 +128,14 @@ async def upload_pdf(
     db.add(batch)
     db.flush()
     db.refresh(batch)
+
+    attach_document(
+        db=db,
+        doc_id=doc.id,
+        linked_object_type="pdf_import",
+        linked_object_id=batch.id,
+        acting_user=current_user,
+    )
 
     preview_lines = [PDFImportPreviewLine(**_line_to_schema(l, proposed_numbers)) for l in lines_data]
 
@@ -166,10 +210,20 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
         except InvalidOperation:
             return Decimal("0")
 
+    NORMAL_BALANCE_MAP = {
+        "asset":     "debit",
+        "liability": "credit",
+        "equity":    "credit",
+        "revenue":   "credit",
+        "expense":   "debit",
+    }
+
     try:
         for i, line_data in enumerate(lines_data):
             temp_code = line_data.get("temp_account_code", f"UNKNOWN-{i}")
-            assigned_number = account_numbers.get(temp_code, "")
+            assigned_number = line_data.get("proposed_account_code")
+            if assigned_number is None:
+                assigned_number = account_numbers.get(temp_code, "")
 
             line_obj = PDFImportLine(
                 batch_id=batch.id,
@@ -204,6 +258,61 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
                 taxonomy_locked=False,
             )
             db.add(mapping_obj)
+
+            # Create/update Account in Chart of Accounts
+            if batch.entity_id is not None and not line_data.get("is_subtotal", False):
+                from app.models.account import Account
+                from app.models.reporting_taxonomy import ReportingTaxonomyLine
+
+                taxonomy_id = None
+                tax_code = line_data.get("suggested_taxonomy_code")
+                tax_line = None
+                if tax_code:
+                    tax_line = db.query(ReportingTaxonomyLine).filter(ReportingTaxonomyLine.code == tax_code).first()
+                    if tax_line:
+                        taxonomy_id = tax_line.id
+
+                acct_type = "expense"
+                normal_bal = "debit"
+                if tax_line:
+                    sec = (tax_line.section or "").lower()
+                    if sec == "assets":
+                        acct_type = "asset"
+                    elif sec == "liabilities":
+                        acct_type = "liability"
+                    elif sec == "equity":
+                        acct_type = "equity"
+                    elif sec in ("revenue", "other_income"):
+                        acct_type = "revenue"
+                    normal_bal = tax_line.normal_balance or NORMAL_BALANCE_MAP.get(acct_type, "debit")
+
+                existing_acct = None
+                if assigned_number:
+                    existing_acct = db.query(Account).filter(
+                        Account.entity_id == batch.entity_id,
+                        Account.account_number == assigned_number
+                    ).first()
+
+                if existing_acct:
+                    existing_acct.account_name = line_data.get("account_name", "")
+                    existing_acct.account_type = acct_type
+                    existing_acct.normal_balance = normal_bal
+                    if taxonomy_id is not None:
+                        existing_acct.reporting_taxonomy_line_id = taxonomy_id
+                    existing_acct.source_system = "pdf_import"
+                else:
+                    if not assigned_number:
+                        assigned_number = f"AUTO-PDF-{i + 1:04d}"
+                    new_acct = Account(
+                        entity_id=batch.entity_id,
+                        account_number=assigned_number,
+                        account_name=line_data.get("account_name", ""),
+                        account_type=acct_type,
+                        normal_balance=normal_bal,
+                        reporting_taxonomy_line_id=taxonomy_id,
+                        source_system="pdf_import",
+                    )
+                    db.add(new_acct)
 
         batch.status = "applied"
         batch.accounts_created = len(detail_lines)
@@ -387,8 +496,17 @@ def update_pdf_line(
         raise HTTPException(status_code=404, detail=f"Line {line_id} not found in batch {batch_id}")
 
     # Update line-level fields
+    old_account_code = line.official_account_code
+
     if body.official_account_code is not None:
         line.official_account_code = body.official_account_code
+    if body.account_name is not None:
+        line.account_name = body.account_name
+    if body.amount is not None:
+        try:
+            line.amount = Decimal(str(body.amount))
+        except (InvalidOperation, ValueError):
+            pass
 
     # Update or create mapping record
     mapping = db.query(PDFAccountMapping).filter(
@@ -410,6 +528,8 @@ def update_pdf_line(
 
     if body.official_account_code is not None:
         mapping.official_account_code = body.official_account_code
+    if body.account_name is not None:
+        mapping.account_name = body.account_name
     if body.taxonomy_code is not None:
         mapping.taxonomy_code = body.taxonomy_code
         mapping.taxonomy_source = "manual"
@@ -421,6 +541,56 @@ def update_pdf_line(
         mapping.consolidation_group = body.consolidation_group
     if body.mapping_notes is not None:
         mapping.mapping_notes = body.mapping_notes
+
+    # Sync with Account in Chart of Accounts
+    if batch.entity_id is not None:
+        from app.models.account import Account
+        from app.models.reporting_taxonomy import ReportingTaxonomyLine
+
+        NORMAL_BALANCE_MAP = {
+            "asset":     "debit",
+            "liability": "credit",
+            "equity":    "credit",
+            "revenue":   "credit",
+            "expense":   "debit",
+        }
+
+        acct = None
+        if old_account_code:
+            acct = db.query(Account).filter(
+                Account.entity_id == batch.entity_id,
+                Account.account_number == old_account_code
+            ).first()
+
+        if not acct and line.official_account_code:
+            acct = db.query(Account).filter(
+                Account.entity_id == batch.entity_id,
+                Account.account_number == line.official_account_code
+            ).first()
+
+        if acct:
+            if body.official_account_code is not None:
+                acct.account_number = body.official_account_code
+            if body.account_name is not None:
+                acct.account_name = body.account_name
+
+            tax_code = body.taxonomy_code if body.taxonomy_code is not None else mapping.taxonomy_code
+            if tax_code:
+                tax_line = db.query(ReportingTaxonomyLine).filter(ReportingTaxonomyLine.code == tax_code).first()
+                if tax_line:
+                    acct.reporting_taxonomy_line_id = tax_line.id
+                    sec = (tax_line.section or "").lower()
+                    if sec == "assets":
+                        acct.account_type = "asset"
+                    elif sec == "liabilities":
+                        acct.account_type = "liability"
+                    elif sec == "equity":
+                        acct.account_type = "equity"
+                    elif sec in ("revenue", "other_income"):
+                        acct.account_type = "revenue"
+                    else:
+                        acct.account_type = "expense"
+                    acct.normal_balance = tax_line.normal_balance or NORMAL_BALANCE_MAP.get(acct.account_type, "debit")
 
     db.flush()
 
@@ -541,6 +711,10 @@ def patch_preview_line(
         line["section"] = body.section
     if body.suggested_taxonomy_code is not None:
         line["suggested_taxonomy_code"] = body.suggested_taxonomy_code
+    if body.proposed_account_code is not None:
+        line["proposed_account_code"] = body.proposed_account_code
+    if body.amount is not None:
+        line["amount"] = body.amount
 
     extracted["lines"] = lines_data
     batch.raw_preview = json.dumps(extracted)
@@ -555,8 +729,8 @@ def patch_preview_line(
 
 def _line_to_schema(line_data: dict, proposed_numbers: dict[str, str] | None = None) -> dict:
     temp_code = line_data["temp_account_code"]
-    proposed = None
-    if proposed_numbers is not None and not line_data.get("is_subtotal"):
+    proposed = line_data.get("proposed_account_code")
+    if proposed is None and proposed_numbers is not None and not line_data.get("is_subtotal"):
         proposed = proposed_numbers.get(temp_code) or None
     return {
         "temp_account_code": temp_code,

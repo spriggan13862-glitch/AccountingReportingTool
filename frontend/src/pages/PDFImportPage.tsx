@@ -21,6 +21,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
+import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard'
 import type {
   PDFImportBatch,
@@ -208,12 +209,14 @@ function ValidationTable({ checks }: { checks: PDFValidationCheck[] }) {
 
 function EditableCell({
   value,
+  displayValue,
   placeholder,
   onSave,
   testId,
   mono,
 }: {
   value: string | null
+  displayValue?: string
   placeholder?: string
   onSave: (v: string) => void
   testId?: string
@@ -254,7 +257,7 @@ function EditableCell({
       title="Click to edit"
       data-testid={testId}
     >
-      {value || <span className="text-gray-300 italic">{placeholder ?? '—'}</span>}
+      {displayValue || value || <span className="text-gray-300 italic">{placeholder ?? '—'}</span>}
     </span>
   )
 }
@@ -262,7 +265,6 @@ function EditableCell({
 // ---------------------------------------------------------------------------
 // Applied lines table
 // ---------------------------------------------------------------------------
-
 function AppliedLinesTable({
   lines,
   onUpdateLine,
@@ -306,121 +308,144 @@ function AppliedLinesTable({
                 {detailCount} line{detailCount !== 1 ? 's' : ''}
               </span>
             </button>
-            {!isCollapsed && <div className="overflow-x-auto">
-              <table className="w-full text-xs min-w-[860px]">
-                <thead className="text-gray-500 border-b border-gray-100 bg-gray-50/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left w-28 font-medium">Acct #</th>
-                    <th className="px-3 py-2 text-left font-medium">Account Name</th>
-                    <th className="px-3 py-2 text-left w-36 font-medium">Taxonomy</th>
-                    <th className="px-3 py-2 text-left w-24 font-medium">Legal Entity</th>
-                    <th className="px-3 py-2 text-left w-28 font-medium">Consol. Group</th>
-                    <th className="px-3 py-2 text-right w-28 font-medium">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {groupLines.map((line) => (
-                    <tr
-                      key={line.id}
-                      className={`hover:bg-gray-50/50 ${line.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}
-                      data-testid={`line-row-${line.id}`}
-                      data-subtotal={line.is_subtotal ? 'true' : undefined}
-                    >
-                      {/* Official/assigned account number (editable) + stable code as audit ref */}
-                      <td className="px-3 py-1.5">
-                        {!line.is_subtotal ? (
-                          <>
-                            <EditableCell
-                              value={line.official_account_code}
-                              placeholder="assign…"
-                              mono
-                              onSave={(v) => onUpdateLine(line.id, { official_account_code: v || null })}
-                              testId={`official-code-${line.id}`}
-                            />
-                            <span
-                              className="block font-mono text-[10px] text-gray-300 mt-0.5 truncate"
-                              data-testid="stable-code"
-                              title={`Stable code: ${line.temp_account_code}`}
-                            >
-                              {line.temp_account_code}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-
-                      {/* Account name */}
-                      <td className="px-3 py-1.5 text-gray-800">
-                        {line.account_name}
-                        {line.is_contra && (
-                          <span className="ml-1.5 text-xs text-orange-500">(contra)</span>
-                        )}
-                      </td>
-
-                      {/* Taxonomy code (editable) + lock toggle */}
-                      <td className="px-3 py-1.5">
-                        {!line.is_subtotal ? (
-                          <div className="flex items-center gap-1">
-                            <EditableCell
-                              value={line.taxonomy_code ?? line.suggested_taxonomy_code}
-                              placeholder="unmapped"
-                              onSave={(v) =>
-                                onUpdateLine(line.id, { taxonomy_code: v || null, taxonomy_locked: true })
-                              }
-                              testId={`taxonomy-code-${line.id}`}
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onUpdateLine(line.id, { taxonomy_locked: !line.taxonomy_locked })
-                              }
-                              title={line.taxonomy_locked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
-                              className="text-gray-300 hover:text-gray-600 transition-colors flex-shrink-0"
-                              data-testid={`taxonomy-lock-${line.id}`}
-                            >
-                              {line.taxonomy_locked ? (
-                                <Lock className="w-3 h-3 text-amber-500" />
-                              ) : (
-                                <Unlock className="w-3 h-3" />
-                              )}
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-
-                      {/* Legal entity code */}
-                      <td className="px-3 py-1.5 text-xs text-gray-500" data-testid="legal-entity-cell">
-                        {line.legal_entity_code ?? <span className="text-gray-300">—</span>}
-                      </td>
-
-                      {/* Consolidation group */}
-                      <td className="px-3 py-1.5 text-xs text-gray-500" data-testid="consol-group-cell">
-                        {!line.is_subtotal ? (
+            {!isCollapsed && (
+              <AccountingDataGrid
+                columns={[
+                  {
+                    key: 'official_account_code',
+                    header: 'Acct #',
+                    sortable: true,
+                    sortValue: (l) => l.official_account_code ?? l.temp_account_code,
+                    render: (l) => (
+                      <div className="flex flex-col">
+                        {!l.is_subtotal ? (
                           <EditableCell
-                            value={line.consolidation_group}
-                            placeholder="none"
-                            onSave={(v) =>
-                              onUpdateLine(line.id, { consolidation_group: v || null })
-                            }
-                            testId={`consol-group-${line.id}`}
+                            value={l.official_account_code}
+                            placeholder="assign…"
+                            mono
+                            onSave={(v) => onUpdateLine(l.id, { official_account_code: v || null })}
+                            testId={`official-code-${l.id}`}
                           />
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
-                      </td>
-
-                      {/* Amount */}
-                      <td className="px-3 py-1.5 text-right font-mono">
-                        {fmt(line.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>}
+                        <span className="font-mono text-[10px] text-gray-300 mt-0.5 truncate" title={`Stable code: ${l.temp_account_code}`} data-testid="stable-code">
+                          {l.temp_account_code}
+                        </span>
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'account_name',
+                    header: 'Account Name',
+                    sortable: true,
+                    sortValue: (l) => l.account_name,
+                    render: (l) => (
+                      <div className="flex items-center gap-1.5">
+                        {!l.is_subtotal ? (
+                          <EditableCell
+                            value={l.account_name}
+                            onSave={(v) => onUpdateLine(l.id, { account_name: v || null })}
+                            testId={`applied-name-${l.id}`}
+                          />
+                        ) : (
+                          <span>{l.account_name}</span>
+                        )}
+                        {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'taxonomy_code',
+                    header: 'Taxonomy',
+                    sortable: true,
+                    sortValue: (l) => l.taxonomy_code ?? l.suggested_taxonomy_code ?? '',
+                    render: (l) => (
+                      <div className="flex items-center gap-1">
+                        {!l.is_subtotal ? (
+                          <>
+                            <EditableCell
+                              value={l.taxonomy_code ?? l.suggested_taxonomy_code}
+                              placeholder="unmapped"
+                              onSave={(v) => onUpdateLine(l.id, { taxonomy_code: v || null, taxonomy_locked: true })}
+                              testId={`taxonomy-code-${l.id}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => onUpdateLine(l.id, { taxonomy_locked: !l.taxonomy_locked })}
+                              title={l.taxonomy_locked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
+                              className="text-gray-300 hover:text-gray-600 transition-colors flex-shrink-0 ml-1"
+                              data-testid={`taxonomy-lock-${l.id}`}
+                            >
+                              {l.taxonomy_locked ? (
+                                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                              ) : (
+                                <Unlock className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'legal_entity_code',
+                    header: 'Legal Entity',
+                    sortable: true,
+                    sortValue: (l) => l.legal_entity_code ?? '',
+                    render: (l) => <span data-testid="legal-entity-cell">{l.legal_entity_code ?? '—'}</span>
+                  },
+                  {
+                    key: 'consolidation_group',
+                    header: 'Consol. Group',
+                    sortable: true,
+                    sortValue: (l) => l.consolidation_group ?? '',
+                    render: (l) => (
+                      <div className="flex items-center" data-testid="consol-group-cell">
+                        {!l.is_subtotal ? (
+                          <EditableCell
+                            value={l.consolidation_group}
+                            placeholder="none"
+                            onSave={(v) => onUpdateLine(l.id, { consolidation_group: v || null })}
+                            testId={`consol-group-${l.id}`}
+                          />
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </div>
+                    )
+                  },
+                  {
+                    key: 'amount',
+                    header: 'Amount',
+                    sortable: true,
+                    sortValue: (l) => parseFloat(l.amount || '0'),
+                    className: 'text-right font-mono',
+                    render: (l) => (
+                      <div className="flex items-center justify-end font-mono">
+                        {!l.is_subtotal ? (
+                          <EditableCell
+                            value={l.amount}
+                            displayValue={fmt(l.amount)}
+                            onSave={(v) => onUpdateLine(l.id, { amount: v || null })}
+                            testId={`applied-amount-${l.id}`}
+                          />
+                        ) : (
+                          <span>{fmt(l.amount)}</span>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+                data={groupLines}
+                rowKey={(l) => l.id}
+                exportFilename={`${stmtLabel}_${sectionLabel}_applied`}
+                selectionEnabled={false}
+                pageSize={100}
+              />
+            )}
           </div>
         )
       })}
@@ -1003,6 +1028,128 @@ export function PDFImportPage() {
             const isCollapsed = collapsedSections.has(groupKey)
             const { calculated, pdfSubtotal, variance } = getGroupTotals(allPreviewGroups[groupKey]?.lines ?? [])
 
+            const gridColumns = [
+              {
+                key: 'proposed_account_code',
+                header: 'Acct #',
+                sortable: true,
+                sortValue: (l: PDFImportPreviewLine) => l.proposed_account_code ?? l.temp_account_code,
+                render: (l: PDFImportPreviewLine) => {
+                  const lineIndex = (preview?.lines ?? []).indexOf(l)
+                  return (
+                    <div className="flex flex-col">
+                      {!l.is_subtotal && lineIndex >= 0 ? (
+                        <EditableCell
+                          value={l.proposed_account_code}
+                          placeholder="assign…"
+                          mono
+                          onSave={(v) =>
+                            patchPreviewLineMutation.mutate({ lineIndex, patch: { proposed_account_code: v || null } })
+                          }
+                          testId={`proposed-code-${lineIndex}`}
+                        />
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                      <span className="font-mono text-[10px] text-gray-300 mt-0.5 truncate" title={`Stable code: ${l.temp_account_code}`} data-testid="stable-code">
+                        {l.temp_account_code}
+                      </span>
+                    </div>
+                  )
+                }
+              },
+              {
+                key: 'account_name',
+                header: 'Account Name',
+                sortable: true,
+                sortValue: (l: PDFImportPreviewLine) => l.account_name,
+                render: (l: PDFImportPreviewLine) => {
+                  const lineIndex = (preview?.lines ?? []).indexOf(l)
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      {!l.is_subtotal && lineIndex >= 0 ? (
+                        <EditableCell
+                          value={l.account_name}
+                          onSave={(v) =>
+                            patchPreviewLineMutation.mutate({ lineIndex, patch: { account_name: v } })
+                          }
+                          testId={`preview-name-${lineIndex}`}
+                        />
+                      ) : (
+                        <span>{l.account_name}</span>
+                      )}
+                      {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
+                    </div>
+                  )
+                }
+              },
+              ...(showMapping ? [
+                {
+                  key: 'suggested_taxonomy_code',
+                  header: 'Taxonomy',
+                  sortable: true,
+                  sortValue: (l: PDFImportPreviewLine) => l.suggested_taxonomy_code ?? '',
+                  render: (l: PDFImportPreviewLine) => {
+                    const lineIndex = (preview?.lines ?? []).indexOf(l)
+                    return (
+                      <EditableCell
+                        value={l.suggested_taxonomy_code}
+                        placeholder="unmapped"
+                        onSave={(v) =>
+                          patchPreviewLineMutation.mutate({ lineIndex, patch: { suggested_taxonomy_code: v || null } })
+                        }
+                        testId={`preview-taxonomy-${lineIndex}`}
+                      />
+                    )
+                  }
+                },
+                {
+                  key: 'mapping_confidence',
+                  header: 'Confidence',
+                  sortable: true,
+                  sortValue: (l: PDFImportPreviewLine) => l.mapping_confidence ?? '',
+                  render: (l: PDFImportPreviewLine) => l.mapping_confidence ? (
+                    <span className={`px-1.5 py-0.5 rounded text-xs border ${CONFIDENCE_COLORS[l.mapping_confidence] ?? ''}`}>
+                      {l.mapping_confidence}
+                    </span>
+                  ) : <span className="text-gray-300">—</span>
+                },
+                {
+                  key: 'mapping_evidence',
+                  header: 'Evidence',
+                  sortable: true,
+                  sortValue: (l: PDFImportPreviewLine) => l.mapping_evidence ?? '',
+                  render: (l: PDFImportPreviewLine) => <span className="text-gray-400 text-xs truncate max-w-[128px]" title={l.mapping_evidence ?? ''}>{l.mapping_evidence ?? '—'}</span>
+                }
+              ] : []),
+              {
+                key: 'amount',
+                header: 'Amount',
+                sortable: true,
+                sortValue: (l: PDFImportPreviewLine) => parseFloat(l.amount || '0'),
+                className: 'text-right font-mono',
+                render: (l: PDFImportPreviewLine) => {
+                  const lineIndex = (preview?.lines ?? []).indexOf(l)
+                  return (
+                    <div className="flex items-center justify-end font-mono">
+                      {!l.is_subtotal && lineIndex >= 0 ? (
+                        <EditableCell
+                          value={l.amount}
+                          displayValue={fmt(l.amount)}
+                          onSave={(v) =>
+                            patchPreviewLineMutation.mutate({ lineIndex, patch: { amount: v } })
+                          }
+                          testId={`preview-amount-${lineIndex}`}
+                        />
+                      ) : (
+                        <span>{fmt(l.amount)}</span>
+                      )}
+                    </div>
+                  )
+                }
+              }
+            ]
+
             return (
               <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <button
@@ -1032,80 +1179,14 @@ export function PDFImportPage() {
                   </span>
                 </button>
                 {!isCollapsed && (
-                  <table className="w-full text-sm">
-                    <thead className="text-xs text-gray-500 border-b border-gray-100">
-                      <tr>
-                        <th className="px-3 py-2 text-left w-24">Acct #</th>
-                        <th className="px-3 py-2 text-left">Account Name</th>
-                        {showMapping && (
-                          <>
-                            <th className="px-3 py-2 text-left w-36">Taxonomy</th>
-                            <th className="px-3 py-2 text-left w-20">Confidence</th>
-                            <th className="px-3 py-2 text-left w-32">Evidence</th>
-                          </>
-                        )}
-                        <th className="px-3 py-2 text-right w-28">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {groupLines.map((line) => {
-                        const lineIndex = (preview?.lines ?? []).indexOf(line)
-                        return (
-                          <tr
-                            key={line.temp_account_code}
-                            className={`hover:bg-gray-50 ${line.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}
-                            data-subtotal={line.is_subtotal ? 'true' : undefined}
-                          >
-                            {/* Proposed account number (friendly), temp code as fallback and tooltip */}
-                            <td className="px-3 py-1.5">
-                              <span
-                                className="font-mono text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100"
-                                title={`Internal stable code: ${line.temp_account_code}`}
-                              >
-                                {line.proposed_account_code ?? line.temp_account_code}
-                              </span>
-                            </td>
-                            <td className="px-3 py-1.5 text-gray-800">
-                              {!line.is_subtotal && lineIndex >= 0 ? (
-                                <EditableCell
-                                  value={line.account_name}
-                                  onSave={(v) =>
-                                    patchPreviewLineMutation.mutate({ lineIndex, patch: { account_name: v } })
-                                  }
-                                  testId={`preview-name-${lineIndex}`}
-                                />
-                              ) : (
-                                line.account_name
-                              )}
-                              {line.is_contra && (
-                                <span className="ml-1.5 text-xs text-orange-500">(contra)</span>
-                              )}
-                            </td>
-                            {showMapping && (
-                              <>
-                                <td className="px-3 py-1.5 text-xs text-indigo-600">
-                                  {line.suggested_taxonomy_code ?? '—'}
-                                </td>
-                                <td className="px-3 py-1.5">
-                                  {line.mapping_confidence && (
-                                    <span className={`px-1.5 py-0.5 rounded text-xs border ${CONFIDENCE_COLORS[line.mapping_confidence] ?? ''}`}>
-                                      {line.mapping_confidence}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-3 py-1.5 text-xs text-gray-400 truncate max-w-[128px]" title={line.mapping_evidence ?? ''}>
-                                  {line.mapping_evidence ?? '—'}
-                                </td>
-                              </>
-                            )}
-                            <td className="px-3 py-1.5 text-right font-mono text-sm">
-                              {fmt(line.amount)}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                  <AccountingDataGrid
+                    columns={gridColumns}
+                    data={groupLines}
+                    rowKey={(l) => l.temp_account_code}
+                    exportFilename={`${stmtLabel}_${sectionLabel}_preview`}
+                    selectionEnabled={false}
+                    pageSize={100}
+                  />
                 )}
               </div>
             )

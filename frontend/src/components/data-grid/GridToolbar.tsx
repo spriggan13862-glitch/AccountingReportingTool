@@ -24,6 +24,7 @@ interface GridToolbarProps<T> {
   filteredCount: number
   toolbarLeft?: React.ReactNode
   toolbarRight?: React.ReactNode
+  searchPlaceholder?: string
   'data-testid'?: string
 }
 
@@ -56,6 +57,7 @@ export function GridToolbar<T>({
   filteredCount,
   toolbarLeft,
   toolbarRight,
+  searchPlaceholder = 'Search…',
   'data-testid': testId,
 }: GridToolbarProps<T>) {
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -82,7 +84,7 @@ export function GridToolbar<T>({
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
         <input
           type="text"
-          placeholder="Search…"
+          placeholder={searchPlaceholder}
           value={search}
           onChange={(e) => onSearch(e.target.value)}
           className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400"

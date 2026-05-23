@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db, get_storage
@@ -191,17 +191,25 @@ def import_registry(
     Returns a chronologically-sorted list (newest first) suitable for the
     Documents Center registry view.  Each entry has:
       id, source_module, filename, entity_id, status, line_count,
-      created_at, description
+      created_at, description, document_id
     """
     from app.models.pdf_import_batch import PDFImportBatch
     from app.models.import_batch import ImportBatch
     from app.models.coa_import_batch import COAImportBatch
     from app.models.entity import Entity
+    from app.models.document_link import DocumentLink
 
     entities = db.query(Entity).all()
     entity_map = {e.id: e.name for e in entities}
 
     entries: list[dict[str, Any]] = []
+
+    def get_linked_doc_id(obj_type: str, obj_id: int) -> int | None:
+        link = db.query(DocumentLink).filter(
+            DocumentLink.linked_object_type == obj_type,
+            DocumentLink.linked_object_id == obj_id
+        ).first()
+        return link.document_id if link else None
 
     # PDF imports
     pdf_q = db.query(PDFImportBatch)
@@ -221,6 +229,7 @@ def import_registry(
             "created_at": b.created_at.isoformat() if b.created_at else None,
             "basis_of_accounting": b.basis_of_accounting,
             "statement_date": b.statement_date,
+            "document_id": get_linked_doc_id("pdf_import", b.id),
         })
 
     # Trial balance imports
@@ -241,6 +250,7 @@ def import_registry(
             "created_at": b.uploaded_at.isoformat() if b.uploaded_at else None,
             "basis_of_accounting": None,
             "statement_date": str(b.as_of_date) if b.as_of_date else None,
+            "document_id": get_linked_doc_id("tb_import", b.id),
         })
 
     # COA imports
@@ -263,6 +273,7 @@ def import_registry(
                 "created_at": b.created_at.isoformat() if hasattr(b, "created_at") and b.created_at else None,
                 "basis_of_accounting": None,
                 "statement_date": None,
+                "document_id": get_linked_doc_id("coa_import", b.id),
             })
     except Exception:
         pass  # COA import table may not exist in all environments
@@ -270,3 +281,24 @@ def import_registry(
     # Sort by created_at descending (newest first), None dates last
     entries.sort(key=lambda e: e.get("created_at") or "", reverse=True)
     return entries[:limit]
+
+
+@router.get("/documents/{doc_id}/download")
+def download_document(
+    doc_id: int,
+    db: Session = Depends(get_db),
+    storage: StorageBackend = Depends(get_storage),
+):
+    """Download a document's raw content by its id."""
+    try:
+        doc = get_document_or_raise(db, doc_id)
+        content = get_document_content(doc, storage)
+        return Response(
+            content=content,
+            media_type=doc.mime_type or "application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{doc.original_file_name}"'},
+        )
+    except DocumentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except DocumentDeletedError as exc:
+        raise HTTPException(status_code=410, detail=str(exc))

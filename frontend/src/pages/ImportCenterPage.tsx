@@ -9,6 +9,8 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
+import { AccountingDataGrid } from '@/components/data-grid'
+import type { GridColumn, RowAction } from '@/components/data-grid'
 import type { ImportBatch, ImportBatchStatus } from '@/types'
 
 function statusBadge(status: ImportBatchStatus) {
@@ -255,54 +257,70 @@ export function ImportCenterPage() {
 
       {/* Batch history */}
       <div className="bg-white border border-gray-200 rounded-lg">
-        <div className="px-4 py-3 border-b border-gray-100">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-800">Import History</h2>
         </div>
-        {isLoading ? (
-          <p className="px-4 py-6 text-sm text-gray-400">Loading…</p>
-        ) : !batches?.length ? (
-          <div className="px-4 py-10 text-center">
-            <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500 font-medium">No imports yet</p>
-            <p className="text-xs text-gray-400 mt-1">Upload a trial balance or GL export above to begin.</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr>
-                <th className="px-4 py-2 text-left">File</th>
-                <th className="px-4 py-2 text-left">As of</th>
-                <th className="px-4 py-2 text-left">Rows</th>
-                <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 text-left">Uploaded</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {batches.map((b: ImportBatch) => (
-                <tr
-                  key={b.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => navigate(`/import/${b.id}`)}
-                >
-                  <td className="px-4 py-3 font-medium text-gray-900">{b.filename}</td>
-                  <td className="px-4 py-3 text-gray-600">{b.as_of_date}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {b.row_count ?? '—'}
-                    {b.unmapped_row_count ? (
-                      <span className="ml-1 text-yellow-600">({b.unmapped_row_count} unmapped)</span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">{statusBadge(b.status)}</td>
-                  <td className="px-4 py-3 text-gray-500">{new Date(b.uploaded_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-gray-400">
-                    <ChevronRight className="w-4 h-4" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <AccountingDataGrid
+          columns={[
+            {
+              key: 'filename',
+              header: 'File',
+              sortable: true,
+              sortValue: (b) => b.filename,
+              render: (b) => <span className="font-semibold text-gray-900">{b.filename}</span>,
+            },
+            {
+              key: 'as_of_date',
+              header: 'As of',
+              sortable: true,
+              sortValue: (b) => b.as_of_date,
+              render: (b) => <span className="text-gray-600">{b.as_of_date}</span>,
+            },
+            {
+              key: 'row_count',
+              header: 'Rows',
+              sortable: true,
+              sortValue: (b) => b.row_count ?? 0,
+              render: (b) => (
+                <span className="text-gray-600">
+                  {b.row_count ?? '—'}
+                  {b.unmapped_row_count ? (
+                    <span className="ml-1 text-yellow-600">({b.unmapped_row_count} unmapped)</span>
+                  ) : null}
+                </span>
+              ),
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              sortable: true,
+              sortValue: (b) => b.status,
+              render: (b) => statusBadge(b.status),
+            },
+            {
+              key: 'uploaded_at',
+              header: 'Uploaded',
+              sortable: true,
+              sortValue: (b) => b.uploaded_at,
+              render: (b) => <span className="text-gray-500">{new Date(b.uploaded_at).toLocaleDateString()}</span>,
+            },
+          ]}
+          data={batches ?? []}
+          rowKey={(b) => b.id}
+          onRowClick={(b) => navigate(`/import/${b.id}`)}
+          rowActions={[
+            {
+              key: 'view',
+              label: 'Open Import Details',
+              icon: ChevronRight,
+              onClick: (b) => navigate(`/import/${b.id}`),
+            },
+          ]}
+          exportFilename="trial_balance_imports"
+          loading={isLoading}
+          emptyMessage="No trial balance imports found."
+          data-testid="import-history-grid"
+        />
       </div>
     </PageLayout>
   )
