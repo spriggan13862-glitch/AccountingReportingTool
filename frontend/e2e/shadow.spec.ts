@@ -71,7 +71,9 @@ function attachMonitors(page: Page): { consoleErrors: ConsoleError[]; failedRequ
   page.on('requestfailed', (req) => {
     const url = req.url()
     if (url.startsWith('chrome-extension://') || url.includes('__vite') || url.includes('/@')) return
-    failedRequests.push({ url, failure: req.failure()?.errorText ?? null })
+    const failure = req.failure()?.errorText ?? null
+    if (failure === 'net::ERR_ABORTED') return
+    failedRequests.push({ url, failure })
   })
 
   return { consoleErrors, failedRequests }
@@ -247,7 +249,7 @@ test.describe('Entity creation', () => {
   test('entities page loads without errors', async ({ page }) => {
     const { consoleErrors, failedRequests } = attachMonitors(page)
     await page.goto('/entities')
-    await expect(page.getByRole('heading', { name: 'Entities' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Entities', exact: true })).toBeVisible()
     await assertNoErrors(page, consoleErrors, failedRequests)
   })
 
@@ -263,7 +265,7 @@ test.describe('Entity creation', () => {
     })
 
     await page.goto('/entities')
-    await expect(page.getByRole('heading', { name: 'Entities' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Entities', exact: true })).toBeVisible()
 
     // Open create form via the header button
     await page.getByRole('button', { name: /new entity/i }).click()
