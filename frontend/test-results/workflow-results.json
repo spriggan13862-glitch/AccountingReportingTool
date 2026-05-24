@@ -28,7 +28,8 @@
         "testIgnore": [],
         "testMatch": [
           "**/workflow.spec.ts",
-          "**/accounting.spec.ts"
+          "**/accounting.spec.ts",
+          "**/pdf_import.spec.ts"
         ],
         "timeout": 30000
       }
@@ -88,12 +89,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2530,
+                      "duration": 2754,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:05.308Z",
+                      "startTime": "2026-05-24T18:24:09.333Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -122,12 +123,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 4354,
+                      "duration": 2732,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:08.886Z",
+                      "startTime": "2026-05-24T18:24:13.337Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -156,12 +157,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5127,
+                      "duration": 3181,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:13.348Z",
+                      "startTime": "2026-05-24T18:24:16.093Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -190,12 +191,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5229,
+                      "duration": 3382,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:18.592Z",
+                      "startTime": "2026-05-24T18:24:19.310Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -232,12 +233,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2423,
+                      "duration": 2219,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:23.865Z",
+                      "startTime": "2026-05-24T18:24:22.716Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -266,12 +267,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2288,
+                      "duration": 2276,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:26.331Z",
+                      "startTime": "2026-05-24T18:24:24.953Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -300,12 +301,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2442,
+                      "duration": 2441,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:28.650Z",
+                      "startTime": "2026-05-24T18:24:27.245Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -334,12 +335,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2508,
+                      "duration": 2585,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:31.122Z",
+                      "startTime": "2026-05-24T18:24:29.716Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -368,12 +369,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2465,
+                      "duration": 2921,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:33.675Z",
+                      "startTime": "2026-05-24T18:24:32.323Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -402,12 +403,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2823,
+                      "duration": 2715,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:36.176Z",
+                      "startTime": "2026-05-24T18:24:35.260Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -436,12 +437,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3216,
+                      "duration": 2594,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:39.031Z",
+                      "startTime": "2026-05-24T18:24:37.992Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -478,12 +479,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 772,
+                      "duration": 643,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:42.274Z",
+                      "startTime": "2026-05-24T18:24:40.612Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -512,12 +513,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 408,
+                      "duration": 306,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:43.074Z",
+                      "startTime": "2026-05-24T18:24:41.263Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -546,12 +547,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 300,
+                      "duration": 298,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:43.495Z",
+                      "startTime": "2026-05-24T18:24:41.575Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -580,12 +581,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 298,
+                      "duration": 321,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:43.807Z",
+                      "startTime": "2026-05-24T18:24:41.879Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -614,12 +615,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 292,
+                      "duration": 329,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:44.113Z",
+                      "startTime": "2026-05-24T18:24:42.206Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -648,12 +649,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 295,
+                      "duration": 333,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:44.413Z",
+                      "startTime": "2026-05-24T18:24:42.542Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -682,12 +683,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 273,
+                      "duration": 322,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:44.722Z",
+                      "startTime": "2026-05-24T18:24:42.882Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -716,12 +717,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 266,
+                      "duration": 307,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:45.007Z",
+                      "startTime": "2026-05-24T18:24:43.210Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -758,12 +759,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1874,
+                      "duration": 2113,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:45.284Z",
+                      "startTime": "2026-05-24T18:24:43.523Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -800,12 +801,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2076,
+                      "duration": 2181,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:47.174Z",
+                      "startTime": "2026-05-24T18:24:45.649Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -834,12 +835,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3292,
+                      "duration": 2700,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:49.286Z",
+                      "startTime": "2026-05-24T18:24:47.847Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -853,6 +854,592 @@
               "column": 3
             }
           ]
+        }
+      ]
+    },
+    {
+      "title": "pdf_import.spec.ts",
+      "file": "pdf_import.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "API P1 — PDF upload endpoint accepts PDF and returns preview",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 673,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:50.594Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-8f37ce13cd9a626349a8",
+          "file": "pdf_import.spec.ts",
+          "line": 64,
+          "column": 1
+        },
+        {
+          "title": "API P2 — validation endpoint: all 13 checks pass",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 23,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:51.679Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-5041693a3ae1c48d1e81",
+          "file": "pdf_import.spec.ts",
+          "line": 102,
+          "column": 1
+        },
+        {
+          "title": "API P3 — mapping endpoint: buckets by taxonomy code",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:51.711Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-0c11e9c89441f8ca8668",
+          "file": "pdf_import.spec.ts",
+          "line": 141,
+          "column": 1
+        },
+        {
+          "title": "API P4 — apply endpoint: persists lines and updates status",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 103,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:51.743Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-63d9501d99af5f901285",
+          "file": "pdf_import.spec.ts",
+          "line": 163,
+          "column": 1
+        },
+        {
+          "title": "API P5 — list endpoint: shows applied batch",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:51.858Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-955003525f64df0ad155",
+          "file": "pdf_import.spec.ts",
+          "line": 176,
+          "column": 1
+        },
+        {
+          "title": "UI P1 — PDF Import page loads and shows upload zone",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2292,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:51.884Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-ec50db2b6bb4555231be",
+          "file": "pdf_import.spec.ts",
+          "line": 195,
+          "column": 1
+        },
+        {
+          "title": "UI P2 — PDF Import page accessible from sidebar",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2757,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:54.190Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-a88883bebbb8f8f5667f",
+          "file": "pdf_import.spec.ts",
+          "line": 203,
+          "column": 1
+        },
+        {
+          "title": "UI P3 — Upload Hero Group PDF and see preview",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4144,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:24:56.968Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-390b25fe3e3ee8d2ad63",
+          "file": "pdf_import.spec.ts",
+          "line": 211,
+          "column": 1
+        },
+        {
+          "title": "UI P4 — Preview shows passing validation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3371,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:01.129Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-386d1366e8eba79518c5",
+          "file": "pdf_import.spec.ts",
+          "line": 235,
+          "column": 1
+        },
+        {
+          "title": "UI P5 — Preview table shows extracted accounts",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3342,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:04.514Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-544db7f603545fdc8221",
+          "file": "pdf_import.spec.ts",
+          "line": 252,
+          "column": 1
+        },
+        {
+          "title": "API P6 — lines endpoint returns persisted lines with stable codes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 334,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:07.870Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-67b350c4d0043d6fbd1c",
+          "file": "pdf_import.spec.ts",
+          "line": 272,
+          "column": 1
+        },
+        {
+          "title": "API P7 — audit endpoint returns full extraction trail",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 18,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:08.211Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-4733ef26c6c248560384",
+          "file": "pdf_import.spec.ts",
+          "line": 303,
+          "column": 1
+        },
+        {
+          "title": "API P8 — PATCH line updates taxonomy code and locks it",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 42,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:08.237Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-36f9cc1667b2c5e59970",
+          "file": "pdf_import.spec.ts",
+          "line": 329,
+          "column": 1
+        },
+        {
+          "title": "UI P6 — Upload, apply, and see applied view with stable codes",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3884,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:08.286Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-ba5c6bcad2abfeb0d865",
+          "file": "pdf_import.spec.ts",
+          "line": 371,
+          "column": 1
+        },
+        {
+          "title": "UI P7 — Applied view shows all M36b columns",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4060,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:12.180Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-90ae91cffce3aa49c87b",
+          "file": "pdf_import.spec.ts",
+          "line": 403,
+          "column": 1
+        },
+        {
+          "title": "UI P8 — Audit trail tab shows extraction evidence",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4952,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:16.256Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-c60cc61ca4d0e20d3b8f",
+          "file": "pdf_import.spec.ts",
+          "line": 430,
+          "column": 1
+        },
+        {
+          "title": "UI P9 — Batch history appears on upload step and links to applied view",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3097,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-05-24T18:25:21.222Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4de874d7ab7d1e04efaa-3b697f45dcdbeed581ad",
+          "file": "pdf_import.spec.ts",
+          "line": 456,
+          "column": 1
         }
       ]
     },
@@ -885,12 +1472,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 783,
+                      "duration": 1057,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:52.647Z",
+                      "startTime": "2026-05-24T18:25:24.362Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -919,12 +1506,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1999,
+                      "duration": 2223,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:53.459Z",
+                      "startTime": "2026-05-24T18:25:25.439Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -961,12 +1548,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2075,
+                      "duration": 2049,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:55.479Z",
+                      "startTime": "2026-05-24T18:25:27.681Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1003,12 +1590,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2214,
+                      "duration": 2406,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:57.586Z",
+                      "startTime": "2026-05-24T18:25:29.754Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1037,12 +1624,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2786,
+                      "duration": 2902,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:02:59.851Z",
+                      "startTime": "2026-05-24T18:25:32.176Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1079,12 +1666,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2742,
+                      "duration": 2517,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:02.675Z",
+                      "startTime": "2026-05-24T18:25:35.094Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1113,12 +1700,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2792,
+                      "duration": 3081,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:05.437Z",
+                      "startTime": "2026-05-24T18:25:37.631Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1147,12 +1734,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 5777,
+                      "duration": 3959,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:08.253Z",
+                      "startTime": "2026-05-24T18:25:40.727Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1170,7 +1757,7 @@
         {
           "title": "Workflow: Chart of Accounts",
           "file": "workflow.spec.ts",
-          "line": 166,
+          "line": 172,
           "column": 6,
           "specs": [
             {
@@ -1189,12 +1776,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2024,
+                      "duration": 2303,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:14.058Z",
+                      "startTime": "2026-05-24T18:25:44.705Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1204,7 +1791,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-0c1a4633b30f3935edcc",
               "file": "workflow.spec.ts",
-              "line": 169,
+              "line": 175,
               "column": 3
             }
           ]
@@ -1212,7 +1799,7 @@
         {
           "title": "Workflow: TB Import",
           "file": "workflow.spec.ts",
-          "line": 183,
+          "line": 189,
           "column": 6,
           "specs": [
             {
@@ -1231,12 +1818,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2199,
+                      "duration": 2370,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:16.103Z",
+                      "startTime": "2026-05-24T18:25:47.023Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1246,7 +1833,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-963fc0a8fa25783ea0bd",
               "file": "workflow.spec.ts",
-              "line": 186,
+              "line": 192,
               "column": 3
             },
             {
@@ -1265,12 +1852,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2745,
+                      "duration": 2349,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:18.354Z",
+                      "startTime": "2026-05-24T18:25:49.408Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1280,7 +1867,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-705be9acfbd7049e81b5",
               "file": "workflow.spec.ts",
-              "line": 193,
+              "line": 199,
               "column": 3
             },
             {
@@ -1299,12 +1886,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2866,
+                      "duration": 2467,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:21.170Z",
+                      "startTime": "2026-05-24T18:25:51.772Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1314,7 +1901,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-28a9fd3a6afb16b2a819",
               "file": "workflow.spec.ts",
-              "line": 201,
+              "line": 207,
               "column": 3
             }
           ]
@@ -1322,7 +1909,7 @@
         {
           "title": "Workflow: Financial Statements",
           "file": "workflow.spec.ts",
-          "line": 221,
+          "line": 227,
           "column": 6,
           "specs": [
             {
@@ -1341,12 +1928,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2792,
+                      "duration": 2322,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:24.084Z",
+                      "startTime": "2026-05-24T18:25:54.256Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1356,7 +1943,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-f910feef7469424e7c8c",
               "file": "workflow.spec.ts",
-              "line": 224,
+              "line": 230,
               "column": 3
             },
             {
@@ -1375,12 +1962,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2681,
+                      "duration": 2292,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:26.913Z",
+                      "startTime": "2026-05-24T18:25:56.594Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1390,7 +1977,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-b5b336fe40b2b646d85a",
               "file": "workflow.spec.ts",
-              "line": 233,
+              "line": 239,
               "column": 3
             },
             {
@@ -1409,12 +1996,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 4530,
+                      "duration": 5202,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:29.643Z",
+                      "startTime": "2026-05-24T18:25:58.904Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1424,7 +2011,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-7b82343073a51234e075",
               "file": "workflow.spec.ts",
-              "line": 248,
+              "line": 247,
               "column": 3
             }
           ]
@@ -1432,7 +2019,7 @@
         {
           "title": "Workflow: Draft Preview",
           "file": "workflow.spec.ts",
-          "line": 276,
+          "line": 275,
           "column": 6,
           "specs": [
             {
@@ -1451,12 +2038,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1928,
+                      "duration": 2770,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-22T17:03:34.209Z",
+                      "startTime": "2026-05-24T18:26:04.119Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -1466,7 +2053,7 @@
               ],
               "id": "c601ceb5ecfc8efa4a14-dc2bd3e10457d965390d",
               "file": "workflow.spec.ts",
-              "line": 279,
+              "line": 278,
               "column": 3
             }
           ]
@@ -1476,9 +2063,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-05-22T17:01:58.667Z",
-    "duration": 98686.22,
-    "expected": 38,
+    "startTime": "2026-05-24T18:24:02.308Z",
+    "duration": 126623.73199999999,
+    "expected": 55,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

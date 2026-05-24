@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   Upload, BookOpen, CheckCircle, EyeOff, GitPullRequest,
   ClipboardList, TrendingUp, ChevronDown, ChevronRight, ExternalLink,
-  Map, BarChart2, FileSpreadsheet, Download, Building2, ArrowRight,
+  Map, BarChart2, FileSpreadsheet, Download, Building2, ArrowRight, Sparkles, HelpCircle,
 } from 'lucide-react'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { cn } from '@/utils/cn'
 
 interface Guide {
   icon: React.ElementType
@@ -58,6 +59,7 @@ const guides: Guide[] = [
       'Use "Accept All Suggestions" to bulk-apply all AI matches at once.',
       'Tab between rows for keyboard-driven mapping flow.',
       'Export your completed mapping to CSV as a template for future imports.',
+      'Clicking a mapped account lets you manually edit it.',
     ],
   },
   {
@@ -232,7 +234,7 @@ const TEMPLATES: Template[] = [
       '3000,Common Stock,-50000.00',
       '4000,Revenue,-100000.00',
       '5000,Cost of Goods Sold,60000.00',
-      '6000,Operating Expenses,45000.00',
+      '6000,Operating Expenses,45000.05',
     ].join('\n'),
   },
   {
@@ -288,127 +290,149 @@ export function HelpCenterPage() {
 
   return (
     <PageLayout title="Help Center" subtitle="Guides, walkthroughs, templates, and FAQs">
-      {/* Getting started banner */}
-      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6">
-        <h2 className="text-sm font-semibold text-indigo-900 mb-1">Getting Started</h2>
-        <p className="text-sm text-indigo-700 mb-3">
-          Recommended first steps for a new deployment:
-        </p>
-        <ol className="text-sm text-indigo-800 space-y-1 list-decimal list-inside">
-          <li>Create your entity (Entities page)</li>
-          <li>Upload a historical trial balance (Import Wizard)</li>
-          <li>Map any unmapped accounts to your Chart of Accounts</li>
-          <li>Validate and post the import</li>
-          <li>Run comparative financials to review period-over-period data</li>
-          <li>Create a close checklist and run shadow-close validation</li>
-        </ol>
-        <button
-          type="button"
-          onClick={() => navigate('/entities')}
-          className="mt-3 flex items-center gap-1 text-sm text-indigo-600 font-medium hover:text-indigo-800"
-        >
-          Start with Entities <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* Downloadable Templates */}
-      <div className="mb-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Downloadable Templates</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {TEMPLATES.map((tmpl, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 flex items-start gap-3">
-              <FileSpreadsheet className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800">{tmpl.name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{tmpl.description}</p>
-                <button
-                  type="button"
-                  onClick={() => downloadCsv(tmpl)}
-                  className="mt-2 flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download {tmpl.filename}
-                </button>
-              </div>
-            </div>
-          ))}
+      <div className="space-y-6 max-w-5xl">
+        {/* Getting Started Banner */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-sm transition-all duration-300">
+          <h2 className="text-sm font-bold text-slate-850 mb-1.5 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+            Getting Started
+          </h2>
+          <p className="text-xs text-slate-500 mb-4">
+            Recommended first steps for a new deployment:
+          </p>
+          <ol className="text-xs text-slate-600 space-y-2 list-decimal list-inside bg-white p-3 rounded-lg border border-slate-100 font-medium">
+            <li>Create your entity (Entities page)</li>
+            <li>Upload a historical trial balance (Import Wizard)</li>
+            <li>Map any unmapped accounts to your Chart of Accounts</li>
+            <li>Validate and post the import</li>
+            <li>Run comparative financials to review period-over-period data</li>
+            <li>Create a close checklist and run shadow-close validation</li>
+          </ol>
+          <button
+            type="button"
+            onClick={() => navigate('/entities')}
+            className="mt-4 flex items-center gap-1.5 text-xs text-indigo-650 font-bold hover:text-indigo-800 transition-colors"
+          >
+            Start with Entities <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
-      </div>
 
-      {/* Guides */}
-      <div className="mb-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Workflow Guides</h2>
-        <div className="space-y-2">
-          {guides.map((guide, i) => {
-            const Icon = guide.icon
-            const isOpen = expandedGuide === i
-            return (
-              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setExpandedGuide(isOpen ? null : i)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
-                >
-                  <Icon className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{guide.title}</p>
-                    <p className="text-xs text-gray-500">{guide.description}</p>
-                  </div>
-                  {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                </button>
-                {isOpen && (
-                  <div className="px-4 pb-4 border-t border-gray-100">
-                    <ol className="mt-3 space-y-2">
-                      {guide.steps.map((step, j) => (
-                        <li key={j} className="flex gap-3 text-sm text-gray-700">
-                          <span className="flex-shrink-0 w-5 h-5 bg-indigo-100 text-indigo-700 rounded-full text-xs flex items-center justify-center font-semibold">
-                            {j + 1}
-                          </span>
-                          {step}
-                        </li>
-                      ))}
-                    </ol>
-                    {guide.route && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(guide.route!)}
-                        className="mt-4 flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" /> Open {guide.title.split(' ').pop()}
-                      </button>
+        {/* Downloadable Templates */}
+        <section>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <FileSpreadsheet className="w-4 h-4 text-slate-400" />
+            Downloadable Templates
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {TEMPLATES.map((tmpl, i) => (
+              <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 flex items-start gap-3 shadow-sm hover:border-slate-350 transition-all">
+                <FileSpreadsheet className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800">{tmpl.name}</p>
+                  <p className="text-[11px] text-slate-500 mt-1">{tmpl.description}</p>
+                  <button
+                    type="button"
+                    onClick={() => downloadCsv(tmpl)}
+                    className="mt-3 flex items-center gap-1 text-[11px] text-indigo-650 hover:text-indigo-850 font-bold transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download {tmpl.filename}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Workflow Guides */}
+        <section>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <ClipboardList className="w-4 h-4 text-slate-400" />
+            Workflow Guides
+          </h2>
+          <div className="space-y-3">
+            {guides.map((guide, i) => {
+              const Icon = guide.icon
+              const isOpen = expandedGuide === i
+              return (
+                <div key={i} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:border-slate-300 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedGuide(isOpen ? null : i)}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50/50 transition-colors"
+                  >
+                    <Icon className="w-4 h-4 text-indigo-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-800">{guide.title}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{guide.description}</p>
+                    </div>
+                    {isOpen ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                     )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+                  </button>
+                  {isOpen && (
+                    <div className="px-5 pb-5 border-t border-slate-100 bg-slate-50/30">
+                      <ol className="mt-4 space-y-3">
+                        {guide.steps.map((step, j) => (
+                          <li key={j} className="flex gap-3 text-xs text-slate-650 font-medium leading-relaxed">
+                            <span className="flex-shrink-0 w-5 h-5 bg-indigo-50 text-indigo-650 rounded-full text-[10px] flex items-center justify-center font-bold border border-indigo-100">
+                              {j + 1}
+                            </span>
+                            <span className="flex-1 pt-0.5">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                      {guide.route && (
+                        <button
+                          type="button"
+                          onClick={() => navigate(guide.route!)}
+                          className="mt-4 flex items-center gap-1.5 text-xs text-indigo-650 font-bold hover:text-indigo-850 transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" /> Open {guide.title.split(' ').pop()}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
 
-      {/* FAQ */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Frequently Asked Questions</h2>
-        <div className="space-y-2">
-          {FAQ.map((item, i) => {
-            const isOpen = expandedFaq === i
-            return (
-              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setExpandedFaq(isOpen ? null : i)}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50"
-                >
-                  <p className="text-sm font-medium text-gray-800">{item.q}</p>
-                  {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />}
-                </button>
-                {isOpen && (
-                  <div className="px-4 pb-4 border-t border-gray-100">
-                    <p className="mt-3 text-sm text-gray-600">{item.a}</p>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        {/* FAQ */}
+        <section>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <HelpCircle className="w-4 h-4 text-slate-400" />
+            Frequently Asked Questions
+          </h2>
+          <div className="space-y-3">
+            {FAQ.map((item, i) => {
+              const isOpen = expandedFaq === i
+              return (
+                <div key={i} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:border-slate-305 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedFaq(isOpen ? null : i)}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-slate-50/50 transition-colors"
+                  >
+                    <p className="text-xs font-bold text-slate-800">{item.q}</p>
+                    {isOpen ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+                  {isOpen && (
+                    <div className="px-5 pb-4 border-t border-slate-100 bg-slate-50/30">
+                      <p className="mt-3 text-xs text-slate-600 leading-relaxed font-medium">{item.a}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
       </div>
     </PageLayout>
   )

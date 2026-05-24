@@ -7,6 +7,7 @@ import {
   GripVertical, Undo2, Redo2, ChevronsDownUp, ChevronsUpDown, ArrowRightToLine,
   Archive, Eye, Copy, Lock, Unlock, Tag, History, SlidersHorizontal,
   AlignJustify, AlignLeft, AlignCenter, ChevronLeft,
+  AlertCircle, AlertTriangle, Building2
 } from 'lucide-react'
 import { accountsApi } from '@/api/accounts'
 import type { AccountUpdate, AccountReparentResult } from '@/api/accounts'
@@ -28,15 +29,23 @@ const TYPE_COLORS: Record<string, string> = {
   asset:     'bg-blue-50 text-blue-700 border-blue-200',
   liability: 'bg-orange-50 text-orange-700 border-orange-200',
   equity:    'bg-purple-50 text-purple-700 border-purple-200',
-  revenue:   'bg-green-50 text-green-700 border-green-200',
-  expense:   'bg-red-50 text-red-700 border-red-200',
+  revenue:   'bg-emerald-50 text-emerald-700 border-emerald-200',
+  expense:   'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+const ACTIVE_TYPE_CHIP_COLORS: Record<string, string> = {
+  asset:     'bg-blue-600 border-blue-600 text-white shadow-blue-100',
+  liability: 'bg-orange-600 border-orange-600 text-white shadow-orange-100',
+  equity:    'bg-purple-600 border-purple-600 text-white shadow-purple-100',
+  revenue:   'bg-emerald-600 border-emerald-600 text-white shadow-emerald-100',
+  expense:   'bg-rose-600 border-rose-600 text-white shadow-rose-100',
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active:     'text-emerald-600',
-  inactive:   'text-gray-400',
-  archived:   'text-gray-300 line-through',
-  deprecated: 'text-amber-500',
+  active:     'bg-emerald-50 text-emerald-700 border-emerald-200',
+  inactive:   'bg-gray-50 text-gray-500 border-gray-200',
+  archived:   'bg-gray-50 text-gray-400 border-gray-200 line-through',
+  deprecated: 'bg-amber-50 text-amber-700 border-amber-200',
 }
 
 type GridDensity = 'compact' | 'normal' | 'comfortable'
@@ -162,139 +171,151 @@ function AccountPreviewSidebar({
   const taxonomyLine = taxonomyLines.find((t) => t.id === account.reporting_taxonomy_line_id)
 
   return (
-    <div className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto flex flex-col">
+    <div className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto flex flex-col h-full shadow-lg animate-in slide-in-from-right duration-250">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50 sticky top-0">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50/75 sticky top-0 z-10 backdrop-blur-sm">
         <div className="min-w-0">
-          <p className="text-xs font-mono text-gray-400">{account.account_number}</p>
-          <p className="text-sm font-semibold text-gray-800 truncate">{account.account_name}</p>
+          <p className="text-[10px] font-mono font-semibold text-gray-400 tracking-wider uppercase">{account.account_number || "—"}</p>
+          <h3 className="text-sm font-bold text-gray-900 truncate mt-0.5" title={account.account_name}>
+            {account.account_name}
+          </h3>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="p-1 text-gray-400 hover:text-gray-600 shrink-0"
+          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 shrink-0 transition-colors"
+          title="Close drawer"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Type badge */}
-      <div className="px-4 py-3 border-b border-gray-100">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`px-2 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[account.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
-            {account.account_type}
-          </span>
-          <span className={`text-xs capitalize ${STATUS_COLORS[account.account_status] ?? 'text-gray-600'}`}>
-            {account.account_status}
-          </span>
-        </div>
-        <div className="flex gap-2 mt-3">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs border border-gray-300 rounded hover:bg-gray-50"
-          >
-            <Pencil className="w-3 h-3" /> Edit
-          </button>
-          <button
-            type="button"
-            onClick={onAddChild}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
-          >
-            <Plus className="w-3 h-3" /> Add Child
-          </button>
-        </div>
-      </div>
-
-      {/* Details */}
-      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Account Details</p>
-        <dl className="space-y-1.5">
-          <div className="flex justify-between">
-            <dt className="text-xs text-gray-500">Normal Balance</dt>
-            <dd className="text-xs font-medium text-gray-700 capitalize">{account.normal_balance}</dd>
+      <div className="p-5 flex-1 space-y-6">
+        {/* Type & Status Badges */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              "inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider",
+              TYPE_COLORS[account.account_type] ?? "bg-gray-100 text-gray-600 border-gray-200"
+            )}>
+              {account.account_type}
+            </span>
+            <span className={cn(
+              "inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider",
+              STATUS_COLORS[account.account_status] ?? "bg-gray-100 text-gray-600 border-gray-200"
+            )}>
+              {account.account_status}
+            </span>
           </div>
-          {account.detail_type && (
-            <div className="flex justify-between">
-              <dt className="text-xs text-gray-500">Detail Type</dt>
-              <dd className="text-xs font-medium text-gray-700">{account.detail_type}</dd>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-gray-700"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit Account
+            </button>
+            <button
+              type="button"
+              onClick={onAddChild}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Child
+            </button>
+          </div>
+        </div>
+
+        {/* Details Card */}
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-3">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Account Details</p>
+          <dl className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <dt className="text-gray-500">Normal Balance</dt>
+              <dd className="font-semibold text-gray-800 capitalize">{account.normal_balance}</dd>
+            </div>
+            {account.detail_type && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-gray-500">Detail Type</dt>
+                <dd className="font-semibold text-gray-800">{account.detail_type}</dd>
+              </div>
+            )}
+            {account.description && (
+              <div className="border-t border-gray-200/50 pt-2 mt-2">
+                <dt className="text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-1">Description</dt>
+                <dd className="text-gray-600 leading-normal text-xs">{account.description}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+
+        {/* Hierarchy Connection */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Hierarchy Connection</p>
+          {parent ? (
+            <div className="flex items-center gap-2 p-3 bg-white border rounded-lg shadow-sm">
+              <Building2 className="w-4 h-4 text-gray-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono text-gray-400 leading-none">{parent.account_number}</p>
+                <p className="text-xs font-semibold text-gray-700 truncate mt-0.5">{parent.account_name}</p>
+              </div>
+              <span className="ml-auto text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">Parent</span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic pl-1">Root account (no parent)</p>
+          )}
+
+          {account.children.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-gray-500 pl-1">
+                {account.children.length} child account{account.children.length > 1 ? 's' : ''}:
+              </p>
+              <div className="max-h-40 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50 bg-white">
+                {account.children.map((child) => (
+                  <div key={child.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 transition-colors">
+                    <span className="font-mono text-[10px] text-gray-400 w-12 shrink-0">{child.account_number}</span>
+                    <span className="text-xs font-medium text-gray-700 truncate">{child.account_name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          {account.description && (
-            <div>
-              <dt className="text-xs text-gray-500 mb-0.5">Description</dt>
-              <dd className="text-xs text-gray-700">{account.description}</dd>
+        </div>
+
+        {/* Reporting Taxonomy Assignment */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reporting Mapping</p>
+          {taxonomyLine ? (
+            <div className="flex items-start gap-2.5 p-3 border border-indigo-100 bg-indigo-50/20 rounded-lg">
+              <Tag className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-indigo-950">{taxonomyLine.name}</p>
+                <p className="text-[10px] text-indigo-600 mt-0.5">Taxonomy Line / FSLI category</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2.5 p-3 border border-amber-200 bg-amber-50/50 rounded-lg">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-amber-900">Unmapped Account</p>
+                <p className="text-[10px] text-amber-700 mt-0.5">Will resolve to unclassified lines in reports.</p>
+              </div>
             </div>
           )}
-        </dl>
-      </div>
+        </div>
 
-      {/* Hierarchy */}
-      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Hierarchy</p>
-        {parent && (
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-gray-400">Parent:</span>
-            <span className="font-mono text-gray-400">{parent.account_number}</span>
-            <span className="text-gray-700 truncate">{parent.account_name}</span>
+        {/* Source System */}
+        <div className="space-y-2 pt-2 border-t border-gray-100">
+          <div className="flex justify-between items-center text-xs">
+            <span className="text-gray-400">Account ID</span>
+            <span className="font-mono text-gray-500">#{account.id}</span>
           </div>
-        )}
-        {!parent && (
-          <p className="text-xs text-gray-400 italic">Root account (no parent)</p>
-        )}
-        {account.children.length > 0 && (
-          <div>
-            <p className="text-xs text-gray-500 mb-1">{account.children.length} child account{account.children.length > 1 ? 's' : ''}:</p>
-            <ul className="space-y-0.5 max-h-36 overflow-y-auto">
-              {account.children.map((child) => (
-                <li key={child.id} className="flex items-center gap-1.5 text-xs pl-2 border-l-2 border-gray-100">
-                  <span className="font-mono text-gray-400">{child.account_number}</span>
-                  <span className="text-gray-700 truncate">{child.account_name}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {account.children.length === 0 && !parent && (
-          <p className="text-xs text-gray-400 italic">Standalone account</p>
-        )}
-      </div>
-
-      {/* Reporting line */}
-      <div className="px-4 py-3 border-b border-gray-100 space-y-1.5">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Reporting</p>
-        {taxonomyLine ? (
-          <div className="flex items-start gap-2">
-            <Tag className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-xs font-medium text-gray-700">{taxonomyLine.name}</p>
-              <p className="text-[10px] text-gray-400">Reporting / FSLI Line</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded px-2 py-1.5">
-            No reporting line assigned
-          </p>
-        )}
-      </div>
-
-      {/* Import source */}
-      <div className="px-4 py-3 space-y-1.5">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Source</p>
-        <dl className="space-y-1">
           {(account as Account & { source_system?: string }).source_system && (
-            <div className="flex justify-between">
-              <dt className="text-xs text-gray-500">Source System</dt>
-              <dd className="text-xs font-medium text-gray-700">
-                {(account as Account & { source_system?: string }).source_system}
-              </dd>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">Source System</span>
+              <span className="font-semibold text-gray-700">{(account as Account & { source_system?: string }).source_system}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <dt className="text-xs text-gray-500">Account ID</dt>
-            <dd className="text-xs font-mono text-gray-500">#{account.id}</dd>
-          </div>
-        </dl>
+        </div>
       </div>
     </div>
   )
@@ -758,33 +779,60 @@ function AccountRow({
         </td>
 
         {/* Account name with indent */}
-        <td className={cn('px-3', py)} style={{ paddingLeft: `${12 + depth * 20}px` }}>
-          <div className="flex items-center gap-1">
+        <td className={cn('px-3', py)}>
+          <div className="flex items-center gap-0.5 min-h-[24px]">
+            {/* Guide lines for nesting hierarchy */}
+            {Array.from({ length: depth }).map((_, i) => {
+              const isLast = i === depth - 1
+              return (
+                <div
+                  key={i}
+                  className="w-5 self-stretch flex-shrink-0 flex items-center justify-center relative min-h-[24px]"
+                >
+                  <div
+                    className="absolute top-0 w-px bg-slate-200"
+                    style={{
+                      left: '10px',
+                      bottom: isLast ? '50%' : '0'
+                    }}
+                  />
+                  {isLast && (
+                    <div
+                      className="absolute right-0 h-px bg-slate-200"
+                      style={{
+                        left: '10px',
+                        top: '50%'
+                      }}
+                    />
+                  )}
+                </div>
+              )
+            })}
             {hasChildren ? (
               <button
                 type="button"
                 onClick={() => onToggleCollapsed(node.id)}
-                className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-indigo-650 hover:bg-slate-100 rounded transition-colors flex-shrink-0 cursor-pointer"
               >
                 {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
             ) : (
-              <span className="w-3 h-3 flex-shrink-0 inline-block" />
+              <span className="w-5 h-5 flex-shrink-0 inline-block" />
             )}
             {isEditing ? (
               <input
                 type="text"
                 value={editState.account_name}
                 onChange={(e) => onEditChange({ account_name: e.target.value })}
-                className="flex-1 min-w-0 border border-indigo-300 rounded px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="flex-1 min-w-0 border border-slate-250 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white shadow-xs"
               />
             ) : (
               <button
                 type="button"
                 onClick={() => onPreview(node.id)}
                 className={cn(
-                  'text-sm text-left truncate max-w-[280px]',
-                  STATUS_COLORS[node.account_status] ?? 'text-gray-800',
+                  'text-xs text-left truncate max-w-[280px] font-semibold transition-colors cursor-pointer',
+                  node.account_status === 'archived' ? 'text-slate-400 line-through' : 'text-slate-800',
                   'hover:text-indigo-600'
                 )}
                 title={node.account_name}
@@ -793,7 +841,7 @@ function AccountRow({
               </button>
             )}
             {hasChildren && !isEditing && (
-              <span className="text-xs text-gray-300 ml-0.5">({node.children.length})</span>
+              <span className="text-[10px] text-slate-400 font-bold ml-1 bg-slate-100 px-1.5 py-0.5 rounded-full">({node.children.length})</span>
             )}
           </div>
         </td>
@@ -804,7 +852,7 @@ function AccountRow({
             <select
               value={editState.account_type}
               onChange={(e) => onEditChange({ account_type: e.target.value })}
-              className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
+              className="border border-slate-200 rounded px-2 py-0.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs"
             >
               <option value="asset">asset</option>
               <option value="liability">liability</option>
@@ -813,23 +861,23 @@ function AccountRow({
               <option value="expense">expense</option>
             </select>
           ) : (
-            <span className={`px-1.5 py-0.5 rounded border text-xs font-medium capitalize ${TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600'}`}>
+            <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600 border-gray-200')}>
               {node.account_type}
             </span>
           )}
         </td>
 
         {/* Detail type */}
-        <td className={cn('px-3 text-xs text-gray-500 w-36', py)}>
+        <td className={cn('px-3 text-xs text-slate-550 w-36', py)}>
           {isEditing ? (
             <input
               type="text"
               value={editState.detail_type}
               onChange={(e) => onEditChange({ detail_type: e.target.value })}
-              className="w-36 border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-36 border border-slate-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white shadow-xs"
             />
           ) : (
-            node.detail_type || <span className="text-gray-300">—</span>
+            node.detail_type || <span className="text-slate-300">—</span>
           )}
         </td>
 
@@ -839,7 +887,7 @@ function AccountRow({
             <select
               value={editState.account_status}
               onChange={(e) => onEditChange({ account_status: e.target.value })}
-              className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
+              className="border border-slate-200 rounded px-2 py-0.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs"
             >
               <option value="active">active</option>
               <option value="inactive">inactive</option>
@@ -847,19 +895,19 @@ function AccountRow({
               <option value="deprecated">deprecated</option>
             </select>
           ) : (
-            <span className={`text-xs capitalize ${STATUS_COLORS[node.account_status] ?? ''}`}>
+            <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", STATUS_COLORS[node.account_status] ?? 'bg-gray-100 text-gray-600 border-gray-200')}>
               {node.account_status}
             </span>
           )}
         </td>
 
         {/* Reporting taxonomy */}
-        <td className={cn('px-3 text-xs text-gray-500 max-w-[180px] truncate', py)}>
+        <td className={cn('px-3 text-xs text-slate-550 max-w-[180px] truncate', py)}>
           {isEditing ? (
             <select
               value={editState.reporting_taxonomy_line_id}
               onChange={(e) => onEditChange({ reporting_taxonomy_line_id: e.target.value ? Number(e.target.value) : '' })}
-              className="w-44 border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
+              className="w-44 border border-slate-200 rounded px-2 py-0.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs"
             >
               <option value="">— none —</option>
               {taxonomyLines.map((t) => (
@@ -867,17 +915,27 @@ function AccountRow({
               ))}
             </select>
           ) : (
-            taxonomyName || <span className="text-gray-300">—</span>
+            taxonomyName ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-150 bg-indigo-50/70 text-indigo-700 text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                <Tag className="w-3 h-3 text-indigo-400 shrink-0" />
+                {taxonomyName}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-250 bg-amber-50 text-amber-800 text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                Unmapped
+              </span>
+            )
           )}
         </td>
 
         {/* Parent account */}
-        <td className={cn('px-3 text-xs text-gray-500 w-32 truncate', py)}>
+        <td className={cn('px-3 text-xs text-slate-550 w-32 truncate', py)}>
           {isEditing ? (
             <select
               value={editState.parent_account_id}
               onChange={(e) => onEditChange({ parent_account_id: e.target.value ? Number(e.target.value) : '' })}
-              className="w-40 border border-indigo-300 rounded px-1.5 py-0.5 text-xs"
+              className="w-40 border border-slate-200 rounded px-2 py-0.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-xs"
             >
               <option value="">— none (root) —</option>
               {flatAccounts.filter((a) => a.id !== node.id).map((a) => (
@@ -885,9 +943,13 @@ function AccountRow({
               ))}
             </select>
           ) : (
-            node.parent_account_id
-              ? flatAccounts.find((a) => a.id === node.parent_account_id)?.account_number || '—'
-              : <span className="text-gray-300">—</span>
+            node.parent_account_id ? (
+              <span className="font-mono text-xs bg-slate-50 border border-slate-200 text-slate-650 px-1.5 py-0.5 rounded">
+                {flatAccounts.find((a) => a.id === node.parent_account_id)?.account_number || '—'}
+              </span>
+            ) : (
+              <span className="text-slate-300">—</span>
+            )
           )}
         </td>
 
@@ -1389,7 +1451,7 @@ export function ChartOfAccountsPage() {
       {apiError && <ErrorBanner message={apiError} />}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
+      <div className="bg-white border border-slate-200/80 rounded-xl p-4 mb-4 shadow-xs flex items-center gap-3 flex-wrap">
         <div className="w-64">
           <EntitySelect value={entityId} onChange={(v) => { setEntityId(v); setEditState(null); setSelectedIds(new Set()) }} />
         </div>
@@ -1398,22 +1460,22 @@ export function ChartOfAccountsPage() {
           <>
             {/* Global search */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search accounts…"
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
-                className="pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded-md w-52 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="pl-9 pr-8 h-9 text-xs border border-slate-200 rounded-lg w-56 bg-slate-50/30 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/15 focus:border-indigo-500 transition-all hover:bg-slate-50/50 font-medium"
                 data-testid="coa-search"
               />
               {globalSearch && (
                 <button
                   type="button"
                   onClick={() => setGlobalSearch('')}
-                  className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition-colors p-0.5 rounded hover:bg-slate-100 cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -1421,49 +1483,65 @@ export function ChartOfAccountsPage() {
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              className="flex items-center gap-2 h-9 px-4 text-xs bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-all shadow-sm cursor-pointer"
               data-testid="create-account-btn"
             >
-              <Plus className="w-3.5 h-3.5" /> Create Account
+              <Plus className="w-4 h-4" /> Create Account
             </button>
             <button
               type="button"
               onClick={() => navigate('/coa-import')}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-indigo-300 text-indigo-700 rounded hover:bg-indigo-50"
+              className="flex items-center gap-2 h-9 px-4 text-xs border border-slate-200 hover:border-slate-300 text-slate-700 font-semibold rounded-lg bg-white hover:bg-slate-50 transition-all shadow-xs cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5" /> Import COA
+              <Upload className="w-4 h-4 text-slate-500" /> Import COA
             </button>
 
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1.5 ml-auto">
               {/* Undo / Redo */}
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={undoStack.length === 0 || reparentMutation.isPending}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30"
-                title={lastUndo ? `Undo: ${lastUndo.description} (Ctrl+Z)` : 'Nothing to undo'}
-                data-testid="undo-btn"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleRedo}
-                disabled={redoStack.length === 0 || reparentMutation.isPending}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30"
-                title={lastRedo ? `Redo: ${lastRedo.description} (Ctrl+Shift+Z)` : 'Nothing to redo'}
-                data-testid="redo-btn"
-              >
-                <Redo2 className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={undoStack.length === 0 || reparentMutation.isPending}
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none border-r border-slate-150 transition-colors cursor-pointer"
+                  title={lastUndo ? `Undo: ${lastUndo.description} (Ctrl+Z)` : 'Nothing to undo'}
+                  data-testid="undo-btn"
+                >
+                  <Undo2 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRedo}
+                  disabled={redoStack.length === 0 || reparentMutation.isPending}
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                  title={lastRedo ? `Redo: ${lastRedo.description} (Ctrl+Shift+Z)` : 'Nothing to redo'}
+                  data-testid="redo-btn"
+                >
+                  <Redo2 className="w-4 h-4" />
+                </button>
+              </div>
 
               {/* Expand / Collapse */}
-              <button type="button" onClick={expandAll} className="p-1.5 text-gray-400 hover:text-gray-600 border rounded hover:bg-gray-50" title="Expand all" data-testid="expand-all-btn">
-                <ChevronsUpDown className="w-3.5 h-3.5" />
-              </button>
-              <button type="button" onClick={collapseAll} className="p-1.5 text-gray-400 hover:text-gray-600 border rounded hover:bg-gray-50" title="Collapse all" data-testid="collapse-all-btn">
-                <ChevronsDownUp className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                <button 
+                  type="button" 
+                  onClick={expandAll} 
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-750 hover:bg-slate-50 border-r border-slate-150 transition-colors cursor-pointer" 
+                  title="Expand all" 
+                  data-testid="expand-all-btn"
+                >
+                  <ChevronsUpDown className="w-4 h-4" />
+                </button>
+                <button 
+                  type="button" 
+                  onClick={collapseAll} 
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-750 hover:bg-slate-50 transition-colors cursor-pointer" 
+                  title="Collapse all" 
+                  data-testid="collapse-all-btn"
+                >
+                  <ChevronsDownUp className="w-4 h-4" />
+                </button>
+              </div>
 
               {/* Settings */}
               <div className="relative">
@@ -1471,13 +1549,15 @@ export function ChartOfAccountsPage() {
                   type="button"
                   onClick={() => setShowSettings((v) => !v)}
                   className={cn(
-                    'p-1.5 border rounded hover:bg-gray-50',
-                    showSettings ? 'border-indigo-400 text-indigo-600' : 'text-gray-400 hover:text-gray-600'
+                    'w-9 h-9 border rounded-lg flex items-center justify-center shadow-xs transition-colors cursor-pointer',
+                    showSettings 
+                      ? 'border-indigo-400 bg-indigo-50/50 text-indigo-650' 
+                      : 'border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   )}
                   title="Display settings"
                   data-testid="settings-btn"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <SlidersHorizontal className="w-4 h-4" />
                 </button>
                 {showSettings && (
                   <SettingsPanel
@@ -1496,26 +1576,27 @@ export function ChartOfAccountsPage() {
 
       {/* Undo label */}
       {lastUndo && (
-        <p className="text-xs text-gray-400 mb-2">
-          Last: {lastUndo.description} — Ctrl+Z to undo
-        </p>
+        <div className="flex items-center gap-1.5 text-xs text-slate-650 bg-slate-50 border border-slate-200/65 rounded-lg px-3 py-1.5 mb-3 w-fit animate-in fade-in duration-200">
+          <History className="w-3.5 h-3.5 text-slate-400" />
+          <span>Last action: <strong className="font-semibold text-slate-700">{lastUndo.description}</strong>. Press <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-xs">Ctrl+Z</kbd> to undo.</span>
+        </div>
       )}
 
       {!entityId ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center text-sm text-gray-400">
+        <div className="bg-white border border-slate-200/80 rounded-xl p-12 text-center text-sm text-slate-400 shadow-xs">
           Select an entity to view its Chart of Accounts
         </div>
       ) : isLoading ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center text-sm text-gray-400">
+        <div className="bg-white border border-slate-200/80 rounded-xl p-12 text-center text-sm text-slate-400 shadow-xs">
           Loading accounts…
         </div>
       ) : tree.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
-          <p className="text-sm text-gray-500 mb-3">No accounts imported yet for this entity.</p>
+        <div className="bg-white border border-slate-200/80 rounded-xl p-12 text-center shadow-xs">
+          <p className="text-sm text-slate-500 mb-3">No accounts imported yet for this entity.</p>
           <button
             type="button"
             onClick={() => navigate('/coa-import')}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+            className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
           >
             Import Chart of Accounts
           </button>
@@ -1523,11 +1604,16 @@ export function ChartOfAccountsPage() {
       ) : (
         <div className="space-y-3">
           {/* Type filter chips */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 border border-slate-200/50 p-2 rounded-xl">
             <button
               type="button"
               onClick={() => setTypeFilter('')}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${!typeFilter ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+              className={cn(
+                "px-3.5 py-1 rounded-full text-xs font-semibold border transition-all duration-200 select-none shadow-xs cursor-pointer",
+                !typeFilter
+                  ? "bg-slate-900 border-slate-900 text-white"
+                  : "bg-white text-slate-655 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+              )}
             >
               All · {Object.values(typeCounts).reduce((a, b) => a + b, 0)}
             </button>
@@ -1536,21 +1622,24 @@ export function ChartOfAccountsPage() {
                 key={type}
                 type="button"
                 onClick={() => setTypeFilter(typeFilter === type ? '' : type)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border capitalize transition-colors ${
-                  typeFilter === type ? TYPE_COLORS[type] + ' border-current' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                }`}
+                className={cn(
+                  "px-3.5 py-1 rounded-full text-xs font-semibold border capitalize transition-all duration-200 select-none shadow-xs cursor-pointer",
+                  typeFilter === type
+                    ? ACTIVE_TYPE_CHIP_COLORS[type]
+                    : "bg-white text-slate-655 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                )}
               >
                 {type} · {count}
               </button>
             ))}
 
             {!showInactive && (
-              <div className="ml-auto flex items-center gap-1.5">
-                <label className="text-xs text-gray-500">Status:</label>
+              <div className="ml-auto flex items-center gap-1.5 pr-1">
+                <label className="text-xs text-slate-500 font-semibold">Status:</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                  className="border border-slate-200 bg-white rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/15 focus:border-indigo-500 font-medium"
                 >
                   <option value="">All</option>
                   <option value="active">Active</option>
@@ -1564,28 +1653,29 @@ export function ChartOfAccountsPage() {
 
           {/* Selection summary */}
           {selectedIds.size > 0 && (
-            <div className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-3 py-1.5 flex items-center gap-2">
-              <span>{selectedIds.size} selected</span>
-              <button type="button" onClick={() => setSelectedIds(new Set())} className="underline hover:no-underline">
+            <div className="text-xs font-semibold text-indigo-700 bg-indigo-50/60 border border-indigo-150 rounded-lg px-3 py-2 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
+              <span>{selectedIds.size} account{selectedIds.size > 1 ? 's' : ''} selected</span>
+              <button type="button" onClick={() => setSelectedIds(new Set())} className="underline hover:no-underline cursor-pointer">
                 Clear
               </button>
             </div>
           )}
 
           {/* Hint */}
-          <p className="text-xs text-gray-400">
-            Drag <GripVertical className="inline w-3 h-3" /> to reparent · Right-click for hierarchy · Click name to preview · Ctrl+Z to undo
-          </p>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 pl-1">
+            <span className="font-semibold">Pro-tips:</span>
+            <span>Drag <GripVertical className="inline w-3.5 h-3.5" /> to reparent · Right-click row for hierarchy options · Click name to preview details · Press <kbd className="px-1 py-0.5 bg-slate-50 border border-slate-200 rounded font-mono text-[9px]">Ctrl+Z</kbd> / <kbd className="px-1 py-0.5 bg-slate-50 border border-slate-200 rounded font-mono text-[9px]">Ctrl+Shift+Z</kbd></span>
+          </div>
 
           {/* Main layout: table + optional preview sidebar */}
-          <div className="flex gap-0 rounded-lg border border-gray-200 overflow-hidden bg-white">
+          <div className="flex gap-0 rounded-xl border border-slate-200/80 shadow-sm overflow-hidden bg-white">
             {/* Table */}
             <div className="flex-1 overflow-x-auto">
               <HierarchyCtx.Provider value={hierarchyCtxValue}>
                 <table className="w-full text-sm min-w-[980px]">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200 sticky top-0 z-10">
+                  <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 sticky top-0 z-10 backdrop-blur-xs">
                     <tr>
-                      <th className="px-3 py-2 w-8">
+                      <th className="px-3 py-3 w-8 text-left">
                         <input
                           type="checkbox"
                           checked={filteredTree.length > 0 && buildFlatOrder(filteredTree).every((n) => selectedIds.has(n.id))}
@@ -1596,12 +1686,12 @@ export function ChartOfAccountsPage() {
                               setSelectedIds(new Set())
                             }
                           }}
-                          className="rounded border-gray-300 text-indigo-600"
+                          className="rounded border-slate-350 text-indigo-600 focus:ring-indigo-500/20 focus:ring-2 focus:ring-offset-0 transition-all"
                           title="Select all visible"
                           data-testid="select-all-checkbox"
                         />
                       </th>
-                      <th className="px-1 py-2 w-5" />
+                      <th className="px-1 py-3 w-5" />
                       {([
                         ['account_number', 'Acct #', 'w-24'],
                         ['account_name', 'Account Name', ''],
@@ -1613,29 +1703,29 @@ export function ChartOfAccountsPage() {
                       ] as [string, string, string][]).map(([key, label, width]) => (
                         <th
                           key={key}
-                          className={`px-3 py-2 text-left cursor-pointer select-none hover:bg-gray-100 transition-colors ${width}`}
+                          className={`px-3 py-3 text-left cursor-pointer select-none hover:bg-slate-100 transition-colors ${width}`}
                           onClick={() => handleColSort(key)}
                           data-testid={`col-sort-${key}`}
                         >
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1 font-bold">
                             {label}
                             {sortKey === key ? (
                               sortDir === 'asc'
-                                ? <ChevronUp className="w-3 h-3 text-indigo-500" />
-                                : <ChevronDown className="w-3 h-3 text-indigo-500" />
+                                ? <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />
+                                : <ChevronDown className="w-3.5 h-3.5 text-indigo-600" />
                             ) : (
-                              <ChevronsUpDown className="w-3 h-3 opacity-20" />
+                              <ChevronsUpDown className="w-3.5 h-3.5 opacity-30 text-slate-400 group-hover:opacity-100 transition-opacity" />
                             )}
                           </span>
                         </th>
                       ))}
-                      <th className="px-3 py-2 w-20" />
+                      <th className="px-3 py-3 w-20" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-slate-100">
                     {filteredTree.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-400">
+                        <td colSpan={10} className="px-4 py-8 text-center text-xs text-slate-400">
                           No accounts match the current filter
                         </td>
                       </tr>

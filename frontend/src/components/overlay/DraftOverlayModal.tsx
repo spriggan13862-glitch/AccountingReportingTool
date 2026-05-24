@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Info } from 'lucide-react'
@@ -64,6 +64,25 @@ export function DraftOverlayModal({
     enabled: canFetchDrafts,
   })
 
+  // Read excludedMap from localStorage to default included/excluded drafts
+  useEffect(() => {
+    if (drafts) {
+      let excluded: Record<number, boolean> = {}
+      try {
+        excluded = JSON.parse(localStorage.getItem('je_excluded_map') || '{}')
+      } catch {
+        excluded = {}
+      }
+      const initialSelected = new Set<number>()
+      drafts.forEach((d) => {
+        if (!excluded[d.je_id]) {
+          initialSelected.add(d.je_id)
+        }
+      })
+      setSelectedJeIds(initialSelected)
+    }
+  }, [drafts])
+
   function toggleJe(id: number) {
     setSelectedJeIds((prev) => {
       const next = new Set(prev)
@@ -89,7 +108,7 @@ export function DraftOverlayModal({
       as_of_date: asOfDate,
       scenario_id: scenarioId as number,
       preview_type: previewType,
-      included_je_ids: selectedJeIds.size > 0 ? Array.from(selectedJeIds) : null,
+      included_je_ids: drafts && drafts.length > 0 ? Array.from(selectedJeIds) : null,
       overlay_groups: selectAllGroups ? null : selectedGroups.size > 0 ? Array.from(selectedGroups) : null,
       include_re_rollforward: includeRe,
       is_consolidated: false,
