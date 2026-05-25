@@ -169,7 +169,7 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
     if body.account_status is not None:
         account.account_status = body.account_status
         account.active = body.account_status == "active"
-    if body.reporting_taxonomy_line_id is not None:
+    if "reporting_taxonomy_line_id" in body.model_fields_set:
         old_tax_id = account.reporting_taxonomy_line_id
         new_tax_id = body.reporting_taxonomy_line_id
         account.reporting_taxonomy_line_id = new_tax_id
@@ -240,16 +240,26 @@ def reparent_account(
 
     account.parent_account_id = new_parent_id
 
-    # Inherit from new parent: taxonomy line (always), detail_type and account_type if unset
+    # Inherit from new parent: taxonomy line if inherited (matches old parent or is None)
+    old_parent_tax_id = old_parent.reporting_taxonomy_line_id if old_parent else None
+    is_inherited = (account.reporting_taxonomy_line_id == old_parent_tax_id) or (account.reporting_taxonomy_line_id is None)
+
+    if is_inherited:
+        new_tax_id = None
+        if new_parent_id is not None:
+            new_parent_acct = db.get(Account, new_parent_id)
+            if new_parent_acct:
+                new_tax_id = new_parent_acct.reporting_taxonomy_line_id
+        
+        old_tax_id = account.reporting_taxonomy_line_id
+        account.reporting_taxonomy_line_id = new_tax_id
+        if old_tax_id != new_tax_id:
+            propagate_taxonomy_to_children(account.id, old_tax_id, new_tax_id, db)
+
+    # Inherit detail_type and account_type if unset
     if new_parent_id is not None:
         new_parent_acct = db.get(Account, new_parent_id)
         if new_parent_acct is not None:
-            if new_parent_acct.reporting_taxonomy_line_id is not None:
-                old_tax_id = account.reporting_taxonomy_line_id
-                new_tax_id = new_parent_acct.reporting_taxonomy_line_id
-                account.reporting_taxonomy_line_id = new_tax_id
-                if old_tax_id != new_tax_id:
-                    propagate_taxonomy_to_children(account.id, old_tax_id, new_tax_id, db)
             if not account.detail_type and new_parent_acct.detail_type:
                 account.detail_type = new_parent_acct.detail_type
             if new_parent_acct.account_type:
