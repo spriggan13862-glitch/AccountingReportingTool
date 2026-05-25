@@ -1,0 +1,98 @@
+Account Number,Account Name,Account Type
+1000,Cash,asset
+1000-01,FHB - MLI Operating,asset
+1000-02,FHB - MLI Merch Acct,asset
+1000-03,FHB - MLI Payroll,asset
+1000-18,WealthFront - Live Marketing,asset
+1000-19,INB - LM Savings,asset
+1200,Accounts Receivable,asset
+1200-02,A/R - Live Marketing,asset
+1200-11,Due from MLI/LandTrust,asset
+1200-17,Due from Life Protected,asset
+1203,Allowance for Doubtful Accounts,asset
+1209,Due From 7174 Holdings,asset
+1300,Inventory,asset
+1300-01,Paper,asset
+1300-02,Chargeable Materials,asset
+1300-04,TGH Inventory,asset
+1300-05,Roche Inventory,asset
+1300-06,Work in Process,asset
+1400-03,Prepaid Expenses,asset
+1400-04,Deposits on Utility,asset
+1400-06,Security Deposit for Ryobi Press,asset
+1500,Furniture and Equipment,asset
+1500-01,Furniture,asset
+1500-03,Vehicles,asset
+1600-03,Equipment and Fixtures,asset
+1600-04,Computer Equipment,asset
+1600-05,Leasehold Improvements,asset
+1600-07,Software - Capitalized Costs,asset
+1600-09,Ryobi 920ST-5,asset
+1700,Accumulated Depreciation,asset
+1701,Accumulated Amortization,asset
+2000,Accounts Payable,liability
+2000-02,AP - Live Marketing,liability
+2101,LOC - Aegis Business Credit,liability
+2102,LOC - Bluevine,liability
+2103,LOC - INB Bank,liability
+2200,Credit Cards,liability
+2201,CC - Amex Ex - Optima,liability
+2205,CC - AMEX Platinum,liability
+2300,Due To 7174 Holdings,liability
+2500,Payroll Liabilities,liability
+2501,Payroll Taxes Accrued,liability
+2520,Other Current Liabilities,liability
+2521,Customer Deposits,liability
+2550,Sales Tax Payable,liability
+2560,Federal Income Tax Payable,liability
+2601,Note - PPP COVID-19 FUNDS,liability
+2611,Note - EIDL COVID 19,liability
+2615,Note IFSC - Ryobi Press,liability
+3010,Capital Stock,equity
+3021,LM Partner 1 Equity - JDR,equity
+3022,LM Partner 2 Equity - MFS,equity
+3040,LM Partner 1 Draws - JDR,equity
+3041,LM Partner 2 Draws - MFS,equity
+3200,Retained Earnings,equity
+4000-01,Programming and Graphics,revenue
+4000-02,Data and Mailing Services,revenue
+4000-03,SAAS Services,revenue
+4000-04,Marketing and Direct Mail,revenue
+4000-05,Shipping/Delivery/Fulfillment,revenue
+4000-06,Business Platforms,revenue
+4000-08,Seminar Sales and Ancillary Svcs,revenue
+4000-99,Production Postage - Income,revenue
+5000-02,Digital and Pressroom Supplies,expense
+5000-07,Paper and Stock,expense
+5000-08,Graphics and Prepress,expense
+5020,Production Post - Paid,expense
+5030-02,Printing and Digital Services,expense
+5030-03,Bindery and Finishing Services,expense
+5030-06,Programming Services,expense
+5030-07,Data and List Purchases,expense
+5030-08,Subscriptions for SAAS Services,expense
+5200-02,Prod Wages - Pressroom,expense
+5200-03,Prod Wages - Bindery and Shipping,expense
+5200-04,Prod Wages - Program and Graphics,expense
+5200-05,Prod Wages - Mailing,expense
+5300,Factory Expense,expense
+5300-04,Utilities,expense
+5300-09,Automobile Expense - Trucks,expense
+5400,Repair and Maintenance,expense
+6000-01,Office Supplies,expense
+6000-02,Computer Expenses,expense
+6000-05,Software Expense,expense
+6000-07,Ins - Property and Liability,expense
+6000-21,Administrative Wages,expense
+6000-22,Officer Admin Wages,expense
+6000-25,Rent Expense,expense
+6000-29,Employer Payroll Taxes,expense
+6002,Health and Dental Insurance,expense
+6200-01,Cellular and Telephone Expense,expense
+6200-07,Meals and Entertainment,expense
+6200-11,Salary - Sales Executive,expense
+6200-12,Salary - Customer Service Rep,expense
+6200-13,Commissions,expense
+6400-02,Depreciation Expense,expense
+6400-05,Interest Expense,expense
+6400-11,EIDL Loan Interest,expense
