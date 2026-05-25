@@ -286,6 +286,7 @@ function AppliedLinesTable({
         const sectionLabel = SECTION_LABELS[section] ?? section
         const detailCount = groupLines.filter((l) => !l.is_subtotal).length
         const isCollapsed = collapsedSections.has(groupKey)
+        const { calculated, pdfSubtotal, variance } = getGroupTotals(groupLines)
 
         return (
           <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -304,8 +305,17 @@ function AppliedLinesTable({
               </span>
               <ChevronRight className="w-3 h-3 text-gray-300" />
               <span className="text-xs font-semibold text-gray-700">{sectionLabel}</span>
-              <span className="ml-auto text-xs text-gray-400">
-                {detailCount} line{detailCount !== 1 ? 's' : ''}
+              <span className="ml-2 text-xs text-gray-400">{detailCount} line{detailCount !== 1 ? 's' : ''}</span>
+              <span className="ml-auto flex items-center gap-3 text-xs font-mono">
+                <span className="text-gray-500" title="Calculated total">{fmt(String(calculated))}</span>
+                {pdfSubtotal !== null && (
+                  <>
+                    <span className="text-gray-300">/ PDF {fmt(String(pdfSubtotal))}</span>
+                    <span className={variance !== null && Math.abs(variance) > 0.005 ? 'text-red-500 font-semibold' : 'text-green-600'}>
+                      {variance !== null && Math.abs(variance) > 0.005 ? `Δ ${fmt(String(variance))}` : '✓'}
+                    </span>
+                  </>
+                )}
               </span>
             </button>
             {!isCollapsed && (
@@ -616,7 +626,7 @@ export function PDFImportPage() {
       setAppliedBatch(batch)
       setPhase('applied')
       setActiveTab('lines')
-      setPreview(null)
+      // setPreview(null)
       qc.invalidateQueries({ queryKey: ['pdf-batches'] })
       toast(`PDF applied: ${batch.line_count ?? 0} lines with stable codes and taxonomy mappings persisted`, 'success')
     },
@@ -1005,17 +1015,27 @@ export function PDFImportPage() {
               <p className="text-xs text-gray-400 italic">
                 Click account name or section to edit before applying
               </p>
-              <button
-                type="button"
-                disabled={applyMutation.isPending || failingCount > 0}
-                onClick={() => applyMutation.mutate()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
-                data-testid="apply-pdf-btn"
-                title={failingCount > 0 ? 'Fix subtotal mismatches before applying' : undefined}
-              >
-                <CheckCircle className="w-4 h-4" />
-                {applyMutation.isPending ? 'Applying…' : `Apply ${preview.line_count} Lines`}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={resetToUpload}
+                  className="px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 text-sm rounded"
+                  data-testid="pdf-back-btn"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={applyMutation.isPending || failingCount > 0}
+                  onClick={() => applyMutation.mutate()}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                  data-testid="apply-pdf-btn"
+                  title={failingCount > 0 ? 'Fix subtotal mismatches before applying' : undefined}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {applyMutation.isPending ? 'Applying…' : `Apply ${preview.line_count} Lines`}
+                </button>
+              </div>
             </div>
           </div>
 
