@@ -174,6 +174,12 @@ def drilldown(
                         debit=je.debit,
                         credit=je.credit,
                         description=je.description,
+                        source=je.source,
+                        source_ref=je.source_ref,
+                        source_import_id=je.source_import_id,
+                        source_import_filename=je.source_import_filename,
+                        document_id=je.document_id,
+                        document_name=je.document_name,
                     )
                     for je in a.journal_entries
                 ],

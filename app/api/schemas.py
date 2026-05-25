@@ -1219,6 +1219,12 @@ class DrilldownJeOut(BaseModel):
     debit: Decimal
     credit: Decimal
     description: str | None = None
+    source: str | None = None
+    source_ref: str | None = None
+    source_import_id: int | None = None
+    source_import_filename: str | None = None
+    document_id: int | None = None
+    document_name: str | None = None
 
 
 class DrilldownAccountOut(BaseModel):
@@ -1438,6 +1444,7 @@ class CreateAccountFromLineRequest(BaseModel):
     account_name: str
     account_type: str
     normal_balance: str
+    reporting_taxonomy_line_id: int | None = None
 
 
 class ImportSuggestionOut(BaseModel):

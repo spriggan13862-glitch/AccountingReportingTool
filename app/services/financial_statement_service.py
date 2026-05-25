@@ -148,6 +148,12 @@ class DrilldownJournalEntry:
     debit: Decimal
     credit: Decimal
     description: str | None
+    source: str | None = None
+    source_ref: str | None = None
+    source_import_id: int | None = None
+    source_import_filename: str | None = None
+    document_id: int | None = None
+    document_name: str | None = None
 
 
 @dataclass
@@ -758,6 +764,24 @@ def get_report_line_drilldown(
             accounts=[],
         )
 
+    from app.models.import_batch import ImportBatch
+    from app.models.pdf_import_batch import PDFImportBatch
+    from app.models.document_link import DocumentLink
+    from app.models.document import Document
+
+    # Fetch and cache imports and docs
+    tbs = db.query(ImportBatch).filter(ImportBatch.entity_id == entity_id).all()
+    posted_je_to_tb = {tb.posted_je_id: tb for tb in tbs if tb.posted_je_id is not None}
+    id_to_tb = {tb.id: tb for tb in tbs}
+
+    pdfs = db.query(PDFImportBatch).filter(PDFImportBatch.entity_id == entity_id).all()
+    id_to_pdf = {p.id: p for p in pdfs}
+
+    doc_links = db.query(DocumentLink, Document).join(Document, Document.id == DocumentLink.document_id).all()
+    doc_map = {}
+    for link, doc in doc_links:
+        doc_map[(link.linked_object_type, link.linked_object_id)] = doc
+
     acct_ids = [m.account_id for m in mappings]
     accounts = {a.id: a for a in db.query(Account).filter(Account.id.in_(acct_ids)).all()}
 
@@ -789,6 +813,43 @@ def get_report_line_drilldown(
         je_list: list[DrilldownJournalEntry] = []
         for je, jel in je_rows:
             net_debit += jel.debit - jel.credit
+
+            source_import_id = None
+            source_import_filename = None
+            doc_id = None
+            doc_name = None
+
+            if je.source == "tb_import":
+                tb = posted_je_to_tb.get(je.id)
+                if not tb and je.source_ref and je.source_ref.startswith("batch:"):
+                    try:
+                        b_id = int(je.source_ref.split(":")[-1])
+                        tb = id_to_tb.get(b_id)
+                    except ValueError:
+                        pass
+                if tb:
+                    source_import_id = tb.id
+                    source_import_filename = tb.filename
+                    d = doc_map.get(("tb_import", tb.id))
+                    if d:
+                        doc_id = d.id
+                        doc_name = d.original_file_name
+            elif je.source == "pdf_import":
+                pdf = None
+                if je.source_ref and je.source_ref.startswith("batch:"):
+                    try:
+                        b_id = int(je.source_ref.split(":")[-1])
+                        pdf = id_to_pdf.get(b_id)
+                    except ValueError:
+                        pass
+                if pdf:
+                    source_import_id = pdf.id
+                    source_import_filename = pdf.filename
+                    d = doc_map.get(("pdf_import", pdf.id))
+                    if d:
+                        doc_id = d.id
+                        doc_name = d.original_file_name
+
             je_list.append(DrilldownJournalEntry(
                 je_id=je.id,
                 je_number=je.je_number,
@@ -796,6 +857,12 @@ def get_report_line_drilldown(
                 debit=jel.debit,
                 credit=jel.credit,
                 description=jel.description,
+                source=je.source,
+                source_ref=je.source_ref,
+                source_import_id=source_import_id,
+                source_import_filename=source_import_filename,
+                document_id=doc_id,
+                document_name=doc_name,
             ))
 
         signed = net_debit if acct.normal_balance == "debit" else -net_debit
