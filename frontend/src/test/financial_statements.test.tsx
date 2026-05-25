@@ -163,4 +163,54 @@ describe('Milestone 20: Financial Statement Engine', () => {
     expect(screen.getByTestId('drilldown-empty-state')).toBeInTheDocument()
     expect(screen.getByText('No accounts mapped to this reporting line.')).toBeInTheDocument()
   })
+
+  it('DrilldownPanel renders breadcrumbs when taxonomyLines are provided', () => {
+    const taxonomyLines = [
+      { id: 10, code: 'ROOT', name: 'Assets', parent_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 1, hierarchy_depth: 0, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null },
+      { id: 11, code: 'CHILD', name: 'Current Assets', parent_id: 10, section: 'asset', statement_type: 'balance_sheet', sort_order: 2, hierarchy_depth: 1, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null },
+      { id: 12, code: 'CASH', name: 'Cash and Equivalents', parent_id: 11, section: 'asset', statement_type: 'balance_sheet', sort_order: 3, hierarchy_depth: 2, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null },
+    ]
+    render(
+      <DrilldownPanel
+        drilldown={drilldownData}
+        onClose={vi.fn()}
+        taxonomyLines={taxonomyLines}
+      />
+    )
+    expect(screen.getByText('Hierarchy Path')).toBeInTheDocument()
+    expect(screen.getByText('Assets > Current Assets > Cash and Equivalents')).toBeInTheDocument()
+  })
+
+  it('DrilldownPanel renders source import and document links when present', () => {
+    const richDrilldown: ReportLineDrilldown = {
+      fs_line_code: 'CASH',
+      fs_line_name: 'Cash and Equivalents',
+      total_balance: '100000',
+      accounts: [
+        {
+          account_id: 1,
+          account_number: '1000',
+          account_name: 'Operating Checking',
+          net_debit: '100000',
+          signed_balance: '100000',
+          journal_entries: [
+            {
+              je_id: 10,
+              je_number: 'JE-0001',
+              entry_date: '2024-03-15',
+              debit: '100000',
+              credit: '0',
+              description: 'March deposit',
+              source_import_filename: 'tb_march.csv',
+              document_id: 55,
+              document_name: 'bank_statement.pdf',
+            },
+          ],
+        },
+      ],
+    }
+    render(<DrilldownPanel drilldown={richDrilldown} onClose={vi.fn()} />)
+    expect(screen.getByText('tb_march.csv')).toBeInTheDocument()
+    expect(screen.getByText('bank_statement.pdf')).toBeInTheDocument()
+  })
 })
