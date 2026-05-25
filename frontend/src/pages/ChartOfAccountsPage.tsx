@@ -48,6 +48,158 @@ const STATUS_COLORS: Record<string, string> = {
   deprecated: 'bg-amber-50 text-amber-700 border-amber-200',
 }
 
+const AUTHORITATIVE_QB_TYPES: Record<string, string> = {
+  checking: 'cash_and_cash_equivalents',
+  savings: 'cash_and_cash_equivalents',
+  cashonhand: 'cash_and_cash_equivalents',
+  accountsreceivable: 'accounts_receivable',
+  allowanceforbaddebts: 'accounts_receivable',
+  othercurrentassets: 'other_current_assets',
+  inventory: 'inventory',
+  prepaidexpenses: 'prepaid_expenses',
+  fixedassets: 'property_plant_and_equipment',
+  accumulateddepreciation: 'property_plant_and_equipment',
+  otherassets: 'other_non_current_assets',
+  accountspayable: 'accounts_payable',
+  creditcards: 'credit_cards',
+  othercurrentliabilities: 'other_current_liabilities',
+  longtermliabilities: 'long_term_liabilities',
+  equity: 'retained_earnings',
+  retainedearnings: 'retained_earnings',
+  revenue: 'revenue',
+  operatingrevenue: 'revenue',
+  costofgoods_sold: 'cogs',
+  cogs: 'cogs',
+  expense: 'operating_expenses',
+  operatingexpenses: 'operating_expenses',
+}
+
+function getSuggestedTaxonomyCode(
+  accountType?: string | null,
+  detailType?: string | null,
+  accountName?: string | null
+): string | null {
+  if (detailType) {
+    const normDetail = detailType.trim().toLowerCase().replace(/\s+/g, '')
+    if (AUTHORITATIVE_QB_TYPES[normDetail]) return AUTHORITATIVE_QB_TYPES[normDetail]
+  }
+  if (accountName) {
+    const normName = accountName.toLowerCase()
+    if (normName.includes('cash') || normName.includes('checking') || normName.includes('bank')) return 'cash_and_cash_equivalents'
+    if (normName.includes('receivable') || normName.includes('a/r')) return 'accounts_receivable'
+    if (normName.includes('payable') || normName.includes('a/p')) return 'accounts_payable'
+    if (normName.includes('inventory')) return 'inventory'
+    if (normName.includes('prepaid')) return 'prepaid_expenses'
+    if (normName.includes('depreciation') || normName.includes('equipment') || normName.includes('land') || normName.includes('building')) return 'property_plant_and_equipment'
+    if (normName.includes('retained earnings') || normName.includes('capital') || normName.includes('common stock')) return 'retained_earnings'
+    if (normName.includes('sales') || normName.includes('revenue') || normName.includes('income')) return 'revenue'
+    if (normName.includes('cogs') || normName.includes('cost of goods') || normName.includes('cost of sales')) return 'cogs'
+    if (normName.includes('expense') || normName.includes('rent') || normName.includes('salary') || normName.includes('travel')) return 'operating_expenses'
+  }
+  if (accountType) {
+    const normType = accountType.trim().toLowerCase().replace(/\s+/g, '')
+    if (AUTHORITATIVE_QB_TYPES[normType]) return AUTHORITATIVE_QB_TYPES[normType]
+  }
+  return null
+}
+
+interface ValidationFlag {
+  type: 'error' | 'warning' | 'info' | 'success'
+  message: string
+  code: string
+}
+
+function getAccountValidationFlags(
+  node: Account,
+  flatAccounts: Account[],
+  taxonomyLines: ReportingTaxonomyLine[]
+): ValidationFlag[] {
+  const flags: ValidationFlag[] = []
+
+  const nameLower = node.account_name.toLowerCase()
+  const typeLower = node.account_type.toLowerCase()
+
+  // 1. Invalid Category Combinations
+  if (nameLower.includes('receivable') && typeLower !== 'asset') {
+    flags.push({ type: 'error', message: 'Receivable account should be Asset type', code: 'invalid_category' })
+  }
+  if (nameLower.includes('payable') && typeLower !== 'liability') {
+    flags.push({ type: 'error', message: 'Payable account should be Liability type', code: 'invalid_category' })
+  }
+  if ((nameLower.includes('cash') || nameLower.includes('checking') || nameLower.includes('savings')) && typeLower !== 'asset') {
+    flags.push({ type: 'error', message: 'Cash/Bank account should be Asset type', code: 'invalid_category' })
+  }
+  if ((nameLower.includes('expense') || nameLower.includes('cost of goods')) && typeLower !== 'expense') {
+    flags.push({ type: 'error', message: 'Expense account should be Expense type', code: 'invalid_category' })
+  }
+  if ((nameLower.includes('revenue') || nameLower.includes('sales')) && typeLower !== 'revenue') {
+    flags.push({ type: 'error', message: 'Revenue account should be Revenue type', code: 'invalid_category' })
+  }
+
+  // Find direct mapping
+  const directMapping = node.reporting_taxonomy_line_id
+  
+  // Find inherited mapping
+  let inheritedMappingId: number | null = null
+  let parentId = node.parent_account_id
+  while (parentId && !inheritedMappingId) {
+    const parent = flatAccounts.find(a => a.id === parentId)
+    if (parent) {
+      if (parent.reporting_taxonomy_line_id) {
+        inheritedMappingId = parent.reporting_taxonomy_line_id
+      }
+      parentId = parent.parent_account_id
+    } else {
+      break
+    }
+  }
+
+  const suggestionCode = getSuggestedTaxonomyCode(node.account_type, node.detail_type, node.account_name)
+  const suggestedLine = suggestionCode ? taxonomyLines.find(l => l.code === suggestionCode) : null
+
+  // 2. Mapping Status / Warnings
+  if (directMapping) {
+    const mappedLine = taxonomyLines.find(l => l.id === directMapping)
+    if (mappedLine) {
+      // Conflicting Mappings
+      const isAssetLine = ['cash_and_cash_equivalents', 'accounts_receivable', 'inventory', 'prepaid_expenses', 'other_current_assets', 'property_plant_and_equipment', 'other_non_current_assets'].includes(mappedLine.code)
+      const isLiabLine = ['accounts_payable', 'credit_cards', 'other_current_liabilities', 'long_term_liabilities'].includes(mappedLine.code)
+      const isEquityLine = ['retained_earnings'].includes(mappedLine.code)
+      const isRevLine = ['revenue'].includes(mappedLine.code)
+      const isExpLine = ['cogs', 'operating_expenses'].includes(mappedLine.code)
+
+      if (typeLower === 'asset' && !isAssetLine) {
+        flags.push({ type: 'warning', message: `Asset mapped to non-Asset line (${mappedLine.name})`, code: 'conflict' })
+      } else if (typeLower === 'liability' && !isLiabLine) {
+        flags.push({ type: 'warning', message: `Liability mapped to non-Liability line (${mappedLine.name})`, code: 'conflict' })
+      } else if (typeLower === 'equity' && !isEquityLine) {
+        flags.push({ type: 'warning', message: `Equity mapped to non-Equity line (${mappedLine.name})`, code: 'conflict' })
+      } else if (typeLower === 'revenue' && !isRevLine) {
+        flags.push({ type: 'warning', message: `Revenue mapped to non-Revenue line (${mappedLine.name})`, code: 'conflict' })
+      } else if (typeLower === 'expense' && !isExpLine) {
+        flags.push({ type: 'warning', message: `Expense mapped to non-Expense line (${mappedLine.name})`, code: 'conflict' })
+      }
+
+      // Overridden
+      if (suggestedLine && suggestedLine.id !== directMapping) {
+        flags.push({ type: 'info', message: `Manually Overridden (AI suggested ${suggestedLine.name})`, code: 'override' })
+      } else if (suggestedLine && suggestedLine.id === directMapping) {
+        flags.push({ type: 'success', message: 'Matches AI Suggestion', code: 'suggested' })
+      }
+    }
+  } else {
+    // No direct mapping
+    if (inheritedMappingId) {
+      const inheritedLine = taxonomyLines.find(l => l.id === inheritedMappingId)
+      flags.push({ type: 'info', message: `Inherited from parent (${inheritedLine?.name})`, code: 'inherited' })
+    } else {
+      flags.push({ type: 'warning', message: 'Unmapped', code: 'unmapped' })
+    }
+  }
+
+  return flags
+}
+
 type GridDensity = 'compact' | 'normal' | 'comfortable'
 
 const DENSITY_PY: Record<GridDensity, string> = {
@@ -915,17 +1067,48 @@ function AccountRow({
               ))}
             </select>
           ) : (
-            taxonomyName ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-150 bg-indigo-50/70 text-indigo-700 text-[11px] font-semibold whitespace-nowrap shadow-sm">
-                <Tag className="w-3 h-3 text-indigo-400 shrink-0" />
-                {taxonomyName}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-250 bg-amber-50 text-amber-800 text-[11px] font-semibold whitespace-nowrap shadow-sm">
-                <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
-                Unmapped
-              </span>
-            )
+            (() => {
+              const flags = getAccountValidationFlags(node, flatAccounts, taxonomyLines)
+              return (
+                <div className="flex flex-col gap-1 items-start">
+                  {taxonomyName ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-150 bg-indigo-50/70 text-indigo-700 text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                      <Tag className="w-3 h-3 text-indigo-400 shrink-0" />
+                      {taxonomyName}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-250 bg-amber-50 text-amber-800 text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                      <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                      Unmapped
+                    </span>
+                  )}
+                  {flags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {flags.map((flag, idx) => (
+                        <span
+                          key={idx}
+                          title={flag.message}
+                          className={cn(
+                            "inline-flex items-center px-1.5 py-0.2 rounded-full border text-[8px] font-bold uppercase tracking-wider",
+                            flag.type === 'error' && "bg-red-50 text-red-700 border-red-200",
+                            flag.type === 'warning' && "bg-amber-50 text-amber-700 border-amber-200",
+                            flag.type === 'info' && "bg-blue-50 text-blue-700 border-blue-200",
+                            flag.type === 'success' && "bg-green-50 text-green-700 border-green-200"
+                          )}
+                        >
+                          {flag.code === 'invalid_category' && 'Invalid Type'}
+                          {flag.code === 'conflict' && 'Conflict'}
+                          {flag.code === 'override' && 'Overridden'}
+                          {flag.code === 'suggested' && 'AI Suggested'}
+                          {flag.code === 'inherited' && 'Inherited'}
+                          {flag.code === 'unmapped' && 'Unmapped'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()
           )}
         </td>
 

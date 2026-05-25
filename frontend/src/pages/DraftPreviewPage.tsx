@@ -6,6 +6,8 @@ import { overlayApi, downloadPreviewExport } from '@/api/overlay'
 import { accountsApi } from '@/api/accounts'
 import { journalEntriesApi } from '@/api/journalEntries'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
+import { entitiesApi } from '@/api/entities'
+import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { PreviewBanner } from '@/components/overlay/PreviewBanner'
@@ -80,6 +82,31 @@ export function DraftPreviewPage() {
     }
   }, [drilldownItem])
 
+  const [selectedJeIds, setSelectedJeIds] = useState<Set<number>>(new Set())
+  const [includeSelectedOnly, setIncludeSelectedOnly] = useState(false)
+  const [lastEntityId, setLastEntityId] = useState<number | null>(null)
+
+  function handlePivotDrilldown(item: OverlayLineItem, type: 'posted' | 'draft') {
+    setDrilldownState({
+      account_id: item.account_id,
+      account_number: item.account_number,
+      account_name: item.account_name,
+      type,
+    })
+  }
+
+  // Queries for entities and periods
+  const { data: entities } = useQuery({
+    queryKey: ['entities'],
+    queryFn: () => entitiesApi.list(),
+  })
+
+  const { data: periods } = useQuery({
+    queryKey: ['periods', result?.entity_id],
+    queryFn: () => periodsApi.list(result?.entity_id as number),
+    enabled: !!result?.entity_id,
+  })
+
   // Queries for pivot calculations
   const { data: accounts } = useQuery({
     queryKey: ['accounts', result?.entity_id],
@@ -98,6 +125,16 @@ export function DraftPreviewPage() {
     queryFn: () => reportingTaxonomyApi.list(false),
     enabled: !!result?.entity_id,
   })
+
+  // Auto-sync JEs list to checkboxes
+  useEffect(() => {
+    if (result?.entity_id && result.entity_id !== lastEntityId) {
+      setLastEntityId(result.entity_id)
+      if (journalEntries) {
+        setSelectedJeIds(new Set(journalEntries.map((je) => je.id)))
+      }
+    }
+  }, [result?.entity_id, journalEntries, lastEntityId])
 
   // Load excluded JEs map from localStorage
   const excludedMap = useMemo(() => {
@@ -179,6 +216,7 @@ export function DraftPreviewPage() {
       if (journalEntries) {
         for (const je of journalEntries) {
           if (je.status === 'posted' && je.source !== 'import' && je.source !== 'tb_import') {
+            if (includeSelectedOnly && !selectedJeIds.has(je.id)) continue
             for (const line of je.lines) {
               if (line.account_id === item.account_id) {
                 const debit = parseFloat(line.debit || '0')
@@ -198,6 +236,7 @@ export function DraftPreviewPage() {
         for (const je of journalEntries) {
           const isExcluded = excludedMap[je.id] === true
           if (je.status === 'draft' && isExcluded) {
+            if (includeSelectedOnly && !selectedJeIds.has(je.id)) continue
             for (const line of je.lines) {
               if (line.account_id === item.account_id) {
                 const debit = parseFloat(line.debit || '0')
@@ -211,11 +250,30 @@ export function DraftPreviewPage() {
       const excludedAdjustments = isCredit ? -excludedChange : excludedChange
 
       // 5. Imported Balance (base book balance before manual posted JEs)
-      const importedBalance = parseFloat(item.official_signed_balance || '0') - postedAdjustments
+      const importedBalance = parseFloat(item.official_signed_balance || '0') - (isCredit ? -postedChange : postedChange)
 
       // 6. Draft Adjustments (respecting toggles)
-      const rawDraft = parseFloat(item.draft_signed_adjustment || '0')
-      const draftAdjustments = includeDrafts && !officialOnly ? rawDraft : 0
+      let draftChange = 0
+      if (includeSelectedOnly) {
+        if (journalEntries) {
+          for (const je of journalEntries) {
+            if (je.status === 'draft' && selectedJeIds.has(je.id)) {
+              const isExcluded = excludedMap[je.id] === true
+              if (excludeRejected && isExcluded) continue
+              for (const line of je.lines) {
+                if (line.account_id === item.account_id) {
+                  const debit = parseFloat(line.debit || '0')
+                  const credit = parseFloat(line.credit || '0')
+                  draftChange += (debit - credit)
+                }
+              }
+            }
+          }
+        }
+      }
+      const draftAdjustments = includeSelectedOnly
+        ? (isCredit ? -draftChange : draftChange)
+        : (includeDrafts && !officialOnly ? parseFloat(item.draft_signed_adjustment || '0') : 0)
 
       // 7. Adjusted Balance
       const adjustedBalance = importedBalance + postedAdjustments + draftAdjustments
@@ -235,7 +293,7 @@ export function DraftPreviewPage() {
         variance,
       }
     })
-  }, [result, accounts, journalEntries, taxonomyLines, accountTaxonomyMap, taxonomyLineMap, excludedMap, includeDrafts, officialOnly])
+  }, [result, accounts, journalEntries, taxonomyLines, accountTaxonomyMap, taxonomyLineMap, excludedMap, includeDrafts, officialOnly, includeSelectedOnly, selectedJeIds, excludeRejected])
 
   // Filters setup
   const uniqueGroups = useMemo(() => {
@@ -293,6 +351,26 @@ export function DraftPreviewPage() {
           key = item.fsLine
         } else if (groupBy === 'taxonomy') {
           key = item.taxonomyCategory
+        } else if (groupBy === 'account') {
+          key = `${item.account_number} — ${item.account_name}`
+        } else if (groupBy === 'entity') {
+          const ent = entities?.find((e) => e.id === result?.entity_id)
+          key = ent ? ent.name : `Entity #${result?.entity_id}`
+        } else if (groupBy === 'period') {
+          const per = periods?.find((p) => p.end_date === result?.as_of_date || (result?.as_of_date >= p.start_date && result?.as_of_date <= p.end_date))
+          key = per ? per.period_name : `As of ${result?.as_of_date}`
+        } else if (groupBy === 'adjustment_type') {
+          const hasPosted = Math.abs(item.postedAdjustments) > 0.005
+          const hasDraft = Math.abs(item.draftAdjustments) > 0.005
+          if (hasPosted && hasDraft) {
+            key = 'Both Posted & Draft Adjustments'
+          } else if (hasPosted) {
+            key = 'Posted Adjustments Only'
+          } else if (hasDraft) {
+            key = 'Draft Adjustments Only'
+          } else {
+            key = 'Unadjusted Accounts'
+          }
         }
         if (!groups[key]) groups[key] = []
         groups[key].push(item)
@@ -321,7 +399,7 @@ export function DraftPreviewPage() {
       )
       return { groupName, items, totals }
     }).sort((a, b) => a.groupName.localeCompare(b.groupName))
-  }, [filteredItems, groupBy])
+  }, [filteredItems, groupBy, entities, periods, result])
 
   // Grand totals
   const grandTotals = useMemo(() => {
@@ -462,7 +540,7 @@ export function DraftPreviewPage() {
       />
 
       <PageLayout
-        title="Draft Preview"
+        title="Adjustment Bridge"
         subtitle="Book vs. GAAP Adjusting Entry Bridge — Pro Forma Workpaper"
         actions={
           <div className="flex items-center gap-2">
@@ -573,260 +651,350 @@ export function DraftPreviewPage() {
 
               {/* Pivot Tab View */}
               {activeTab === 'pivot' && (
-                <div className="space-y-4">
-                  {/* Controls & Toggles Toolbar */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                    {/* Left: Grouping and Filters */}
-                    <div className="flex flex-wrap items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Group By</label>
-                        <select
-                          value={groupBy}
-                          onChange={(e) => setGroupBy(e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer"
-                        >
-                          <option value="none">None</option>
-                          <option value="account_type">Account Type</option>
-                          <option value="fs_line">FS Line</option>
-                          <option value="taxonomy">Taxonomy Category</option>
-                        </select>
-                      </div>
-
-                      <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-
-                      <div className="flex items-center gap-2">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
-                        <select
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer"
-                        >
-                          <option value="all">All Accounts</option>
-                          <option value="changed">Changed Only</option>
-                          <option value="unchanged">Unchanged Only</option>
-                        </select>
-                      </div>
-
-                      {uniqueGroups.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                  {/* Left: Main Table and Controls */}
+                  <div className="lg:col-span-3 space-y-4">
+                    {/* Controls & Toggles Toolbar */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      {/* Left: Grouping and Filters */}
+                      <div className="flex flex-wrap items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Group</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Group By</label>
                           <select
-                            value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value)}
+                            value={groupBy}
+                            onChange={(e) => setGroupBy(e.target.value)}
                             className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer"
                           >
-                            <option value="all">All Groups</option>
-                            {uniqueGroups.map((g) => (
-                              <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
-                            ))}
+                            <option value="none">None</option>
+                            <option value="account">Account</option>
+                            <option value="account_type">Account Type</option>
+                            <option value="taxonomy">Taxonomy Category</option>
+                            <option value="fs_line">FS Line</option>
+                            <option value="entity">Entity</option>
+                            <option value="period">Period</option>
+                            <option value="adjustment_type">Adjustment Type</option>
                           </select>
                         </div>
-                      )}
 
-                      {uniqueTaxonomies.length > 0 && (
+                        <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+
                         <div className="flex items-center gap-2">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taxonomy</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</label>
                           <select
-                            value={taxonomyFilter}
-                            onChange={(e) => setTaxonomyFilter(e.target.value)}
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
                             className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer"
                           >
-                            <option value="all">All Categories</option>
-                            {uniqueTaxonomies.map((t) => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
+                            <option value="all">All Accounts</option>
+                            <option value="changed">Changed Only</option>
+                            <option value="unchanged">Unchanged Only</option>
                           </select>
                         </div>
-                      )}
+
+                        {uniqueGroups.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Group</label>
+                            <select
+                              value={typeFilter}
+                              onChange={(e) => setTypeFilter(e.target.value)}
+                              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer"
+                            >
+                              <option value="all">All Groups</option>
+                              {uniqueGroups.map((g) => (
+                                <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {uniqueTaxonomies.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Taxonomy</label>
+                            <select
+                              value={taxonomyFilter}
+                              onChange={(e) => setTaxonomyFilter(e.target.value)}
+                              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer"
+                            >
+                              <option value="all">All Categories</option>
+                              {uniqueTaxonomies.map((t) => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right: Toggles Checkboxes */}
+                      <div className="flex flex-wrap items-center gap-4">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={officialOnly}
+                            onChange={(e) => setOfficialOnly(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                          />
+                          Official Only
+                        </label>
+
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={includeDrafts}
+                            onChange={(e) => setIncludeDrafts(e.target.checked)}
+                            disabled={officialOnly}
+                            className="h-4 w-4 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50"
+                          />
+                          Include Draft Adjustments
+                        </label>
+
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={excludeRejected}
+                            onChange={(e) => setExcludeRejected(e.target.checked)}
+                            disabled={officialOnly}
+                            className="h-4 w-4 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50"
+                          />
+                          Exclude Rejected/Excluded
+                        </label>
+                      </div>
                     </div>
 
-                    {/* Right: Toggles Checkboxes */}
-                    <div className="flex flex-wrap items-center gap-4">
-                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={officialOnly}
-                          onChange={(e) => setOfficialOnly(e.target.checked)}
-                          className="h-4 w-4 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer"
-                        />
-                        Official Only
-                      </label>
+                    {/* Pivot Table */}
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <table className="w-full text-xs text-slate-700 min-w-[1000px]">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-550 font-bold uppercase tracking-wider text-[10px]">
+                            <th className="py-2.5 pl-4 text-left w-72">Account</th>
+                            <th className="py-2.5 pl-2 text-left w-32">Type</th>
+                            <th className="py-2.5 pl-2 text-left w-48">Taxonomy Category</th>
+                            <th className="py-2.5 pl-2 text-left w-36">FS Line</th>
+                            <th className="py-2.5 pr-4 text-right w-28">Imported Balance</th>
+                            <th className="py-2.5 pr-4 text-right w-28">Posted Adj.</th>
+                            <th className="py-2.5 pr-4 text-right w-28">Draft Adj.</th>
+                            <th className="py-2.5 pr-4 text-right w-28">Excluded Adj.</th>
+                            <th className="py-2.5 pr-4 text-right w-28">Adjusted Balance</th>
+                            <th className="py-2.5 pr-4 text-right w-28">Variance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {groupedData.map((group) => {
+                            const isCollapsed = collapsedGroups.has(group.groupName)
+                            return (
+                              <optgroup key={`group-${group.groupName}`} label={group.groupName} className="no-ui-element">
+                                {/* Group Header Row */}
+                                {groupBy !== 'none' && (
+                                  <tr className="bg-slate-50/65 font-bold border-b border-slate-100 text-slate-800">
+                                    <td colSpan={4} className="py-2 pl-4 text-left">
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleGroupCollapse(group.groupName)}
+                                        className="flex items-center gap-1 text-slate-700 hover:text-slate-900 transition-colors focus:outline-none cursor-pointer"
+                                      >
+                                        {isCollapsed ? (
+                                          <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        ) : (
+                                          <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        )}
+                                        <span className="capitalize">{group.groupName}</span>
+                                        <span className="ml-1 text-[10px] text-slate-400 font-medium">({group.items.length})</span>
+                                      </button>
+                                    </td>
+                                    <td className="py-2 pr-4 text-right tabular-nums">{fmt(group.totals.importedBalance)}</td>
+                                    <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.postedAdjustments))}>
+                                      {fmt(group.totals.postedAdjustments)}
+                                    </td>
+                                    <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.draftAdjustments))}>
+                                      {fmt(group.totals.draftAdjustments)}
+                                    </td>
+                                    <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.excludedAdjustments))}>
+                                      {fmt(group.totals.excludedAdjustments)}
+                                    </td>
+                                    <td className="py-2 pr-4 text-right tabular-nums">{fmt(group.totals.adjustedBalance)}</td>
+                                    <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.variance))}>
+                                      {fmt(group.totals.variance)}
+                                    </td>
+                                  </tr>
+                                )}
 
-                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={includeDrafts}
-                          onChange={(e) => setIncludeDrafts(e.target.checked)}
-                          disabled={officialOnly}
-                          className="h-4 w-4 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50"
-                        />
-                        Include Draft Adjustments
-                      </label>
+                                {/* Group Member Rows */}
+                                {!isCollapsed && group.items.map((item) => {
+                                  const hasPosted = Math.abs(item.postedAdjustments) > 0.005
+                                  const hasDraft = Math.abs(item.draftAdjustments) > 0.005
 
-                      <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={excludeRejected}
-                          onChange={(e) => setExcludeRejected(e.target.checked)}
-                          disabled={officialOnly}
-                          className="h-4 w-4 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer disabled:opacity-50"
-                        />
-                        Exclude Rejected/Excluded
-                      </label>
+                                  return (
+                                    <tr
+                                      key={item.account_id}
+                                      className={cn(
+                                        'border-b border-slate-100 hover:bg-slate-50/50 transition-colors',
+                                        item.is_synthetic_re && 'italic bg-purple-50 hover:bg-purple-100/40'
+                                      )}
+                                    >
+                                      <td className="py-2 pl-6 font-medium text-slate-900">
+                                        {item.account_number} — {item.account_name}
+                                        {item.is_synthetic_re && <span className="ml-1.5 text-[10px] text-purple-650 font-bold bg-purple-100 px-1 py-0.5 rounded">synthetic RE</span>}
+                                      </td>
+                                      <td className="py-2 pl-2 text-slate-500 capitalize">{item.account_type}</td>
+                                      <td className="py-2 pl-2 text-slate-500 truncate max-w-[180px]">{item.taxonomyCategory}</td>
+                                      <td className="py-2 pl-2 text-slate-550 font-medium">{item.fsLine}</td>
+                                      <td className="py-2 pr-4 text-right tabular-nums text-slate-600">{fmt(item.importedBalance)}</td>
+
+                                      {/* Clickable Posted Adjustments column */}
+                                      <td
+                                        onClick={() => hasPosted && handlePivotDrilldown(item, 'posted')}
+                                        className={cn(
+                                          'py-2 pr-4 text-right tabular-nums',
+                                          hasPosted ? 'cursor-pointer hover:underline' : '',
+                                          adjColor(item.postedAdjustments)
+                                        )}
+                                      >
+                                        {hasPosted ? (item.postedAdjustments > 0 ? '+' : '') + fmt(item.postedAdjustments) : '—'}
+                                      </td>
+
+                                      {/* Clickable Draft Adjustments column */}
+                                      <td
+                                        onClick={() => hasDraft && handlePivotDrilldown(item, 'draft')}
+                                        className={cn(
+                                          'py-2 pr-4 text-right tabular-nums',
+                                          hasDraft ? 'cursor-pointer hover:underline' : '',
+                                          adjColor(item.draftAdjustments)
+                                        )}
+                                      >
+                                        {hasDraft ? (item.draftAdjustments > 0 ? '+' : '') + fmt(item.draftAdjustments) : '—'}
+                                      </td>
+
+                                      <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(item.excludedAdjustments))}>
+                                        {Math.abs(item.excludedAdjustments) > 0.005 ? (item.excludedAdjustments > 0 ? '+' : '') + fmt(item.excludedAdjustments) : '—'}
+                                      </td>
+
+                                      <td className="py-2 pr-4 text-right tabular-nums text-slate-900 font-semibold">{fmt(item.adjustedBalance)}</td>
+
+                                      <td className={cn('py-2 pr-4 text-right tabular-nums font-semibold', adjColor(item.variance))}>
+                                        {Math.abs(item.variance) > 0.005 ? (item.variance > 0 ? '+' : '') + fmt(item.variance) : '—'}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </optgroup>
+                            )
+                          })}
+
+                          {filteredItems.length === 0 && (
+                            <tr>
+                              <td colSpan={10} className="py-12 text-center text-slate-400 font-medium">
+                                No accounts match the current filter parameters.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+
+                        {filteredItems.length > 0 && (
+                          <tfoot>
+                            {/* Grand Total Row */}
+                            <tr className="border-t-2 border-double border-slate-300 bg-slate-100 font-bold text-slate-800">
+                              <td colSpan={4} className="py-2.5 pl-4 text-left text-sm uppercase tracking-wide">Grand Total</td>
+                              <td className="py-2.5 pr-4 text-right tabular-nums">{fmt(grandTotals.importedBalance)}</td>
+                              <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.postedAdjustments))}>
+                                {fmt(grandTotals.postedAdjustments)}
+                              </td>
+                              <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.draftAdjustments))}>
+                                {fmt(grandTotals.draftAdjustments)}
+                              </td>
+                              <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.excludedAdjustments))}>
+                                {fmt(grandTotals.excludedAdjustments)}
+                              </td>
+                              <td className="py-2.5 pr-4 text-right tabular-nums text-slate-900">{fmt(grandTotals.adjustedBalance)}</td>
+                              <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.variance))}>
+                                {fmt(grandTotals.variance)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
                     </div>
                   </div>
 
-                  {/* Pivot Table */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <table className="w-full text-xs text-slate-700 min-w-[1000px]">
-                      <thead>
-                        <tr className="border-b bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
-                          <th className="py-2.5 pl-4 text-left w-72">Account</th>
-                          <th className="py-2.5 pl-2 text-left w-32">Type</th>
-                          <th className="py-2.5 pl-2 text-left w-48">Taxonomy Category</th>
-                          <th className="py-2.5 pl-2 text-left w-36">FS Line</th>
-                          <th className="py-2.5 pr-4 text-right w-28">Imported Balance</th>
-                          <th className="py-2.5 pr-4 text-right w-28">Posted Adj.</th>
-                          <th className="py-2.5 pr-4 text-right w-28">Draft Adj.</th>
-                          <th className="py-2.5 pr-4 text-right w-28">Excluded Adj.</th>
-                          <th className="py-2.5 pr-4 text-right w-28">Adjusted Balance</th>
-                          <th className="py-2.5 pr-4 text-right w-28">Variance</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupedData.map((group) => {
-                          const isCollapsed = collapsedGroups.has(group.groupName)
-                          return (
-                            <optgroup key={`group-${group.groupName}`} label={group.groupName} className="no-ui-element">
-                              {/* Group Header Row */}
-                              {groupBy !== 'none' && (
-                                <tr className="bg-slate-50/65 font-bold border-b border-slate-100 text-slate-800">
-                                  <td colSpan={4} className="py-2 pl-4 text-left">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleGroupCollapse(group.groupName)}
-                                      className="flex items-center gap-1 text-slate-700 hover:text-slate-900 transition-colors focus:outline-none cursor-pointer"
-                                    >
-                                      {isCollapsed ? (
-                                        <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                      ) : (
-                                        <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                      )}
-                                      <span className="capitalize">{group.groupName}</span>
-                                      <span className="ml-1 text-[10px] text-slate-400 font-medium">({group.items.length})</span>
-                                    </button>
-                                  </td>
-                                  <td className="py-2 pr-4 text-right tabular-nums">{fmt(group.totals.importedBalance)}</td>
-                                  <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.postedAdjustments))}>
-                                    {fmt(group.totals.postedAdjustments)}
-                                  </td>
-                                  <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.draftAdjustments))}>
-                                    {fmt(group.totals.draftAdjustments)}
-                                  </td>
-                                  <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.excludedAdjustments))}>
-                                    {fmt(group.totals.excludedAdjustments)}
-                                  </td>
-                                  <td className="py-2 pr-4 text-right tabular-nums">{fmt(group.totals.adjustedBalance)}</td>
-                                  <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(group.totals.variance))}>
-                                    {fmt(group.totals.variance)}
-                                  </td>
-                                </tr>
-                              )}
+                  {/* Right: Journal Entries Selection Checklist */}
+                  <div className="lg:col-span-1 space-y-4">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm h-fit">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                        <h3 className="text-xs font-bold text-slate-850 uppercase tracking-wider flex items-center gap-1.5">
+                          Adjusting Entries
+                        </h3>
+                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={includeSelectedOnly}
+                            onChange={(e) => setIncludeSelectedOnly(e.target.checked)}
+                            className="h-3 w-3 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                          />
+                          Only Selected
+                        </label>
+                      </div>
 
-                              {/* Group Member Rows */}
-                              {!isCollapsed && group.items.map((item) => {
-                                const hasPosted = Math.abs(item.postedAdjustments) > 0.005
-                                const hasDraft = Math.abs(item.draftAdjustments) > 0.005
+                      {journalEntries && journalEntries.length > 0 ? (
+                        <div className="space-y-2 max-h-[550px] overflow-y-auto pr-1">
+                          {journalEntries.map((je) => {
+                            const isChecked = selectedJeIds.has(je.id)
+                            const isPosted = je.status === 'posted'
+                            const totalJeLinesAmt = je.lines.reduce((s, line) => s + parseFloat(line.debit || '0'), 0)
 
-                                return (
-                                  <tr
-                                    key={item.account_id}
-                                    className={cn(
-                                      'border-b border-slate-100 hover:bg-slate-50/50 transition-colors',
-                                      item.is_synthetic_re && 'italic bg-purple-50 hover:bg-purple-100/40'
-                                    )}
-                                  >
-                                    <td className="py-2 pl-6 font-medium text-slate-900">
-                                      {item.account_number} — {item.account_name}
-                                      {item.is_synthetic_re && <span className="ml-1.5 text-[10px] text-purple-650 font-bold bg-purple-100 px-1 py-0.5 rounded">synthetic RE</span>}
-                                    </td>
-                                    <td className="py-2 pl-2 text-slate-500 capitalize">{item.account_type}</td>
-                                    <td className="py-2 pl-2 text-slate-500 truncate max-w-[180px]">{item.taxonomyCategory}</td>
-                                    <td className="py-2 pl-2 text-slate-550 font-medium">{item.fsLine}</td>
-                                    <td className="py-2 pr-4 text-right tabular-nums text-slate-600">{fmt(item.importedBalance)}</td>
-
-                                    {/* Clickable Posted Adjustments column */}
-                                    <td
-                                      onClick={() => hasPosted && handlePivotDrilldown(item, 'posted')}
-                                      className={cn(
-                                        'py-2 pr-4 text-right tabular-nums',
-                                        hasPosted ? 'cursor-pointer hover:underline' : '',
-                                        adjColor(item.postedAdjustments)
-                                      )}
-                                    >
-                                      {hasPosted ? (item.postedAdjustments > 0 ? '+' : '') + fmt(item.postedAdjustments) : '—'}
-                                    </td>
-
-                                    {/* Clickable Draft Adjustments column */}
-                                    <td
-                                      onClick={() => hasDraft && handlePivotDrilldown(item, 'draft')}
-                                      className={cn(
-                                        'py-2 pr-4 text-right tabular-nums',
-                                        hasDraft ? 'cursor-pointer hover:underline' : '',
-                                        adjColor(item.draftAdjustments)
-                                      )}
-                                    >
-                                      {hasDraft ? (item.draftAdjustments > 0 ? '+' : '') + fmt(item.draftAdjustments) : '—'}
-                                    </td>
-
-                                    <td className={cn('py-2 pr-4 text-right tabular-nums', adjColor(item.excludedAdjustments))}>
-                                      {Math.abs(item.excludedAdjustments) > 0.005 ? (item.excludedAdjustments > 0 ? '+' : '') + fmt(item.excludedAdjustments) : '—'}
-                                    </td>
-
-                                    <td className="py-2 pr-4 text-right tabular-nums text-slate-900 font-semibold">{fmt(item.adjustedBalance)}</td>
-
-                                    <td className={cn('py-2 pr-4 text-right tabular-nums font-semibold', adjColor(item.variance))}>
-                                      {Math.abs(item.variance) > 0.005 ? (item.variance > 0 ? '+' : '') + fmt(item.variance) : '—'}
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </optgroup>
-                          )
-                        })}
-
-                        {filteredItems.length === 0 && (
-                          <tr>
-                            <td colSpan={10} className="py-12 text-center text-slate-400 font-medium">
-                              No accounts match the current filter parameters.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-
-                      {filteredItems.length > 0 && (
-                        <tfoot>
-                          {/* Grand Total Row */}
-                          <tr className="border-t-2 border-double border-slate-300 bg-slate-100 font-bold text-slate-800">
-                            <td colSpan={4} className="py-2.5 pl-4 text-left text-sm uppercase tracking-wide">Grand Total</td>
-                            <td className="py-2.5 pr-4 text-right tabular-nums">{fmt(grandTotals.importedBalance)}</td>
-                            <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.postedAdjustments))}>
-                              {fmt(grandTotals.postedAdjustments)}
-                            </td>
-                            <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.draftAdjustments))}>
-                              {fmt(grandTotals.draftAdjustments)}
-                            </td>
-                            <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.excludedAdjustments))}>
-                              {fmt(grandTotals.excludedAdjustments)}
-                            </td>
-                            <td className="py-2.5 pr-4 text-right tabular-nums text-slate-900">{fmt(grandTotals.adjustedBalance)}</td>
-                            <td className={cn('py-2.5 pr-4 text-right tabular-nums', adjColor(grandTotals.variance))}>
-                              {fmt(grandTotals.variance)}
-                            </td>
-                          </tr>
-                        </tfoot>
+                            return (
+                              <div
+                                key={je.id}
+                                className={cn(
+                                  "p-2.5 rounded-lg border text-xs transition-all flex items-start gap-2",
+                                  isChecked 
+                                    ? "bg-slate-50 border-slate-200 shadow-sm" 
+                                    : "bg-white border-slate-100 opacity-60 hover:opacity-80"
+                                )}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setSelectedJeIds((prev) => {
+                                      const next = new Set(prev)
+                                      if (next.has(je.id)) next.delete(je.id)
+                                      else next.add(je.id)
+                                      return next
+                                    })
+                                  }}
+                                  className="h-3.5 w-3.5 rounded border-slate-350 text-amber-500 focus:ring-amber-500 cursor-pointer mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-mono font-bold text-slate-900 truncate">
+                                      {je.je_number}
+                                    </span>
+                                    <span className={cn(
+                                      "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide",
+                                      isPosted ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"
+                                    )}>
+                                      {je.status}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 mt-0.5">
+                                    {je.entry_date}
+                                  </div>
+                                  <p className="text-slate-650 font-medium truncate mt-1.5 font-sans" title={je.description}>
+                                    {je.description}
+                                  </p>
+                                  <div className="text-[10px] text-slate-500 mt-2 pt-1.5 border-t border-slate-100/50 font-semibold flex justify-between">
+                                    <span>Total Value:</span>
+                                    <span className="font-mono text-slate-800">${fmt(totalJeLinesAmt)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center text-slate-450 font-medium text-xs">
+                          No journal entries found.
+                        </div>
                       )}
-                    </table>
+                    </div>
                   </div>
                 </div>
               )}

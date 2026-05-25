@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
   { to: '/accounts', label: 'Chart of Accounts', icon: List },
   { to: '/taxonomy-admin', label: 'Taxonomy Mapping', icon: GitBranch },
   { to: '/journal-entries', label: 'Journal Entries', icon: BookOpen },
-  { to: '/draft-preview', label: 'Bridge Preview', icon: GitCompare },
+  { to: '/draft-preview', label: 'Adjustment Bridge', icon: GitCompare },
   { to: '/financial-statements', label: 'Reports Preview', icon: BarChart3 },
   { to: '/help', label: 'Help Center', icon: HelpCircle },
   { to: '/reporting-settings', label: 'Settings', icon: Settings },
@@ -45,12 +45,12 @@ const navItems: NavItem[] = [
 
 const secondaryItems = [
   { to: '/entities', label: 'Entities', icon: Building2 },
-  { to: '/coa-import', label: 'COA Import', icon: FileSpreadsheet },
-  { to: '/pdf-import', label: 'PDF Import', icon: FileSearch },
   { to: '/periods', label: 'Periods', icon: Calendar },
   { to: '/consolidations', label: 'Consolidations', icon: GitMerge },
   { to: '/reconciliations', label: 'Reconciliations', icon: GitPullRequest },
   { to: '/documents', label: 'Documents', icon: Paperclip },
+  { to: '/coa-import', label: 'COA Import', icon: List },
+  { to: '/pdf-import', label: 'PDF Import', icon: FileSpreadsheet },
 ]
 
 const LS_KEY = 'sidebar_collapsed'
@@ -135,7 +135,7 @@ export function Sidebar() {
               onClick={() => setShowOther(!showOther)}
               className="flex w-full items-center justify-between px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45 hover:text-sidebar-foreground transition-colors"
             >
-              <span>Setup & Admin</span>
+              <span>Admin & Setup</span>
               {showOther ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             </button>
             {showOther && (
@@ -159,29 +159,6 @@ export function Sidebar() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Collapsed Secondary Icons */}
-        {collapsed && (
-          <div className="pt-2 mt-2 border-t border-sidebar-border space-y-1">
-            {secondaryItems.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                title={label}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center justify-center rounded-md py-1.5 transition-colors',
-                    isActive
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
-                  )
-                }
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-              </NavLink>
-            ))}
           </div>
         )}
       </nav>

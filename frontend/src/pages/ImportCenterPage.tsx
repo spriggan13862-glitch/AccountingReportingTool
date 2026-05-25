@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -16,6 +16,9 @@ import {
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
+import { importRegistryApi } from '@/api/importRegistry'
+import { pdfImportApi } from '@/api/pdfImport'
+import { coaImportApi } from '@/api/coaImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -63,10 +66,26 @@ export function ImportCenterPage() {
   // Current active configuration card view (defaults to Trial Balance)
   const [activeTab, setActiveTab] = useState<'tb' | 'gl'>('tb')
 
-  const { data: batches, isLoading } = useQuery({
+  // Queries for all imports and registry
+  const { data: registryEntries, isLoading: isRegistryLoading } = useQuery({
+    queryKey: ['import-registry', entityId || undefined],
+    queryFn: () => importRegistryApi.list(entityId ? Number(entityId) : undefined),
+  })
+
+  const { data: tbBatches } = useQuery({
     queryKey: ['import-batches', orgId],
     queryFn: () => tbImportApi.listBatches(orgId),
     enabled: !!orgId,
+  })
+
+  const { data: pdfBatches } = useQuery({
+    queryKey: ['pdf-batches', entityId || undefined],
+    queryFn: () => pdfImportApi.list(entityId ? Number(entityId) : undefined),
+  })
+
+  const { data: coaBatches } = useQuery({
+    queryKey: ['coa-batches', entityId || undefined],
+    queryFn: () => coaImportApi.list(entityId ? Number(entityId) : undefined),
   })
 
   const { data: entityData } = useQuery({
@@ -88,6 +107,7 @@ export function ImportCenterPage() {
     },
     onSuccess: (batch) => {
       queryClient.invalidateQueries({ queryKey: ['import-batches', orgId] })
+      queryClient.invalidateQueries({ queryKey: ['import-registry'] })
       setFile(null)
       setApiError(null)
       toast(`Import uploaded: ${file?.name ?? 'file'} — review and map accounts to continue`, 'success')
@@ -103,52 +123,197 @@ export function ImportCenterPage() {
     if (dropped) setFile(dropped)
   }
 
-  // Aggregate statistics for Mapping Summary Card
-  const latestBatch = batches && batches.length > 0 ? batches[0] : null
-  const mappingProgress = latestBatch
-    ? latestBatch.row_count
-      ? Math.round((((latestBatch.row_count - (latestBatch.unmapped_row_count ?? 0)) / latestBatch.row_count) * 100))
-      : 0
-    : 0
+  // Map registry entries with domain attributes
+  const mappedEntries = useMemo(() => {
+    const entries = registryEntries && registryEntries.length > 0
+      ? registryEntries
+      : [
+          ...(tbBatches ?? []).map(tb => ({
+            id: `tb_${tb.id}`,
+            source_module: 'tb_import' as const,
+            source_id: tb.id,
+            filename: tb.filename,
+            entity_id: tb.entity_id || null,
+            source_entity_name: tb.entity_name || null,
+            status: tb.status,
+            line_count: tb.row_count || 0,
+            description: `Trial Balance Import: ${tb.filename}`,
+            created_at: tb.uploaded_at || null,
+            basis_of_accounting: null,
+            statement_date: tb.as_of_date || null,
+          })),
+          ...(pdfBatches ?? []).map(pdf => ({
+            id: `pdf_${pdf.id}`,
+            source_module: 'pdf_import' as const,
+            source_id: pdf.id,
+            filename: pdf.filename,
+            entity_id: pdf.entity_id || null,
+            source_entity_name: pdf.entity_name || null,
+            status: pdf.status,
+            line_count: null,
+            description: `PDF Import: ${pdf.filename}`,
+            created_at: pdf.uploaded_at || null,
+            basis_of_accounting: null,
+            statement_date: null,
+          })),
+          ...(coaBatches ?? []).map(coa => ({
+            id: `coa_${coa.id}`,
+            source_module: 'coa_import' as const,
+            source_id: coa.id,
+            filename: coa.filename,
+            entity_id: coa.entity_id || null,
+            source_entity_name: coa.entity_name || null,
+            status: coa.status,
+            line_count: null,
+            description: `COA Import: ${coa.filename}`,
+            created_at: coa.uploaded_at || null,
+            basis_of_accounting: null,
+            statement_date: null,
+          })),
+        ]
 
-  // Dynamically collect active validation issues from current batches
-  const activeIssues = batches
-    ? batches
-        .filter((b) => b.status === 'validation_failed' || (b.unmapped_row_count ?? 0) > 0)
-        .map((b) => {
-          if (b.status === 'validation_failed') {
-            return {
-              id: `err-${b.id}`,
-              type: 'error' as const,
-              category: 'Validation Failed',
-              message: b.error_message || 'Verification checks failed for this trial balance.',
-              filename: b.filename,
-              batchId: b.id,
-              affectedItems: b.row_count ?? 0,
-            }
+    return entries.map((entry) => {
+      let unmappedCount = 0
+      let totalCount = entry.line_count ?? 0
+      let errorMsg = entry.status === 'failed' || entry.status === 'validation_failed' ? (entry.description || 'Verification failed') : null
+      let isOutOfBalance = false
+      let progress = 100
+      let lastAction = 'Uploaded'
+      let reviewActionText = 'View Details'
+      let reviewActionPath = ''
+      let importTypeLabel = 'Trial Balance'
+
+      if (entry.source_module === 'tb_import') {
+        importTypeLabel = 'Trial Balance'
+        const tb = tbBatches?.find(b => b.id === entry.source_id)
+        if (tb) {
+          unmappedCount = tb.unmapped_row_count ?? 0
+          totalCount = tb.row_count ?? 0
+          errorMsg = tb.error_message
+          isOutOfBalance = Math.abs(parseFloat(tb.total_debits || '0') - parseFloat(tb.total_credits || '0')) > 0.01
+          progress = totalCount ? Math.round(((totalCount - unmappedCount) / totalCount) * 100) : 100
+          lastAction = tb.status === 'posted' ? 'Finalized' : tb.status === 'ready_to_post' ? 'Validated' : 'Uploaded'
+          
+          if (tb.status === 'mapping_required') {
+            reviewActionText = 'Map Accounts'
+            reviewActionPath = `/import/${tb.id}/mapping`
+          } else if (tb.status === 'ready_to_post') {
+            reviewActionText = 'Review & Post'
+            reviewActionPath = `/import/${tb.id}`
           } else {
-            return {
-              id: `warn-${b.id}`,
-              type: 'warning' as const,
-              category: 'Unmapped Accounts',
-              message: `${b.unmapped_row_count} accounts require mapping to taxonomy lines.`,
-              filename: b.filename,
-              batchId: b.id,
-              affectedItems: b.unmapped_row_count ?? 0,
-            }
+            reviewActionText = 'View'
+            reviewActionPath = `/import/${tb.id}`
           }
-        })
-    : []
+        } else {
+          reviewActionPath = `/import/${entry.source_id}`
+        }
+      } else if (entry.source_module === 'pdf_import') {
+        importTypeLabel = 'PDF Import'
+        const pdf = pdfBatches?.find(p => p.id === entry.source_id)
+        if (pdf) {
+          errorMsg = pdf.error_message
+          progress = pdf.status === 'applied' ? 100 : 0
+          lastAction = pdf.status === 'applied' ? 'Finalized' : 'Uploaded'
+          
+          if (pdf.status !== 'applied' && pdf.status !== 'failed') {
+            reviewActionText = 'Review & Apply'
+            reviewActionPath = `/pdf-import`
+          } else {
+            reviewActionText = 'View'
+            reviewActionPath = `/pdf-import`
+          }
+        } else {
+          reviewActionPath = '/pdf-import'
+        }
+      } else if (entry.source_module === 'coa_import') {
+        importTypeLabel = 'COA Import'
+        const coa = coaBatches?.find(c => c.id === entry.source_id)
+        if (coa) {
+          progress = coa.status === 'applied' ? 100 : 0
+          lastAction = coa.status === 'applied' ? 'Finalized' : 'Uploaded'
+          if (coa.status !== 'applied') {
+            reviewActionText = 'Review & Apply'
+            reviewActionPath = `/coa-import`
+          } else {
+            reviewActionText = 'View'
+            reviewActionPath = `/coa-import`
+          }
+        } else {
+          reviewActionPath = '/coa-import'
+        }
+      }
+
+      // Map raw status to workflow lifecycle status
+      let lifecycleStatus: 'Uploaded' | 'Parsed' | 'Validation Errors' | 'Awaiting Mapping' | 'Ready for Review' | 'Finalized' = 'Uploaded'
+      const rawStatus = entry.status?.toLowerCase() || ''
+      if (rawStatus === 'posted' || rawStatus === 'applied') {
+        lifecycleStatus = 'Finalized'
+      } else if (rawStatus === 'ready_to_post') {
+        lifecycleStatus = 'Ready for Review'
+      } else if (rawStatus === 'mapping_required') {
+        lifecycleStatus = 'Awaiting Mapping'
+      } else if (rawStatus === 'validation_failed' || rawStatus === 'failed' || rawStatus === 'rejected') {
+        lifecycleStatus = 'Validation Errors'
+      } else if (rawStatus === 'parsing' || rawStatus === 'validating' || rawStatus === 'processing') {
+        lifecycleStatus = 'Parsed'
+      } else {
+        lifecycleStatus = 'Uploaded'
+      }
+
+      return {
+        ...entry,
+        importTypeLabel,
+        unmappedCount,
+        totalCount,
+        errorMsg,
+        isOutOfBalance,
+        progress,
+        lastAction,
+        reviewActionText,
+        reviewActionPath,
+        lifecycleStatus
+      }
+    })
+  }, [registryEntries, tbBatches, pdfBatches, coaBatches])
+
+  // Statistics summaries calculations
+  const stats = useMemo(() => {
+    const awaitingMapping = mappedEntries.filter(e => e.lifecycleStatus === 'Awaiting Mapping').length
+    const validationIssues = mappedEntries.filter(e => e.lifecycleStatus === 'Validation Errors' || e.errorMsg).length
+    const outOfBalance = mappedEntries.filter(e => e.isOutOfBalance).length
+    const awaitingReview = mappedEntries.filter(e => e.lifecycleStatus === 'Ready for Review').length
+    const recentlyFinalized = mappedEntries.filter(e => e.lifecycleStatus === 'Finalized').length
+    return { awaitingMapping, validationIssues, outOfBalance, awaitingReview, recentlyFinalized }
+  }, [mappedEntries])
+
+  // Map lifecycle statuses to badge styling
+  const getLifecycleBadge = (status: string) => {
+    const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
+      'Uploaded': { label: 'Uploaded', cls: 'bg-gray-150 border-gray-300 text-gray-700', icon: <Clock className="w-3 h-3" /> },
+      'Parsed': { label: 'Parsed', cls: 'bg-blue-50 border-blue-200 text-blue-700', icon: <Clock className="w-3 h-3" /> },
+      'Validation Errors': { label: 'Validation Errors', cls: 'bg-red-50 border-red-200 text-red-700', icon: <XCircle className="w-3 h-3" /> },
+      'Awaiting Mapping': { label: 'Mapping Required', cls: 'bg-amber-50 border-amber-250 text-amber-800', icon: <AlertCircle className="w-3 h-3" /> },
+      'Ready for Review': { label: 'Ready for Review', cls: 'bg-indigo-50 border-indigo-250 text-indigo-800', icon: <CheckCircle className="w-3 h-3" /> },
+      'Finalized': { label: 'Finalized', cls: 'bg-emerald-50 border-emerald-250 text-emerald-700', icon: <CheckCircle className="w-3 h-3" /> },
+    }
+    const { label, cls, icon } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', icon: null }
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${cls}`}>
+        {icon}
+        {label}
+      </span>
+    )
+  }
 
   return (
     <PageLayout
       title="Import Center"
-      subtitle="Upload and manage your financial data imports across all formats"
+      subtitle="Financial cleanup workspace & data import command center"
       actions={
         <button
           type="button"
           onClick={() => navigate('/import/new')}
-          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
         >
           <Upload className="w-4 h-4" /> New Import Wizard
         </button>
@@ -168,13 +333,42 @@ export function ImportCenterPage() {
             <button
               type="button"
               onClick={() => navigate('/entities')}
-              className="mt-2 flex items-center gap-1 text-xs text-amber-700 underline font-medium hover:text-amber-900"
+              className="mt-2 flex items-center gap-1 text-xs text-amber-700 underline font-medium hover:text-amber-900 cursor-pointer"
             >
               Go to Entities <ArrowRight className="w-3 h-3" />
             </button>
           </div>
         </div>
       )}
+
+      {/* Operational summary pipeline indicators */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Awaiting Mapping</div>
+          <div className="text-2xl font-bold mt-1 text-amber-600">{stats.awaitingMapping}</div>
+          <p className="text-[10px] text-slate-400 mt-1">Accounts need taxonomy links</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Validation Issues</div>
+          <div className="text-2xl font-bold mt-1 text-rose-600">{stats.validationIssues}</div>
+          <p className="text-[10px] text-slate-400 mt-1">Exceptions needing correction</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Out-Of-Balance</div>
+          <div className="text-2xl font-bold mt-1 text-red-650">{stats.outOfBalance}</div>
+          <p className="text-[10px] text-slate-400 mt-1">Debit & credit discrepancies</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Awaiting Review</div>
+          <div className="text-2xl font-bold mt-1 text-indigo-600">{stats.awaitingReview}</div>
+          <p className="text-[10px] text-slate-400 mt-1">Staged but not yet posted</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recently Finalized</div>
+          <div className="text-2xl font-bold mt-1 text-emerald-650">{stats.recentlyFinalized}</div>
+          <p className="text-[10px] text-slate-400 mt-1">Posted in current period</p>
+        </div>
+      </div>
 
       {/* Modern dashed Upload Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -266,11 +460,11 @@ export function ImportCenterPage() {
         </div>
       </div>
 
-      {/* Two-Column split layout */}
+      {/* Main split layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: Form/Placeholder & History Grid */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Left Column: Form/Placeholder & History Grid (Col span 3) */}
+        <div className="lg:col-span-3 space-y-6">
           
           {/* Quick upload form inline (if Trial Balance selected) */}
           {activeTab === 'tb' && (
@@ -278,7 +472,7 @@ export function ImportCenterPage() {
               <h2 className="text-sm font-semibold text-gray-800 mb-1">Quick Upload — Trial Balance</h2>
               <p className="text-xs text-gray-500 mb-4">
                 For guided step-by-step import with sheet selection and column mapping, use the{' '}
-                <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-600 font-semibold hover:underline">
+                <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-600 font-semibold hover:underline cursor-pointer">
                   Import Wizard
                 </button>
                 .
@@ -305,7 +499,7 @@ export function ImportCenterPage() {
                 <button
                   type="button"
                   onClick={() => setShowFormatHelp((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium hover:text-indigo-800"
+                  className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium hover:text-indigo-800 cursor-pointer"
                 >
                   <HelpCircle className="w-3.5 h-3.5" />
                   {showFormatHelp ? 'Hide format guidance' : 'Show accepted formats & tips'}
@@ -355,7 +549,7 @@ export function ImportCenterPage() {
                               a.click()
                               URL.revokeObjectURL(url)
                             }}
-                            className="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-indigo-200 rounded text-indigo-700 hover:bg-indigo-100 font-semibold transition-colors"
+                            className="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-indigo-200 rounded text-indigo-700 hover:bg-indigo-100 font-semibold transition-colors cursor-pointer"
                           >
                             <Download className="w-3.5 h-3.5 flex-shrink-0" />
                             {label}
@@ -400,7 +594,7 @@ export function ImportCenterPage() {
                   type="button"
                   disabled={!file || !entityId || !asOfDate || uploadMutation.isPending}
                   onClick={() => uploadMutation.mutate()}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                 >
                   {uploadMutation.isPending ? 'Uploading…' : 'Upload & Begin Review'}
                 </button>
@@ -425,7 +619,7 @@ export function ImportCenterPage() {
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
                     <p className="text-xs text-gray-600 font-semibold">Alternative Manual Mechanics:</p>
                     <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
-                      <li>Use the <button type="button" onClick={() => navigate('/journal-entries/new')} className="text-indigo-600 font-semibold hover:underline">Journal Entries</button> ledger modules to create manual journals.</li>
+                      <li>Use the <button type="button" onClick={() => navigate('/journal-entries/new')} className="text-indigo-600 font-semibold hover:underline cursor-pointer">Journal Entries</button> ledger modules to create manual journals.</li>
                       <li>Import a Trial Balance using the left card above to establish period-end balances.</li>
                       <li>Contact <span className="font-mono text-[10px] bg-white border px-1.5 py-0.5 rounded text-gray-700">ledger-support@livemarketing.test</span> to request API access.</li>
                     </ul>
@@ -438,194 +632,109 @@ export function ImportCenterPage() {
           {/* Import History Table card */}
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-800">Import History</h2>
+              <h2 className="text-sm font-semibold text-gray-800">Import Registry</h2>
             </div>
             
             <AccountingDataGrid
               columns={[
                 {
                   key: 'filename',
-                  header: 'File Name',
+                  header: 'Import Name',
                   sortable: true,
-                  sortValue: (b) => b.filename,
+                  sortValue: (b) => b.filename ?? '',
                   render: (b) => (
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-                      <span className="font-semibold text-gray-900 truncate max-w-[200px]">{b.filename}</span>
+                      <span className="font-semibold text-gray-900 truncate max-w-[220px]">{b.filename || b.description}</span>
                     </div>
                   ),
                 },
                 {
-                  key: 'type',
-                  header: 'Type',
+                  key: 'source_entity_name',
+                  header: 'Entity',
                   sortable: true,
-                  sortValue: () => 'Trial Balance',
-                  render: () => <span className="text-xs text-gray-500 font-medium">Trial Balance</span>,
+                  sortValue: (b) => b.source_entity_name ?? '',
+                  render: (b) => <span className="text-gray-600">{b.source_entity_name || '—'}</span>,
                 },
                 {
-                  key: 'as_of_date',
-                  header: 'Period',
+                  key: 'source_module',
+                  header: 'Import Type',
                   sortable: true,
-                  sortValue: (b) => b.as_of_date,
-                  render: (b) => <span className="text-gray-600">{b.as_of_date}</span>,
+                  sortValue: (b) => b.importTypeLabel,
+                  render: (b) => <span className="text-xs text-gray-550 font-semibold">{b.importTypeLabel}</span>,
                 },
                 {
-                  key: 'row_count',
-                  header: 'Rows',
+                  key: 'statement_date',
+                  header: 'Import Date',
                   sortable: true,
-                  sortValue: (b) => b.row_count ?? 0,
+                  sortValue: (b) => b.statement_date ?? b.created_at ?? '',
+                  render: (b) => <span className="text-gray-600">{b.statement_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '—')}</span>,
+                },
+                {
+                  key: 'lifecycleStatus',
+                  header: 'Status',
+                  sortable: true,
+                  sortValue: (b) => b.lifecycleStatus,
+                  render: (b) => getLifecycleBadge(b.lifecycleStatus),
+                },
+                {
+                  key: 'validation_issues',
+                  header: 'Validation Issues',
+                  sortable: false,
                   render: (b) => (
-                    <span className="text-gray-600 font-medium">
-                      {b.row_count ?? '—'}
-                      {b.unmapped_row_count ? (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded">
-                          {b.unmapped_row_count} unmapped
+                    <span className="text-xs">
+                      {b.errorMsg ? (
+                        <span className="text-rose-600 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {b.errorMsg}
                         </span>
-                      ) : null}
+                      ) : b.isOutOfBalance ? (
+                        <span className="text-red-650 font-semibold flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Out of Balance
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600">No issues</span>
+                      )}
                     </span>
                   ),
                 },
                 {
-                  key: 'status',
-                  header: 'Status',
+                  key: 'progress',
+                  header: 'Mapping Progress',
                   sortable: true,
-                  sortValue: (b) => b.status,
-                  render: (b) => statusBadge(b.status),
+                  sortValue: (b) => b.progress,
+                  render: (b) => (
+                    <div className="flex items-center gap-2 min-w-[120px]">
+                      <div className="w-16 bg-gray-100 rounded-full h-1.5 shrink-0">
+                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${b.progress}%` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-semibold">{b.progress}%</span>
+                    </div>
+                  ),
                 },
                 {
-                  key: 'uploaded_at',
-                  header: 'Uploaded',
+                  key: 'last_action',
+                  header: 'Last Action',
                   sortable: true,
-                  sortValue: (b) => b.uploaded_at,
-                  render: (b) => <span className="text-gray-500">{new Date(b.uploaded_at).toLocaleDateString()}</span>,
+                  sortValue: (b) => b.lastAction,
+                  render: (b) => <span className="text-gray-500">{b.lastAction}</span>,
                 },
               ]}
-              data={batches ?? []}
+              data={mappedEntries}
               rowKey={(b) => b.id}
-              onRowClick={(b) => navigate(`/import/${b.id}`)}
+              onRowClick={(b) => navigate(b.reviewActionPath)}
               rowActions={[
                 {
-                  key: 'view',
-                  label: 'Open Import Details',
+                  key: 'action',
+                  label: 'Execute Review Action',
                   icon: ChevronRight,
-                  onClick: (b) => navigate(`/import/${b.id}`),
+                  onClick: (b) => navigate(b.reviewActionPath),
                 },
               ]}
-              exportFilename="trial_balance_imports"
-              loading={isLoading}
-              emptyMessage="No trial balance imports found."
+              exportFilename="financial_cleanup_import_registry"
+              loading={isRegistryLoading && !tbBatches && !pdfBatches && !coaBatches}
+              emptyMessage="No financial imports found."
               data-testid="import-history-grid"
             />
-          </div>
-        </div>
-
-        {/* Right Column: Summaries Panel */}
-        <div className="space-y-6">
-          
-          {/* Mapping Status Card */}
-          <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-800 mb-1">Mapping Status Summary</h3>
-            <p className="text-xs text-gray-500 mb-4">Account classification progress for recent imports</p>
-
-            {latestBatch ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500">Staged accounts</span>
-                  <span className="font-semibold text-gray-800">{latestBatch.row_count ?? 0}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500">Mapped accounts</span>
-                  <span className="font-semibold text-green-600">
-                    {(latestBatch.row_count ?? 0) - (latestBatch.unmapped_row_count ?? 0)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500">Unmapped accounts</span>
-                  <span className={`font-semibold ${latestBatch.unmapped_row_count ? 'text-amber-600' : 'text-gray-500'}`}>
-                    {latestBatch.unmapped_row_count ?? 0}
-                  </span>
-                </div>
-
-                {/* Progress Bar */}
-                <div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${mappingProgress}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between items-center mt-1.5 text-[10px] text-gray-400">
-                    <span>{mappingProgress}% Complete</span>
-                    <span>100% Target</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/import/${latestBatch.id}`)}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-semibold rounded hover:bg-indigo-700 transition-colors shadow-sm"
-                  >
-                    Review Latest Import <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-6 border border-dashed rounded-lg">
-                <p className="text-xs text-gray-400">No active imports staged.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Validation Issues Card */}
-          <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-800 mb-1">Validation Summary</h3>
-            <p className="text-xs text-gray-500 mb-4">Warnings & errors from recent imports</p>
-
-            {activeIssues.length > 0 ? (
-              <div className="space-y-3">
-                {activeIssues.map((issue) => (
-                  <div
-                    key={issue.id}
-                    className={`flex items-start gap-3 rounded-lg p-3 ${
-                      issue.type === 'error' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'
-                    }`}
-                  >
-                    {issue.type === 'error' ? (
-                      <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-xs font-semibold ${issue.type === 'error' ? 'text-red-800' : 'text-amber-800'}`}>
-                          {issue.category}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-white border font-medium text-gray-500">
-                          {issue.affectedItems} items
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-gray-700 mt-1 font-semibold truncate">{issue.filename}</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5 leading-normal">{issue.message}</p>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/import/${issue.batchId}`)}
-                        className="mt-2 text-[10px] text-indigo-600 font-semibold hover:underline flex items-center gap-0.5"
-                      >
-                        Resolve Issues <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 bg-green-50/50 border border-dashed border-green-200 rounded-lg">
-                <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-green-800">All Imports Validated</p>
-                <p className="text-[10px] text-green-600 mt-1">No outstanding warnings or balance issues.</p>
-              </div>
-            )}
           </div>
         </div>
 
@@ -633,4 +742,5 @@ export function ImportCenterPage() {
     </PageLayout>
   )
 }
+
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Download, ShieldAlert, X, Search } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { reportingApi } from '@/api/reporting'
@@ -390,8 +390,24 @@ function StatementDebugPanel({
 export function FinancialStatementsPage() {
   const { org } = useOrg()
   const orgId = org?.id ?? 0
+  const queryClient = useQueryClient()
 
   const [entityId, setEntityId] = useState<number | ''>('')
+
+  // Mutation for Initialize Reporting Taxonomy setup flow
+  const initializeTaxonomyMutation = useMutation({
+    mutationFn: async () => {
+      await reportingTaxonomyApi.reseed()
+      return reportingApi.inheritTaxonomy(entityId as number)
+    },
+    onSuccess: () => {
+      // Invalidate queries to refresh the financial statements workspace
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['overlay-calculate'] })
+      queryClient.invalidateQueries({ queryKey: ['taxonomy-bs'] })
+      queryClient.invalidateQueries({ queryKey: ['taxonomy-is'] })
+    }
+  })
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().slice(0, 10))
   const [scenarioId, setScenarioId] = useState<number | ''>('')
   const [tab, setTab] = useState<Tab>('BS')
@@ -419,6 +435,10 @@ export function FinancialStatementsPage() {
     queryFn: () => accountsApi.list(entityId as number),
     enabled: ready,
   })
+
+  const unmappedAccountCount = useMemo(() => {
+    return accounts?.filter((acc) => !acc.reporting_taxonomy_line_id).length ?? 0
+  }, [accounts])
 
   const { data: journalEntries } = useQuery({
     queryKey: ['journal-entries', entityId],
@@ -836,6 +856,36 @@ export function FinancialStatementsPage() {
           )}
         </div>
       </div>
+
+      {/* Setup Assistant Banner */}
+      {ready && unmappedAccountCount > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-200 rounded-xl p-5 shadow-sm flex items-start gap-4 animate-in fade-in duration-300">
+          <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1 space-y-1">
+            <h3 className="text-sm font-bold text-amber-900">Setup Assistant: Unmapped Accounts Found</h3>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              There are {unmappedAccountCount} account(s) in your Chart of Accounts that are not mapped to any reporting taxonomy line. 
+              To automatically populate your reports (Trial Balance, BS, and IS), initialize the reporting taxonomy and propagate mappings.
+            </p>
+            <div className="pt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => initializeTaxonomyMutation.mutate()}
+                disabled={initializeTaxonomyMutation.isPending}
+                className="rounded-md bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 shadow-sm hover:shadow transition-all disabled:opacity-50 cursor-pointer"
+                data-testid="initialize-taxonomy-btn"
+              >
+                {initializeTaxonomyMutation.isPending ? 'Initializing & Propagating…' : 'Initialize Reporting Taxonomy'}
+              </button>
+              {initializeTaxonomyMutation.isSuccess && (
+                <span className="text-xs text-emerald-600 font-semibold animate-pulse">
+                  ✓ Successfully initialized!
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pro Forma Banner */}
       {ready && includeDrafts && !officialOnly && (computedItems.some(i => i.draftAdjustments !== 0)) && (

@@ -12,38 +12,31 @@ import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SetupWizardPage } from '@/pages/SetupWizardPage'
 import { AlertCircle, Clock, CheckCircle } from 'lucide-react'
+import { cn } from '@/utils/cn'
 
-function DashboardCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">{title}</h2>
-      {children}
-    </div>
-  )
-}
 
 const QUICK_LINKS = [
-  { label: 'Journal Entries', to: '/journal-entries', description: 'Create and manage accounting entries' },
-  { label: 'Trial Balance', to: '/reports', description: 'View trial balance and run reports' },
-  { label: 'Financial Statements', to: '/financial-statements', description: 'Balance Sheet and Income Statement' },
-  { label: 'Periods', to: '/periods', description: 'Manage accounting periods' },
-  { label: 'Workflow', to: '/workflow', description: 'Review and approve pending tasks' },
-  { label: 'Reconciliation', to: '/reconciliation', description: 'Account reconciliation status' },
+  { label: 'Import Center', to: '/import', description: 'financial cleanup workflow hub' },
+  { label: 'Chart of Accounts', to: '/accounts', description: 'validate account classifications' },
+  { label: 'Taxonomy Mapping', to: '/taxonomy-admin', description: 'apply standard reporting frameworks' },
+  { label: 'Journal Entries', to: '/journal-entries', description: 'prepare Adjusting Journal Entries' },
+  { label: 'Adjustment Bridge', to: '/draft-preview', description: 'book vs. GAAP pro forma analysis' },
+  { label: 'Reports Preview', to: '/financial-statements', description: 'view draft-adjusted financial statements' },
 ]
 
 function QuickLinks() {
   return (
-    <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
-      <h2 className="mb-3 text-sm font-semibold text-blue-800 uppercase tracking-wide">Quick Links</h2>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+      <h2 className="mb-3 text-xs font-bold text-slate-450 uppercase tracking-wider">Operational Workbench Quick Links</h2>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {QUICK_LINKS.map((link) => (
           <Link
             key={link.to}
             to={link.to}
-            className="rounded-md border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 transition-colors"
+            className="rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 hover:border-amber-300 hover:bg-amber-50/5 transition-all shadow-sm flex flex-col justify-between"
           >
-            <div className="text-sm font-medium text-blue-700">{link.label}</div>
-            <div className="mt-0.5 text-xs text-gray-500">{link.description}</div>
+            <div className="text-xs font-bold text-slate-800">{link.label}</div>
+            <div className="mt-1 text-[11px] text-slate-400 font-medium leading-normal">{link.description}</div>
           </Link>
         ))}
       </div>
@@ -104,6 +97,34 @@ export function DashboardPage() {
   const { user } = useAuth()
   const orgId = org?.id ?? 0
 
+  const status = useQuery({
+    queryKey: ['onboarding-status', orgId],
+    queryFn: async () => {
+      const res = await fetch('/api/v1/setup/onboarding-status')
+      if (!res.ok) throw new Error('Failed to load onboarding status')
+      return res.json() as Promise<{
+        entity_count: number
+        active_entity_count: number
+        import_batch_count: number
+        pending_imports: number
+        posted_imports: number
+        unmapped_line_count: number
+        has_journal_entries: boolean
+        coa_batch_count: number
+        coa_applied_count: number
+        setup_steps_complete: string[]
+        setup_progress: number
+      }>
+    },
+    enabled: orgId > 0,
+  })
+
+  const batches = useQuery({
+    queryKey: ['import-batches', orgId],
+    queryFn: () => tbImportApi.listBatches(orgId),
+    enabled: orgId > 0,
+  })
+
   const tasks = useQuery({
     queryKey: ['tasks', orgId],
     queryFn: () => workflowApi.listTasks(orgId, { status: 'open' }),
@@ -113,12 +134,6 @@ export function DashboardPage() {
   const issues = useQuery({
     queryKey: ['issues', orgId],
     queryFn: () => workflowApi.listIssues(orgId, { status: 'open' }),
-    enabled: orgId > 0,
-  })
-
-  const reports = useQuery({
-    queryKey: ['reports', orgId],
-    queryFn: () => reportsApi.list(orgId),
     enabled: orgId > 0,
   })
 
@@ -139,106 +154,298 @@ export function DashboardPage() {
     )
   }
 
+  // Metric computations
+  const pendingImportsCount = batches.data?.filter((b) => ['mapping_required', 'validation_failed', 'uploaded', 'parsed'].includes(b.status)).length ?? 0
+  const unmappedAccountsCount = status.data?.unmapped_line_count ?? 0
+  const draftAJEs = jes.data?.filter((je) => je.status === 'draft') ?? []
+  const draftAJEsCount = draftAJEs.length
+  const draftAJEsTotalValue = draftAJEs.reduce((sum, je) => {
+    return sum + je.lines.reduce((s, line) => s + parseFloat(line.debit || '0'), 0)
+  }, 0)
+
+  const outOfBalanceCount = batches.data?.filter((b) => {
+    const db = parseFloat(b.total_debits || '0')
+    const cr = parseFloat(b.total_credits || '0')
+    return Math.abs(db - cr) > 0.005
+  }).length ?? 0
+
   return (
     <PageLayout title="Dashboard" subtitle={`Overview for ${org.name}`}>
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* Guided onboarding wizard (dismissible) */}
         <SetupWizardPage />
 
         {/* Operational status alerts */}
         <OperationalStatusCards orgId={orgId} />
 
+        {/* Operational Metrics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Pending Imports */}
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50/20 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:shadow transition-all duration-200">
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold text-yellow-600 uppercase tracking-wider">Pending Imports</span>
+              <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 text-[9px] font-bold">Action Needed</span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{pendingImportsCount}</span>
+              <span className="text-xs text-slate-500 font-medium">awaiting mapping/post</span>
+            </div>
+            <Link to="/import" className="text-xs text-yellow-750 hover:text-yellow-850 font-semibold inline-flex items-center gap-1 mt-2 hover:underline">
+              Resolve in Import Center →
+            </Link>
+          </div>
+
+          {/* Card 2: Taxonomy Exceptions */}
+          <div className="rounded-xl border border-amber-250 bg-amber-50/20 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:shadow transition-all duration-200">
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Taxonomy Exceptions</span>
+              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[9px] font-bold">Unmapped</span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{unmappedAccountsCount}</span>
+              <span className="text-xs text-slate-500 font-medium">accounts unmapped</span>
+            </div>
+            <Link to="/taxonomy-admin" className="text-xs text-amber-700 hover:text-amber-850 font-semibold inline-flex items-center gap-1 mt-2 hover:underline">
+              Review Map Exceptions →
+            </Link>
+          </div>
+
+          {/* Card 3: Draft AJEs */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50/20 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:shadow transition-all duration-200">
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Draft AJEs</span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[9px] font-bold">Pro Forma</span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{draftAJEsCount}</span>
+              <span className="text-xs text-slate-500 font-medium">entries (${draftAJEsTotalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+            </div>
+            <Link to="/journal-entries" className="text-xs text-blue-700 hover:text-blue-850 font-semibold inline-flex items-center gap-1 mt-2 hover:underline">
+              Manage Journal Entries →
+            </Link>
+          </div>
+
+          {/* Card 4: Out of Balance Batches */}
+          <div className="rounded-xl border border-rose-200 bg-rose-50/20 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:shadow transition-all duration-200">
+            <div className="flex justify-between items-start">
+              <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Out-of-Balance Imports</span>
+              <span className={cn(
+                "px-1.5 py-0.5 rounded text-[9px] font-bold",
+                outOfBalanceCount > 0 ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+              )}>
+                {outOfBalanceCount > 0 ? "Error" : "Balanced"}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{outOfBalanceCount}</span>
+              <span className="text-xs text-slate-500 font-medium">batches out of balance</span>
+            </div>
+            <Link to="/import" className="text-xs text-rose-700 hover:text-rose-850 font-semibold inline-flex items-center gap-1 mt-2 hover:underline">
+              Validate TB Batches →
+            </Link>
+          </div>
+        </div>
+
         {/* Onboarding quick links */}
         <QuickLinks />
 
         {/* Welcome message for the logged-in user */}
         {user && (
-          <p className="text-sm text-gray-500">
-            Logged in as <span className="font-medium text-gray-700">{user.full_name}</span> ({user.email})
+          <p className="text-xs text-slate-400 font-medium">
+            Logged in as <span className="font-semibold text-slate-650">{user.full_name}</span> ({user.email})
           </p>
         )}
 
-        {/* Activity cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {/* Open Tasks */}
-          <DashboardCard title="Open Tasks">
-            {tasks.isLoading && <LoadingState message="Loading tasks…" />}
-            {tasks.isError && <ErrorState message="Could not load tasks." />}
-            {tasks.data && (
-              tasks.data.length === 0
-                ? <p className="text-xs text-gray-400">No open tasks.</p>
-                : <ul className="space-y-2">
+        {/* Dashboard Operational Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Columns: Reviews & Imports */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Reviews */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xs font-bold text-slate-850 uppercase tracking-wider mb-4">
+                Journal Entries Pending Review
+              </h2>
+              {jes.isLoading && <LoadingState message="Loading entries…" />}
+              {jes.isError && <ErrorState message="Could not load journal entries." />}
+              {jes.data && (
+                jes.data.filter((je) => je.status === 'draft').length === 0 ? (
+                  <p className="text-xs text-slate-450 font-medium py-6 text-center">
+                    All journal entries have been finalized and posted! No items pending review.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left text-slate-700">
+                      <thead>
+                        <tr className="border-b text-slate-400 uppercase text-[9px] font-bold tracking-wider">
+                          <th className="pb-2">JE Number</th>
+                          <th className="pb-2">Description</th>
+                          <th className="pb-2">Date</th>
+                          <th className="pb-2 text-right">Value</th>
+                          <th className="pb-2 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jes.data.filter((je) => je.status === 'draft').slice(0, 5).map((je) => {
+                          const jeTotalAmt = je.lines.reduce((s, l) => s + parseFloat(l.debit || '0'), 0)
+                          return (
+                            <tr key={je.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                              <td className="py-2.5 font-mono font-bold text-slate-900">{je.je_number}</td>
+                              <td className="py-2.5 text-slate-650 truncate max-w-[200px]" title={je.description}>
+                                {je.description}
+                              </td>
+                              <td className="py-2.5 text-slate-400">{je.entry_date}</td>
+                              <td className="py-2.5 text-right font-mono text-slate-800">${jeTotalAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="py-2.5 text-right">
+                                <Link to="/journal-entries" className="text-amber-500 hover:text-amber-600 font-semibold hover:underline">
+                                  Review
+                                </Link>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Pipeline status */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xs font-bold text-slate-855 uppercase tracking-wider mb-4">
+                Active Import Pipeline
+              </h2>
+              {batches.isLoading && <LoadingState message="Loading batches…" />}
+              {batches.isError && <ErrorState message="Could not load batches." />}
+              {batches.data && (
+                batches.data.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-medium py-6 text-center">
+                    No imports uploaded yet. Get started in the Import Center.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left text-slate-700">
+                      <thead>
+                        <tr className="border-b text-slate-400 uppercase text-[9px] font-bold tracking-wider">
+                          <th className="pb-2">Filename</th>
+                          <th className="pb-2">As-of Date</th>
+                          <th className="pb-2">Status</th>
+                          <th className="pb-2 text-right">Unmapped Rows</th>
+                          <th className="pb-2 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {batches.data.slice(0, 5).map((b) => (
+                          <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                            <td className="py-2.5 font-medium text-slate-900 truncate max-w-[200px]" title={b.filename}>{b.filename}</td>
+                            <td className="py-2.5 text-slate-450">{b.as_of_date}</td>
+                            <td className="py-2.5">
+                              <span className={cn(
+                                "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide",
+                                b.status === 'posted' ? "bg-emerald-100 text-emerald-800" :
+                                b.status === 'ready_to_post' ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"
+                              )}>
+                                {b.status.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-slate-705 font-semibold">{b.unmapped_row_count ?? 0}</td>
+                            <td className="py-2.5 text-right">
+                              <Link to="/import" className="text-amber-500 hover:text-amber-600 font-semibold hover:underline">
+                                Manage
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Validation Alerts & Reports shortcuts */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Open Tasks */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xs font-bold text-slate-855 uppercase tracking-wider mb-4">
+                Open Tasks
+              </h2>
+              {tasks.isLoading && <LoadingState message="Loading tasks…" />}
+              {tasks.isError && <ErrorState message="Could not load tasks." />}
+              {tasks.data && (
+                tasks.data.length === 0 ? (
+                  <p className="text-xs text-slate-450 font-medium py-6 text-center">
+                    No open tasks.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
                     {tasks.data.slice(0, 5).map((t) => (
-                      <li key={t.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate text-gray-700">{t.title}</span>
-                        <StatusBadge status={t.status} />
+                      <li key={t.id} className="flex gap-2.5 items-start text-xs border-b border-slate-50 pb-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 truncate" title={t.title}>{t.title}</p>
+                          <p className="text-[10px] text-slate-450 mt-0.5 leading-relaxed">{t.description}</p>
+                        </div>
                       </li>
                     ))}
-                    {tasks.data.length > 5 && (
-                      <p className="text-xs text-gray-400">+{tasks.data.length - 5} more</p>
-                    )}
                   </ul>
-            )}
-          </DashboardCard>
+                )
+              )}
+            </div>
 
-          {/* Unresolved Issues */}
-          <DashboardCard title="Unresolved Issues">
-            {issues.isLoading && <LoadingState message="Loading issues…" />}
-            {issues.isError && <ErrorState message="Could not load issues." />}
-            {issues.data && (
-              issues.data.length === 0
-                ? <p className="text-xs text-gray-400">No open issues.</p>
-                : <ul className="space-y-2">
+            {/* Alerts */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xs font-bold text-slate-855 uppercase tracking-wider mb-3">
+                Validation & Control Alerts
+              </h2>
+              {issues.isLoading && <LoadingState message="Loading alerts…" />}
+              {issues.isError && <ErrorState message="Could not load alerts." />}
+              {issues.data && (
+                issues.data.length === 0 ? (
+                  <p className="text-xs text-emerald-600 font-semibold py-4 flex items-center gap-1.5">
+                    ✓ All ledger controls operating normally.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
                     {issues.data.slice(0, 5).map((i) => (
-                      <li key={i.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate text-gray-700">{i.title}</span>
-                        <SeverityBadge severity={i.severity} />
+                      <li key={i.id} className="flex gap-2.5 items-start text-xs border-b border-slate-50 pb-2.5">
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-slate-800 truncate" title={i.title}>{i.title}</p>
+                          <p className="text-[10px] text-slate-450 mt-0.5 leading-relaxed">{i.description}</p>
+                        </div>
                       </li>
                     ))}
-                    {issues.data.length > 5 && (
-                      <p className="text-xs text-gray-400">+{issues.data.length - 5} more</p>
-                    )}
                   </ul>
-            )}
-          </DashboardCard>
+                )
+              )}
+            </div>
 
-          {/* Recent Reports */}
-          <DashboardCard title="Recent Reports">
-            {reports.isLoading && <LoadingState message="Loading reports…" />}
-            {reports.isError && <ErrorState message="Could not load reports." />}
-            {reports.data && (
-              reports.data.length === 0
-                ? <p className="text-xs text-gray-400">No report runs yet.</p>
-                : <ul className="space-y-2">
-                    {reports.data.slice(0, 5).map((r) => (
-                      <li key={r.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate text-gray-700">
-                          {r.report_type.replace(/_/g, ' ')}
-                        </span>
-                        <StatusBadge status={r.status} />
-                      </li>
-                    ))}
-                  </ul>
-            )}
-          </DashboardCard>
-
-          {/* Recent JEs */}
-          <DashboardCard title="Recent Journal Entries">
-            {jes.isLoading && <LoadingState message="Loading entries…" />}
-            {jes.isError && <ErrorState message="Could not load journal entries." />}
-            {jes.data && (
-              jes.data.length === 0
-                ? <p className="text-xs text-gray-400">No journal entries.</p>
-                : <ul className="space-y-2">
-                    {jes.data.slice(0, 5).map((je) => (
-                      <li key={je.id} className="flex items-center justify-between text-sm">
-                        <span className="font-mono text-gray-700">{je.je_number}</span>
-                        <StatusBadge status={je.status} />
-                      </li>
-                    ))}
-                  </ul>
-            )}
-          </DashboardCard>
+            {/* Reports shortcuts */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-xs font-bold text-slate-855 uppercase tracking-wider mb-4">
+                Financial Reports
+              </h2>
+              <div className="space-y-2">
+                <Link to="/financial-statements" className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-amber-200 hover:bg-amber-50/5 transition-all text-xs font-semibold text-slate-750">
+                  <span>Balance Sheet</span>
+                  <span className="text-amber-500 font-bold">→</span>
+                </Link>
+                <Link to="/financial-statements" className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-amber-200 hover:bg-amber-50/5 transition-all text-xs font-semibold text-slate-750">
+                  <span>Income Statement</span>
+                  <span className="text-amber-500 font-bold">→</span>
+                </Link>
+                <Link to="/financial-statements" className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-amber-200 hover:bg-amber-50/5 transition-all text-xs font-semibold text-slate-750">
+                  <span>Statement of Cash Flows</span>
+                  <span className="text-amber-500 font-bold">→</span>
+                </Link>
+                <Link to="/draft-preview" className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 hover:border-amber-200 hover:bg-amber-50/5 transition-all text-xs font-semibold text-slate-750">
+                  <span>Adjustment Bridge</span>
+                  <span className="text-amber-500 font-bold">→</span>
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </PageLayout>

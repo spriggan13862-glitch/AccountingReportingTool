@@ -4,7 +4,7 @@ import {
   ChevronRight, ChevronDown, Plus, Pencil, X, Check, Download, Upload,
   RefreshCw, Copy, Trash2, BookOpen, AlertCircle, CheckCircle, Search,
   Filter, Settings, Flag, ArrowRight, ArrowLeft, Zap, Info, ShieldAlert,
-  Sparkles, SlidersHorizontal, Eye, EyeOff
+  Sparkles, SlidersHorizontal, Eye, EyeOff, Lock, Unlock
 } from 'lucide-react'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import type { TaxonomyLineCreate, TaxonomyLineUpdate } from '@/api/reportingTaxonomy'
@@ -1053,6 +1053,23 @@ export function TaxonomyAdminPage() {
     }
   })
 
+  const [lockedIds, setLockedIds] = useState<Set<number>>(() => {
+    try {
+      const saved = localStorage.getItem(`locked_taxonomy_accts_${activeEntity?.id ?? 0}`)
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
+
+  const toggleLock = (acctId: number) => {
+    const next = new Set(lockedIds)
+    if (next.has(acctId)) next.delete(acctId)
+    else next.add(acctId)
+    setLockedIds(next)
+    localStorage.setItem(`locked_taxonomy_accts_${activeEntity?.id ?? 0}`, JSON.stringify(Array.from(next)))
+  }
+
   // Queries
   const { data: entities = [] } = useQuery({
     queryKey: ['entities-list'],
@@ -1528,9 +1545,15 @@ export function TaxonomyAdminPage() {
                         onChange={(e) => setSelectedViewId(Number(e.target.value))}
                         className="h-9 border border-slate-200 rounded-lg bg-white px-3 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 min-w-[180px] transition-all"
                       >
-                        {views.map(v => (
-                          <option key={v.id} value={v.id}>{v.name} View</option>
-                        ))}
+                        {views.map(v => {
+                          let label = v.name
+                          if (v.code === 'gaap') label = 'GAAP'
+                          if (v.code === 'management') label = 'Management'
+                          if (v.code === 'tax_basis') label = 'Tax'
+                          if (v.code === 'sba_lender') label = 'SBA'
+                          if (v.code === 'qoe') label = 'Industry'
+                          return <option key={v.id} value={v.id}>{label} View</option>
+                        })}
                       </select>
                     </div>
                   </div>
@@ -1628,8 +1651,25 @@ export function TaxonomyAdminPage() {
                         const mappedLine = isMapped ? lines.find(l => l.id === acct.reporting_taxonomy_line_id) : null
                         const isSelected = selectedAccountIds.has(acct.id)
                         const isFlagged = flaggedIds.has(acct.id)
+                        const isLocked = lockedIds.has(acct.id)
                         const suggestion = getSuggestion(acct)
                         const suggestedLine = suggestion.code ? lines.find(l => l.code === suggestion.code) : null
+
+                        // Resolve parent inheritance
+                        let inheritedId: number | null = null
+                        let parentId = acct.parent_account_id
+                        while (parentId && !inheritedId) {
+                          const p = accounts.find(a => a.id === parentId)
+                          if (p) {
+                            if (p.reporting_taxonomy_line_id) {
+                              inheritedId = p.reporting_taxonomy_line_id
+                            }
+                            parentId = p.parent_account_id
+                          } else {
+                            break
+                          }
+                        }
+                        const inheritedLine = inheritedId ? lines.find(l => l.id === inheritedId) : null
 
                         return (
                           <div
@@ -1642,8 +1682,9 @@ export function TaxonomyAdminPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
+                              disabled={isLocked}
                               onChange={() => toggleAccountSelect(acct.id)}
-                              className="mt-1 rounded border-slate-350 text-indigo-600 focus:ring-indigo-500/20"
+                              className="mt-1 rounded border-slate-350 text-indigo-600 focus:ring-indigo-500/20 disabled:opacity-40"
                             />
 
                             <div className="flex-1 min-w-0">
@@ -1666,15 +1707,27 @@ export function TaxonomyAdminPage() {
 
                               {/* Mapped view / suggestions info */}
                               <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                {isLocked && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border bg-slate-100 border-slate-300 text-slate-700 text-[10px] font-bold">
+                                    <Lock className="w-2.5 h-2.5" /> Locked
+                                  </span>
+                                )}
+
                                 {isMapped ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border bg-indigo-50 border-indigo-200 text-indigo-700 text-[10px] font-bold">
                                     Mapped: {mappedLine?.name || mappedLine?.code || acct.reporting_taxonomy_line_id}
-                                    <button
-                                      onClick={() => mapAccountsMutation.mutate({ accountIds: [acct.id], taxonomyLineId: null })}
-                                      className="ml-1 p-0.5 rounded hover:bg-indigo-150 text-indigo-500 hover:text-indigo-800"
-                                    >
-                                      <X className="w-2.5 h-2.5" />
-                                    </button>
+                                    {!isLocked && (
+                                      <button
+                                        onClick={() => mapAccountsMutation.mutate({ accountIds: [acct.id], taxonomyLineId: null })}
+                                        className="ml-1 p-0.5 rounded hover:bg-indigo-150 text-indigo-500 hover:text-indigo-800"
+                                      >
+                                        <X className="w-2.5 h-2.5" />
+                                      </button>
+                                    )}
+                                  </span>
+                                ) : inheritedLine ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border bg-slate-55/70 border-slate-200 text-slate-700 text-[10px] font-semibold">
+                                    Inherited: {inheritedLine.name}
                                   </span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 text-amber-700 text-[10px] font-semibold">
@@ -1683,7 +1736,7 @@ export function TaxonomyAdminPage() {
                                 )}
 
                                 {/* Suggestions engine */}
-                                {!isMapped && suggestedLine && (
+                                {!isMapped && suggestedLine && !isLocked && (
                                   <div className="inline-flex items-center gap-1.5">
                                     <span className={cn(
                                       "inline-flex items-center border rounded-full px-2 py-0.5 text-[10px] font-bold gap-1",
@@ -1701,15 +1754,40 @@ export function TaxonomyAdminPage() {
                                     </button>
                                   </div>
                                 )}
+
+                                {isMapped && suggestedLine && (
+                                  suggestedLine.id === acct.reporting_taxonomy_line_id ? (
+                                    <span className="px-2 py-0.5 rounded-full border border-green-200 bg-green-50 text-green-800 text-[10px] font-semibold">
+                                      Suggested Match
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full border border-blue-200 bg-blue-50 text-blue-800 text-[10px] font-semibold">
+                                      Overridden
+                                    </span>
+                                  )
+                                )}
                               </div>
                             </div>
 
                             {/* Flag control / overrides action panel */}
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => toggleFlag(acct.id)}
+                                onClick={() => toggleLock(acct.id)}
                                 className={cn(
                                   "p-1.5 rounded-md border transition-all cursor-pointer",
+                                  isLocked
+                                    ? "bg-slate-200 border-slate-350 text-slate-700"
+                                    : "bg-white border-slate-200 text-slate-350 hover:text-slate-500 hover:border-slate-300"
+                                )}
+                                title={isLocked ? "Unlock mapping" : "Lock mapping"}
+                              >
+                                {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                onClick={() => toggleFlag(acct.id)}
+                                disabled={isLocked}
+                                className={cn(
+                                  "p-1.5 rounded-md border transition-all cursor-pointer disabled:opacity-40",
                                   isFlagged
                                     ? "bg-amber-100 border-amber-300 text-amber-600"
                                     : "bg-white border-slate-200 text-slate-350 hover:text-slate-500 hover:border-slate-300"

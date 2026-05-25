@@ -6,7 +6,7 @@ import {
   BookOpen, Plus, Search, Filter, Download, Upload, Copy, RotateCcw,
   Send, CheckCircle2, MessageSquare, History, AlertTriangle, Paperclip,
   Trash2, X, Check, ArrowRight, Info, ShieldAlert, Sparkles, ChevronRight,
-  Lock, Eye, EyeOff
+  Lock, Eye, EyeOff, SlidersHorizontal
 } from 'lucide-react'
 
 import { journalEntriesApi } from '@/api/journalEntries'
