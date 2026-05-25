@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { AccountSearch } from '@/components/ui/AccountSearch'
 import { useOrg } from '@/providers/OrgProvider'
 import { cn } from '@/utils/cn'
+import { EntitySelect } from '@/components/ui/EntitySelect'
 import type { JournalEntry, JELine, JECreate, JELineCreate, Account, User, Signoff } from '@/types'
 
 // ---------------------------------------------------------------------------

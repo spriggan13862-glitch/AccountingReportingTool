@@ -3,6 +3,26 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import { execSync } from 'child_process'
+
+let gitHash = 'unknown'
+let gitTag = ''
+const buildTime = new Date().toLocaleString('en-US', {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+  hour12: true
+})
+
+try {
+  gitHash = execSync('git rev-parse --short HEAD').toString().trim()
+} catch (e) {}
+
+try {
+  gitTag = execSync('git describe --tags --always').toString().trim()
+} catch (e) {}
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -10,6 +30,11 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  define: {
+    'import.meta.env.VITE_APP_GIT_HASH': JSON.stringify(gitHash),
+    'import.meta.env.VITE_APP_GIT_TAG': JSON.stringify(gitTag),
+    'import.meta.env.VITE_APP_BUILD_TIME': JSON.stringify(buildTime),
   },
   server: {
     proxy: {

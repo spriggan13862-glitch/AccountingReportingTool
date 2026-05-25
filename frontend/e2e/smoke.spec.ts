@@ -153,8 +153,8 @@ test.describe('Dashboard', () => {
     await page.goto('/')
     await expect(page.getByText(/quick links/i)).toBeVisible()
     await expect(page.getByRole('link', { name: /journal entries/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /trial balance/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /financial statements/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /import center/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /reports preview/i }).first()).toBeVisible()
   })
 
   test('shows demo banner for Acme org', async ({ page }) => {

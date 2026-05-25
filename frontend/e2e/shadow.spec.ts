@@ -411,14 +411,14 @@ test.describe('Draft Overlay Preview page', () => {
   test('draft preview page loads without errors', async ({ page }) => {
     const { consoleErrors, failedRequests } = attachMonitors(page)
     await page.goto('/draft-preview')
-    await expect(page.getByRole('heading', { name: 'Draft Preview' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Adjustment Bridge' })).toBeVisible()
     await assertNoErrors(page, consoleErrors, failedRequests)
   })
 
   test('draft preview shows Configure Overlay button and no red error banner', async ({ page }) => {
     const { consoleErrors, failedRequests } = attachMonitors(page)
     await page.goto('/draft-preview')
-    await expect(page.getByRole('heading', { name: 'Draft Preview' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Adjustment Bridge' })).toBeVisible()
     await expect(page.getByTestId('open-overlay-modal')).toBeVisible()
     await expect(page.locator('[data-testid="error-banner"]')).not.toBeVisible()
     await assertNoErrors(page, consoleErrors, failedRequests)

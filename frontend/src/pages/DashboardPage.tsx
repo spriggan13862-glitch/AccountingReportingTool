@@ -447,6 +447,12 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Version Indicator */}
+        <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 font-medium">
+          <div>Version: {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}</div>
+          <div className="mt-1 sm:mt-0">Built: {import.meta.env.VITE_APP_BUILD_TIME || 'unknown'}</div>
+        </div>
       </div>
     </PageLayout>
   )
