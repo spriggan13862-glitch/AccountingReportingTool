@@ -853,6 +853,29 @@ function AccountRow({
   const isHighlighted = highlightIds.has(node.id)
   const isSelected = selectedIds.has(node.id)
   const taxonomyName = taxonomyLines.find((t) => t.id === node.reporting_taxonomy_line_id)?.name
+
+  // Find inherited mapping
+  const inheritedMappingId = useMemo(() => {
+    let parentId = node.parent_account_id
+    while (parentId) {
+      const parent = flatAccounts.find(a => a.id === parentId)
+      if (parent) {
+        if (parent.reporting_taxonomy_line_id) {
+          return parent.reporting_taxonomy_line_id
+        }
+        parentId = parent.parent_account_id
+      } else {
+        break
+      }
+    }
+    return null
+  }, [node.parent_account_id, flatAccounts])
+
+  const inheritedTaxonomyName = useMemo(() => {
+    if (!inheritedMappingId) return null
+    return taxonomyLines.find((t) => t.id === inheritedMappingId)?.name ?? null
+  }, [inheritedMappingId, taxonomyLines])
+
   const py = DENSITY_PY[density]
 
   function openMenu(e: React.MouseEvent) {
@@ -1072,12 +1095,26 @@ function AccountRow({
               return (
                 <div className="flex flex-col gap-1 items-start">
                   {taxonomyName ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-150 bg-indigo-50/70 text-indigo-700 text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                    <span 
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-150 bg-indigo-50/70 text-indigo-700 text-[11px] font-semibold whitespace-nowrap shadow-sm"
+                      data-testid="manual-mapping-badge"
+                    >
                       <Tag className="w-3 h-3 text-indigo-400 shrink-0" />
                       {taxonomyName}
                     </span>
+                  ) : inheritedTaxonomyName ? (
+                    <span 
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-dashed border-indigo-300 bg-indigo-50/30 text-indigo-600 text-[11px] font-semibold whitespace-nowrap shadow-sm"
+                      data-testid="inherited-mapping-badge"
+                    >
+                      <ArrowRightToLine className="w-3 h-3 text-indigo-400 shrink-0" />
+                      {inheritedTaxonomyName} (Inherited)
+                    </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-250 bg-amber-50 text-amber-800 text-[11px] font-semibold whitespace-nowrap shadow-sm">
+                    <span 
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-250 bg-amber-50 text-amber-800 text-[11px] font-semibold whitespace-nowrap shadow-sm"
+                      data-testid="unmapped-badge"
+                    >
                       <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
                       Unmapped
                     </span>
