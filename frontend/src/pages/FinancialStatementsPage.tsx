@@ -1005,6 +1005,7 @@ export function FinancialStatementsPage() {
         <DrilldownPanel
           drilldown={drilldown ?? null}
           onClose={() => setDrilldownCode(null)}
+          taxonomyLines={taxonomyLines}
         />
       )}
 
