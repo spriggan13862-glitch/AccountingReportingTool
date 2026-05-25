@@ -109,7 +109,7 @@ export function TaxonomyTable({
               const indent = row.hierarchy_depth * 16
               const isHeader = row.hierarchy_depth === 0
               const isSubtotal = row.is_subtotal
-              const isClickable = !!onDrilldown && !isHeader && !isSubtotal
+              const isClickable = !!onDrilldown && !!row.code
               const showValue = !(isHeader && !isSubtotal)
 
               const impVal = row.importedBalance ?? 0
@@ -194,7 +194,7 @@ export function TaxonomyTable({
             const isSubtotal = row.is_subtotal
             const balance = parseFloat(row.display_balance)
             const isEmpty = balance === 0 && row.account_count === 0
-            const isClickable = !!onDrilldown && !isHeader && !isSubtotal
+            const isClickable = !!onDrilldown && !!row.code
 
             const rowClasses = [
               isHeader ? 'bg-gray-50 border-t border-b font-semibold' : '',
