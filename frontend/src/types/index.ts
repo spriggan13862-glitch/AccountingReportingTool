@@ -673,8 +673,16 @@ export interface DrilldownJournalEntry {
   je_id: number
   je_number: string
   entry_date: string
+  debit: string
+  credit: string
   description: string
-  net_debit: string
+  net_debit?: string
+  source?: string | null
+  source_ref?: string | null
+  source_import_id?: number | null
+  source_import_filename?: string | null
+  document_id?: number | null
+  document_name?: string | null
 }
 
 export interface DrilldownAccount {
