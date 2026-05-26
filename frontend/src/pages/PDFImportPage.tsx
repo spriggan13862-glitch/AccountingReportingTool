@@ -176,34 +176,60 @@ function StmtFilterBar({
 
 function ValidationTable({ checks }: { checks: PDFValidationCheck[] }) {
   return (
-    <table className="w-full text-xs">
-      <thead className="bg-gray-50 border-b border-gray-200">
-        <tr>
-          <th className="px-3 py-2 text-left">Subtotal</th>
-          <th className="px-3 py-2 text-right">Extracted</th>
-          <th className="px-3 py-2 text-right">Expected (PDF)</th>
-          <th className="px-3 py-2 text-right">Diff</th>
-          <th className="px-3 py-2 text-center w-16">Status</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100">
-        {checks.map((c) => (
-          <tr key={c.key} className={c.status === 'fail' ? 'bg-red-50' : ''}>
-            <td className="px-3 py-1.5 text-gray-700">{c.label}</td>
-            <td className="px-3 py-1.5 text-right font-mono">{fmt(c.extracted)}</td>
-            <td className="px-3 py-1.5 text-right font-mono">{fmt(c.expected)}</td>
-            <td className="px-3 py-1.5 text-right font-mono text-gray-400">{fmt(c.difference)}</td>
-            <td className="px-3 py-1.5 text-center">
-              {c.status === 'pass' ? (
-                <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-red-500 mx-auto" />
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <AccountingDataGrid
+      columns={[
+        {
+          key: 'label',
+          header: 'Subtotal',
+          sortable: true,
+          sortValue: (c) => c.label,
+          render: (c) => <span className="text-gray-700">{c.label}</span>,
+        },
+        {
+          key: 'extracted',
+          header: 'Extracted',
+          sortable: true,
+          sortValue: (c) => parseFloat(c.extracted || '0'),
+          className: 'text-right font-mono',
+          render: (c) => <span>{fmt(c.extracted)}</span>,
+        },
+        {
+          key: 'expected',
+          header: 'Expected (PDF)',
+          sortable: true,
+          sortValue: (c) => parseFloat(c.expected || '0'),
+          className: 'text-right font-mono',
+          render: (c) => <span>{fmt(c.expected)}</span>,
+        },
+        {
+          key: 'difference',
+          header: 'Diff',
+          sortable: true,
+          sortValue: (c) => parseFloat(c.difference || '0'),
+          className: 'text-right font-mono text-gray-400',
+          render: (c) => <span>{fmt(c.difference)}</span>,
+        },
+        {
+          key: 'status',
+          header: 'Status',
+          sortable: true,
+          sortValue: (c) => c.status,
+          className: 'text-center w-16',
+          render: (c) =>
+            c.status === 'pass' ? (
+              <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-500 mx-auto" />
+            ),
+        },
+      ]}
+      data={checks}
+      rowKey={(c) => c.key}
+      rowClassName={(c) => (c.status === 'fail' ? 'bg-red-50' : '')}
+      selectionEnabled={false}
+      pageSize={20}
+      exportFilename="pdf_validation_checks"
+    />
   )
 }
 
@@ -479,50 +505,103 @@ function AuditTrailPanel({ lines }: { lines: Record<string, unknown>[] }) {
           Source document → extracted line → stable code → taxonomy mapping
         </span>
       </div>
-      <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
-        <table className="w-full text-xs min-w-[860px]">
-          <thead className="text-gray-500 border-b border-gray-100 bg-gray-50/50 sticky top-0">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium w-8">#</th>
-              <th className="px-3 py-2 text-left font-medium w-44">Stable Code</th>
-              <th className="px-3 py-2 text-left font-medium">Account Name</th>
-              <th className="px-3 py-2 text-left font-medium w-36">Taxonomy</th>
-              <th className="px-3 py-2 text-left font-medium w-16">Source</th>
-              <th className="px-3 py-2 text-right font-medium w-24">Amount</th>
-              <th className="px-3 py-2 text-left font-medium w-8">Pg</th>
-              <th className="px-3 py-2 text-left font-medium">Source Line Text</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {lines.map((line, i) => {
+      <AccountingDataGrid
+        columns={[
+          {
+            key: 'index',
+            header: '#',
+            sortable: false,
+            className: 'w-8 text-gray-400',
+            render: (line) => <span>{lines.indexOf(line) + 1}</span>,
+          },
+          {
+            key: 'temp_account_code',
+            header: 'Stable Code',
+            sortable: true,
+            sortValue: (line) => String(line.temp_account_code ?? ''),
+            className: 'font-mono text-indigo-700',
+            render: (line) => <span>{String(line.temp_account_code ?? '')}</span>,
+          },
+          {
+            key: 'account_name',
+            header: 'Account Name',
+            sortable: true,
+            sortValue: (line) => String(line.account_name ?? ''),
+            className: 'text-gray-800',
+            render: (line) => <span>{String(line.account_name ?? '')}</span>,
+          },
+          {
+            key: 'taxonomy_code',
+            header: 'Taxonomy',
+            sortable: true,
+            sortValue: (line) => {
+              const mapping = (line.mapping ?? {}) as Record<string, unknown>
+              return String(mapping.taxonomy_code ?? '')
+            },
+            className: 'text-indigo-600 text-xs',
+            render: (line) => {
               const mapping = (line.mapping ?? {}) as Record<string, unknown>
               return (
-                <tr
-                  key={String(line.line_id ?? i)}
-                  className={String(line.is_subtotal) === 'true' ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50/50'}
-                  data-testid="audit-row"
-                >
-                  <td className="px-3 py-1.5 text-gray-400">{i + 1}</td>
-                  <td className="px-3 py-1.5 font-mono text-indigo-700">{String(line.temp_account_code ?? '')}</td>
-                  <td className="px-3 py-1.5 text-gray-800">{String(line.account_name ?? '')}</td>
-                  <td className="px-3 py-1.5 text-indigo-600 text-xs">
-                    {String(mapping.taxonomy_code ?? '—')}
-                    {mapping.taxonomy_locked && (
-                      <Lock className="w-3 h-3 text-amber-500 inline ml-1" />
-                    )}
-                  </td>
-                  <td className="px-3 py-1.5 text-xs text-gray-400">{String(mapping.taxonomy_source ?? 'auto')}</td>
-                  <td className="px-3 py-1.5 text-right font-mono">{fmt(String(line.amount ?? '0'))}</td>
-                  <td className="px-3 py-1.5 text-gray-400 text-center">{String(line.page_number ?? '—')}</td>
-                  <td className="px-3 py-1.5 text-gray-400 truncate max-w-[220px]" title={String(line.source_line_text ?? '')}>
-                    {String(line.source_line_text ?? '—')}
-                  </td>
-                </tr>
+                <span>
+                  {String(mapping.taxonomy_code ?? '—')}
+                  {mapping.taxonomy_locked && (
+                    <Lock className="w-3 h-3 text-amber-500 inline ml-1" />
+                  )}
+                </span>
               )
-            })}
-          </tbody>
-        </table>
-      </div>
+            },
+          },
+          {
+            key: 'taxonomy_source',
+            header: 'Source',
+            sortable: true,
+            sortValue: (line) => {
+              const mapping = (line.mapping ?? {}) as Record<string, unknown>
+              return String(mapping.taxonomy_source ?? '')
+            },
+            className: 'text-xs text-gray-400',
+            render: (line) => {
+              const mapping = (line.mapping ?? {}) as Record<string, unknown>
+              return <span>{String(mapping.taxonomy_source ?? 'auto')}</span>
+            },
+          },
+          {
+            key: 'amount',
+            header: 'Amount',
+            sortable: true,
+            sortValue: (line) => parseFloat(String(line.amount ?? '0')),
+            className: 'text-right font-mono',
+            render: (line) => <span>{fmt(String(line.amount ?? '0'))}</span>,
+          },
+          {
+            key: 'page_number',
+            header: 'Pg',
+            sortable: true,
+            sortValue: (line) => parseInt(String(line.page_number ?? '0')),
+            className: 'text-gray-400 text-center',
+            render: (line) => <span>{String(line.page_number ?? '—')}</span>,
+          },
+          {
+            key: 'source_line_text',
+            header: 'Source Line Text',
+            sortable: true,
+            sortValue: (line) => String(line.source_line_text ?? ''),
+            className: 'text-gray-400 truncate max-w-[220px]',
+            render: (line) => (
+              <span title={String(line.source_line_text ?? '')}>
+                {String(line.source_line_text ?? '—')}
+              </span>
+            ),
+          },
+        ]}
+        data={lines}
+        rowKey={(line) => String(line.line_id ?? lines.indexOf(line))}
+        rowClassName={(line) => (String(line.is_subtotal) === 'true' ? 'bg-gray-50 font-semibold' : 'hover:bg-gray-50/50')}
+        rowTestId={() => 'audit-row'}
+        selectionEnabled={false}
+        pageSize={50}
+        exportFilename="pdf_extraction_audit"
+      />
     </div>
   )
 }
@@ -838,55 +917,87 @@ export function PDFImportPage() {
               <History className="w-4 h-4 text-gray-400" />
               <span className="text-xs font-semibold text-gray-700">Recent Imports</span>
             </div>
-            <table className="w-full text-xs" data-testid="batch-history">
-              <thead className="text-gray-500 border-b border-gray-100">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium">File</th>
-                  <th className="px-4 py-2 text-left font-medium">Entity</th>
-                  <th className="px-4 py-2 text-left font-medium">Date</th>
-                  <th className="px-4 py-2 text-center font-medium">Lines</th>
-                  <th className="px-4 py-2 text-center font-medium">Status</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {recentBatches.slice(0, 10).map((b) => (
-                  <tr key={b.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-gray-700 font-mono truncate max-w-[200px]" title={b.filename}>
+            <AccountingDataGrid
+              columns={[
+                {
+                  key: 'filename',
+                  header: 'File',
+                  sortable: true,
+                  sortValue: (b) => b.filename,
+                  render: (b) => (
+                    <span className="font-mono truncate max-w-[200px]" title={b.filename}>
                       {b.filename}
-                    </td>
-                    <td className="px-4 py-2 text-gray-600">{b.source_entity_name ?? '—'}</td>
-                    <td className="px-4 py-2 text-gray-500">{b.statement_date ?? '—'}</td>
-                    <td className="px-4 py-2 text-center text-gray-500">{b.line_count ?? '—'}</td>
-                    <td className="px-4 py-2 text-center">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          b.status === 'applied'
-                            ? 'bg-green-100 text-green-700'
-                            : b.status === 'error'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
+                    </span>
+                  )
+                },
+                {
+                  key: 'source_entity_name',
+                  header: 'Entity',
+                  sortable: true,
+                  sortValue: (b) => b.source_entity_name ?? '',
+                  render: (b) => <span>{b.source_entity_name ?? '—'}</span>
+                },
+                {
+                  key: 'statement_date',
+                  header: 'Date',
+                  sortable: true,
+                  sortValue: (b) => b.statement_date ?? '',
+                  render: (b) => <span>{b.statement_date ?? '—'}</span>
+                },
+                {
+                  key: 'line_count',
+                  header: 'Lines',
+                  sortable: true,
+                  sortValue: (b) => b.line_count ?? 0,
+                  className: 'text-center',
+                  render: (b) => <span>{b.line_count ?? '—'}</span>
+                },
+                {
+                  key: 'status',
+                  header: 'Status',
+                  sortable: true,
+                  sortValue: (b) => b.status,
+                  className: 'text-center',
+                  render: (b) => (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        b.status === 'applied'
+                          ? 'bg-green-100 text-green-700'
+                          : b.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {b.status}
+                    </span>
+                  )
+                },
+                {
+                  key: 'actions',
+                  header: '',
+                  sortable: false,
+                  className: 'text-right',
+                  render: (b) => (
+                    b.status === 'applied' ? (
+                      <button
+                        type="button"
+                        onClick={() => viewBatchFromHistory(b)}
+                        className="text-blue-600 hover:text-blue-800 text-xs underline"
+                        data-testid={`view-batch-${b.id}`}
                       >
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {b.status === 'applied' && (
-                        <button
-                          type="button"
-                          onClick={() => viewBatchFromHistory(b)}
-                          className="text-blue-600 hover:text-blue-800 text-xs underline"
-                          data-testid={`view-batch-${b.id}`}
-                        >
-                          View
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        View
+                      </button>
+                    ) : null
+                  )
+                }
+              ]}
+              data={recentBatches.slice(0, 10)}
+              rowKey={(b) => b.id}
+              selectionEnabled={false}
+              pageSize={10}
+              exportFilename="recent_pdf_imports"
+              data-testid="batch-history"
+            />
           </div>
         )}
       </PageLayout>

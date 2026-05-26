@@ -323,6 +323,12 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
             "errors": error_summary,
         }
         batch.validation_summary = json.dumps(validation_summary)
+
+        # Propagate taxonomy mappings down the hierarchy
+        if batch.entity_id is not None:
+            from app.services.taxonomy_reporting_service import propagate_taxonomy_to_children
+            propagate_taxonomy_to_children(batch.entity_id, db)
+
         db.flush()
         db.refresh(batch)
         return batch
@@ -591,6 +597,11 @@ def update_pdf_line(
                     else:
                         acct.account_type = "expense"
                     acct.normal_balance = tax_line.normal_balance or NORMAL_BALANCE_MAP.get(acct.account_type, "debit")
+
+        # Propagate taxonomy mappings down the hierarchy
+        if batch.entity_id is not None:
+            from app.services.taxonomy_reporting_service import propagate_taxonomy_to_children
+            propagate_taxonomy_to_children(batch.entity_id, db)
 
     db.flush()
 

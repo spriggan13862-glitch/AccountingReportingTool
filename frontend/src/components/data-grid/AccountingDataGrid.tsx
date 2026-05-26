@@ -115,6 +115,7 @@ export interface AccountingDataGridProps<T> {
   expandedIds?: Set<string | number>
   onToggleExpand?: (row: T) => void
 
+  rowTestId?: (row: T) => string
   'data-testid'?: string
 }
 
@@ -145,6 +146,7 @@ export function AccountingDataGrid<T>({
   getExpandable,
   expandedIds,
   onToggleExpand,
+  rowTestId,
   'data-testid': testId,
 }: AccountingDataGridProps<T>) {
   const gridState = useGridState(columns, data, { initialPageSize })
@@ -386,7 +388,7 @@ export function AccountingDataGrid<T>({
                       selected && 'bg-blue-50',
                       rowClassName?.(row)
                     )}
-                    data-testid={`grid-row-${key}`}
+                    data-testid={rowTestId ? rowTestId(row) : `grid-row-${key}`}
                   >
                     {/* Checkbox */}
                     {hasSelection && (

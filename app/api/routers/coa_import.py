@@ -129,6 +129,11 @@ def apply_coa(
         batch.status = "applied"
         batch.accounts_created = created
         batch.accounts_updated = updated
+        
+        # Propagate taxonomy mappings down the hierarchy
+        from app.services.taxonomy_reporting_service import propagate_taxonomy_to_children
+        propagate_taxonomy_to_children(batch.entity_id, db)
+
         db.flush()
         db.refresh(batch)
         return batch

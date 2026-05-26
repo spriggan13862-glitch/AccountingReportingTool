@@ -177,3 +177,77 @@ def test_reparent_taxonomy_override_persists(client, entity_id):
     # Fetch B to verify mapping remains 102
     r_b_updated = client.get(f"/api/v1/accounts/{acct_b['id']}")
     assert r_b_updated.json()["reporting_taxonomy_line_id"] == 102
+
+
+def test_reparent_status_and_type_inheritance(client, entity_id):
+    # Setup parent with status "inactive" and type "expense"
+    r_parent = client.post("/api/v1/accounts/", json={
+        "entity_id": entity_id,
+        "account_number": "9000",
+        "account_name": "Parent Active Expense",
+        "account_type": "expense",
+        "normal_balance": "debit",
+        "account_status": "inactive",
+    })
+    parent_id = r_parent.json()["id"]
+
+    # Child account created without parent, default is asset / active
+    r_child = client.post("/api/v1/accounts/", json={
+        "entity_id": entity_id,
+        "account_number": "9001",
+        "account_name": "Child Unaffiliated",
+        "account_type": "asset",
+        "normal_balance": "debit",
+        "account_status": "active",
+    })
+    child_id = r_child.json()["id"]
+
+    # Reparent child under parent. Child should inherit parent's status and type immediately.
+    r_rep = client.post(f"/api/v1/accounts/{child_id}/reparent", json={
+        "parent_account_id": parent_id
+    })
+    assert r_rep.status_code == 200
+
+    # Verify child status and type
+    r_updated = client.get(f"/api/v1/accounts/{child_id}")
+    child_data = r_updated.json()
+    assert child_data["account_type"] == "expense"
+    assert child_data["account_status"] == "inactive"
+    assert child_data["active"] is False
+
+
+def test_update_propagation_type_and_status(client, entity_id):
+    # Setup parent-child hierarchy
+    r_parent = client.post("/api/v1/accounts/", json={
+        "entity_id": entity_id,
+        "account_number": "9100",
+        "account_name": "Parent Propagator",
+        "account_type": "asset",
+        "normal_balance": "debit",
+        "account_status": "active",
+    })
+    parent_id = r_parent.json()["id"]
+
+    r_child = client.post("/api/v1/accounts/", json={
+        "entity_id": entity_id,
+        "account_number": "9101",
+        "account_name": "Child Propagated",
+        "account_type": "asset",
+        "normal_balance": "debit",
+        "parent_account_id": parent_id,
+    })
+    child_id = r_child.json()["id"]
+
+    # Update parent type and status
+    r_update = client.patch(f"/api/v1/accounts/{parent_id}", json={
+        "account_type": "liability",
+        "account_status": "inactive",
+    })
+    assert r_update.status_code == 200
+
+    # Child should immediately show updated type and status
+    r_child_updated = client.get(f"/api/v1/accounts/{child_id}")
+    child_data = r_child_updated.json()
+    assert child_data["account_type"] == "liability"
+    assert child_data["account_status"] == "inactive"
+

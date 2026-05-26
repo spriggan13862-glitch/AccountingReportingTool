@@ -12,13 +12,17 @@ import {
   FileText,
   Building2,
   ArrowRight,
-  Download
+  Download,
+  RotateCcw,
+  ArrowUpRight,
+  Sparkles
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
 import { importRegistryApi } from '@/api/importRegistry'
 import { pdfImportApi } from '@/api/pdfImport'
 import { coaImportApi } from '@/api/coaImport'
+import { documentsApi } from '@/api/documents'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -27,21 +31,18 @@ import { useToast } from '@/providers/ToastProvider'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { ImportBatch, ImportBatchStatus } from '@/types'
 
-function statusBadge(status: ImportBatchStatus) {
-  const map: Record<ImportBatchStatus, { label: string; cls: string; icon: React.ReactNode }> = {
-    uploaded:         { label: 'Uploaded',         cls: 'bg-gray-100 border-gray-200 text-gray-700',   icon: <Clock className="w-3 h-3" /> },
-    parsing:          { label: 'Parsing',           cls: 'bg-blue-50 border-blue-200 text-blue-700',   icon: <Clock className="w-3 h-3 animate-spin" /> },
-    mapping_required: { label: 'Mapping Required',  cls: 'bg-amber-50 border-amber-200 text-amber-800', icon: <AlertCircle className="w-3 h-3" /> },
-    validating:       { label: 'Validating',        cls: 'bg-blue-50 border-blue-200 text-blue-700',   icon: <Clock className="w-3 h-3 animate-spin" /> },
-    validation_failed:{ label: 'Validation Failed', cls: 'bg-red-50 border-red-200 text-red-700',     icon: <XCircle className="w-3 h-3" /> },
-    ready_to_post:    { label: 'Ready to Post',     cls: 'bg-green-50 border-green-200 text-green-700', icon: <CheckCircle className="w-3 h-3" /> },
-    posted:           { label: 'Posted',            cls: 'bg-emerald-50 border-emerald-200 text-emerald-700', icon: <CheckCircle className="w-3 h-3" /> },
-    rolled_back:      { label: 'Rolled Back',       cls: 'bg-orange-50 border-orange-200 text-orange-700', icon: <XCircle className="w-3 h-3" /> },
-    rejected:         { label: 'Rejected',          cls: 'bg-red-50 border-red-200 text-red-700',     icon: <XCircle className="w-3 h-3" /> },
+function getLifecycleBadge(status: string) {
+  const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
+    'Uploaded': { label: 'Uploaded', cls: 'bg-slate-100 border-slate-200 text-slate-700', icon: <Clock className="w-3 h-3" /> },
+    'Parsed': { label: 'Parsed', cls: 'bg-sky-50 border-sky-200 text-sky-700', icon: <Clock className="w-3 h-3 animate-pulse" /> },
+    'Validation Errors': { label: 'Validation Errors', cls: 'bg-red-50 border-red-200 text-red-700', icon: <XCircle className="w-3 h-3" /> },
+    'Awaiting Mapping': { label: 'Mapping Required', cls: 'bg-amber-50 border-amber-250 text-amber-800', icon: <AlertCircle className="w-3 h-3" /> },
+    'Ready for Review': { label: 'Ready for Review', cls: 'bg-indigo-50 border-indigo-250 text-indigo-850', icon: <CheckCircle className="w-3 h-3" /> },
+    'Finalized': { label: 'Finalized', cls: 'bg-emerald-55 text-emerald-805 bg-emerald-50/40 border-emerald-250', icon: <CheckCircle className="w-3 h-3 text-emerald-600" /> },
   }
   const { label, cls, icon } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', icon: null }
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-semibold ${cls}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${cls}`}>
       {icon}
       {label}
     </span>
@@ -63,8 +64,11 @@ export function ImportCenterPage() {
   const [dragOver, setDragOver] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
-  // Current active configuration card view (defaults to Trial Balance)
+  // Top level config tabs ('tb' or 'gl')
   const [activeTab, setActiveTab] = useState<'tb' | 'gl'>('tb')
+
+  // Lower level queue tabs
+  const [activeTabSection, setActiveTabSection] = useState<'recent' | 'mapping' | 'validation' | 'documents'>('recent')
 
   // Queries for all imports and registry
   const { data: registryEntries, isLoading: isRegistryLoading } = useQuery({
@@ -114,6 +118,18 @@ export function ImportCenterPage() {
       navigate(`/import/${batch.id}`)
     },
     onError: (err: Error) => { setApiError(err.message); toast(err.message, 'error') },
+  })
+
+  const rollbackMutation = useMutation({
+    mutationFn: (batchId: number) => tbImportApi.rollbackBatch(batchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['import-batches', orgId] })
+      queryClient.invalidateQueries({ queryKey: ['import-registry'] })
+      toast('Import successfully rolled back', 'success')
+    },
+    onError: (err: Error) => {
+      toast(`Rollback failed: ${err.message}`, 'error')
+    }
   })
 
   function handleDrop(e: React.DragEvent) {
@@ -286,24 +302,147 @@ export function ImportCenterPage() {
     return { awaitingMapping, validationIssues, outOfBalance, awaitingReview, recentlyFinalized }
   }, [mappedEntries])
 
-  // Map lifecycle statuses to badge styling
-  const getLifecycleBadge = (status: string) => {
-    const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
-      'Uploaded': { label: 'Uploaded', cls: 'bg-gray-150 border-gray-300 text-gray-700', icon: <Clock className="w-3 h-3" /> },
-      'Parsed': { label: 'Parsed', cls: 'bg-blue-50 border-blue-200 text-blue-700', icon: <Clock className="w-3 h-3" /> },
-      'Validation Errors': { label: 'Validation Errors', cls: 'bg-red-50 border-red-200 text-red-700', icon: <XCircle className="w-3 h-3" /> },
-      'Awaiting Mapping': { label: 'Mapping Required', cls: 'bg-amber-50 border-amber-250 text-amber-800', icon: <AlertCircle className="w-3 h-3" /> },
-      'Ready for Review': { label: 'Ready for Review', cls: 'bg-indigo-50 border-indigo-250 text-indigo-800', icon: <CheckCircle className="w-3 h-3" /> },
-      'Finalized': { label: 'Finalized', cls: 'bg-emerald-50 border-emerald-250 text-emerald-700', icon: <CheckCircle className="w-3 h-3" /> },
+  // Filter registry items based on selected tab section
+  const filteredData = useMemo(() => {
+    switch (activeTabSection) {
+      case 'mapping':
+        return mappedEntries.filter(e => e.lifecycleStatus === 'Awaiting Mapping')
+      case 'validation':
+        return mappedEntries.filter(e => e.lifecycleStatus === 'Validation Errors' || e.errorMsg || e.isOutOfBalance)
+      case 'documents':
+        return mappedEntries.filter(e => e.document_id)
+      case 'recent':
+      default:
+        return mappedEntries
     }
-    const { label, cls, icon } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', icon: null }
-    return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${cls}`}>
-        {icon}
-        {label}
-      </span>
-    )
-  }
+  }, [mappedEntries, activeTabSection])
+
+  const columns = [
+    {
+      key: 'filename',
+      header: 'Import Name',
+      sortable: true,
+      sortValue: (b: any) => b.filename ?? '',
+      render: (b: any) => (
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
+          <span className="font-semibold text-gray-900 truncate max-w-[220px]">{b.filename || b.description}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'source_entity_name',
+      header: 'Entity',
+      sortable: true,
+      sortValue: (b: any) => b.source_entity_name ?? '',
+      render: (b: any) => <span className="text-gray-600 font-medium">{b.source_entity_name || '—'}</span>,
+    },
+    {
+      key: 'source_module',
+      header: 'Import Type',
+      sortable: true,
+      sortValue: (b: any) => b.importTypeLabel,
+      render: (b: any) => <span className="text-xs text-gray-550 font-semibold">{b.importTypeLabel}</span>,
+    },
+    {
+      key: 'statement_date',
+      header: 'Statement Date',
+      sortable: true,
+      sortValue: (b: any) => b.statement_date ?? b.created_at ?? '',
+      render: (b: any) => <span className="text-gray-600">{b.statement_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '—')}</span>,
+    },
+    {
+      key: 'lifecycleStatus',
+      header: 'Status',
+      sortable: true,
+      sortValue: (b: any) => b.lifecycleStatus,
+      render: (b: any) => getLifecycleBadge(b.lifecycleStatus),
+    },
+    {
+      key: 'validation_issues',
+      header: 'Validation Issues',
+      sortable: false,
+      render: (b: any) => (
+        <span className="text-xs">
+          {b.errorMsg ? (
+            <span className="text-rose-650 font-semibold flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {b.errorMsg}
+            </span>
+          ) : b.isOutOfBalance ? (
+            <span className="text-red-650 font-semibold flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Out of Balance
+            </span>
+          ) : (
+            <span className="text-emerald-600">No issues</span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'progress',
+      header: 'Mapping Progress',
+      sortable: true,
+      sortValue: (b: any) => b.progress,
+      render: (b: any) => (
+        <div className="flex items-center gap-2 min-w-[120px]">
+          <div className="w-16 bg-gray-100 rounded-full h-1.5 shrink-0">
+            <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${b.progress}%` }} />
+          </div>
+          <span className="text-[10px] text-gray-500 font-semibold">{b.progress}% ({b.unmappedCount} left)</span>
+        </div>
+      ),
+    },
+    {
+      key: 'actions_button',
+      header: 'Actions',
+      render: (b: any) => {
+        return (
+          <div className="flex items-center gap-1.5 justify-end">
+            {b.reviewActionPath && b.lifecycleStatus !== 'Finalized' && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); navigate(b.reviewActionPath) }}
+                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded transition-colors"
+              >
+                {b.reviewActionText}
+              </button>
+            )}
+            {b.source_module === 'tb_import' && b.status === 'posted' && (
+              <button
+                type="button"
+                disabled={rollbackMutation.isPending}
+                onClick={(e) => { e.stopPropagation(); rollbackMutation.mutate(b.source_id) }}
+                className="px-2 py-1 border border-red-200 text-red-650 hover:bg-red-50 text-xs font-semibold rounded transition-colors flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Rollback
+              </button>
+            )}
+            {(b.source_module === 'coa_import' || b.source_module === 'pdf_import') && b.status === 'applied' && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); navigate(b.entity_id ? `/accounts?entity=${b.entity_id}` : '/accounts') }}
+                className="px-2.5 py-1 border border-green-200 text-green-700 hover:bg-green-50 text-xs font-semibold rounded transition-colors flex items-center gap-1"
+                data-testid="view-created-accounts"
+              >
+                View Created Accounts
+              </button>
+            )}
+            {b.document_id && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); documentsApi.download(b.document_id) }}
+                title="Download Source File"
+                className="p-1 text-gray-400 hover:text-gray-650 rounded transition-colors hover:bg-gray-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )
+      }
+    }
+  ]
 
   return (
     <PageLayout
@@ -313,7 +452,7 @@ export function ImportCenterPage() {
         <button
           type="button"
           onClick={() => navigate('/import/new')}
-          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-650 text-white text-sm font-semibold rounded hover:bg-indigo-755 transition-colors shadow-sm cursor-pointer"
         >
           <Upload className="w-4 h-4" /> New Import Wizard
         </button>
@@ -323,7 +462,7 @@ export function ImportCenterPage() {
 
       {/* Entity-first enforcement */}
       {entityCount === 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex items-start gap-3 shadow-sm">
+        <div className="bg-amber-50 border border-amber-250 rounded-lg p-5 flex items-start gap-3 shadow-sm">
           <Building2 className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-amber-800">Create an entity first</p>
@@ -343,29 +482,29 @@ export function ImportCenterPage() {
 
       {/* Operational summary pipeline indicators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Awaiting Mapping</div>
           <div className="text-2xl font-bold mt-1 text-amber-600">{stats.awaitingMapping}</div>
           <p className="text-[10px] text-slate-400 mt-1">Accounts need taxonomy links</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Validation Issues</div>
           <div className="text-2xl font-bold mt-1 text-rose-600">{stats.validationIssues}</div>
           <p className="text-[10px] text-slate-400 mt-1">Exceptions needing correction</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Out-Of-Balance</div>
-          <div className="text-2xl font-bold mt-1 text-red-650">{stats.outOfBalance}</div>
+          <div className="text-2xl font-bold mt-1 text-red-600">{stats.outOfBalance}</div>
           <p className="text-[10px] text-slate-400 mt-1">Debit & credit discrepancies</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Awaiting Review</div>
-          <div className="text-2xl font-bold mt-1 text-indigo-600">{stats.awaitingReview}</div>
+          <div className="text-2xl font-bold mt-1 text-indigo-650">{stats.awaitingReview}</div>
           <p className="text-[10px] text-slate-400 mt-1">Staged but not yet posted</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs relative">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recently Finalized</div>
-          <div className="text-2xl font-bold mt-1 text-emerald-650">{stats.recentlyFinalized}</div>
+          <div className="text-2xl font-bold mt-1 text-emerald-600">{stats.recentlyFinalized}</div>
           <p className="text-[10px] text-slate-400 mt-1">Posted in current period</p>
         </div>
       </div>
@@ -434,7 +573,7 @@ export function ImportCenterPage() {
           className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-indigo-600 hover:bg-indigo-50/10 transition-all duration-200"
         >
           <div className="mx-auto mb-3 rounded-lg bg-orange-100 p-2.5 w-11 h-11 flex items-center justify-center text-orange-600">
-            <FileText className="w-5 h-5" />
+            <Sparkles className="w-5 h-5" />
           </div>
           <h3 className="text-xs font-semibold text-gray-800">PDF Import</h3>
           <p className="text-[10px] text-gray-400 mt-1">AI-Powered Parser</p>
@@ -472,7 +611,7 @@ export function ImportCenterPage() {
               <h2 className="text-sm font-semibold text-gray-800 mb-1">Quick Upload — Trial Balance</h2>
               <p className="text-xs text-gray-500 mb-4">
                 For guided step-by-step import with sheet selection and column mapping, use the{' '}
-                <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-600 font-semibold hover:underline cursor-pointer">
+                <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-655 font-semibold hover:underline cursor-pointer">
                   Import Wizard
                 </button>
                 .
@@ -509,7 +648,7 @@ export function ImportCenterPage() {
                     <p className="font-semibold text-indigo-950">Accepted file formats:</p>
                     <ul className="space-y-1 list-disc list-inside text-indigo-800">
                       <li><strong>CSV/XLSX</strong> — account number, account name, and debit/credit or signed-amount columns</li>
-                      <li><strong>QuickBooks (.QBO)</strong> — QBO transaction export</li>
+                      <li><strong>QuickBooks (.QBO)</strong> — QuickBooks transaction export</li>
                       <li><strong>NetSuite</strong> — GL detail export with "Account" and "Amount" columns</li>
                       <li><strong>Sage</strong> — trial balance export</li>
                     </ul>
@@ -576,8 +715,8 @@ export function ImportCenterPage() {
                   <p className="text-sm font-semibold text-gray-700">{file.name}</p>
                 ) : (
                   <>
-                    <p className="text-sm text-gray-600">Drag &amp; drop a CSV or XLSX file, or click to browse</p>
-                    <p className="text-xs text-gray-400 mt-1">Supports CSV, XLSX, QBO, NetSuite, Sage exports</p>
+                     <p className="text-sm text-gray-600">Drag &amp; drop a CSV or XLSX file, or click to browse</p>
+                     <p className="text-xs text-gray-400 mt-1">Supports CSV, XLSX, QBO, NetSuite, Sage exports</p>
                   </>
                 )}
                 <input
@@ -594,7 +733,7 @@ export function ImportCenterPage() {
                   type="button"
                   disabled={!file || !entityId || !asOfDate || uploadMutation.isPending}
                   onClick={() => uploadMutation.mutate()}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-indigo-650 text-white text-sm font-semibold rounded hover:bg-indigo-755 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                 >
                   {uploadMutation.isPending ? 'Uploading…' : 'Upload & Begin Review'}
                 </button>
@@ -617,7 +756,7 @@ export function ImportCenterPage() {
                   </p>
                   
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
-                    <p className="text-xs text-gray-600 font-semibold">Alternative Manual Mechanics:</p>
+                    <p className="text-xs text-gray-650 font-semibold">Alternative Manual Mechanics:</p>
                     <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
                       <li>Use the <button type="button" onClick={() => navigate('/journal-entries/new')} className="text-indigo-600 font-semibold hover:underline cursor-pointer">Journal Entries</button> ledger modules to create manual journals.</li>
                       <li>Import a Trial Balance using the left card above to establish period-end balances.</li>
@@ -629,110 +768,79 @@ export function ImportCenterPage() {
             </div>
           )}
 
-          {/* Import History Table card */}
+          {/* Import Center Tabs Card */}
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-800">Import Registry</h2>
+            <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4 bg-gray-50/50">
+              <div className="flex border-b border-gray-200 w-full sm:w-auto">
+                {(['recent', 'mapping', 'validation', 'documents'] as const).map((tab) => {
+                  const label = {
+                    recent: 'Recent Imports',
+                    mapping: 'Mapping Queue',
+                    validation: 'Validation Queue',
+                    documents: 'Source Documents',
+                  }[tab]
+                  const count = {
+                    recent: mappedEntries.length,
+                    mapping: mappedEntries.filter(e => e.lifecycleStatus === 'Awaiting Mapping').length,
+                    validation: mappedEntries.filter(e => e.lifecycleStatus === 'Validation Errors' || e.errorMsg || e.isOutOfBalance).length,
+                    documents: mappedEntries.filter(e => e.document_id).length,
+                  }[tab]
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveTabSection(tab)}
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 -mb-[2px] transition-all cursor-pointer ${
+                        activeTabSection === tab
+                          ? 'border-indigo-600 text-indigo-700'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      {label} <span className="ml-1 bg-gray-100 text-gray-650 px-1.5 py-0.5 rounded-full text-[10px]">{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
             
             <AccountingDataGrid
-              columns={[
-                {
-                  key: 'filename',
-                  header: 'Import Name',
-                  sortable: true,
-                  sortValue: (b) => b.filename ?? '',
-                  render: (b) => (
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-                      <span className="font-semibold text-gray-900 truncate max-w-[220px]">{b.filename || b.description}</span>
-                    </div>
-                  ),
-                },
-                {
-                  key: 'source_entity_name',
-                  header: 'Entity',
-                  sortable: true,
-                  sortValue: (b) => b.source_entity_name ?? '',
-                  render: (b) => <span className="text-gray-600">{b.source_entity_name || '—'}</span>,
-                },
-                {
-                  key: 'source_module',
-                  header: 'Import Type',
-                  sortable: true,
-                  sortValue: (b) => b.importTypeLabel,
-                  render: (b) => <span className="text-xs text-gray-550 font-semibold">{b.importTypeLabel}</span>,
-                },
-                {
-                  key: 'statement_date',
-                  header: 'Import Date',
-                  sortable: true,
-                  sortValue: (b) => b.statement_date ?? b.created_at ?? '',
-                  render: (b) => <span className="text-gray-600">{b.statement_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '—')}</span>,
-                },
-                {
-                  key: 'lifecycleStatus',
-                  header: 'Status',
-                  sortable: true,
-                  sortValue: (b) => b.lifecycleStatus,
-                  render: (b) => getLifecycleBadge(b.lifecycleStatus),
-                },
-                {
-                  key: 'validation_issues',
-                  header: 'Validation Issues',
-                  sortable: false,
-                  render: (b) => (
-                    <span className="text-xs">
-                      {b.errorMsg ? (
-                        <span className="text-rose-600 font-semibold flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {b.errorMsg}
-                        </span>
-                      ) : b.isOutOfBalance ? (
-                        <span className="text-red-650 font-semibold flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Out of Balance
-                        </span>
-                      ) : (
-                        <span className="text-emerald-600">No issues</span>
-                      )}
-                    </span>
-                  ),
-                },
-                {
-                  key: 'progress',
-                  header: 'Mapping Progress',
-                  sortable: true,
-                  sortValue: (b) => b.progress,
-                  render: (b) => (
-                    <div className="flex items-center gap-2 min-w-[120px]">
-                      <div className="w-16 bg-gray-100 rounded-full h-1.5 shrink-0">
-                        <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${b.progress}%` }} />
-                      </div>
-                      <span className="text-[10px] text-gray-500 font-semibold">{b.progress}%</span>
-                    </div>
-                  ),
-                },
-                {
-                  key: 'last_action',
-                  header: 'Last Action',
-                  sortable: true,
-                  sortValue: (b) => b.lastAction,
-                  render: (b) => <span className="text-gray-500">{b.lastAction}</span>,
-                },
-              ]}
-              data={mappedEntries}
+              columns={columns}
+              data={filteredData}
               rowKey={(b) => b.id}
               onRowClick={(b) => navigate(b.reviewActionPath)}
               rowActions={[
                 {
-                  key: 'action',
-                  label: 'Execute Review Action',
+                  key: 'open',
+                  label: 'Open Import Details',
                   icon: ChevronRight,
                   onClick: (b) => navigate(b.reviewActionPath),
                 },
+                {
+                  key: 'download',
+                  label: 'Download Source File',
+                  icon: Download,
+                  hidden: (b) => !b.document_id,
+                  onClick: (b) => { if (b.document_id) documentsApi.download(b.document_id) },
+                },
+                {
+                  key: 'rollback',
+                  label: 'Rollback Ledger Postings',
+                  icon: RotateCcw,
+                  variant: 'danger',
+                  hidden: (b) => b.source_module !== 'tb_import' || b.status !== 'posted',
+                  onClick: (b) => rollbackMutation.mutate(b.source_id),
+                },
+                {
+                  key: 'view_created_accounts',
+                  label: 'View Created Accounts',
+                  icon: ChevronRight,
+                  hidden: (b) => (b.source_module !== 'coa_import' && b.source_module !== 'pdf_import') || b.status !== 'applied',
+                  onClick: (b) => navigate(b.entity_id ? `/accounts?entity=${b.entity_id}` : '/accounts'),
+                },
               ]}
-              exportFilename="financial_cleanup_import_registry"
+              exportFilename={`financial_cleanup_${activeTabSection}_queue`}
               loading={isRegistryLoading && !tbBatches && !pdfBatches && !coaBatches}
-              emptyMessage="No financial imports found."
+              emptyMessage={`No entries found in the ${activeTabSection} list.`}
               data-testid="import-history-grid"
             />
           </div>
@@ -742,5 +850,3 @@ export function ImportCenterPage() {
     </PageLayout>
   )
 }
-
-

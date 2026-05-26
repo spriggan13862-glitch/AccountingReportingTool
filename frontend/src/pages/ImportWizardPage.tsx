@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -11,6 +11,8 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
+import { StepIndicator } from '@/components/import-wizard'
+import type { WizardStep } from '@/components/import-wizard/types'
 import type { DetectResult, Entity } from '@/types'
 
 const STEPS = [
@@ -31,34 +33,7 @@ const STANDARD_FIELDS = [
   { key: 'description', label: 'Description', required: false },
 ]
 
-function StepIndicator({ current, total }: { current: number; total: number }) {
-  return (
-    <div className="flex items-center gap-0 mb-8">
-      {STEPS.map((step, i) => (
-        <div key={i} className="flex items-center">
-          <div className={`flex items-center gap-2 ${i <= current ? 'text-indigo-700' : 'text-gray-400'}`}>
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
-              i < current
-                ? 'bg-indigo-600 border-indigo-600 text-white'
-                : i === current
-                  ? 'border-indigo-600 text-indigo-600 bg-white'
-                  : 'border-gray-300 text-gray-400 bg-white'
-            }`}>
-              {i < current ? <CheckCircle className="w-4 h-4" /> : i + 1}
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-xs font-semibold leading-none">{step.label}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{step.desc}</p>
-            </div>
-          </div>
-          {i < total - 1 && (
-            <div className={`w-8 h-px mx-2 ${i < current ? 'bg-indigo-400' : 'bg-gray-200'}`} />
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
+// Shared StepIndicator is imported from components
 
 function ConfidenceMeter({ score }: { score: number }) {
   const color = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-400' : 'bg-red-400'
@@ -90,6 +65,32 @@ export function ImportWizardPage() {
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
   const [apiError, setApiError] = useState<string | null>(null)
+
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (file || Object.keys(colMapping).length > 0) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [file, colMapping])
+
+  const WIZARD_STEPS: WizardStep[] = STEPS.map((s, i) => {
+    let status: 'pending' | 'active' | 'complete' | 'error' = 'pending'
+    if (i === step) status = 'active'
+    else if (i < step) status = 'complete'
+    return { key: String(i), label: s.label, status }
+  })
+
+  const handleStepClick = (idx: number) => {
+    if (idx === 1 && detected && detected.sheets.length === 0) {
+      return
+    }
+    setStep(idx)
+  }
 
   const { data: entityData } = useQuery({
     queryKey: ['entities'],
@@ -177,14 +178,22 @@ export function ImportWizardPage() {
       actions={
         <button
           type="button"
-          onClick={() => navigate('/import')}
+          onClick={() => {
+            if (file || Object.keys(colMapping).length > 0) {
+              if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+                navigate('/import')
+              }
+            } else {
+              navigate('/import')
+            }
+          }}
           className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Import Center
         </button>
       }
     >
-      <StepIndicator current={step} total={STEPS.length} />
+      <StepIndicator steps={WIZARD_STEPS} currentStep={step} onStepClick={handleStepClick} />
       {apiError && <ErrorBanner message={apiError} />}
 
       {/* Entity-first guard */}
@@ -271,7 +280,22 @@ export function ImportWizardPage() {
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (file || Object.keys(colMapping).length > 0) {
+                  if (window.confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+                    navigate('/import')
+                  }
+                } else {
+                  navigate('/import')
+                }
+              }}
+              className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               disabled={!canProceedStep0() || detectMutation.isPending}

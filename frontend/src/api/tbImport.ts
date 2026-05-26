@@ -170,7 +170,7 @@ export const tbImportApi = {
   createAccountFromLine: (
     batchId: number,
     lineId: number,
-    params: { account_number: string; account_name: string; account_type: string; normal_balance: string }
+    params: { account_number: string; account_name: string; account_type: string; normal_balance: string; reporting_taxonomy_line_id?: number | null }
   ) =>
     api
       .post(`/tb-imports/batches/${batchId}/create-account/${lineId}`, params)

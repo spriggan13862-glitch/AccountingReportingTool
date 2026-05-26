@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { accountsApi } from '@/api/accounts'
+import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
@@ -101,18 +102,26 @@ function AccountSearch({ entityId, value, onChange, placeholder, inputRef, onTab
 // ---------------------------------------------------------------------------
 
 interface CreateFormProps {
-  onSubmit: (data: { account_number: string; account_name: string; account_type: string; normal_balance: string }) => void
+  onSubmit: (data: {
+    account_number: string
+    account_name: string
+    account_type: string
+    normal_balance: string
+    reporting_taxonomy_line_id?: number | null
+  }) => void
   onCancel: () => void
   isPending: boolean
   defaultNumber?: string
   defaultName?: string
+  taxonomyLines: Array<{ id: number; name: string; code: string }>
 }
 
-function CreateAccountForm({ onSubmit, onCancel, isPending, defaultNumber = '', defaultName = '' }: CreateFormProps) {
+function CreateAccountForm({ onSubmit, onCancel, isPending, defaultNumber = '', defaultName = '', taxonomyLines = [] }: CreateFormProps) {
   const [num, setNum] = useState(defaultNumber)
   const [name, setName] = useState(defaultName)
   const [type, setType] = useState('asset')
   const [normal, setNormal] = useState('debit')
+  const [taxLineId, setTaxLineId] = useState<number | ''>('')
 
   // auto-set normal balance from type
   useEffect(() => {
@@ -148,12 +157,24 @@ function CreateAccountForm({ onSubmit, onCancel, isPending, defaultNumber = '', 
           <option value="debit">Debit normal</option>
           <option value="credit">Credit normal</option>
         </select>
+        <select
+          value={taxLineId}
+          onChange={(e) => setTaxLineId(e.target.value ? Number(e.target.value) : '')}
+          className="border border-gray-300 rounded px-2 py-1.5 text-sm col-span-2"
+        >
+          <option value="">— Select Reporting Line (optional) —</option>
+          {taxonomyLines.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name} ({t.code})
+            </option>
+          ))}
+        </select>
       </div>
       <div className="flex gap-2">
         <button
           type="button"
           disabled={!num || !name || isPending}
-          onClick={() => onSubmit({ account_number: num, account_name: name, account_type: type, normal_balance: normal })}
+          onClick={() => onSubmit({ account_number: num, account_name: name, account_type: type, normal_balance: normal, reporting_taxonomy_line_id: taxLineId || null })}
           className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
         >
           {isPending ? 'Creating…' : 'Create & Map'}
@@ -165,6 +186,20 @@ function CreateAccountForm({ onSubmit, onCancel, isPending, defaultNumber = '', 
       </div>
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function guessAccountTypeAndNormal(code: string): { account_type: string; normal_balance: string } {
+  const c = code.toLowerCase()
+  if (c.includes('asset') || c.startsWith('1')) return { account_type: 'asset', normal_balance: 'debit' }
+  if (c.includes('liab') || c.startsWith('2')) return { account_type: 'liability', normal_balance: 'credit' }
+  if (c.includes('equi') || c.startsWith('3')) return { account_type: 'equity', normal_balance: 'credit' }
+  if (c.includes('rev') || c.includes('inc') || c.startsWith('4')) return { account_type: 'revenue', normal_balance: 'credit' }
+  if (c.includes('exp') || c.startsWith('5') || c.startsWith('6') || c.startsWith('7') || c.startsWith('8')) return { account_type: 'expense', normal_balance: 'debit' }
+  return { account_type: 'asset', normal_balance: 'debit' }
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +221,11 @@ export function MappingWorkbenchPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<Record<number, Account | null>>({})
   const [createLineId, setCreateLineId] = useState<number | null>(null)
 
+  // Batch mapping state
+  const [isBatchMapOpen, setIsBatchMapOpen] = useState(false)
+  const [batchMapLines, setBatchMapLines] = useState<ImportLine[]>([])
+  const [batchMapAccount, setBatchMapAccount] = useState<Account | null>(null)
+
   // Row refs for keyboard nav
   const rowInputRefs = useRef<Record<number, React.RefObject<HTMLInputElement>>>({})
 
@@ -205,6 +245,11 @@ export function MappingWorkbenchPage() {
     queryKey: ['import-suggestions', batchId],
     queryFn: () => tbImportApi.getSuggestions(batchId),
     enabled: !!batchId,
+  })
+
+  const { data: taxonomyLines = [] } = useQuery({
+    queryKey: ['reporting-taxonomy'],
+    queryFn: () => reportingTaxonomyApi.list(),
   })
 
   const suggestMap: Record<number, ImportSuggestion> = {}
@@ -273,6 +318,34 @@ export function MappingWorkbenchPage() {
 
   function handleExportMappings() {
     window.open(tbImportApi.exportMappingsUrl(batchId), '_blank')
+  }
+
+  function handleExportMappingIssues() {
+    const unmappedLines = lines.filter((l) => l.mapping_status === 'unmapped')
+    if (unmappedLines.length === 0) {
+      toast('No unmapped issues to export', 'info')
+      return
+    }
+    const headers = ['Source Account #', 'Source Name', 'Suggested Account #', 'Suggested Account Name']
+    const rows = unmappedLines.map((l) => {
+      const sug = suggestMap[l.id]
+      return [
+        l.raw_account_number ?? '',
+        l.raw_account_name ?? '',
+        sug?.suggested_account_number ?? '',
+        sug?.suggested_account_name ?? '',
+      ]
+    })
+    const csv = [headers.join(','), ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(','))].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mapping_issues_batch_${batchId}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   function getOrCreateRef(lineId: number): React.RefObject<HTMLInputElement> {
@@ -444,6 +517,47 @@ export function MappingWorkbenchPage() {
       }
     },
     {
+      key: 'map_to_reporting_line',
+      header: 'Map Directly to Reporting Line',
+      render: (line: ImportLine) => {
+        if (line.mapping_status !== 'unmapped') return <span className="text-gray-300">—</span>
+
+        return (
+          <select
+            value=""
+            onChange={(e) => {
+              const val = e.target.value
+              if (!val) return
+              const lineId = Number(val)
+              const taxLine = taxonomyLines.find((t) => t.id === lineId)
+              if (!taxLine) return
+              
+              const guessed = guessAccountTypeAndNormal(taxLine.code)
+              createMutation.mutate({
+                lineId: line.id,
+                data: {
+                  account_number: line.raw_account_number ?? `ACCT-${line.line_number}`,
+                  account_name: line.raw_account_name ?? `Imported Account ${line.line_number}`,
+                  account_type: guessed.account_type,
+                  normal_balance: guessed.normal_balance,
+                  reporting_taxonomy_line_id: taxLine.id,
+                }
+              })
+            }}
+            className="border border-gray-300 rounded px-2 py-1.5 text-xs w-full max-w-[200px]"
+            data-testid={`direct-taxonomy-select-${line.id}`}
+          >
+            <option value="">— Select FSLI —</option>
+            {taxonomyLines.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.code})
+              </option>
+            ))}
+          </select>
+        )
+      }
+    },
+    {
       key: 'map_to_account',
       header: 'Map to Account',
       render: (line: ImportLine) => {
@@ -474,6 +588,7 @@ export function MappingWorkbenchPage() {
               defaultNumber={line.raw_account_number ?? ''}
               defaultName={line.raw_account_name ?? ''}
               isPending={createMutation.isPending}
+              taxonomyLines={taxonomyLines}
               onSubmit={(data) => createMutation.mutate({ lineId: line.id, data })}
               onCancel={() => setCreateLineId(null)}
             />
@@ -569,6 +684,19 @@ export function MappingWorkbenchPage() {
         }
       },
     },
+    {
+      key: 'batch_map',
+      label: 'Batch Map',
+      icon: Check,
+      disabled: (rows) => !rows.some((r) => r.mapping_status === 'unmapped'),
+      onClick: (rows) => {
+        const unmappedSelected = rows.filter((r) => r.mapping_status === 'unmapped')
+        if (unmappedSelected.length > 0) {
+          setBatchMapLines(unmappedSelected)
+          setIsBatchMapOpen(true)
+        }
+      }
+    },
   ]
 
   return (
@@ -577,6 +705,14 @@ export function MappingWorkbenchPage() {
       subtitle={batch ? `${batch.filename} · ${unmappedCount} of ${batch.row_count ?? 0} lines unmapped` : 'Loading…'}
       actions={
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportMappingIssues}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 border border-gray-300 text-gray-600 rounded hover:bg-gray-50 font-medium"
+            data-testid="export-mapping-issues-btn"
+          >
+            <Download className="w-3.5 h-3.5" /> Export Mapping Issues
+          </button>
           <button
             type="button"
             onClick={handleExportMappings}
@@ -644,6 +780,64 @@ export function MappingWorkbenchPage() {
           >
             Go to Import Review
           </button>
+        </div>
+      )}
+      {isBatchMapOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Batch Map Accounts</h3>
+            <p className="text-xs text-gray-500">
+              Map the {batchMapLines.length} selected lines to a single COA account.
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Select Account</label>
+              <AccountSearch
+                entityId={batch?.entity_id ?? 0}
+                value={batchMapAccount?.id ?? null}
+                onChange={setBatchMapAccount}
+                placeholder="Search accounts…"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBatchMapOpen(false)
+                  setBatchMapLines([])
+                  setBatchMapAccount(null)
+                }}
+                className="px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!batchMapAccount}
+                onClick={async () => {
+                  if (!batchMapAccount) return
+                  const mappings = batchMapLines.map((l) => ({
+                    line_id: l.id,
+                    account_id: batchMapAccount.id,
+                  }))
+                  try {
+                    await tbImportApi.bulkMap(batchId, mappings)
+                    queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+                    queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+                    setIsBatchMapOpen(false)
+                    setBatchMapLines([])
+                    setBatchMapAccount(null)
+                    toast(`Mapped ${mappings.length} lines to ${batchMapAccount.account_number}`, 'success')
+                  } catch (err: any) {
+                    setApiError(err.message)
+                  }
+                }}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+                data-testid="confirm-batch-map-btn"
+              >
+                Apply Mapping
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </PageLayout>

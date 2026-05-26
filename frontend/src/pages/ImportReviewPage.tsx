@@ -5,6 +5,7 @@ import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw, Clock, Upload,
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { AccountingDataGrid } from '@/components/data-grid'
 import type { ImportBatch, ImportLine, ImportIssue, RawPreview } from '@/types'
 
 type Tab = 'lines' | 'issues' | 'preview' | 'mapping'
@@ -276,41 +277,77 @@ export function ImportReviewPage() {
       {/* Lines tab */}
       {tab === 'lines' && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr>
-                <th className="px-4 py-2 text-left">#</th>
-                <th className="px-4 py-2 text-left">Source Acct #</th>
-                <th className="px-4 py-2 text-left">Source Acct Name</th>
-                <th className="px-4 py-2 text-right">Debit</th>
-                <th className="px-4 py-2 text-right">Credit</th>
-                <th className="px-4 py-2 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {lines?.map((l: ImportLine) => (
-                <tr key={l.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-gray-400">{l.line_number}</td>
-                  <td className="px-4 py-2 font-mono text-gray-700">{l.raw_account_number || '—'}</td>
-                  <td className="px-4 py-2 text-gray-600">{l.raw_account_name || '—'}</td>
-                  <td className="px-4 py-2 text-right font-mono">
+          <AccountingDataGrid
+            columns={[
+              {
+                key: 'line_number',
+                header: '#',
+                sortable: true,
+                sortValue: (l: ImportLine) => l.line_number,
+                className: 'w-12 text-gray-400',
+                render: (l: ImportLine) => <span>{l.line_number}</span>,
+              },
+              {
+                key: 'raw_account_number',
+                header: 'Source Acct #',
+                sortable: true,
+                sortValue: (l: ImportLine) => l.raw_account_number || '',
+                className: 'font-mono text-gray-700',
+                render: (l: ImportLine) => <span>{l.raw_account_number || '—'}</span>,
+              },
+              {
+                key: 'raw_account_name',
+                header: 'Source Acct Name',
+                sortable: true,
+                sortValue: (l: ImportLine) => l.raw_account_name || '',
+                className: 'text-gray-600',
+                render: (l: ImportLine) => <span>{l.raw_account_name || '—'}</span>,
+              },
+              {
+                key: 'debit',
+                header: 'Debit',
+                sortable: true,
+                sortValue: (l: ImportLine) => parseFloat(l.debit || '0'),
+                className: 'text-right font-mono',
+                render: (l: ImportLine) => (
+                  <span>
                     {Number(l.debit) > 0 ? Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
+                  </span>
+                ),
+              },
+              {
+                key: 'credit',
+                header: 'Credit',
+                sortable: true,
+                sortValue: (l: ImportLine) => parseFloat(l.credit || '0'),
+                className: 'text-right font-mono',
+                render: (l: ImportLine) => (
+                  <span>
                     {Number(l.credit) > 0 ? Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="flex items-center gap-1.5">
-                      <MappingStatusDot status={l.mapping_status} />
-                      <span className="capitalize text-gray-600">{l.mapping_status}</span>
-                    </span>
-                  </td>
-                </tr>
-              )) ?? (
-                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400">Loading…</td></tr>
-              )}
-            </tbody>
-          </table>
+                  </span>
+                ),
+              },
+              {
+                key: 'mapping_status',
+                header: 'Status',
+                sortable: true,
+                sortValue: (l: ImportLine) => l.mapping_status,
+                render: (l: ImportLine) => (
+                  <span className="flex items-center gap-1.5">
+                    <MappingStatusDot status={l.mapping_status} />
+                    <span className="capitalize text-gray-600">{l.mapping_status}</span>
+                  </span>
+                ),
+              },
+            ]}
+            data={lines ?? []}
+            rowKey={(l: ImportLine) => l.id}
+            selectionEnabled={false}
+            pageSize={50}
+            loading={lines === undefined}
+            exportFilename={`batch_${batchId}_lines`}
+            data-testid="lines-grid"
+          />
         </div>
       )}
 
@@ -391,59 +428,85 @@ export function ImportReviewPage() {
                   <Download className="w-3.5 h-3.5" /> Export mappings CSV
                 </a>
               </div>
-              <div className="overflow-x-auto border border-gray-200 rounded bg-white">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">#</th>
-                      {rawPreview.source_headers.map((h) => {
-                        const isMapped = Object.values(rawPreview.column_mapping).includes(h)
-                        const field = Object.entries(rawPreview.column_mapping).find(([, v]) => v === h)?.[0]
+              <AccountingDataGrid
+                columns={[
+                  {
+                    key: 'line_number',
+                    header: '#',
+                    sortable: true,
+                    sortValue: (row: any) => row.line_number,
+                    className: 'text-gray-400 w-12',
+                    render: (row: any) => <span>{row.line_number}</span>,
+                  },
+                  ...rawPreview.source_headers.map((h: string) => {
+                    const isMapped = Object.values(rawPreview.column_mapping).includes(h)
+                    const field = Object.entries(rawPreview.column_mapping).find(([, v]) => v === h)?.[0]
+                    return {
+                      key: `header_${h}`,
+                      header: (
+                        <div>
+                          {h}
+                          {field && <span className="block text-indigo-400 font-normal">→ {field}</span>}
+                        </div>
+                      ),
+                      headerClassName: isMapped ? 'text-indigo-700 bg-indigo-50 font-semibold' : 'text-gray-500 font-semibold',
+                      sortable: true,
+                      sortValue: (row: any) => {
+                        const fieldMap: Record<string, keyof typeof row> = {
+                          [rawPreview.column_mapping.account_number]: 'raw_account_number',
+                          [rawPreview.column_mapping.account_name]: 'raw_account_name',
+                          [rawPreview.column_mapping.debit]: 'raw_debit',
+                          [rawPreview.column_mapping.credit]: 'raw_credit',
+                          [rawPreview.column_mapping.balance]: 'raw_balance',
+                          [rawPreview.column_mapping.description]: 'raw_description',
+                        }
+                        const field = fieldMap[h]
+                        return String(field ? (row[field] ?? '') : '')
+                      },
+                      render: (row: any) => {
+                        const fieldMap: Record<string, keyof typeof row> = {
+                          [rawPreview.column_mapping.account_number]: 'raw_account_number',
+                          [rawPreview.column_mapping.account_name]: 'raw_account_name',
+                          [rawPreview.column_mapping.debit]: 'raw_debit',
+                          [rawPreview.column_mapping.credit]: 'raw_credit',
+                          [rawPreview.column_mapping.balance]: 'raw_balance',
+                          [rawPreview.column_mapping.description]: 'raw_description',
+                        }
+                        const field = fieldMap[h]
+                        const val = field ? row[field] : null
                         return (
-                          <th key={h} className={`px-3 py-2 text-left font-semibold whitespace-nowrap ${isMapped ? 'text-indigo-700 bg-indigo-50' : 'text-gray-500'}`}>
-                            {h}
-                            {field && <span className="block text-indigo-400 font-normal">→ {field}</span>}
-                          </th>
+                          <span className={val ? 'text-gray-800 font-mono' : 'text-gray-300 font-mono'}>
+                            {val ?? '—'}
+                          </span>
                         )
-                      })}
-                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rawPreview.rows.map((row, i) => {
+                      }
+                    }
+                  }),
+                  {
+                    key: 'mapping_status',
+                    header: 'Status',
+                    sortable: true,
+                    sortValue: (row: any) => row.mapping_status,
+                    render: (row: any) => {
                       const statusColors: Record<string, string> = {
                         mapped: 'text-green-600', unmapped: 'text-yellow-600',
                         skipped: 'text-gray-400', rejected: 'text-red-500',
                       }
                       return (
-                        <tr key={row.line_number} className={`border-b border-gray-100 ${i % 2 === 0 ? '' : 'bg-gray-50'} ${row.mapping_status === 'unmapped' ? 'bg-yellow-50/40' : ''}`}>
-                          <td className="px-3 py-1.5 text-gray-400">{row.line_number}</td>
-                          {rawPreview.source_headers.map((h) => {
-                            const fieldMap: Record<string, keyof typeof row> = {
-                              [rawPreview.column_mapping.account_number]: 'raw_account_number',
-                              [rawPreview.column_mapping.account_name]: 'raw_account_name',
-                              [rawPreview.column_mapping.debit]: 'raw_debit',
-                              [rawPreview.column_mapping.credit]: 'raw_credit',
-                              [rawPreview.column_mapping.balance]: 'raw_balance',
-                              [rawPreview.column_mapping.description]: 'raw_description',
-                            }
-                            const field = fieldMap[h]
-                            const val = field ? row[field] : null
-                            return (
-                              <td key={h} className={`px-3 py-1.5 font-mono whitespace-nowrap ${val ? 'text-gray-800' : 'text-gray-300'}`}>
-                                {val ?? '—'}
-                              </td>
-                            )
-                          })}
-                          <td className={`px-3 py-1.5 font-medium capitalize ${statusColors[row.mapping_status] ?? 'text-gray-500'}`}>
-                            {row.mapping_status}
-                          </td>
-                        </tr>
+                        <span className={`font-medium capitalize ${statusColors[row.mapping_status] ?? 'text-gray-500'}`}>
+                          {row.mapping_status}
+                        </span>
                       )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                    }
+                  }
+                ]}
+                data={rawPreview.rows}
+                rowKey={(row: any) => row.line_number}
+                selectionEnabled={false}
+                pageSize={50}
+                exportFilename={`batch_${batchId}_raw_preview`}
+                data-testid="raw-preview-grid"
+              />
             </>
           )}
         </div>

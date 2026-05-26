@@ -78,7 +78,7 @@ export function DrilldownPanel({ drilldown, onClose, taxonomyLines }: Props) {
           {drilldown.accounts.length === 0 ? (
             <div className="text-center py-10 px-4 text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50/30" data-testid="drilldown-empty-state">
               <Layers className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="font-medium text-gray-500">No accounts mapped</p>
+              <p className="font-medium text-gray-500">No accounts mapped to this reporting line.</p>
               <p className="text-xs text-gray-400 mt-1">Accounts must be classified and have balances to appear here.</p>
             </div>
           ) : (
@@ -155,3 +155,4 @@ export function DrilldownPanel({ drilldown, onClose, taxonomyLines }: Props) {
       </div>
     </div>
   )
+}

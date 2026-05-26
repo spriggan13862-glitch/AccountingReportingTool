@@ -423,6 +423,7 @@ def create_account_from_line(
             account_type=body.account_type,
             normal_balance=body.normal_balance,
             acting_user_id=getattr(current_user, "id", None),
+            reporting_taxonomy_line_id=body.reporting_taxonomy_line_id,
         )
         db.commit()
         return {

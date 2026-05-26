@@ -686,6 +686,7 @@ def create_account_from_line(
     account_type: str,
     normal_balance: str,
     acting_user_id: int | None = None,
+    reporting_taxonomy_line_id: int | None = None,
 ) -> tuple[Account, ImportLine]:
     """
     Create a new Account from an unmapped ImportLine and immediately map it.
@@ -711,6 +712,7 @@ def create_account_from_line(
         account_type=account_type,
         normal_balance=normal_balance,
         entity_id=batch.entity_id,
+        reporting_taxonomy_line_id=reporting_taxonomy_line_id,
     )
     db.add(account)
     db.flush()

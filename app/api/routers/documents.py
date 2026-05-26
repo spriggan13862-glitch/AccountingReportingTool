@@ -21,6 +21,7 @@ from app.services.document_service import (
     DocumentNotFoundError,
     DocumentValidationError,
     attach_document,
+    get_document_content,
     get_document_or_raise,
     get_je_support_package,
     get_period_support_package,
@@ -286,6 +287,7 @@ def import_registry(
 @router.get("/documents/{doc_id}/download")
 def download_document(
     doc_id: int,
+    preview: bool = Query(default=False),
     db: Session = Depends(get_db),
     storage: StorageBackend = Depends(get_storage),
 ):
@@ -293,10 +295,11 @@ def download_document(
     try:
         doc = get_document_or_raise(db, doc_id)
         content = get_document_content(doc, storage)
+        disposition_type = "inline" if preview else "attachment"
         return Response(
             content=content,
             media_type=doc.mime_type or "application/octet-stream",
-            headers={"Content-Disposition": f'attachment; filename="{doc.original_file_name}"'},
+            headers={"Content-Disposition": f'{disposition_type}; filename="{doc.original_file_name}"'},
         )
     except DocumentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

@@ -49,8 +49,6 @@ const secondaryItems = [
   { to: '/consolidations', label: 'Consolidations', icon: GitMerge },
   { to: '/reconciliations', label: 'Reconciliations', icon: GitPullRequest },
   { to: '/documents', label: 'Documents', icon: Paperclip },
-  { to: '/coa-import', label: 'COA Import', icon: List },
-  { to: '/pdf-import', label: 'PDF Import', icon: FileSpreadsheet },
 ]
 
 const LS_KEY = 'sidebar_collapsed'
@@ -59,7 +57,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(LS_KEY) === 'true' } catch { return false }
   })
-  const [showOther, setShowOther] = useState(true)
+  const [showOther, setShowOther] = useState(false)
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, String(collapsed)) } catch { /* ignore */ }

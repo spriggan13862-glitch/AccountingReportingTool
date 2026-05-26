@@ -23,6 +23,12 @@ def create_account(body: AccountCreate, db: Session = Depends(get_db)):
         source_system=body.source_system,
         reporting_taxonomy_line_id=body.reporting_taxonomy_line_id,
     )
+    if body.account_status is not None:
+        account.account_status = body.account_status
+        if body.active is None:
+            account.active = (body.account_status == "active")
+    if body.active is not None:
+        account.active = body.active
     db.add(account)
     db.flush()
     db.refresh(account)
@@ -146,6 +152,25 @@ def propagate_taxonomy_to_children(parent_id: int, old_taxonomy_id: int | None, 
             propagate_taxonomy_to_children(child.id, old_child_tax, new_taxonomy_id, db)
 
 
+def propagate_status_to_children(parent_id: int, old_status: str | None, new_status: str, db: Session):
+    children = db.query(Account).filter(Account.parent_account_id == parent_id).all()
+    for child in children:
+        if child.account_status == old_status or child.account_status is None:
+            old_child_status = child.account_status
+            child.account_status = new_status
+            child.active = (new_status == "active")
+            propagate_status_to_children(child.id, old_child_status, new_status, db)
+
+
+def propagate_type_to_children(parent_id: int, old_type: str | None, new_type: str, db: Session):
+    children = db.query(Account).filter(Account.parent_account_id == parent_id).all()
+    for child in children:
+        if child.account_type == old_type or child.account_type is None:
+            old_child_type = child.account_type
+            child.account_type = new_type
+            propagate_type_to_children(child.id, old_child_type, new_type, db)
+
+
 @router.patch("/{account_id}", response_model=AccountOut)
 def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(get_db)):
     account = db.get(Account, account_id)
@@ -157,7 +182,10 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
     if body.account_name is not None:
         account.account_name = body.account_name
     if body.account_type is not None:
+        old_type = account.account_type
         account.account_type = body.account_type
+        if old_type != body.account_type:
+            propagate_type_to_children(account.id, old_type, body.account_type, db)
     if body.normal_balance is not None:
         account.normal_balance = body.normal_balance
     if body.detail_type is not None:
@@ -167,8 +195,11 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
     if body.tax_line is not None:
         account.tax_line = body.tax_line
     if body.account_status is not None:
+        old_status = account.account_status
         account.account_status = body.account_status
         account.active = body.account_status == "active"
+        if old_status != body.account_status:
+            propagate_status_to_children(account.id, old_status, body.account_status, db)
     if "reporting_taxonomy_line_id" in body.model_fields_set:
         old_tax_id = account.reporting_taxonomy_line_id
         new_tax_id = body.reporting_taxonomy_line_id
@@ -256,14 +287,29 @@ def reparent_account(
         if old_tax_id != new_tax_id:
             propagate_taxonomy_to_children(account.id, old_tax_id, new_tax_id, db)
 
-    # Inherit detail_type and account_type if unset
+    # Inherit detail_type, account_type, and account_status if inherited/unset
+    old_parent_type = old_parent.account_type if old_parent else None
+    is_type_inherited = (account.account_type == old_parent_type) or (account.account_type is None) or (old_parent_type is None)
+
+    old_parent_status = old_parent.account_status if old_parent else None
+    is_status_inherited = (account.account_status == old_parent_status) or (account.account_status is None) or (old_parent_status is None)
+
     if new_parent_id is not None:
         new_parent_acct = db.get(Account, new_parent_id)
         if new_parent_acct is not None:
             if not account.detail_type and new_parent_acct.detail_type:
                 account.detail_type = new_parent_acct.detail_type
-            if new_parent_acct.account_type:
+            if is_type_inherited and new_parent_acct.account_type:
+                old_type = account.account_type
                 account.account_type = new_parent_acct.account_type
+                if old_type != new_parent_acct.account_type:
+                    propagate_type_to_children(account.id, old_type, new_parent_acct.account_type, db)
+            if is_status_inherited and new_parent_acct.account_status:
+                old_status = account.account_status
+                account.account_status = new_parent_acct.account_status
+                account.active = new_parent_acct.active
+                if old_status != new_parent_acct.account_status:
+                    propagate_status_to_children(account.id, old_status, new_parent_acct.account_status, db)
 
     db.flush()
     db.refresh(account)

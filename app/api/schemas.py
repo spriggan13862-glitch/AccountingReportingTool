@@ -96,6 +96,8 @@ class AccountCreate(BaseModel):
     tax_line: str | None = None
     source_system: str | None = None
     reporting_taxonomy_line_id: int | None = None
+    account_status: str | None = None
+    active: bool | None = None
 
 
 class AccountUpdate(BaseModel):

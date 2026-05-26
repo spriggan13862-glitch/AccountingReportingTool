@@ -320,7 +320,50 @@ function AccountPreviewSidebar({
   if (!account) return null
 
   const parent = allAccounts.find((a) => a.id === account.parent_account_id)
-  const taxonomyLine = taxonomyLines.find((t) => t.id === account.reporting_taxonomy_line_id)
+
+  // Inheritance resolution logic
+  let inheritedFrom: Account | null = null
+  let currentParentId = account.parent_account_id
+  let resolvedTaxonomyLineId = account.reporting_taxonomy_line_id
+  
+  while (currentParentId && !resolvedTaxonomyLineId) {
+    const pAcct = allAccounts.find((a) => a.id === currentParentId)
+    if (pAcct) {
+      if (pAcct.reporting_taxonomy_line_id) {
+        resolvedTaxonomyLineId = pAcct.reporting_taxonomy_line_id
+        inheritedFrom = pAcct
+      }
+      currentParentId = pAcct.parent_account_id
+    } else {
+      break
+    }
+  }
+
+  const isInherited = resolvedTaxonomyLineId !== account.reporting_taxonomy_line_id
+  const resolvedTaxonomyLine = taxonomyLines.find((t) => t.id === resolvedTaxonomyLineId)
+
+  // Build taxonomy path
+  const pathParts: string[] = []
+  if (resolvedTaxonomyLine) {
+    let curr: ReportingTaxonomyLine | undefined = resolvedTaxonomyLine
+    while (curr) {
+      pathParts.unshift(curr.name)
+      const nextParentId = curr.parent_id
+      curr = nextParentId ? taxonomyLines.find((t) => t.id === nextParentId) : undefined
+    }
+    const stmtTypeLabel = resolvedTaxonomyLine.statement_type === 'balance_sheet' ? 'Balance Sheet' :
+                          resolvedTaxonomyLine.statement_type === 'income_statement' ? 'Income Statement' :
+                          resolvedTaxonomyLine.statement_type ? resolvedTaxonomyLine.statement_type.replace('_', ' ') : ''
+    if (stmtTypeLabel && !pathParts.includes(stmtTypeLabel)) {
+      pathParts.unshift(stmtTypeLabel)
+    }
+  }
+  const hierarchyPath = pathParts.join(' > ')
+
+  // Siblings calculation
+  const siblings = allAccounts.filter(
+    (a) => a.parent_account_id === account.parent_account_id && a.id !== account.id
+  )
 
   return (
     <div className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto flex flex-col h-full shadow-lg animate-in slide-in-from-right duration-250">
@@ -433,15 +476,50 @@ function AccountPreviewSidebar({
           )}
         </div>
 
+        {/* Siblings */}
+        {siblings.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sibling Accounts</p>
+            <div className="max-h-32 overflow-y-auto border border-gray-100 rounded-lg divide-y divide-gray-50 bg-white">
+              {siblings.map((sib) => (
+                <div key={sib.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 transition-colors">
+                  <span className="font-mono text-[10px] text-gray-400 w-12 shrink-0">{sib.account_number}</span>
+                  <span className="text-xs font-medium text-gray-700 truncate">{sib.account_name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Reporting Taxonomy Assignment */}
         <div className="space-y-2">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reporting Mapping</p>
-          {taxonomyLine ? (
-            <div className="flex items-start gap-2.5 p-3 border border-indigo-100 bg-indigo-50/20 rounded-lg">
-              <Tag className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-indigo-950">{taxonomyLine.name}</p>
-                <p className="text-[10px] text-indigo-600 mt-0.5">Taxonomy Line / FSLI category</p>
+          {resolvedTaxonomyLine ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2.5 p-3 border border-indigo-100 bg-indigo-50/20 rounded-lg">
+                <Tag className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                    <span className="text-xs font-bold text-indigo-950">{resolvedTaxonomyLine.name}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wide ${
+                      isInherited 
+                        ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`} data-testid="mapping-source-badge">
+                      {isInherited ? 'Inherited' : 'Manual'}
+                    </span>
+                  </div>
+                  {hierarchyPath && (
+                    <p className="text-[10px] text-indigo-650 font-mono" data-testid="fs-hierarchy-path">
+                      {hierarchyPath}
+                    </p>
+                  )}
+                  {isInherited && inheritedFrom && (
+                    <p className="text-[10px] text-gray-555 mt-1 italic" data-testid="inherited-from-text">
+                      Inherited from parent: {inheritedFrom.account_number} {inheritedFrom.account_name}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -455,18 +533,29 @@ function AccountPreviewSidebar({
           )}
         </div>
 
+        {/* Linked Sources */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Linked Source / Lineage</p>
+          {(account as any).source_system ? (
+            <div className="p-3 bg-gray-50 border rounded-lg">
+              <p className="text-xs font-semibold text-gray-800">
+                Created via {(account as any).source_system === 'pdf_import' ? 'PDF Ingestion' : 'Trial Balance Import'}
+              </p>
+              <p className="text-[10px] text-gray-500 mt-0.5 font-mono">
+                System: {(account as any).source_system} · ID: #{account.id}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic pl-1">Manually created account</p>
+          )}
+        </div>
+
         {/* Source System */}
         <div className="space-y-2 pt-2 border-t border-gray-100">
           <div className="flex justify-between items-center text-xs">
             <span className="text-gray-400">Account ID</span>
             <span className="font-mono text-gray-500">#{account.id}</span>
           </div>
-          {(account as Account & { source_system?: string }).source_system && (
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-400">Source System</span>
-              <span className="font-semibold text-gray-700">{(account as Account & { source_system?: string }).source_system}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

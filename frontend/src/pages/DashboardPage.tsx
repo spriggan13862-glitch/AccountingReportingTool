@@ -169,6 +169,49 @@ export function DashboardPage() {
     return Math.abs(db - cr) > 0.005
   }).length ?? 0
 
+  // Next Recommended Action logic
+  let nextAction = {
+    title: 'Review Adjusted Financial Reports',
+    description: 'All trial balances are imported, mapped, and balanced. Analyze the adjustment bridge and view financial reports.',
+    link: '/financial-statements',
+    linkLabel: 'View Reports Preview →',
+    severity: 'info'
+  }
+
+  if (outOfBalanceCount > 0) {
+    nextAction = {
+      title: 'Resolve Out-of-Balance Imports',
+      description: 'One or more imported trial balances do not have debits matching credits.',
+      link: '/import',
+      linkLabel: 'Troubleshoot Imports →',
+      severity: 'error'
+    }
+  } else if (pendingImportsCount > 0) {
+    nextAction = {
+      title: 'Post/Map Pending Trial Balance Imports',
+      description: 'You have trial balance imports that require taxonomy mapping or are ready to be posted.',
+      link: '/import',
+      linkLabel: 'Go to Import Center →',
+      severity: 'warning'
+    }
+  } else if (unmappedAccountsCount > 0) {
+    nextAction = {
+      title: 'Map Unassigned Chart of Accounts',
+      description: 'There are accounts currently in your chart of accounts that have not been assigned to a taxonomy reporting line.',
+      link: '/taxonomy-admin',
+      linkLabel: 'Complete Taxonomy Mapping →',
+      severity: 'warning'
+    }
+  } else if (draftAJEsCount > 0) {
+    nextAction = {
+      title: 'Review and Post Draft Adjusting Entries',
+      description: 'You have draft Adjusting Journal Entries (AJEs) awaiting review, approval, and posting.',
+      link: '/journal-entries',
+      linkLabel: 'Manage Journal Entries →',
+      severity: 'info'
+    }
+  }
+
   return (
     <PageLayout title="Dashboard" subtitle={`Overview for ${org.name}`}>
       <div className="space-y-6">
@@ -177,6 +220,36 @@ export function DashboardPage() {
 
         {/* Operational status alerts */}
         <OperationalStatusCards orgId={orgId} />
+
+        {/* Next Recommended Action */}
+        <div className={cn(
+          "rounded-xl border p-4 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white",
+          nextAction.severity === 'warning' ? "border-amber-200 bg-amber-50/5" :
+          nextAction.severity === 'error' ? "border-rose-200 bg-rose-50/5" : "border-slate-200 bg-slate-50/5"
+        )}>
+          <div className="space-y-1">
+            <span className={cn(
+              "text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+              nextAction.severity === 'warning' ? "bg-amber-100 text-amber-800" :
+              nextAction.severity === 'error' ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-800"
+            )}>
+              Recommended Action
+            </span>
+            <h3 className="text-sm font-bold text-slate-900 mt-1">{nextAction.title}</h3>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-2xl">{nextAction.description}</p>
+          </div>
+          <Link
+            to={nextAction.link}
+            className={cn(
+              "shrink-0 text-xs font-bold px-3.5 py-2 rounded-lg border transition-all shadow-sm",
+              nextAction.severity === 'warning' ? "border-amber-300 bg-amber-500 text-white hover:bg-amber-600 hover:border-amber-600" :
+              nextAction.severity === 'error' ? "border-rose-300 bg-rose-500 text-white hover:bg-rose-600 hover:border-rose-600" :
+              "border-slate-300 bg-slate-800 text-white hover:bg-slate-900 hover:border-slate-900"
+            )}
+          >
+            {nextAction.linkLabel}
+          </Link>
+        </div>
 
         {/* Operational Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -245,9 +318,6 @@ export function DashboardPage() {
             </Link>
           </div>
         </div>
-
-        {/* Onboarding quick links */}
-        <QuickLinks />
 
         {/* Welcome message for the logged-in user */}
         {user && (
@@ -448,10 +518,20 @@ export function DashboardPage() {
           </div>
         </div>
 
+        {/* Onboarding quick links (moved lower and made secondary) */}
+        <div className="mt-6">
+          <QuickLinks />
+        </div>
+
         {/* Version Indicator */}
         <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 font-medium">
-          <div>Version: {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}</div>
-          <div className="mt-1 sm:mt-0">Built: {import.meta.env.VITE_APP_BUILD_TIME || 'unknown'}</div>
+          <div>
+            Version: {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}
+          </div>
+          <div className="flex gap-4 mt-1 sm:mt-0">
+            <div>Built: {import.meta.env.VITE_APP_BUILD_TIME || 'unknown'}</div>
+            <div>Env: local</div>
+          </div>
         </div>
       </div>
     </PageLayout>
