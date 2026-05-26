@@ -168,11 +168,32 @@ def compute_bridge(
     Skeleton: builds rows from Chart of Accounts + journal entries.
     Full multi-period prior-balance lookback is deferred to Tier 2.
     """
+    import datetime
+    from app.models.entity import Entity
+    from app.models.scenario import Scenario
     from app.models.adjustment_bridge import AdjustmentBridgeRow
     from app.models.account import Account
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.reporting_taxonomy import ReportingTaxonomyLine
+
+    # Input validations
+    if entity_id <= 0:
+        raise HTTPException(status_code=400, detail="Invalid entity_id")
+
+    entity = db.get(Entity, entity_id)
+    if not entity:
+        raise HTTPException(status_code=400, detail=f"Entity {entity_id} not found")
+
+    try:
+        datetime.date.fromisoformat(period_end)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="period_end must be in YYYY-MM-DD format")
+
+    if scenario_id is not None:
+        scenario = db.get(Scenario, scenario_id)
+        if not scenario:
+            raise HTTPException(status_code=400, detail=f"Scenario {scenario_id} not found")
 
     # Delete existing rows for this slice
     db.query(AdjustmentBridgeRow).filter(
@@ -247,6 +268,7 @@ def compute_bridge(
         rows_created += 1
 
     db.flush()
+    db.commit()
 
     return ComputeResult(
         entity_id=entity_id,
