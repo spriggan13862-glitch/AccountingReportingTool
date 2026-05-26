@@ -28,4 +28,16 @@ export const journalEntriesApi = {
 
   reverse: (id: number, data: ReverseJERequest) =>
     api.post<JournalEntry>(`/journal-entries/${id}/reverse`, data).then((r) => r.data),
+
+  importCsv: (entityId: number, file: File, scenarioId?: number) => {
+    const form = new FormData()
+    form.append('entity_id', String(entityId))
+    if (scenarioId !== undefined) {
+      form.append('scenario_id', String(scenarioId))
+    }
+    form.append('file', file)
+    return api.post<{ success: boolean; message: string; imported_count: number }>('/journal-entries/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
 }
