@@ -31,6 +31,8 @@ import { useOrg } from '@/providers/OrgProvider'
 import { cn } from '@/utils/cn'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import type { JournalEntry, JELine, JECreate, JELineCreate, Account, User, Signoff } from '@/types'
+import { useToast } from '@/providers/ToastProvider'
+import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 
 // ---------------------------------------------------------------------------
 // LocalStorage Persistence Helpers
@@ -178,6 +180,7 @@ export function JournalEntriesPage() {
   const queryClient = useQueryClient()
   const { org } = useOrg()
   const orgId = org?.id ?? 0
+  const toast = useToast()
 
   // URL State integration (if drawer needs to open directly from a URL parameter)
   const { id: urlJeId } = useParams<{ id: string }>()
@@ -230,6 +233,32 @@ export function JournalEntriesPage() {
     reversal_date: new Date().toISOString().slice(0, 10),
     je_number: '',
     description: '',
+  })
+
+  // CSV Import State
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importEntityId, setImportEntityId] = useState<number | ''>('')
+  const [importScenarioId, setImportScenarioId] = useState<number | ''>('')
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const importCsvMutation = useMutation({
+    mutationFn: () =>
+      journalEntriesApi.importCsv(
+        importEntityId as number,
+        importFile!,
+        importScenarioId !== '' ? (importScenarioId as number) : undefined
+      ),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
+      toast(data.message || 'Journal entries imported successfully', 'success')
+      setShowImportModal(false)
+      setImportFile(null)
+      setImportError(null)
+    },
+    onError: (err: any) => {
+      setImportError(err.response?.data?.detail || err.message || 'An error occurred during import')
+    }
   })
 
   // ---------------------------------------------------------------------------
@@ -976,13 +1005,22 @@ export function JournalEntriesPage() {
         title="Journal Entries"
         subtitle="Power workbench to draft, review, and post Adjusting Journal Entries (AJEs) for client accounting cleanup"
         actions={
-          <button
-            type="button"
-            onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-xs hover:shadow-sm cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" /> Create Journal Entry
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 bg-white rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-xs hover:shadow-sm cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5 text-slate-400" /> Import CSV
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCreate}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-xs hover:shadow-sm cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Create Journal Entry
+            </button>
+          </div>
         }
       >
         {apiError && <ErrorBanner message={apiError} />}
@@ -1721,6 +1759,94 @@ export function JournalEntriesPage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      {/* CSV Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200/80 w-full max-w-md mx-4 p-6 animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+              <h2 className="text-sm font-bold text-slate-950 uppercase tracking-wider flex items-center gap-1.5">
+                <Upload className="w-4 h-4 text-indigo-550" /> Import Journal Entries
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(false)
+                  setImportFile(null)
+                  setImportError(null)
+                }}
+                className="text-slate-400 hover:text-slate-655"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+            {importError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3 text-xs mb-4 font-medium leading-relaxed">
+                {importError}
+              </div>
+            )}
+            <div className="space-y-4 text-xs">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Entity *</label>
+                <select
+                  value={importEntityId}
+                  onChange={(e) => setImportEntityId(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white font-semibold focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">Select Entity</option>
+                  {entities.map(ent => (
+                    <option key={ent.id} value={ent.id}>{ent.code} - {ent.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Scenario (Optional)</label>
+                <ScenarioSelect
+                  value={importScenarioId}
+                  onChange={setImportScenarioId}
+                  placeholder="Default (Actual)"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">CSV File *</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-2 bg-white"
+                />
+                <p className="text-[10px] text-slate-400 mt-1 font-medium leading-relaxed font-semibold">
+                  CSV must contain column headers: <code className="font-mono text-slate-600 bg-slate-100 px-1 rounded">je_number</code>, <code className="font-mono text-slate-600 bg-slate-100 px-1 rounded">entry_date</code>, <code className="font-mono text-slate-600 bg-slate-100 px-1 rounded">description</code>, <code className="font-mono text-slate-600 bg-slate-100 px-1 rounded">account_number</code>, <code className="font-mono text-slate-600 bg-slate-100 px-1 rounded">debit</code>, <code className="font-mono text-slate-600 bg-slate-100 px-1 rounded">credit</code>.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImportModal(false)
+                  setImportFile(null)
+                  setImportError(null)
+                }}
+                className="px-4 py-2 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!importEntityId || !importFile || importCsvMutation.isPending}
+                onClick={() => importCsvMutation.mutate()}
+                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-705 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50"
+              >
+                {importCsvMutation.isPending ? 'Importing…' : 'Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
