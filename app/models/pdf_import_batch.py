@@ -14,6 +14,13 @@ class PDFImportBatch(Base):
     source_entity_name = Column(String(200), nullable=True)
     statement_date = Column(String(20), nullable=True)
     basis_of_accounting = Column(String(50), nullable=True)
+
+    # P0: import classification set by user in Step 1
+    # trial_balance | financial_statements | tax_return | management_report
+    import_type = Column(String(40), nullable=True, default="financial_statements")
+    # standalone | consolidated | combined | unknown
+    statement_scope = Column(String(30), nullable=True, default="unknown")
+
     page_count = Column(Integer, nullable=True)
     line_count = Column(Integer, nullable=True)
     accounts_created = Column(Integer, nullable=True)

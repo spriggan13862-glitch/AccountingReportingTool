@@ -1836,6 +1836,8 @@ class PDFImportBatchOut(BaseModel):
     source_entity_name: str | None
     statement_date: str | None
     basis_of_accounting: str | None
+    import_type: str | None = None
+    statement_scope: str | None = None
     page_count: int | None
     line_count: int | None
     accounts_created: int | None
@@ -1861,6 +1863,10 @@ class PDFImportPreviewLine(BaseModel):
     mapping_evidence: str | None
     page_number: int | None
     source_line_text: str | None
+    # P1: synthetic presentation line flags
+    synthetic_presentation_line: bool = False
+    system_managed: bool = False
+    locked: bool = False
 
 
 class PDFPreviewLinePatch(BaseModel):
@@ -1878,12 +1884,17 @@ class PDFImportPreview(BaseModel):
     source_entity_name: str | None
     statement_date: str | None
     basis_of_accounting: str | None
+    import_type: str | None = None
+    statement_scope: str | None = None
     page_count: int
     line_count: int
     subtotal_count: int
     lines: list[PDFImportPreviewLine]
     validation: dict[str, Any]
     warnings: list[str]
+    # P2: balance sheet tie status
+    balance_sheet_variance: str | None = None
+    balance_sheet_tied: bool = True
 
 
 class PDFValidationCheck(BaseModel):
@@ -1938,11 +1949,20 @@ class PDFLineOut(BaseModel):
     is_subtotal: bool
     is_contra: bool
     sort_order: int
+    # P1: synthetic presentation line flags
+    synthetic_presentation_line: bool = False
+    system_managed: bool = False
+    locked: bool = False
     # Layer 2 — taxonomy (live mapping record values, not just extraction suggestion)
     suggested_taxonomy_code: str | None
     taxonomy_code: str | None
     taxonomy_source: str
     taxonomy_locked: bool
+    # P3/P4: taxonomy conflict
+    source_taxonomy_code: str | None = None
+    taxonomy_conflict: bool = False
+    conflict_reason: str | None = None
+    conflict_resolution: str | None = None
     # Layer 3 — legal entity
     legal_entity_code: str | None
     # Layer 4 — consolidation
@@ -1976,3 +1996,24 @@ class PDFAuditTrail(BaseModel):
     status: str
     line_count: int
     lines: list[dict[str, Any]]
+
+
+class PDFConflictResolutionRequest(BaseModel):
+    """Resolve a taxonomy conflict on a PDF line."""
+    # keep_source | use_parent | apply_global | create_reclass | create_new | accepted
+    resolution: str
+    notes: str | None = None
+
+
+class PDFBalanceSheetValidation(BaseModel):
+    """Balance-sheet tie check result."""
+    total_assets: str
+    total_liabilities: str
+    total_equity: str
+    total_liabilities_equity: str
+    variance: str
+    tied: bool
+    tolerance: str = "0.01"
+    net_income_in_equity: str | None = None
+    pnl_net_income: str | None = None
+    net_income_variance: str | None = None

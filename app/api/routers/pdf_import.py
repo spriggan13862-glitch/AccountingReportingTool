@@ -36,6 +36,8 @@ from app.api.schemas import (
     PDFLineOut,
     PDFAuditTrail,
     PDFPreviewLinePatch,
+    PDFConflictResolutionRequest,
+    PDFBalanceSheetValidation,
 )
 from app.models.pdf_import_batch import PDFImportBatch
 from app.models.pdf_import_line import PDFImportLine
@@ -51,6 +53,9 @@ router = APIRouter(prefix="/pdf-imports", tags=["pdf-imports"])
 async def upload_pdf(
     file: UploadFile = File(...),
     entity_id: int | None = Form(default=None),
+    import_type: str | None = Form(default=None),
+    statement_scope: str | None = Form(default=None),
+    basis_override: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
@@ -106,6 +111,10 @@ async def upload_pdf(
         tmp_path.unlink(missing_ok=True)
 
     lines_data = extracted["lines"]
+
+    # Mark synthetic Net Income lines in equity (P1)
+    _mark_synthetic_equity_lines(lines_data)
+
     detail_lines = [l for l in lines_data if not l["is_subtotal"]]
     subtotal_lines = [l for l in lines_data if l["is_subtotal"]]
 
@@ -113,12 +122,19 @@ async def upload_pdf(
     # show them instead of the internal hash codes.
     proposed_numbers = generate_account_numbers(lines_data)
 
+    # Compute balance sheet tie check (P2)
+    bs_validation = _compute_bs_validation(lines_data)
+
+    effective_basis = basis_override or extracted.get("basis_of_accounting")
+
     batch = PDFImportBatch(
         entity_id=entity_id,
         filename=filename,
         source_entity_name=extracted.get("source_entity_name"),
         statement_date=extracted.get("statement_date"),
-        basis_of_accounting=extracted.get("basis_of_accounting"),
+        basis_of_accounting=effective_basis,
+        import_type=import_type or "financial_statements",
+        statement_scope=statement_scope or "unknown",
         page_count=extracted.get("page_count"),
         line_count=len(detail_lines),
         status="parsed",
@@ -145,18 +161,26 @@ async def upload_pdf(
         filename=filename,
         source_entity_name=extracted.get("source_entity_name"),
         statement_date=extracted.get("statement_date"),
-        basis_of_accounting=extracted.get("basis_of_accounting"),
+        basis_of_accounting=effective_basis,
+        import_type=import_type or "financial_statements",
+        statement_scope=statement_scope or "unknown",
         page_count=extracted.get("page_count", 0),
         line_count=len(detail_lines),
         subtotal_count=len(subtotal_lines),
         lines=preview_lines,
         validation=extracted.get("validation", {}),
         warnings=extracted.get("warnings", []),
+        balance_sheet_variance=bs_validation["variance"],
+        balance_sheet_tied=bs_validation["tied"],
     )
 
 
 @router.post("/{batch_id}/apply", response_model=PDFImportBatchOut)
-def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
+def apply_pdf_import(
+    batch_id: int,
+    force_apply: bool = False,
+    db: Session = Depends(get_db),
+):
     """Apply a previewed PDF import: persist lines, assign account numbers, build mapping records.
 
     Idempotency:
@@ -185,6 +209,33 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
     lines_data: list[dict] = extracted.get("lines", [])
     if not lines_data:
         raise HTTPException(status_code=422, detail="No lines in preview data — re-upload the file")
+
+    # Re-mark synthetic lines (in case raw_preview predates this logic)
+    _mark_synthetic_equity_lines(lines_data)
+
+    # P2: block apply when balance sheet doesn't tie
+    if batch.import_type in (None, "financial_statements") and not force_apply:
+        bs_check = _compute_bs_validation(lines_data)
+        try:
+            variance_val = float(bs_check["variance"])
+        except (ValueError, TypeError):
+            variance_val = 0.0
+        if not bs_check["tied"] and abs(variance_val) > 0.01:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "balance_sheet_not_tied",
+                    "message": (
+                        f"Balance sheet does not tie. "
+                        f"Assets={bs_check['total_assets']}, "
+                        f"Liabilities+Equity={bs_check['total_liabilities_equity']}, "
+                        f"Variance={bs_check['variance']}. "
+                        "Resolve the imbalance or pass force_apply=true."
+                    ),
+                    "balance_sheet": bs_check,
+                    "hint": "Create a balancing/reclass adjustment, correct line amounts, or pass force_apply=true to override.",
+                },
+            )
 
     detail_lines = [l for l in lines_data if not l.get("is_subtotal")]
 
@@ -225,6 +276,10 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
             if assigned_number is None:
                 assigned_number = account_numbers.get(temp_code, "")
 
+            is_synthetic = line_data.get("synthetic_presentation_line", False)
+            is_system = line_data.get("system_managed", False)
+            is_locked = line_data.get("locked", False)
+
             line_obj = PDFImportLine(
                 batch_id=batch.id,
                 temp_account_code=temp_code,
@@ -242,9 +297,17 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
                 mapping_evidence=line_data.get("mapping_evidence"),
                 page_number=line_data.get("page_number"),
                 source_line_text=line_data.get("source_line_text"),
+                synthetic_presentation_line=is_synthetic,
+                system_managed=is_system,
+                locked=is_locked,
             )
             db.add(line_obj)
             db.flush()
+
+            # P3: detect taxonomy conflicts (source vs global suggestion)
+            source_tax = line_data.get("suggested_taxonomy_code")
+            conflict = False
+            conflict_reason = None
 
             mapping_obj = PDFAccountMapping(
                 batch_id=batch.id,
@@ -253,9 +316,12 @@ def apply_pdf_import(batch_id: int, db: Session = Depends(get_db)):
                 official_account_code=assigned_number or None,
                 account_name=line_data.get("account_name", ""),
                 name_hash=line_data.get("name_hash") or "",
-                taxonomy_code=line_data.get("suggested_taxonomy_code"),
+                taxonomy_code=source_tax,
                 taxonomy_source="auto",
-                taxonomy_locked=False,
+                taxonomy_locked=is_synthetic,  # Lock synthetic lines
+                source_taxonomy_code=source_tax,
+                taxonomy_conflict=conflict,
+                conflict_reason=conflict_reason,
             )
             db.add(mapping_obj)
 
@@ -373,10 +439,12 @@ def get_pdf_preview(batch_id: int, db: Session = Depends(get_db)):
 
     extracted = json.loads(batch.raw_preview)
     lines_data = extracted.get("lines", [])
+    _mark_synthetic_equity_lines(lines_data)
     detail_lines = [l for l in lines_data if not l["is_subtotal"]]
     subtotal_lines = [l for l in lines_data if l["is_subtotal"]]
     proposed_numbers = generate_account_numbers(lines_data)
     preview_lines = [PDFImportPreviewLine(**_line_to_schema(l, proposed_numbers)) for l in lines_data]
+    bs_validation = _compute_bs_validation(lines_data)
 
     return PDFImportPreview(
         batch_id=batch.id,
@@ -385,12 +453,16 @@ def get_pdf_preview(batch_id: int, db: Session = Depends(get_db)):
         source_entity_name=batch.source_entity_name,
         statement_date=batch.statement_date,
         basis_of_accounting=batch.basis_of_accounting,
+        import_type=getattr(batch, "import_type", None),
+        statement_scope=getattr(batch, "statement_scope", None),
         page_count=batch.page_count or 0,
         line_count=len(detail_lines),
         subtotal_count=len(subtotal_lines),
         lines=preview_lines,
         validation=extracted.get("validation", {}),
         warnings=extracted.get("warnings", []),
+        balance_sheet_variance=bs_validation["variance"],
+        balance_sheet_tied=bs_validation["tied"],
     )
 
 
@@ -467,10 +539,17 @@ def list_pdf_lines(batch_id: int, db: Session = Depends(get_db)):
             is_subtotal=line.is_subtotal,
             is_contra=line.is_contra,
             sort_order=line.sort_order,
+            synthetic_presentation_line=getattr(line, "synthetic_presentation_line", False),
+            system_managed=getattr(line, "system_managed", False),
+            locked=getattr(line, "locked", False),
             suggested_taxonomy_code=line.suggested_taxonomy_code,
             taxonomy_code=m.taxonomy_code if m else line.suggested_taxonomy_code,
             taxonomy_source=m.taxonomy_source if m else "auto",
             taxonomy_locked=m.taxonomy_locked if m else False,
+            source_taxonomy_code=m.source_taxonomy_code if m else None,
+            taxonomy_conflict=m.taxonomy_conflict if m else False,
+            conflict_reason=m.conflict_reason if m else None,
+            conflict_resolution=m.conflict_resolution if m else None,
             legal_entity_code=m.legal_entity_code if m else None,
             consolidation_group=m.consolidation_group if m else None,
             mapping_confidence=line.mapping_confidence,
@@ -618,10 +697,17 @@ def update_pdf_line(
         is_subtotal=line.is_subtotal,
         is_contra=line.is_contra,
         sort_order=line.sort_order,
+        synthetic_presentation_line=getattr(line, "synthetic_presentation_line", False),
+        system_managed=getattr(line, "system_managed", False),
+        locked=getattr(line, "locked", False),
         suggested_taxonomy_code=line.suggested_taxonomy_code,
         taxonomy_code=mapping.taxonomy_code,
         taxonomy_source=mapping.taxonomy_source,
         taxonomy_locked=mapping.taxonomy_locked,
+        source_taxonomy_code=getattr(mapping, "source_taxonomy_code", None),
+        taxonomy_conflict=getattr(mapping, "taxonomy_conflict", False),
+        conflict_reason=getattr(mapping, "conflict_reason", None),
+        conflict_resolution=getattr(mapping, "conflict_resolution", None),
         legal_entity_code=mapping.legal_entity_code,
         consolidation_group=mapping.consolidation_group,
         mapping_confidence=line.mapping_confidence,
@@ -735,7 +821,255 @@ def patch_preview_line(
 
 
 # ---------------------------------------------------------------------------
-# Helper
+# P4: Taxonomy conflict resolution endpoint
+# ---------------------------------------------------------------------------
+
+@router.post("/{batch_id}/lines/{line_id}/resolve-conflict", response_model=PDFLineOut)
+def resolve_taxonomy_conflict(
+    batch_id: int,
+    line_id: int,
+    body: PDFConflictResolutionRequest,
+    db: Session = Depends(get_db),
+):
+    """Resolve a taxonomy conflict on a persisted PDF line.
+
+    Resolution options:
+      keep_source   — keep the source/PDF taxonomy, clear conflict
+      use_parent    — inherit from parent account taxonomy
+      apply_global  — accept the global taxonomy suggestion
+      create_reclass — mark for reclass adjustment (keep conflict, mark reviewed)
+      create_new    — user will create a new taxonomy line (mark reviewed)
+      accepted      — accept the conflict as-is (mark reviewed without change)
+    """
+    batch = db.get(PDFImportBatch, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+
+    line = db.get(PDFImportLine, line_id)
+    if line is None or line.batch_id != batch_id:
+        raise HTTPException(status_code=404, detail=f"Line {line_id} not found in batch {batch_id}")
+
+    mapping = db.query(PDFAccountMapping).filter(
+        PDFAccountMapping.batch_id == batch_id,
+        PDFAccountMapping.line_id == line_id,
+    ).first()
+
+    if mapping is None:
+        raise HTTPException(status_code=404, detail="No mapping record found for this line")
+
+    resolution = body.resolution
+    VALID = {"keep_source", "use_parent", "apply_global", "create_reclass", "create_new", "accepted"}
+    if resolution not in VALID:
+        raise HTTPException(status_code=422, detail=f"Invalid resolution. Must be one of: {', '.join(sorted(VALID))}")
+
+    if resolution == "keep_source":
+        # Restore source taxonomy, clear conflict
+        mapping.taxonomy_code = mapping.source_taxonomy_code
+        mapping.taxonomy_source = "manual"
+        mapping.taxonomy_conflict = False
+        mapping.conflict_resolution = "keep_source"
+    elif resolution == "apply_global":
+        # Accept whatever taxonomy_code is currently set (the global suggestion)
+        mapping.taxonomy_source = "manual"
+        mapping.taxonomy_conflict = False
+        mapping.conflict_resolution = "apply_global"
+    elif resolution == "use_parent":
+        # Inherit from entity COA parent — look up the account
+        if batch.entity_id is not None and line.official_account_code:
+            from app.models.account import Account
+            acct = db.query(Account).filter(
+                Account.entity_id == batch.entity_id,
+                Account.account_number == line.official_account_code,
+            ).first()
+            if acct and acct.parent_account_id:
+                parent = db.get(Account, acct.parent_account_id)
+                if parent and parent.reporting_taxonomy_line_id:
+                    from app.models.reporting_taxonomy import ReportingTaxonomyLine
+                    tax = db.get(ReportingTaxonomyLine, parent.reporting_taxonomy_line_id)
+                    if tax:
+                        mapping.taxonomy_code = tax.code
+                        mapping.taxonomy_source = "inherited"
+        mapping.taxonomy_conflict = False
+        mapping.conflict_resolution = "use_parent"
+    elif resolution in ("create_reclass", "create_new", "accepted"):
+        # Mark reviewed without changing taxonomy
+        mapping.taxonomy_conflict = False
+        mapping.conflict_resolution = resolution
+
+    if body.notes:
+        mapping.mapping_notes = body.notes
+
+    db.flush()
+
+    return PDFLineOut(
+        id=line.id,
+        batch_id=line.batch_id,
+        temp_account_code=line.temp_account_code,
+        name_hash=line.name_hash,
+        official_account_code=line.official_account_code or mapping.official_account_code,
+        account_name=line.account_name,
+        statement_type=line.statement_type,
+        section=line.section,
+        amount=str(line.amount),
+        is_subtotal=line.is_subtotal,
+        is_contra=line.is_contra,
+        sort_order=line.sort_order,
+        synthetic_presentation_line=getattr(line, "synthetic_presentation_line", False),
+        system_managed=getattr(line, "system_managed", False),
+        locked=getattr(line, "locked", False),
+        suggested_taxonomy_code=line.suggested_taxonomy_code,
+        taxonomy_code=mapping.taxonomy_code,
+        taxonomy_source=mapping.taxonomy_source,
+        taxonomy_locked=mapping.taxonomy_locked,
+        source_taxonomy_code=getattr(mapping, "source_taxonomy_code", None),
+        taxonomy_conflict=getattr(mapping, "taxonomy_conflict", False),
+        conflict_reason=getattr(mapping, "conflict_reason", None),
+        conflict_resolution=getattr(mapping, "conflict_resolution", None),
+        legal_entity_code=mapping.legal_entity_code,
+        consolidation_group=mapping.consolidation_group,
+        mapping_confidence=line.mapping_confidence,
+        mapping_evidence=line.mapping_evidence,
+        page_number=line.page_number,
+        source_line_text=line.source_line_text,
+    )
+
+
+# ---------------------------------------------------------------------------
+# P2: Balance sheet validation endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/{batch_id}/bs-validation", response_model=PDFBalanceSheetValidation)
+def get_bs_validation(batch_id: int, db: Session = Depends(get_db)):
+    """Compute balance sheet tie check for a batch's preview lines."""
+    batch = db.get(PDFImportBatch, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if not batch.raw_preview:
+        raise HTTPException(status_code=404, detail="No preview data")
+
+    extracted = json.loads(batch.raw_preview)
+    lines_data = extracted.get("lines", [])
+    result = _compute_bs_validation(lines_data)
+    return PDFBalanceSheetValidation(**result)
+
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+# Net Income keywords that indicate a synthetic equity presentation line
+_NET_INCOME_EQUITY_KEYWORDS = {
+    "net income",
+    "net income (loss)",
+    "net loss",
+    "current year earnings",
+    "current year net income",
+    "current year income",
+    "profit / loss",
+    "profit/loss",
+    "earnings",
+    "net profit",
+    "net earnings",
+}
+
+# Equity section keys
+_EQUITY_SECTIONS = {"equity", "stockholders_equity", "members_equity", "owners_equity"}
+
+
+def _mark_synthetic_equity_lines(lines_data: list[dict]) -> None:
+    """In-place: mark Net Income lines inside equity as synthetic (P1)."""
+    for line in lines_data:
+        if line.get("is_subtotal"):
+            continue
+        section = (line.get("section") or "").lower()
+        stmt = (line.get("statement_type") or "").lower()
+        name = (line.get("account_name") or "").lower().strip()
+
+        if stmt == "balance_sheet" and section in _EQUITY_SECTIONS:
+            if any(kw in name for kw in _NET_INCOME_EQUITY_KEYWORDS):
+                line["synthetic_presentation_line"] = True
+                line["system_managed"] = True
+                line["locked"] = True
+
+
+# Balance sheet section groupings
+_BS_ASSET_SECTIONS = {"current_assets", "fixed_assets", "other_assets"}
+_BS_LIABILITY_SECTIONS = {"current_liabilities", "long_term_liabilities"}
+_BS_EQUITY_SECTIONS = {"equity", "stockholders_equity", "members_equity", "owners_equity"}
+
+
+def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> dict:
+    """Compute balance sheet tie: Assets vs Liabilities + Equity."""
+    from decimal import Decimal, InvalidOperation
+
+    def safe_dec(raw) -> Decimal:
+        if raw is None:
+            return Decimal("0")
+        s = str(raw).strip()
+        if s.startswith("(") and s.endswith(")"):
+            s = "-" + s[1:-1]
+        s = s.replace(",", "").replace("$", "").replace("%", "").strip()
+        if not s or s == "-":
+            return Decimal("0")
+        try:
+            return Decimal(s)
+        except InvalidOperation:
+            return Decimal("0")
+
+    total_assets = Decimal("0")
+    total_liabilities = Decimal("0")
+    total_equity = Decimal("0")
+    net_income_in_equity = None
+    pnl_net_income = None
+
+    for line in lines_data:
+        if line.get("is_subtotal"):
+            continue
+        stmt = (line.get("statement_type") or "").lower()
+        section = (line.get("section") or "").lower()
+        amount = safe_dec(line.get("amount"))
+        name = (line.get("account_name") or "").lower()
+
+        if stmt == "balance_sheet":
+            if section in _BS_ASSET_SECTIONS:
+                total_assets += amount
+            elif section in _BS_LIABILITY_SECTIONS:
+                total_liabilities += amount
+            elif section in _BS_EQUITY_SECTIONS:
+                if line.get("synthetic_presentation_line"):
+                    net_income_in_equity = amount
+                total_equity += amount
+
+        # Track P&L net income for reconciliation
+        if stmt == "income_statement":
+            is_ni = any(kw in name for kw in _NET_INCOME_EQUITY_KEYWORDS)
+            if is_ni and not line.get("is_subtotal"):
+                pnl_net_income = amount
+
+    total_le = total_liabilities + total_equity
+    variance = total_assets - total_le
+
+    # Net income reconciliation
+    ni_variance = None
+    if net_income_in_equity is not None and pnl_net_income is not None:
+        ni_variance = net_income_in_equity - pnl_net_income
+
+    return {
+        "total_assets": str(total_assets),
+        "total_liabilities": str(total_liabilities),
+        "total_equity": str(total_equity),
+        "total_liabilities_equity": str(total_le),
+        "variance": str(variance),
+        "tied": abs(float(variance)) <= tolerance,
+        "tolerance": str(tolerance),
+        "net_income_in_equity": str(net_income_in_equity) if net_income_in_equity is not None else None,
+        "pnl_net_income": str(pnl_net_income) if pnl_net_income is not None else None,
+        "net_income_variance": str(ni_variance) if ni_variance is not None else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Original helper
 # ---------------------------------------------------------------------------
 
 def _line_to_schema(line_data: dict, proposed_numbers: dict[str, str] | None = None) -> dict:
@@ -759,4 +1093,7 @@ def _line_to_schema(line_data: dict, proposed_numbers: dict[str, str] | None = N
         "mapping_evidence": line_data.get("mapping_evidence"),
         "page_number": line_data.get("page_number"),
         "source_line_text": line_data.get("source_line_text"),
+        "synthetic_presentation_line": line_data.get("synthetic_presentation_line", False),
+        "system_managed": line_data.get("system_managed", False),
+        "locked": line_data.get("locked", False),
     }

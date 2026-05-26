@@ -36,3 +36,9 @@ class PDFImportLine(Base):
     mapping_evidence = Column(String(200), nullable=True)
     page_number = Column(Integer, nullable=True)
     source_line_text = Column(Text, nullable=True)
+
+    # P1: synthetic presentation lines (e.g. Net Income inside Equity)
+    # These are derived from P&L — not real accounts, not editable
+    synthetic_presentation_line = Column(Boolean, nullable=False, default=False)
+    system_managed = Column(Boolean, nullable=False, default=False)
+    locked = Column(Boolean, nullable=False, default=False)

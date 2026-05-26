@@ -48,6 +48,14 @@ class PDFAccountMapping(Base):
     # Layer 4 — consolidation
     consolidation_group = Column(String(50), nullable=True)
 
+    # P3/P4: taxonomy conflict tracking
+    # source_taxonomy_code: what the COA/PDF section/evidence suggested (pre-global-override)
+    source_taxonomy_code = Column(String(50), nullable=True)
+    taxonomy_conflict = Column(Boolean, nullable=False, default=False)
+    conflict_reason = Column(String(200), nullable=True)
+    # resolution: keep_source | use_parent | apply_global | create_reclass | create_new | accepted
+    conflict_resolution = Column(String(30), nullable=True)
+
     # Audit
     mapping_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
