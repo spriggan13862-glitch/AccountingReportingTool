@@ -418,6 +418,7 @@ interface EditState {
   active: boolean
   description: string
   sec_xbrl_tag: string
+  parent_id: number | null
 }
 
 interface TaxonomyNode extends ReportingTaxonomyLine {
@@ -467,10 +468,19 @@ interface LineRowProps {
   onDelete: (node: TaxonomyNode) => void
   isSaving: boolean
   depth: number
+  visibleColumns: {
+    code: boolean
+    name: boolean
+    statement: boolean
+    order: boolean
+    balance: boolean
+    sign: boolean
+    description: boolean
+  }
 }
 
 function TaxonomyLineRow({
-  node, allLines, editState, onEdit, onSave, onCancel, onEditChange, onDelete, isSaving, depth,
+  node, allLines, editState, onEdit, onSave, onCancel, onEditChange, onDelete, isSaving, depth, visibleColumns
 }: LineRowProps) {
   const [expanded, setExpanded] = useState(true)
   const isEditing = editState?.lineId === node.id
@@ -479,76 +489,155 @@ function TaxonomyLineRow({
   return (
     <>
       <tr className={`hover:bg-slate-50 border-b border-slate-100 ${isEditing ? 'bg-indigo-50/50' : ''} ${!node.active ? 'opacity-50' : ''}`}>
-        <td className="px-3 py-2 text-xs font-mono text-slate-500 w-36">
-          {node.code}
-        </td>
-        <td className="px-3 py-2" style={{ paddingLeft: `${12 + depth * 20}px` }}>
-          <div className="flex items-center gap-1">
-            {hasChildren ? (
-              <button type="button" onClick={() => setExpanded((v) => !v)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              </button>
+        {visibleColumns.code && (
+          <td className="px-3 py-2 text-xs font-mono text-slate-500 w-36">
+            {node.code}
+          </td>
+        )}
+        {visibleColumns.name && (
+          <td className="px-3 py-2" style={{ paddingLeft: `${12 + depth * 20}px` }}>
+            <div className="flex items-center gap-1">
+              {hasChildren ? (
+                <button type="button" onClick={() => setExpanded((v) => !v)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </button>
+              ) : (
+                <span className="w-3.5 h-3.5 inline-block" />
+              )}
+              {isEditing ? (
+                <div className="flex flex-col gap-1 w-full max-w-xs">
+                  <input
+                    type="text"
+                    value={editState.name}
+                    onChange={(e) => onEditChange({ name: e.target.value })}
+                    className="w-full border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                  />
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <label className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold">
+                      Parent:
+                      <select
+                        value={editState.parent_id || ''}
+                        onChange={(e) => onEditChange({ parent_id: e.target.value ? Number(e.target.value) : null })}
+                        className="border border-slate-300 rounded px-1 py-0.5 bg-white text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-400 font-normal"
+                      >
+                        <option value="">(None)</option>
+                        {allLines
+                          .filter((l) => l.id !== node.id)
+                          .map((l) => (
+                            <option key={l.id} value={l.id}>{l.code} - {l.name}</option>
+                          ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-1 text-[10px] text-slate-500 font-semibold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editState.is_subtotal}
+                        onChange={(e) => onEditChange({ is_subtotal: e.target.checked })}
+                        className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500/20"
+                      />
+                      Subtotal
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <span className={`text-sm ${node.is_subtotal ? 'font-semibold text-slate-900' : 'text-slate-800'}`}>
+                  {node.name}
+                  {node.is_subtotal && <span className="ml-1 text-xs text-slate-400 font-normal">(subtotal)</span>}
+                </span>
+              )}
+            </div>
+          </td>
+        )}
+        {visibleColumns.statement && (
+          <td className="px-3 py-2">
+            {isEditing ? (
+              <select
+                value={editState.statement_type || ''}
+                onChange={(e) => onEditChange({ statement_type: e.target.value || '' })}
+                className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none bg-white focus:ring-1 focus:ring-indigo-400"
+              >
+                <option value="">(None)</option>
+                {STATEMENT_TYPES.map((st) => (
+                  <option key={st.value} value={st.value}>{st.label}</option>
+                ))}
+              </select>
             ) : (
-              <span className="w-3.5 h-3.5 inline-block" />
+              node.statement_type && (
+                <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${STMT_COLORS[node.statement_type] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                  {STATEMENT_TYPES.find((s) => s.value === node.statement_type)?.label ?? node.statement_type}
+                </span>
+              )
             )}
+          </td>
+        )}
+        {visibleColumns.order && (
+          <td className="px-3 py-2 text-xs text-slate-500 w-16">
+            {isEditing ? (
+              <input
+                type="number"
+                value={editState.sort_order}
+                onChange={(e) => onEditChange({ sort_order: Number(e.target.value) })}
+                className="w-16 border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+              />
+            ) : (
+              node.sort_order
+            )}
+          </td>
+        )}
+        {visibleColumns.balance && (
+          <td className="px-3 py-2 text-xs text-slate-500 w-16">
+            {isEditing ? (
+              <select
+                value={editState.normal_balance || ''}
+                onChange={(e) => onEditChange({ normal_balance: e.target.value || '' })}
+                className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none bg-white focus:ring-1 focus:ring-indigo-400"
+              >
+                <option value="">(None)</option>
+                <option value="debit">Debit</option>
+                <option value="credit">Credit</option>
+              </select>
+            ) : (
+              node.normal_balance && (
+                <span className={`px-1.5 py-0.5 rounded text-xs capitalize ${node.normal_balance === 'debit' ? 'text-blue-600' : 'text-orange-600'}`}>
+                  {node.normal_balance}
+                </span>
+              )
+            )}
+          </td>
+        )}
+        {visibleColumns.sign && (
+          <td className="px-3 py-2 text-xs text-slate-400 w-20">
+            {isEditing ? (
+              <select
+                value={editState.sign_behavior}
+                onChange={(e) => onEditChange({ sign_behavior: e.target.value })}
+                className="border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none bg-white focus:ring-1 focus:ring-indigo-400"
+              >
+                {SIGN_BEHAVIORS.map((sb) => (
+                  <option key={sb.value} value={sb.value}>{sb.label}</option>
+                ))}
+              </select>
+            ) : (
+              node.sign_behavior !== 'positive' && (
+                <span className="text-amber-600 capitalize">{node.sign_behavior}</span>
+              )
+            )}
+          </td>
+        )}
+        {visibleColumns.description && (
+          <td className="px-3 py-2 text-xs text-slate-500 max-w-[200px] truncate" title={node.description ?? ''}>
             {isEditing ? (
               <input
                 type="text"
-                value={editState.name}
-                onChange={(e) => onEditChange({ name: e.target.value })}
-                className="w-48 border border-indigo-300 rounded px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
+                value={editState.description}
+                onChange={(e) => onEditChange({ description: e.target.value })}
+                className="w-full border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
               />
             ) : (
-              <span className={`text-sm ${node.is_subtotal ? 'font-semibold text-slate-900' : 'text-slate-800'}`}>
-                {node.name}
-                {node.is_subtotal && <span className="ml-1 text-xs text-slate-400 font-normal">(subtotal)</span>}
-              </span>
+              node.description || <span className="text-slate-350">—</span>
             )}
-          </div>
-        </td>
-        <td className="px-3 py-2">
-          {node.statement_type && (
-            <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${STMT_COLORS[node.statement_type] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-              {STATEMENT_TYPES.find((s) => s.value === node.statement_type)?.label ?? node.statement_type}
-            </span>
-          )}
-        </td>
-        <td className="px-3 py-2 text-xs text-slate-500 w-16">
-          {isEditing ? (
-            <input
-              type="number"
-              value={editState.sort_order}
-              onChange={(e) => onEditChange({ sort_order: Number(e.target.value) })}
-              className="w-16 border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
-            />
-          ) : (
-            node.sort_order
-          )}
-        </td>
-        <td className="px-3 py-2 text-xs text-slate-500 w-16">
-          {node.normal_balance && (
-            <span className={`px-1.5 py-0.5 rounded text-xs capitalize ${node.normal_balance === 'debit' ? 'text-blue-600' : 'text-orange-600'}`}>
-              {node.normal_balance}
-            </span>
-          )}
-        </td>
-        <td className="px-3 py-2 text-xs text-slate-400 w-20">
-          {node.sign_behavior !== 'positive' && (
-            <span className="text-amber-600 capitalize">{node.sign_behavior}</span>
-          )}
-        </td>
-        <td className="px-3 py-2 text-xs text-slate-500 max-w-[200px] truncate" title={node.description ?? ''}>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editState.description}
-              onChange={(e) => onEditChange({ description: e.target.value })}
-              className="w-full border border-indigo-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
-            />
-          ) : (
-            node.description || <span className="text-slate-350">—</span>
-          )}
-        </td>
+          </td>
+        )}
         <td className="px-3 py-2 w-20 text-right">
           {isEditing ? (
             <div className="flex items-center justify-end gap-1">
@@ -602,6 +691,7 @@ function TaxonomyLineRow({
           onDelete={onDelete}
           isSaving={isSaving}
           depth={depth + 1}
+          visibleColumns={visibleColumns}
         />
       ))}
     </>
@@ -1022,6 +1112,16 @@ export function TaxonomyAdminPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [showViewSettings, setShowViewSettings] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState({
+    code: true,
+    name: true,
+    statement: true,
+    order: true,
+    balance: true,
+    sign: true,
+    description: true,
+  })
 
   // Mapping workbench state
   const [activeTab, setActiveTab] = useState<'mapping' | 'admin' | 'views'>(() => {
@@ -1243,6 +1343,7 @@ export function TaxonomyAdminPage() {
       active: node.active,
       description: node.description ?? '',
       sec_xbrl_tag: node.sec_xbrl_tag ?? '',
+      parent_id: node.parent_id ?? null,
     })
   }
 
@@ -1261,6 +1362,7 @@ export function TaxonomyAdminPage() {
         active: editState.active,
         description: editState.description || null,
         sec_xbrl_tag: editState.sec_xbrl_tag || null,
+        parent_id: editState.parent_id,
       },
     })
   }
@@ -1468,40 +1570,62 @@ export function TaxonomyAdminPage() {
       {apiError && <ErrorBanner message={apiError} />}
 
       {/* Tabs list at the top */}
-      <div className="flex border-b border-slate-200/80 mb-5 flex-wrap gap-1">
-        <button
-          onClick={() => setActiveTab('mapping')}
-          className={cn(
-            "px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer rounded-t-lg",
-            activeTab === 'mapping'
-              ? "border-indigo-650 text-indigo-650 bg-indigo-50/20 font-extrabold"
-              : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-          )}
-        >
-          <SlidersHorizontal className="w-4 h-4" /> Taxonomy Mapping
-        </button>
-        <button
-          onClick={() => setActiveTab('admin')}
-          className={cn(
-            "px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer rounded-t-lg",
-            activeTab === 'admin'
-              ? "border-indigo-650 text-indigo-650 bg-indigo-50/20 font-extrabold"
-              : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-          )}
-        >
-          <Settings className="w-4 h-4" /> Manage Taxonomy structure
-        </button>
-        <button
-          onClick={() => setActiveTab('views')}
-          className={cn(
-            "px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer rounded-t-lg",
-            activeTab === 'views'
-              ? "border-indigo-650 text-indigo-650 bg-indigo-50/20 font-extrabold"
-              : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-          )}
-        >
-          <BookOpen className="w-4 h-4" /> Reporting Views
-        </button>
+      <div className="flex border-b border-slate-200/80 mb-5 flex-wrap justify-between items-center gap-2">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setActiveTab('mapping')}
+            className={cn(
+              "px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer rounded-t-lg",
+              activeTab === 'mapping'
+                ? "border-indigo-650 text-indigo-650 bg-indigo-50/20 font-extrabold"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+            )}
+          >
+            <SlidersHorizontal className="w-4 h-4" /> Taxonomy Mapping
+          </button>
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={cn(
+              "px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer rounded-t-lg",
+              activeTab === 'admin'
+                ? "border-indigo-650 text-indigo-650 bg-indigo-50/20 font-extrabold"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+            )}
+          >
+            <Settings className="w-4 h-4" /> Manage Taxonomy structure
+          </button>
+          <button
+            onClick={() => setActiveTab('views')}
+            className={cn(
+              "px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer rounded-t-lg",
+              activeTab === 'views'
+                ? "border-indigo-650 text-indigo-650 bg-indigo-50/20 font-extrabold"
+                : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+            )}
+          >
+            <BookOpen className="w-4 h-4" /> Reporting Views
+          </button>
+        </div>
+
+        {/* Global Taxonomy View Selector */}
+        <div className="flex items-center gap-2 mb-2 mr-2">
+          <span className="text-xs font-bold text-slate-550 uppercase tracking-wide">Active Taxonomy view:</span>
+          <select
+            value={selectedViewId || ''}
+            onChange={(e) => setSelectedViewId(Number(e.target.value))}
+            className="h-8 border border-slate-200 rounded-lg bg-white px-2 py-0.5 text-xs font-semibold text-slate-850 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all min-w-[150px]"
+          >
+            {views.map(v => {
+              let label = v.name
+              if (v.code === 'gaap') label = 'GAAP'
+              if (v.code === 'management') label = 'Management'
+              if (v.code === 'tax_basis') label = 'Tax'
+              if (v.code === 'sba_lender') label = 'SBA'
+              if (v.code === 'qoe') label = 'Industry'
+              return <option key={v.id} value={v.id}>{label} View</option>
+            })}
+          </select>
+        </div>
       </div>
 
       {/* Split-Screen mapping layout (Active Tab: mapping) */}
@@ -1779,7 +1903,7 @@ export function TaxonomyAdminPage() {
                                     ? "bg-slate-200 border-slate-350 text-slate-700"
                                     : "bg-white border-slate-200 text-slate-350 hover:text-slate-500 hover:border-slate-300"
                                 )}
-                                title={isLocked ? "Unlock mapping" : "Lock mapping"}
+                                title="Locked mappings will not be changed by auto-map, parent inheritance, or taxonomy re-seeding."
                               >
                                 {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                               </button>
@@ -1897,6 +2021,13 @@ export function TaxonomyAdminPage() {
           </button>
           <button
             type="button"
+            onClick={() => setShowViewSettings(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-lg text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
+          >
+            <Settings className="w-3.5 h-3.5" /> View Settings
+          </button>
+          <button
+            type="button"
             onClick={() => reportingTaxonomyApi.exportCsv()}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-lg text-slate-700 hover:bg-slate-50 cursor-pointer"
           >
@@ -1953,13 +2084,13 @@ export function TaxonomyAdminPage() {
             <table className="w-full text-sm min-w-[900px]">
               <thead className="bg-slate-55 border-b border-slate-200/80 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
                 <tr>
-                  <th className="px-3 py-3 text-left w-36">Code</th>
-                  <th className="px-3 py-3 text-left">Name</th>
-                  <th className="px-3 py-3 text-left w-36">Statement</th>
-                  <th className="px-3 py-3 text-left w-16">Order</th>
-                  <th className="px-3 py-3 text-left w-16">Balance</th>
-                  <th className="px-3 py-3 text-left w-20">Sign</th>
-                  <th className="px-3 py-3 text-left">Description</th>
+                  {visibleColumns.code && <th className="px-3 py-3 text-left w-36">Code</th>}
+                  {visibleColumns.name && <th className="px-3 py-3 text-left">Name</th>}
+                  {visibleColumns.statement && <th className="px-3 py-3 text-left w-36">Statement</th>}
+                  {visibleColumns.order && <th className="px-3 py-3 text-left w-16">Order</th>}
+                  {visibleColumns.balance && <th className="px-3 py-3 text-left w-16">Balance</th>}
+                  {visibleColumns.sign && <th className="px-3 py-3 text-left w-20">Sign</th>}
+                  {visibleColumns.description && <th className="px-3 py-3 text-left">Description</th>}
                   <th className="px-3 py-3 w-20" />
                 </tr>
               </thead>
@@ -1986,6 +2117,7 @@ export function TaxonomyAdminPage() {
                       }}
                       isSaving={updateMutation.isPending}
                       depth={0}
+                      visibleColumns={visibleColumns}
                     />
                   ))
                 )}
@@ -2010,6 +2142,51 @@ export function TaxonomyAdminPage() {
             qc.invalidateQueries({ queryKey: ['reporting-taxonomy'] })
           }}
         />
+      )}
+      {/* View Settings Modal */}
+      {showViewSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200/80 w-full max-w-sm mx-4 p-6 animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-sm font-bold text-slate-950 uppercase tracking-wider">View Settings</h2>
+              <button
+                type="button"
+                onClick={() => setShowViewSettings(false)}
+                className="text-slate-400 hover:text-slate-655"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-500 mb-3 font-medium">Select columns to display in the Manage Taxonomy Structure table:</p>
+              {Object.keys(visibleColumns).map((colKey) => (
+                <label key={colKey} className="flex items-center gap-2.5 py-1.5 text-slate-700 cursor-pointer hover:bg-slate-50 rounded px-2 select-none">
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns[colKey as keyof typeof visibleColumns]}
+                    onChange={(e) => {
+                      setVisibleColumns((prev) => ({
+                        ...prev,
+                        [colKey]: e.target.checked,
+                      }))
+                    }}
+                    className="rounded border-slate-300 text-indigo-650 focus:ring-indigo-500/20"
+                  />
+                  <span className="capitalize font-semibold text-slate-800">{colKey.replace('_', ' ')}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowViewSettings(false)}
+                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageLayout>
   )
