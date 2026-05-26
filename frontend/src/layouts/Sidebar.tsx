@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
   { to: '/accounts', label: 'Chart of Accounts', icon: List },
   { to: '/taxonomy-admin', label: 'Taxonomy Mapping', icon: GitBranch },
   { to: '/journal-entries', label: 'Journal Entries', icon: BookOpen },
-  { to: '/draft-preview', label: 'Adjustment Bridge', icon: GitCompare },
+  { to: '/adjustment-bridge', label: 'Adjustment Bridge', icon: GitCompare },
   { to: '/financial-statements', label: 'Reports Preview', icon: BarChart3 },
   { to: '/help', label: 'Help Center', icon: HelpCircle },
   { to: '/reporting-settings', label: 'Settings', icon: Settings },

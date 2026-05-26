@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { LogOut, Bell, HelpCircle } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useOrg } from '@/providers/OrgProvider'
@@ -13,6 +13,14 @@ export function TopNav() {
   const { org } = useOrg()
   const { activeEntity, setActiveEntity } = useWorkspace()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const isImportOrWizard = [
+    '/pdf-import',
+    '/coa-import',
+    '/trial-balance-import',
+    '/import'
+  ].some((path) => location.pathname === path || location.pathname.startsWith(path + '/'))
 
   const { data: entities = [] } = useQuery({
     queryKey: ['entities-list'],
@@ -56,7 +64,7 @@ export function TopNav() {
         {/* Client (Organization) Selector */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Client</span>
-          <div className="flex h-8 items-center rounded-md border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 min-w-[140px]" data-testid="topbar-client">
+          <div className="flex h-8 items-center rounded-md border border-gray-300 bg-gray-50 px-3 text-xs font-medium text-gray-700 min-w-[140px]" data-testid="topbar-client">
             {org?.name ?? 'Select Client'}
           </div>
         </div>
@@ -64,46 +72,58 @@ export function TopNav() {
         {/* Period Selector */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Period</span>
-          <select
-            className="h-8 rounded-md border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[120px]"
-            data-testid="topbar-period-select"
-            defaultValue=""
-          >
-            {periods.length > 0 ? (
-              periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.fiscal_year}-{String(p.period_number).padStart(2, '0')}
-                </option>
-              ))
-            ) : (
-              <option value="">Dec 2024</option>
-            )}
-          </select>
+          {isImportOrWizard ? (
+            <div className="flex h-8 items-center rounded-md border border-gray-300 bg-gray-50 px-3 text-xs font-medium text-gray-700 min-w-[120px]" data-testid="topbar-period-read-only">
+              {periods[0] ? `${periods[0].fiscal_year}-${String(periods[0].period_number).padStart(2, '0')}` : 'Dec 2024'}
+            </div>
+          ) : (
+            <select
+              className="h-8 rounded-md border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[120px]"
+              data-testid="topbar-period-select"
+              defaultValue=""
+            >
+              {periods.length > 0 ? (
+                periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.fiscal_year}-{String(p.period_number).padStart(2, '0')}
+                  </option>
+                ))
+              ) : (
+                <option value="">Dec 2024</option>
+              )}
+            </select>
+          )}
         </div>
 
         {/* Entity Selector */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Entity</span>
-          <select
-            value={activeEntity?.id ?? ''}
-            onChange={(e) => {
-              const selected = entities.find((ent) => ent.id === Number(e.target.value))
-              if (selected) {
-                setActiveEntity({ id: selected.id, code: selected.code, name: selected.name })
-              } else {
-                setActiveEntity(null)
-              }
-            }}
-            className="h-8 rounded-md border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[160px]"
-            data-testid="topbar-entity-select"
-          >
-            <option value="">— Select Entity —</option>
-            {entities.map((ent) => (
-              <option key={ent.id} value={ent.id}>
-                {ent.code} — {ent.name}
-              </option>
-            ))}
-          </select>
+          {isImportOrWizard ? (
+            <div className="flex h-8 items-center rounded-md border border-gray-300 bg-gray-50 px-3 text-xs font-medium text-gray-700 min-w-[160px]" data-testid="topbar-entity-read-only">
+              {activeEntity ? `${activeEntity.code} — ${activeEntity.name}` : 'Select Entity'}
+            </div>
+          ) : (
+            <select
+              value={activeEntity?.id ?? ''}
+              onChange={(e) => {
+                const selected = entities.find((ent) => ent.id === Number(e.target.value))
+                if (selected) {
+                  setActiveEntity({ id: selected.id, code: selected.code, name: selected.name })
+                } else {
+                  setActiveEntity(null)
+                }
+              }}
+              className="h-8 rounded-md border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[160px]"
+              data-testid="topbar-entity-select"
+            >
+              <option value="">— Select Entity —</option>
+              {entities.map((ent) => (
+                <option key={ent.id} value={ent.id}>
+                  {ent.code} — {ent.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Status Indicator */}

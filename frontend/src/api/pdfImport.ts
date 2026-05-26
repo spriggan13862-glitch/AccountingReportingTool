@@ -7,19 +7,36 @@ import type {
   PDFLineOut,
   PDFLineUpdateRequest,
   PDFAuditTrail,
+  PDFConflictResolutionRequest,
 } from '@/types'
 
 export interface PDFPreviewLinePatch {
   account_name?: string | null
   section?: string | null
   suggested_taxonomy_code?: string | null
+  proposed_account_code?: string | null
+  amount?: string | null
+}
+
+export interface PDFUploadOptions {
+  entityId?: number
+  importType?: string
+  statementScope?: string
+  basisOverride?: string
+  statementDate?: string
 }
 
 export const pdfImportApi = {
-  upload: (file: File, entityId?: number): Promise<PDFImportPreview> => {
+  upload: (file: File, options: PDFUploadOptions | number = {}): Promise<PDFImportPreview> => {
     const form = new FormData()
     form.append('file', file)
-    if (entityId != null) form.append('entity_id', String(entityId))
+    // Support legacy call signature: upload(file, entityId)
+    const opts: PDFUploadOptions = typeof options === 'number' ? { entityId: options } : options
+    if (opts.entityId != null) form.append('entity_id', String(opts.entityId))
+    if (opts.importType) form.append('import_type', opts.importType)
+    if (opts.statementScope) form.append('statement_scope', opts.statementScope)
+    if (opts.basisOverride) form.append('basis_override', opts.basisOverride)
+    if (opts.statementDate) form.append('statement_date', opts.statementDate)
     return api
       .post<PDFImportPreview>('/pdf-imports/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -27,8 +44,15 @@ export const pdfImportApi = {
       .then((r) => r.data)
   },
 
-  apply: (batchId: number): Promise<PDFImportBatch> =>
-    api.post<PDFImportBatch>(`/pdf-imports/${batchId}/apply`).then((r) => r.data),
+  apply: (batchId: number, forceApply = false): Promise<PDFImportBatch> =>
+    api
+      .post<PDFImportBatch>(`/pdf-imports/${batchId}/apply`, null, {
+        params: forceApply ? { force_apply: true } : {},
+      })
+      .then((r) => r.data),
+
+  resolveConflict: (batchId: number, lineId: number, body: PDFConflictResolutionRequest): Promise<PDFLineOut> =>
+    api.post<PDFLineOut>(`/pdf-imports/${batchId}/lines/${lineId}/resolve-conflict`, body).then((r) => r.data),
 
   list: (entityId?: number): Promise<PDFImportBatch[]> =>
     api

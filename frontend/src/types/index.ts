@@ -1142,6 +1142,8 @@ export interface PDFImportBatch {
   source_entity_name: string | null
   statement_date: string | null
   basis_of_accounting: string | null
+  import_type: string | null
+  statement_scope: string | null
   page_count: number | null
   line_count: number | null
   accounts_created: number | null
@@ -1166,6 +1168,10 @@ export interface PDFImportPreviewLine {
   mapping_evidence: string | null
   page_number: number | null
   source_line_text: string | null
+  // P1: synthetic line flags
+  synthetic_presentation_line: boolean
+  system_managed: boolean
+  locked: boolean
 }
 
 export interface PDFImportPreview {
@@ -1175,12 +1181,17 @@ export interface PDFImportPreview {
   source_entity_name: string | null
   statement_date: string | null
   basis_of_accounting: string | null
+  import_type: string | null
+  statement_scope: string | null
   page_count: number
   line_count: number
   subtotal_count: number
   lines: PDFImportPreviewLine[]
   validation: PDFImportValidation
   warnings: string[]
+  // P2: balance sheet tie check
+  balance_sheet_variance: string | null
+  balance_sheet_tied: boolean
 }
 
 export interface PDFValidationCheck {
@@ -1246,10 +1257,19 @@ export interface PDFLineOut {
   is_subtotal: boolean
   is_contra: boolean
   sort_order: number
+  // P1: synthetic flags
+  synthetic_presentation_line: boolean
+  system_managed: boolean
+  locked: boolean
   suggested_taxonomy_code: string | null
   taxonomy_code: string | null
   taxonomy_source: string | null
   taxonomy_locked: boolean
+  // P3/P4: taxonomy conflict
+  source_taxonomy_code: string | null
+  taxonomy_conflict: boolean
+  conflict_reason: string | null
+  conflict_resolution: string | null
   legal_entity_code: string | null
   consolidation_group: string | null
   mapping_confidence: string | null
@@ -1265,6 +1285,13 @@ export interface PDFLineUpdateRequest {
   legal_entity_code?: string | null
   consolidation_group?: string | null
   mapping_notes?: string | null
+  account_name?: string | null
+  amount?: string | null
+}
+
+export interface PDFConflictResolutionRequest {
+  resolution: 'keep_source' | 'use_parent' | 'apply_global' | 'create_reclass' | 'create_new' | 'accepted'
+  notes?: string | null
 }
 
 export interface PDFAuditTrail {

@@ -857,32 +857,75 @@ export function FinancialStatementsPage() {
         </div>
       </div>
 
-      {/* Setup Assistant Banner */}
+      {/* P9: Guided Setup Assistant */}
       {ready && unmappedAccountCount > 0 && (
-        <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-200 rounded-xl p-5 shadow-sm flex items-start gap-4 animate-in fade-in duration-300">
-          <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0 mt-0.5" />
-          <div className="flex-1 space-y-1">
-            <h3 className="text-sm font-bold text-amber-900">Setup Assistant: Unmapped Accounts Found</h3>
-            <p className="text-xs text-amber-700 leading-relaxed">
-              There are {unmappedAccountCount} account(s) in your Chart of Accounts that are not mapped to any reporting taxonomy line. 
-              To automatically populate your reports (Trial Balance, BS, and IS), initialize the reporting taxonomy and propagate mappings.
-            </p>
-            <div className="pt-2 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => initializeTaxonomyMutation.mutate()}
-                disabled={initializeTaxonomyMutation.isPending}
-                className="rounded-md bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 shadow-sm hover:shadow transition-all disabled:opacity-50 cursor-pointer"
-                data-testid="initialize-taxonomy-btn"
-              >
-                {initializeTaxonomyMutation.isPending ? 'Initializing & Propagating…' : 'Initialize Reporting Taxonomy'}
-              </button>
-              {initializeTaxonomyMutation.isSuccess && (
-                <span className="text-xs text-emerald-600 font-semibold animate-pulse">
-                  ✓ Successfully initialized!
-                </span>
-              )}
-            </div>
+        <div className="bg-white border border-amber-200 rounded-xl p-5 shadow-sm animate-in fade-in duration-300" data-testid="setup-assistant">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+            <h3 className="text-sm font-bold text-amber-900">Financial Statements Setup Assistant</h3>
+          </div>
+
+          {/* Setup checklist */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+            {[
+              { label: 'Accounts mapped', value: (accounts?.length ?? 0) - unmappedAccountCount, total: accounts?.length ?? 0, ok: unmappedAccountCount === 0 },
+              { label: 'Accounts unmapped', value: unmappedAccountCount, total: accounts?.length ?? 0, ok: unmappedAccountCount === 0, warn: true },
+              { label: 'Taxonomy initialized', value: (taxonomyLines?.length ?? 0) > 0 ? 'Yes' : 'No', ok: (taxonomyLines?.length ?? 0) > 0 },
+              { label: 'JE balances', value: (journalEntries?.items?.length ?? 0) > 0 ? `${journalEntries?.items?.length ?? 0} entries` : 'None', ok: (journalEntries?.items?.length ?? 0) > 0 },
+              { label: 'As-of date', value: asOfDate, ok: !!asOfDate },
+              { label: 'Scenario', value: scenarioId !== '' ? `#${scenarioId}` : 'All', ok: true },
+            ].map((item) => (
+              <div key={item.label} className={`rounded-lg p-3 border text-xs ${item.ok ? 'bg-green-50 border-green-200' : item.warn ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+                <p className="text-gray-500 mb-0.5">{item.label}</p>
+                <p className={`font-semibold ${item.ok ? 'text-green-700' : item.warn ? 'text-amber-700' : 'text-gray-600'}`}>
+                  {typeof item.value === 'number' && item.total !== undefined
+                    ? `${item.value} / ${item.total}`
+                    : String(item.value)}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => initializeTaxonomyMutation.mutate()}
+              disabled={initializeTaxonomyMutation.isPending}
+              className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+              data-testid="initialize-taxonomy-btn"
+            >
+              {initializeTaxonomyMutation.isPending ? 'Initializing…' : 'Initialize Taxonomy'}
+            </button>
+            <a
+              href="/coa-import"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Import Trial Balance / COA
+            </a>
+            <a
+              href="/pdf-import"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Import Financial Statements (PDF)
+            </a>
+            <a
+              href="/chart-of-accounts"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Review Unmapped Accounts
+            </a>
+            <a
+              href="/taxonomy-admin"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Open Mapping Workbench
+            </a>
+            {initializeTaxonomyMutation.isSuccess && (
+              <span className="text-xs text-emerald-600 font-semibold self-center animate-pulse">
+                ✓ Successfully initialized!
+              </span>
+            )}
           </div>
         </div>
       )}

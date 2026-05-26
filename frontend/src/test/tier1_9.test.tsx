@@ -1,0 +1,504 @@
+/**
+ * Tier 1.9 — Financial Statement Import Accounting Logic, Taxonomy Conflicts,
+ * and Adjustment Bridge Foundation.
+ *
+ * Validates:
+ *  1.  Financial statement import classification fields rendered in Step 1
+ *  2.  Synthetic Net Income line shows locked/system-managed badge
+ *  3.  Apply button blocked when balance sheet does not tie
+ *  4.  Balance sheet imbalance panel shows variance amount
+ *  5.  Force-apply path clears blocker and calls apply(true)
+ *  6.  Taxonomy conflict badge visible for conflicted lines
+ *  7.  Conflict badge opens resolution panel
+ *  8.  Taxonomy dropdown supports create-new option
+ *  9.  Preview has ONE global control bar (single preview-search)
+ * 10.  Adjustment Bridge page renders slicer panel and compute button
+ */
+
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+import { PDFImportPage } from '@/pages/PDFImportPage'
+import { AdjustmentBridgePage } from '@/pages/AdjustmentBridgePage'
+import type {
+  PDFImportPreview,
+  PDFImportPreviewLine,
+  PDFImportBatch,
+  PDFLineOut,
+  PDFAuditTrail,
+} from '@/types'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+}
+
+function renderPDFPage() {
+  const client = makeClient()
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/pdf-import']}>
+        <Routes>
+          <Route path="/pdf-import" element={<PDFImportPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+function renderBridgePage() {
+  const client = makeClient()
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/adjustment-bridge']}>
+        <Routes>
+          <Route path="/adjustment-bridge" element={<AdjustmentBridgePage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Mock data
+// ---------------------------------------------------------------------------
+
+function makeLine(overrides: Partial<PDFImportPreviewLine> = {}): PDFImportPreviewLine {
+  return {
+    temp_account_code: 'HERO-BS-CASH-AB12CD34',
+    name_hash: null,
+    proposed_account_code: null,
+    account_name: 'Petty Cash',
+    statement_type: 'balance_sheet',
+    section: 'current_assets',
+    amount: '500.00',
+    is_subtotal: false,
+    is_contra: false,
+    sort_order: 0,
+    suggested_taxonomy_code: 'cash_equivalents',
+    mapping_confidence: 'high',
+    mapping_evidence: 'Name: petty cash',
+    page_number: 1,
+    source_line_text: 'PETTY CASH $ 500.00',
+    synthetic_presentation_line: false,
+    system_managed: false,
+    locked: false,
+    ...overrides,
+  }
+}
+
+function makeLineOut(overrides: Partial<PDFLineOut> = {}): PDFLineOut {
+  return {
+    id: 1,
+    batch_id: 42,
+    temp_account_code: 'HERO-BS-CASH-AB12CD34',
+    name_hash: 'ab12cd34ef56',
+    official_account_code: null,
+    account_name: 'Petty Cash',
+    statement_type: 'balance_sheet',
+    section: 'current_assets',
+    amount: '500.00',
+    is_subtotal: false,
+    is_contra: false,
+    sort_order: 0,
+    synthetic_presentation_line: false,
+    system_managed: false,
+    locked: false,
+    suggested_taxonomy_code: 'cash_equivalents',
+    taxonomy_code: 'cash_equivalents',
+    taxonomy_source: 'auto',
+    taxonomy_locked: false,
+    source_taxonomy_code: null,
+    taxonomy_conflict: false,
+    conflict_reason: null,
+    conflict_resolution: null,
+    legal_entity_code: null,
+    consolidation_group: null,
+    mapping_confidence: 'high',
+    mapping_evidence: 'Name: petty cash',
+    page_number: 1,
+    source_line_text: 'PETTY CASH $ 500.00',
+    ...overrides,
+  }
+}
+
+const TIED_PREVIEW: PDFImportPreview = {
+  batch_id: 42,
+  entity_id: null,
+  filename: 'test.pdf',
+  source_entity_name: 'Test Corp',
+  statement_date: '2025-12-31',
+  basis_of_accounting: 'gaap',
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
+  page_count: 2,
+  line_count: 1,
+  subtotal_count: 0,
+  lines: [makeLine()],
+  validation: { checks: [], passing: 0, failing: 0, total: 0 },
+  warnings: [],
+  balance_sheet_variance: '0.00',
+  balance_sheet_tied: true,
+}
+
+const UNTIED_PREVIEW: PDFImportPreview = {
+  ...TIED_PREVIEW,
+  balance_sheet_variance: '-497332.90',
+  balance_sheet_tied: false,
+}
+
+const SYNTHETIC_LINE_PREVIEW: PDFImportPreview = {
+  ...TIED_PREVIEW,
+  lines: [
+    makeLine(),
+    makeLine({
+      temp_account_code: 'HERO-EQ-NI-SYNTH01',
+      account_name: 'Net Income',
+      statement_type: 'balance_sheet',
+      section: 'equity',
+      amount: '250000.00',
+      synthetic_presentation_line: true,
+      system_managed: true,
+      locked: true,
+      suggested_taxonomy_code: 'net_income',
+    }),
+  ],
+}
+
+const CONFLICT_LINE_OUT: PDFLineOut = makeLineOut({
+  id: 2,
+  taxonomy_conflict: true,
+  source_taxonomy_code: 'cash_equivalents',
+  conflict_reason: 'Source taxonomy cash_equivalents conflicts with global suggestion revenue',
+  taxonomy_code: 'revenue',
+})
+
+const MOCK_BATCH: PDFImportBatch = {
+  id: 42,
+  entity_id: null,
+  filename: 'test.pdf',
+  source_entity_name: 'Test Corp',
+  statement_date: '2025-12-31',
+  basis_of_accounting: 'gaap',
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
+  page_count: 2,
+  line_count: 1,
+  accounts_created: 1,
+  status: 'applied',
+  error_message: null,
+  created_at: '2025-12-31T00:00:00Z',
+}
+
+const MOCK_AUDIT: PDFAuditTrail = {
+  batch_id: 42,
+  filename: 'test.pdf',
+  source_entity_name: 'Test Corp',
+  statement_date: '2025-12-31',
+  basis_of_accounting: 'gaap',
+  status: 'applied',
+  line_count: 1,
+  lines: [],
+}
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+vi.mock('@/providers/ToastProvider', () => ({
+  useToast: () => vi.fn(),
+}))
+
+vi.mock('@/api/pdfImport', () => ({
+  pdfImportApi: {
+    upload: vi.fn(),
+    apply: vi.fn(),
+    list: vi.fn().mockResolvedValue([]),
+    lines: vi.fn().mockResolvedValue([]),
+    updateLine: vi.fn(),
+    audit: vi.fn(),
+    resolveConflict: vi.fn(),
+  },
+}))
+
+vi.mock('@/api/adjustmentBridge', () => ({
+  adjustmentBridgeApi: {
+    compute: vi.fn().mockResolvedValue({ rows_computed: 10, message: 'OK' }),
+    rows: vi.fn().mockResolvedValue([]),
+    listViews: vi.fn().mockResolvedValue([]),
+    createView: vi.fn(),
+    updateView: vi.fn(),
+    deleteView: vi.fn(),
+  },
+}))
+
+vi.mock('@/components/ui/EntitySelect', () => ({
+  EntitySelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
+    <select
+      data-testid="entity-select"
+      value={String(value)}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+    >
+      <option value="">—</option>
+      <option value="1">Test Entity</option>
+    </select>
+  ),
+}))
+
+vi.mock('@/components/ui/PeriodSelect', () => ({
+  PeriodSelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
+    <select
+      data-testid="period-select"
+      value={String(value)}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+    >
+      <option value="">—</option>
+      <option value="1">Q1-2026</option>
+    </select>
+  ),
+}))
+
+import { pdfImportApi } from '@/api/pdfImport'
+const mockUpload = pdfImportApi.upload as ReturnType<typeof vi.fn>
+const mockApply = pdfImportApi.apply as ReturnType<typeof vi.fn>
+const mockLines = pdfImportApi.lines as ReturnType<typeof vi.fn>
+
+// ---------------------------------------------------------------------------
+// Helper: upload and reach preview step
+// ---------------------------------------------------------------------------
+
+async function goToPreview(previewData: PDFImportPreview) {
+  mockUpload.mockResolvedValue(previewData)
+  mockApply.mockResolvedValue(MOCK_BATCH)
+  mockLines.mockResolvedValue([makeLineOut()])
+  ;(pdfImportApi.audit as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AUDIT)
+
+  renderPDFPage()
+  fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+  fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
+  fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+  fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+
+  const input = screen.getByTestId('pdf-file-input')
+  fireEvent.change(input, { target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] } })
+  fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+  await waitFor(() => expect(screen.getByTestId('apply-pdf-btn')).toBeInTheDocument(), { timeout: 5000 })
+}
+
+// ---------------------------------------------------------------------------
+// 1. Import classification fields in Step 1
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P0 — import type classification', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows Import Type selector in step 1', () => {
+    renderPDFPage()
+    expect(screen.getByTestId('import-type-select')).toBeInTheDocument()
+  })
+
+  it('shows Accounting Basis selector in step 1', () => {
+    renderPDFPage()
+    expect(screen.getByTestId('basis-select')).toBeInTheDocument()
+  })
+
+  it('shows Statement Scope selector in step 1', () => {
+    renderPDFPage()
+    expect(screen.getByTestId('scope-select')).toBeInTheDocument()
+  })
+
+  it('import type defaults to financial_statements', () => {
+    renderPDFPage()
+    const select = screen.getByTestId('import-type-select') as HTMLSelectElement
+    expect(select.value).toBe('financial_statements')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 2. Synthetic Net Income line (P1)
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P1 — synthetic Net Income line', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows synthetic badge on system-managed equity line', async () => {
+    await goToPreview(SYNTHETIC_LINE_PREVIEW)
+    await waitFor(() =>
+      expect(screen.getAllByText(/synthetic/i).length).toBeGreaterThan(0)
+    )
+  })
+
+  it('synthetic line account name is visible', async () => {
+    await goToPreview(SYNTHETIC_LINE_PREVIEW)
+    await waitFor(() => expect(screen.getByText('Net Income')).toBeInTheDocument())
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 3 & 4. Balance sheet tie blocker (P2)
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P2 — balance sheet tie check', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('apply button enabled when balance sheet is tied', async () => {
+    await goToPreview(TIED_PREVIEW)
+    expect(screen.getByTestId('apply-pdf-btn')).not.toBeDisabled()
+  })
+
+  it('apply button disabled when balance sheet does not tie', async () => {
+    await goToPreview(UNTIED_PREVIEW)
+    expect(screen.getByTestId('apply-pdf-btn')).toBeDisabled()
+  })
+
+  it('shows variance amount when balance sheet does not tie', async () => {
+    await goToPreview(UNTIED_PREVIEW)
+    // fmt() renders negatives as (497,332.90) — check for presence of "497,332.90" in the imbalance panel
+    await waitFor(() =>
+      expect(screen.getByTestId('bs-imbalance-panel').textContent).toMatch(/497[,.]332/)
+    )
+  })
+
+  it('force-apply button present when balance sheet does not tie', async () => {
+    await goToPreview(UNTIED_PREVIEW)
+    await waitFor(() =>
+      expect(screen.getByTestId('force-apply-btn')).toBeInTheDocument()
+    )
+  })
+
+  it('clicking force-apply calls apply with forceApply=true', async () => {
+    await goToPreview(UNTIED_PREVIEW)
+    await waitFor(() => expect(screen.getByTestId('force-apply-btn')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('force-apply-btn'))
+    await waitFor(() =>
+      expect(mockApply).toHaveBeenCalledWith(42, true)
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 5. Taxonomy conflict badge (P4)
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P4 — taxonomy conflict badge', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockApply.mockResolvedValue(MOCK_BATCH)
+    mockLines.mockResolvedValue([CONFLICT_LINE_OUT])
+    ;(pdfImportApi.audit as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AUDIT)
+  })
+
+  async function uploadApplyAndView() {
+    mockUpload.mockResolvedValue(TIED_PREVIEW)
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    
+    fireEvent.change(screen.getByTestId('pdf-file-input'), {
+      target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => screen.getByTestId('apply-pdf-btn'), { timeout: 5000 })
+    fireEvent.click(screen.getByTestId('apply-pdf-btn'))
+    await waitFor(() => screen.getByTestId('export-csv-btn'), { timeout: 5000 })
+  }
+
+  it('conflict badge shown for lines with taxonomy_conflict=true', async () => {
+    await uploadApplyAndView()
+    await waitFor(() =>
+      expect(screen.getAllByTestId(/^conflict-badge-\d+$/).length).toBeGreaterThan(0)
+    )
+  })
+
+  it('clicking conflict badge reveals resolution options', async () => {
+    await uploadApplyAndView()
+    await waitFor(() => screen.getAllByTestId(/^conflict-badge-\d+$/))
+    const badge = screen.getAllByTestId(/^conflict-badge-\d+$/)[0]
+    fireEvent.click(badge)
+    await waitFor(() =>
+      expect(screen.getByTestId('conflict-resolution-panel')).toBeInTheDocument()
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 6. Taxonomy dropdown supports create-new (P5)
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P5 — taxonomy create-new', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockApply.mockResolvedValue(MOCK_BATCH)
+    mockLines.mockResolvedValue([makeLineOut()])
+    ;(pdfImportApi.audit as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AUDIT)
+  })
+
+  it('shows create-new-taxonomy button when taxonomy dropdown is open', async () => {
+    mockUpload.mockResolvedValue(TIED_PREVIEW)
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+
+    fireEvent.change(screen.getByTestId('pdf-file-input'), {
+      target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => screen.getByTestId('apply-pdf-btn'), { timeout: 5000 })
+    fireEvent.click(screen.getByTestId('apply-pdf-btn'))
+    await waitFor(() => screen.getByTestId('export-csv-btn'), { timeout: 5000 })
+
+    // Open a TaxonomySelect
+    const taxSelect = await screen.findByTestId('taxonomy-select-1')
+    fireEvent.click(taxSelect.querySelector('button')!)
+    await waitFor(() =>
+      expect(screen.getByTestId('create-new-taxonomy-btn')).toBeInTheDocument()
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 7. Single global control bar in preview (P6)
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P6 — single global control bar', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('preview has exactly one search input', async () => {
+    await goToPreview(TIED_PREVIEW)
+    const searchInputs = screen.getAllByTestId('preview-search')
+    expect(searchInputs).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 8. Adjustment Bridge skeleton (P10)
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P10 — Adjustment Bridge', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('renders the Adjustment Bridge page heading', () => {
+    renderBridgePage()
+    expect(screen.getAllByText(/adjustment bridge/i).length).toBeGreaterThan(0)
+  })
+
+  it('renders Compute/Refresh button', () => {
+    renderBridgePage()
+    expect(screen.getByTestId('compute-bridge-btn')).toBeInTheDocument()
+  })
+
+  it('renders entity slicer', () => {
+    renderBridgePage()
+    // EntitySelect renders with data-testid="entity-select" via mock
+    expect(screen.getByTestId('entity-select')).toBeInTheDocument()
+  })
+})

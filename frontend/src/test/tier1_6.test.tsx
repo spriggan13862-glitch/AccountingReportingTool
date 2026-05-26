@@ -63,8 +63,10 @@ const mockLineOut: PDFLineOut = {
   official_account_code: '1010', account_name: 'Petty Cash',
   statement_type: 'balance_sheet', section: 'current_assets', amount: '500.00',
   is_subtotal: false, is_contra: false, sort_order: 0,
+  synthetic_presentation_line: false, system_managed: false, locked: false,
   suggested_taxonomy_code: 'cash_equivalents', taxonomy_code: 'cash_equivalents',
   taxonomy_source: 'auto', taxonomy_locked: false,
+  source_taxonomy_code: null, taxonomy_conflict: false, conflict_reason: null, conflict_resolution: null,
   legal_entity_code: null, consolidation_group: null,
   mapping_confidence: 'high', mapping_evidence: null, page_number: 1, source_line_text: null,
 }
@@ -74,11 +76,15 @@ const mockPreviewForMock: PDFImportPreview = {
   statement_date: '2025-12-31', basis_of_accounting: 'income_tax',
   page_count: 3, line_count: 2, subtotal_count: 0,
   lines: [
-    { temp_account_code: 'HERO-BS-CASH-001', name_hash: null, proposed_account_code: null, account_name: 'Petty Cash', statement_type: 'balance_sheet', section: 'current_assets', amount: '500.00', is_subtotal: false, is_contra: false, sort_order: 0, suggested_taxonomy_code: 'cash_equivalents', mapping_confidence: 'high', mapping_evidence: null, page_number: 1, source_line_text: null },
-    { temp_account_code: 'HERO-BS-PPE-001', name_hash: null, proposed_account_code: '1510', account_name: 'Furniture & Fixtures', statement_type: 'balance_sheet', section: 'fixed_assets', amount: '61000.00', is_subtotal: false, is_contra: false, sort_order: 1, suggested_taxonomy_code: 'property_equipment', mapping_confidence: 'medium', mapping_evidence: null, page_number: 1, source_line_text: null },
+    { temp_account_code: 'HERO-BS-CASH-001', name_hash: null, proposed_account_code: null, account_name: 'Petty Cash', statement_type: 'balance_sheet', section: 'current_assets', amount: '500.00', is_subtotal: false, is_contra: false, sort_order: 0, suggested_taxonomy_code: 'cash_equivalents', mapping_confidence: 'high', mapping_evidence: null, page_number: 1, source_line_text: null, synthetic_presentation_line: false, system_managed: false, locked: false },
+    { temp_account_code: 'HERO-BS-PPE-001', name_hash: null, proposed_account_code: '1510', account_name: 'Furniture & Fixtures', statement_type: 'balance_sheet', section: 'fixed_assets', amount: '61000.00', is_subtotal: false, is_contra: false, sort_order: 1, suggested_taxonomy_code: 'property_equipment', mapping_confidence: 'medium', mapping_evidence: null, page_number: 1, source_line_text: null, synthetic_presentation_line: false, system_managed: false, locked: false },
   ],
   validation: { checks: [], passing: 0, failing: 0, total: 0 },
   warnings: [],
+  balance_sheet_variance: '0.00',
+  balance_sheet_tied: true,
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
 }
 
 vi.mock('@/api/pdfImport', () => ({
@@ -110,6 +116,19 @@ vi.mock('@/components/ui/EntitySelect', () => ({
   ),
 }))
 
+vi.mock('@/components/ui/PeriodSelect', () => ({
+  PeriodSelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
+    <select
+      data-testid="period-select"
+      value={String(value)}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
+    >
+      <option value="">—</option>
+      <option value="1">Q1-2026</option>
+    </select>
+  ),
+}))
+
 async function uploadAndPreview() {
   const { pdfImportApi } = await import('@/api/pdfImport')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +142,10 @@ async function uploadAndPreview() {
 
   renderPage()
   fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+  fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
+  fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+  fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+  
   const input = screen.getByTestId('pdf-file-input') as HTMLInputElement
   const file = new File(['pdf'], 'test.pdf', { type: 'application/pdf' })
   fireEvent.change(input, { target: { files: [file] } })

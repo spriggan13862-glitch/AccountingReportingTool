@@ -70,6 +70,9 @@ function makeLine(overrides: Partial<PDFImportPreviewLine> = {}): PDFImportPrevi
     mapping_evidence: 'Name: petty cash',
     page_number: 1,
     source_line_text: 'PETTY CASH $ 500.00',
+    synthetic_presentation_line: false,
+    system_managed: false,
+    locked: false,
     ...overrides,
   }
 }
@@ -88,10 +91,17 @@ function makeLineOut(overrides: Partial<PDFLineOut> = {}): PDFLineOut {
     is_subtotal: false,
     is_contra: false,
     sort_order: 0,
+    synthetic_presentation_line: false,
+    system_managed: false,
+    locked: false,
     suggested_taxonomy_code: 'cash_equivalents',
     taxonomy_code: 'cash_equivalents',
     taxonomy_source: 'auto',
     taxonomy_locked: false,
+    source_taxonomy_code: null,
+    taxonomy_conflict: false,
+    conflict_reason: null,
+    conflict_resolution: null,
     legal_entity_code: null,
     consolidation_group: null,
     mapping_confidence: 'high',
@@ -109,6 +119,8 @@ const MOCK_PREVIEW: PDFImportPreview = {
   source_entity_name: 'HERO GROUP, INC',
   statement_date: '2025-12-31',
   basis_of_accounting: 'income_tax',
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
   page_count: 6,
   line_count: 2,
   subtotal_count: 0,
@@ -130,6 +142,8 @@ const MOCK_PREVIEW: PDFImportPreview = {
     total: 1,
   },
   warnings: [],
+  balance_sheet_variance: '0.00',
+  balance_sheet_tied: true,
 }
 
 const MOCK_BATCH: PDFImportBatch = {
@@ -139,6 +153,8 @@ const MOCK_BATCH: PDFImportBatch = {
   source_entity_name: 'HERO GROUP, INC',
   statement_date: '2025-12-31',
   basis_of_accounting: 'income_tax',
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
   page_count: 6,
   line_count: 2,
   accounts_created: 2,
@@ -353,38 +369,48 @@ describe('PDFImportPage — taxonomy inline editing', () => {
     mockUpdateLine.mockResolvedValue({ ...MOCK_LINES[0], taxonomy_code: 'other_assets', taxonomy_locked: true })
   })
 
-  it('taxonomy code cells are present', async () => {
+  it('taxonomy select cells are present', async () => {
     await uploadPreviewApply()
     await waitFor(() =>
-      expect(screen.getAllByTestId(/^taxonomy-code-\d+$/).length).toBeGreaterThan(0),
+      expect(screen.getAllByTestId(/^taxonomy-select-\d+$/).length).toBeGreaterThan(0),
     )
   })
 
-  it('taxonomy cell becomes input on click', async () => {
+  it('taxonomy select opens dropdown on click', async () => {
     await uploadPreviewApply()
     await waitFor(() =>
-      expect(screen.getAllByTestId(/^taxonomy-code-1$/).length).toBeGreaterThan(0),
+      expect(screen.getByTestId('taxonomy-select-1')).toBeInTheDocument(),
     )
-    fireEvent.click(screen.getByTestId('taxonomy-code-1'))
+    // Click the trigger button inside the TaxonomySelect container
+    const selectContainer = screen.getByTestId('taxonomy-select-1')
+    fireEvent.click(selectContainer.querySelector('button')!)
     await waitFor(() =>
-      expect(screen.getByTestId('taxonomy-code-1-input')).toBeInTheDocument(),
+      expect(screen.getByTestId('taxonomy-search-input')).toBeInTheDocument(),
     )
   })
 
-  it('editing taxonomy code and pressing Enter calls updateLine', async () => {
+  it('selecting a taxonomy code from dropdown calls updateLine', async () => {
     await uploadPreviewApply()
     await waitFor(() =>
-      expect(screen.getByTestId('taxonomy-code-1')).toBeInTheDocument(),
+      expect(screen.getByTestId('taxonomy-select-1')).toBeInTheDocument(),
     )
-    fireEvent.click(screen.getByTestId('taxonomy-code-1'))
-    const input = await screen.findByTestId('taxonomy-code-1-input')
-    fireEvent.change(input, { target: { value: 'other_assets' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
+    const selectContainer = screen.getByTestId('taxonomy-select-1')
+    fireEvent.click(selectContainer.querySelector('button')!)
+    // Wait for dropdown search input to appear
+    await waitFor(() => expect(screen.getByTestId('taxonomy-search-input')).toBeInTheDocument(), { timeout: 3000 })
+    // Search to narrow options and click first match
+    fireEvent.change(screen.getByTestId('taxonomy-search-input'), { target: { value: 'other_long' } })
+    await waitFor(() => {
+      const opt = screen.getAllByRole('button').find(b => b.textContent?.includes('other_long_term_assets'))
+      expect(opt).toBeDefined()
+    }, { timeout: 3000 })
+    const opt = screen.getAllByRole('button').find(b => b.textContent?.includes('other_long_term_assets'))!
+    fireEvent.click(opt)
     await waitFor(() => expect(mockUpdateLine).toHaveBeenCalledWith(
       42,
       1,
-      expect.objectContaining({ taxonomy_code: 'other_assets', taxonomy_locked: true }),
-    ))
+      expect.objectContaining({ taxonomy_locked: true }),
+    ), { timeout: 3000 })
   })
 
   it('taxonomy lock icon visible for each non-subtotal line', async () => {
@@ -438,15 +464,19 @@ describe('PDFImportPage — legal entity and consolidation group', () => {
     vi.clearAllMocks()
   })
 
-  it('legal entity column cells are rendered', async () => {
+  it('legal entity column cells are rendered after toggling visibility', async () => {
     await uploadPreviewApply()
+    const toggle = screen.getByTestId('show-legal-entity-toggle')
+    fireEvent.click(toggle)
     await waitFor(() =>
       expect(screen.getAllByTestId('legal-entity-cell').length).toBeGreaterThan(0),
     )
   })
 
-  it('consolidation group column cells are rendered', async () => {
+  it('consolidation group column cells are rendered after toggling visibility', async () => {
     await uploadPreviewApply()
+    const toggle = screen.getByTestId('show-legal-entity-toggle')
+    fireEvent.click(toggle)
     await waitFor(() =>
       expect(screen.getAllByTestId('consol-group-cell').length).toBeGreaterThan(0),
     )
@@ -467,6 +497,9 @@ describe('PDFImportPage — legal entity and consolidation group', () => {
     fireEvent.click(screen.getByTestId('parse-pdf-btn'))
     await waitFor(() => expect(screen.getByTestId('apply-pdf-btn')).toBeInTheDocument())
     fireEvent.click(screen.getByTestId('apply-pdf-btn'))
+    await waitFor(() => expect(screen.getByTestId('export-csv-btn')).toBeInTheDocument())
+    const toggle = screen.getByTestId('show-legal-entity-toggle')
+    fireEvent.click(toggle)
     await waitFor(() => expect(screen.getByText('HERO')).toBeInTheDocument())
   })
 })

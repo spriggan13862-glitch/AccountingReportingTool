@@ -41,7 +41,7 @@ export default defineConfig({
       // Proxy all /api requests to the FastAPI backend in development.
       // This eliminates CORS preflight entirely — the browser sees same-origin.
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
       },

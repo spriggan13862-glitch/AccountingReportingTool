@@ -2,15 +2,18 @@ import { useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   ChevronDown,
   ChevronRight,
   ClipboardList,
   Download,
   FileText,
+  GripVertical,
   History,
   Lock,
   Search,
+  ShieldAlert,
   Unlock,
   Upload,
   X,
@@ -19,6 +22,8 @@ import { pdfImportApi } from '@/api/pdfImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
+import { PeriodSelect } from '@/components/ui/PeriodSelect'
+import { periodsApi } from '@/api/periods'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
@@ -30,6 +35,7 @@ import type {
   PDFLineOut,
   PDFLineUpdateRequest,
   PDFValidationCheck,
+  PDFConflictResolutionRequest,
 } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -59,6 +65,39 @@ const CONFIDENCE_COLORS: Record<string, string> = {
   medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   low:    'bg-red-50 text-red-700 border-red-200',
 }
+
+const IMPORT_TYPE_OPTIONS = [
+  { value: 'financial_statements', label: 'Financial Statements' },
+  { value: 'trial_balance',        label: 'Trial Balance' },
+  { value: 'tax_return',           label: 'Tax Return' },
+  { value: 'management_report',    label: 'Management Report' },
+]
+
+const BASIS_OPTIONS = [
+  { value: '',           label: '— Select Basis —' },
+  { value: 'gaap',       label: 'GAAP' },
+  { value: 'tax_basis',  label: 'Tax Basis' },
+  { value: 'cash_basis', label: 'Cash Basis' },
+  { value: 'ifrs',       label: 'IFRS' },
+  { value: 'income_tax', label: 'Income Tax (IRS Form)' },
+  { value: 'other',      label: 'Other / Custom' },
+]
+
+const SCOPE_OPTIONS = [
+  { value: '',            label: '— Select Scope —' },
+  { value: 'standalone',  label: 'Standalone Entity' },
+  { value: 'consolidated', label: 'Consolidated' },
+  { value: 'combined',    label: 'Combined' },
+]
+
+const CONFLICT_RESOLUTIONS = [
+  { value: 'keep_source',    label: 'Keep source taxonomy (from PDF/COA)' },
+  { value: 'use_parent',     label: 'Use parent account taxonomy (inherited)' },
+  { value: 'apply_global',   label: 'Apply global taxonomy suggestion' },
+  { value: 'create_reclass', label: 'Create reclass adjustment' },
+  { value: 'create_new',     label: 'Create new taxonomy line' },
+  { value: 'accepted',       label: 'Mark as reviewed / accepted' },
+]
 
 type StmtFilter = 'all' | 'balance_sheet' | 'income_statement'
 type Phase = 'upload' | 'preview' | 'applied'
@@ -106,10 +145,9 @@ function exportLinesCSV(lines: PDFLineOut[], batchId: number) {
     'stable_code', 'official_code', 'account_name',
     'statement', 'section', 'amount',
     'taxonomy_code', 'taxonomy_source', 'taxonomy_locked',
-    'legal_entity_code', 'consolidation_group',
-    'mapping_confidence', 'page_number',
+    'synthetic', 'mapping_confidence', 'page_number',
   ]
-  const esc = (v: string | null) => {
+  const esc = (v: string | null | undefined) => {
     if (v == null) return ''
     if (v.includes(',') || v.includes('"') || v.includes('\n')) return `"${v.replace(/"/g, '""')}"`
     return v
@@ -126,8 +164,7 @@ function exportLinesCSV(lines: PDFLineOut[], batchId: number) {
       esc(l.taxonomy_code ?? l.suggested_taxonomy_code),
       esc(l.taxonomy_source),
       String(l.taxonomy_locked),
-      esc(l.legal_entity_code),
-      esc(l.consolidation_group),
+      String(l.synthetic_presentation_line ?? false),
       esc(l.mapping_confidence),
       l.page_number != null ? String(l.page_number) : '',
     ])
@@ -146,6 +183,36 @@ function exportLinesCSV(lines: PDFLineOut[], batchId: number) {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function LabeledSelect({
+  label,
+  value,
+  onChange,
+  options,
+  testId,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  testId?: string
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full text-sm border border-gray-300 rounded px-3 py-1.5 focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+        data-testid={testId}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 function StmtFilterBar({
   value,
@@ -240,6 +307,7 @@ function EditableCell({
   onSave,
   testId,
   mono,
+  disabled,
 }: {
   value: string | null
   displayValue?: string
@@ -247,6 +315,7 @@ function EditableCell({
   onSave: (v: string) => void
   testId?: string
   mono?: boolean
+  disabled?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -254,6 +323,18 @@ function EditableCell({
   function commit() {
     setEditing(false)
     if (draft.trim() !== (value ?? '').trim()) onSave(draft.trim())
+  }
+
+  if (disabled) {
+    return (
+      <span
+        className={`${mono ? 'font-mono' : ''} text-xs text-gray-400`}
+        title="Locked — system-managed"
+        data-testid={testId}
+      >
+        {displayValue || value || <span className="italic">{placeholder ?? '—'}</span>}
+      </span>
+    )
   }
 
   if (editing) {
@@ -288,19 +369,240 @@ function EditableCell({
   )
 }
 
+// P4: Taxonomy Conflict Resolution Panel
+function ConflictResolutionPanel({
+  line,
+  onResolve,
+  onClose,
+}: {
+  line: PDFLineOut
+  onResolve: (lineId: number, body: PDFConflictResolutionRequest) => void
+  onClose: () => void
+}) {
+  const [resolution, setResolution] = useState<PDFConflictResolutionRequest['resolution']>('keep_source')
+  const [notes, setNotes] = useState('')
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 m-4"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="conflict-resolution-panel"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldAlert className="w-5 h-5 text-amber-500" />
+          <h3 className="font-semibold text-gray-900">Resolve Taxonomy Conflict</h3>
+          <button type="button" onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-4 text-sm">
+          <div className="bg-gray-50 rounded p-3 space-y-1">
+            <p className="text-xs font-medium text-gray-600">Account</p>
+            <p className="font-medium text-gray-800">{line.account_name}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-blue-50 rounded p-3">
+              <p className="text-xs font-medium text-blue-600 mb-1">Source taxonomy (PDF/COA)</p>
+              <code className="text-xs text-blue-800">{line.source_taxonomy_code ?? '—'}</code>
+            </div>
+            <div className="bg-purple-50 rounded p-3">
+              <p className="text-xs font-medium text-purple-600 mb-1">Current / Global taxonomy</p>
+              <code className="text-xs text-purple-800">{line.taxonomy_code ?? '—'}</code>
+            </div>
+          </div>
+          {line.conflict_reason && (
+            <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2">
+              <strong>Reason:</strong> {line.conflict_reason}
+            </p>
+          )}
+          {line.mapping_evidence && (
+            <p className="text-xs text-gray-500">Evidence: {line.mapping_evidence}</p>
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-600 mb-2">Resolution</label>
+          <div className="space-y-1.5">
+            {CONFLICT_RESOLUTIONS.map((opt) => (
+              <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="resolution"
+                  value={opt.value}
+                  checked={resolution === opt.value}
+                  onChange={() => setResolution(opt.value as PDFConflictResolutionRequest['resolution'])}
+                  className="mt-0.5"
+                />
+                <span className="text-sm text-gray-700">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 resize-none h-16"
+            placeholder="Add resolution notes…"
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => { onResolve(line.id, { resolution, notes: notes || null }); onClose() }}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            data-testid="conflict-resolve-btn"
+          >
+            Apply Resolution
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// P5: Searchable taxonomy dropdown with create-new
+function TaxonomySelect({
+  value,
+  onChange,
+  disabled,
+  testId,
+}: {
+  value: string | null
+  onChange: (v: string | null) => void
+  disabled?: boolean
+  testId?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [showCreate, setShowCreate] = useState(false)
+  const [newCode, setNewCode] = useState('')
+
+  // Common taxonomy codes (from STANDARD_TAXONOMY_V2)
+  const TAXONOMY_CODES = [
+    'cash_equivalents', 'accounts_receivable', 'inventory', 'prepaid_expenses',
+    'other_current_assets', 'property_equipment', 'intangible_assets',
+    'other_long_term_assets', 'accumulated_depreciation',
+    'accounts_payable', 'accrued_liabilities', 'short_term_debt',
+    'current_portion_lt_debt', 'other_current_liabilities',
+    'long_term_debt', 'other_long_term_liabilities',
+    'common_stock', 'retained_earnings', 'additional_paid_in_capital',
+    'other_equity',
+    'revenue', 'other_income', 'cogs', 'gross_profit',
+    'selling_expenses', 'general_admin', 'depreciation_amort',
+    'interest_expense', 'operating_expenses', 'net_income',
+  ]
+
+  const filtered = TAXONOMY_CODES.filter((c) =>
+    !search || c.includes(search.toLowerCase())
+  )
+
+  if (disabled) {
+    return <span className="text-xs text-gray-400 font-mono" data-testid={testId}>{value ?? '—'}</span>
+  }
+
+  return (
+    <div className="relative" data-testid={testId}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-xs font-mono px-1 py-0.5 rounded hover:bg-blue-50 hover:text-blue-700 border border-transparent hover:border-blue-200 transition-colors"
+      >
+        <span>{value ?? <span className="text-gray-400 italic">unmapped</span>}</span>
+        <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-40 top-full left-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search taxonomy…"
+              className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+              data-testid="taxonomy-search-input"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50"
+              onClick={() => { onChange(null); setOpen(false) }}
+            >
+              — clear —
+            </button>
+            {filtered.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => { onChange(code); setOpen(false) }}
+                className={`w-full text-left px-3 py-1.5 text-xs font-mono hover:bg-blue-50 hover:text-blue-700 ${value === code ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}
+              >
+                {code}
+              </button>
+            ))}
+          </div>
+          <div className="border-t border-gray-100 p-2">
+            {!showCreate ? (
+              <button
+                type="button"
+                onClick={() => setShowCreate(true)}
+                className="w-full text-xs text-blue-600 hover:text-blue-800 text-left px-1"
+                data-testid="create-new-taxonomy-btn"
+              >
+                + Create new taxonomy line
+              </button>
+            ) : (
+              <div className="flex gap-1">
+                <input
+                  autoFocus
+                  value={newCode}
+                  onChange={(e) => setNewCode(e.target.value)}
+                  placeholder="new_taxonomy_code"
+                  className="flex-1 text-xs px-1.5 py-1 border border-gray-300 rounded font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => { if (newCode.trim()) { onChange(newCode.trim()); setOpen(false); setShowCreate(false) } }}
+                  className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
-// Applied lines table
+// Applied lines table (P6: unified control bar; P7: no legal entity/consol by default)
 // ---------------------------------------------------------------------------
 function AppliedLinesTable({
   lines,
   onUpdateLine,
   collapsedSections,
   onToggleSection,
+  onResolveConflict,
+  showLegalEntity,
 }: {
   lines: PDFLineOut[]
   onUpdateLine: (lineId: number, patch: PDFLineUpdateRequest) => void
   collapsedSections: Set<string>
   onToggleSection: (key: string) => void
+  onResolveConflict: (line: PDFLineOut) => void
+  showLegalEntity: boolean
 }) {
   const groups = groupLines(lines)
 
@@ -312,7 +614,174 @@ function AppliedLinesTable({
         const sectionLabel = SECTION_LABELS[section] ?? section
         const detailCount = groupLines.filter((l) => !l.is_subtotal).length
         const isCollapsed = collapsedSections.has(groupKey)
-        const { calculated, pdfSubtotal, variance } = getGroupTotals(groupLines)
+        const calculated = groupLines.filter((l) => !l.is_subtotal).reduce((s, l) => s + parseFloat(l.amount || '0'), 0)
+        const pdfSubtotalLine = groupLines.find((l) => l.is_subtotal)
+        const pdfSubtotal = pdfSubtotalLine ? parseFloat(pdfSubtotalLine.amount || '0') : null
+        const variance = pdfSubtotal !== null ? calculated - pdfSubtotal : null
+
+        const cols = [
+          {
+            key: 'official_account_code',
+            header: 'Acct #',
+            sortable: true,
+            sortValue: (l: PDFLineOut) => l.official_account_code ?? l.temp_account_code,
+            render: (l: PDFLineOut) => (
+              <div className="flex flex-col">
+                {!l.is_subtotal ? (
+                  <EditableCell
+                    value={l.official_account_code}
+                    placeholder="assign…"
+                    mono
+                    disabled={l.system_managed}
+                    onSave={(v) => onUpdateLine(l.id, { official_account_code: v || null })}
+                    testId={`official-code-${l.id}`}
+                  />
+                ) : (
+                  <span className="text-gray-300">—</span>
+                )}
+                <span className="font-mono text-[10px] text-gray-300 mt-0.5 truncate" title={`Stable: ${l.temp_account_code}`} data-testid="stable-code">
+                  {l.temp_account_code}
+                </span>
+              </div>
+            )
+          },
+          {
+            key: 'account_name',
+            header: 'Account Name',
+            sortable: true,
+            sortValue: (l: PDFLineOut) => l.account_name,
+            render: (l: PDFLineOut) => (
+              <div className="flex items-center gap-1.5">
+                {!l.is_subtotal ? (
+                  <EditableCell
+                    value={l.account_name}
+                    disabled={l.system_managed}
+                    onSave={(v) => onUpdateLine(l.id, { account_name: v || null })}
+                    testId={`applied-name-${l.id}`}
+                  />
+                ) : (
+                  <span>{l.account_name}</span>
+                )}
+                {l.synthetic_presentation_line && (
+                  <span className="text-purple-600 text-[10px] font-semibold bg-purple-50 border border-purple-200 px-1 rounded" title="Synthetic presentation line — derived from P&L">
+                    synthetic
+                  </span>
+                )}
+                {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
+                {l.locked && <Lock className="w-3 h-3 text-amber-500 flex-shrink-0" title="Locked — system-managed" />}
+              </div>
+            )
+          },
+          {
+            key: 'taxonomy_code',
+            header: 'Taxonomy',
+            sortable: true,
+            sortValue: (l: PDFLineOut) => l.taxonomy_code ?? l.suggested_taxonomy_code ?? '',
+            render: (l: PDFLineOut) => (
+              <div className="flex items-center gap-1">
+                {!l.is_subtotal ? (
+                  <>
+                    <TaxonomySelect
+                      value={l.taxonomy_code ?? l.suggested_taxonomy_code}
+                      disabled={l.system_managed}
+                      onChange={(v) => onUpdateLine(l.id, { taxonomy_code: v, taxonomy_locked: true })}
+                      testId={`taxonomy-select-${l.id}`}
+                    />
+                    {!l.system_managed && (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateLine(l.id, { taxonomy_locked: !l.taxonomy_locked })}
+                        title={l.taxonomy_locked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
+                        className="text-gray-300 hover:text-gray-600 transition-colors flex-shrink-0"
+                        data-testid={`taxonomy-lock-${l.id}`}
+                      >
+                        {l.taxonomy_locked ? (
+                          <Lock className="w-3.5 h-3.5 text-amber-500" />
+                        ) : (
+                          <Unlock className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-300">—</span>
+                )}
+              </div>
+            )
+          },
+          {
+            key: 'conflict',
+            header: 'Conflict',
+            sortable: true,
+            sortValue: (l: PDFLineOut) => (l.taxonomy_conflict ? 1 : 0),
+            className: 'text-center w-24',
+            render: (l: PDFLineOut) => (
+              !l.is_subtotal && l.taxonomy_conflict ? (
+                <button
+                  type="button"
+                  onClick={() => onResolveConflict(l)}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 transition-colors"
+                  title="Taxonomy conflict — click to resolve"
+                  data-testid={`conflict-badge-${l.id}`}
+                >
+                  conflict
+                </button>
+              ) : (
+                <span className="text-gray-300">—</span>
+              )
+            )
+          },
+          ...(showLegalEntity ? [
+            {
+              key: 'legal_entity_code',
+              header: 'Legal Entity',
+              sortable: true,
+              sortValue: (l: PDFLineOut) => l.legal_entity_code ?? '',
+              render: (l: PDFLineOut) => <span data-testid="legal-entity-cell">{l.legal_entity_code ?? '—'}</span>
+            },
+            {
+              key: 'consolidation_group',
+              header: 'Consol. Group',
+              sortable: true,
+              sortValue: (l: PDFLineOut) => l.consolidation_group ?? '',
+              render: (l: PDFLineOut) => (
+                <div className="flex items-center" data-testid="consol-group-cell">
+                  {!l.is_subtotal ? (
+                    <EditableCell
+                      value={l.consolidation_group}
+                      placeholder="none"
+                      onSave={(v) => onUpdateLine(l.id, { consolidation_group: v || null })}
+                      testId={`consol-group-${l.id}`}
+                    />
+                  ) : (
+                    <span className="text-gray-300">—</span>
+                  )}
+                </div>
+              )
+            },
+          ] : []),
+          {
+            key: 'amount',
+            header: 'Amount',
+            sortable: true,
+            sortValue: (l: PDFLineOut) => parseFloat(l.amount || '0'),
+            className: 'text-right font-mono',
+            render: (l: PDFLineOut) => (
+              <div className="flex items-center justify-end font-mono">
+                {!l.is_subtotal && !l.system_managed ? (
+                  <EditableCell
+                    value={l.amount}
+                    displayValue={fmt(l.amount)}
+                    onSave={(v) => onUpdateLine(l.id, { amount: v || null })}
+                    testId={`applied-amount-${l.id}`}
+                  />
+                ) : (
+                  <span>{fmt(l.amount)}</span>
+                )}
+              </div>
+            )
+          }
+        ]
 
         return (
           <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -346,137 +815,10 @@ function AppliedLinesTable({
             </button>
             {!isCollapsed && (
               <AccountingDataGrid
-                columns={[
-                  {
-                    key: 'official_account_code',
-                    header: 'Acct #',
-                    sortable: true,
-                    sortValue: (l) => l.official_account_code ?? l.temp_account_code,
-                    render: (l) => (
-                      <div className="flex flex-col">
-                        {!l.is_subtotal ? (
-                          <EditableCell
-                            value={l.official_account_code}
-                            placeholder="assign…"
-                            mono
-                            onSave={(v) => onUpdateLine(l.id, { official_account_code: v || null })}
-                            testId={`official-code-${l.id}`}
-                          />
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                        <span className="font-mono text-[10px] text-gray-300 mt-0.5 truncate" title={`Stable code: ${l.temp_account_code}`} data-testid="stable-code">
-                          {l.temp_account_code}
-                        </span>
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'account_name',
-                    header: 'Account Name',
-                    sortable: true,
-                    sortValue: (l) => l.account_name,
-                    render: (l) => (
-                      <div className="flex items-center gap-1.5">
-                        {!l.is_subtotal ? (
-                          <EditableCell
-                            value={l.account_name}
-                            onSave={(v) => onUpdateLine(l.id, { account_name: v || null })}
-                            testId={`applied-name-${l.id}`}
-                          />
-                        ) : (
-                          <span>{l.account_name}</span>
-                        )}
-                        {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'taxonomy_code',
-                    header: 'Taxonomy',
-                    sortable: true,
-                    sortValue: (l) => l.taxonomy_code ?? l.suggested_taxonomy_code ?? '',
-                    render: (l) => (
-                      <div className="flex items-center gap-1">
-                        {!l.is_subtotal ? (
-                          <>
-                            <EditableCell
-                              value={l.taxonomy_code ?? l.suggested_taxonomy_code}
-                              placeholder="unmapped"
-                              onSave={(v) => onUpdateLine(l.id, { taxonomy_code: v || null, taxonomy_locked: true })}
-                              testId={`taxonomy-code-${l.id}`}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => onUpdateLine(l.id, { taxonomy_locked: !l.taxonomy_locked })}
-                              title={l.taxonomy_locked ? 'Locked — click to unlock' : 'Unlocked — click to lock'}
-                              className="text-gray-300 hover:text-gray-600 transition-colors flex-shrink-0 ml-1"
-                              data-testid={`taxonomy-lock-${l.id}`}
-                            >
-                              {l.taxonomy_locked ? (
-                                <Lock className="w-3.5 h-3.5 text-amber-500" />
-                              ) : (
-                                <Unlock className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'legal_entity_code',
-                    header: 'Legal Entity',
-                    sortable: true,
-                    sortValue: (l) => l.legal_entity_code ?? '',
-                    render: (l) => <span data-testid="legal-entity-cell">{l.legal_entity_code ?? '—'}</span>
-                  },
-                  {
-                    key: 'consolidation_group',
-                    header: 'Consol. Group',
-                    sortable: true,
-                    sortValue: (l) => l.consolidation_group ?? '',
-                    render: (l) => (
-                      <div className="flex items-center" data-testid="consol-group-cell">
-                        {!l.is_subtotal ? (
-                          <EditableCell
-                            value={l.consolidation_group}
-                            placeholder="none"
-                            onSave={(v) => onUpdateLine(l.id, { consolidation_group: v || null })}
-                            testId={`consol-group-${l.id}`}
-                          />
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </div>
-                    )
-                  },
-                  {
-                    key: 'amount',
-                    header: 'Amount',
-                    sortable: true,
-                    sortValue: (l) => parseFloat(l.amount || '0'),
-                    className: 'text-right font-mono',
-                    render: (l) => (
-                      <div className="flex items-center justify-end font-mono">
-                        {!l.is_subtotal ? (
-                          <EditableCell
-                            value={l.amount}
-                            displayValue={fmt(l.amount)}
-                            onSave={(v) => onUpdateLine(l.id, { amount: v || null })}
-                            testId={`applied-amount-${l.id}`}
-                          />
-                        ) : (
-                          <span>{fmt(l.amount)}</span>
-                        )}
-                      </div>
-                    )
-                  }
-                ]}
+                columns={cols}
                 data={groupLines}
                 rowKey={(l) => l.id}
+                rowClassName={(l) => l.synthetic_presentation_line ? 'bg-purple-50/40' : ''}
                 exportFilename={`${stmtLabel}_${sectionLabel}_applied`}
                 selectionEnabled={false}
                 pageSize={100}
@@ -606,6 +948,54 @@ function AuditTrailPanel({ lines }: { lines: Record<string, unknown>[] }) {
   )
 }
 
+// P2: Balance sheet imbalance panel
+function BalanceSheetImbalancePanel({
+  variance,
+  onForceApply,
+  isPending,
+}: {
+  variance: string
+  onForceApply: () => void
+  isPending: boolean
+}) {
+  return (
+    <div className="bg-red-50 border border-red-300 rounded-lg p-4 mb-4" data-testid="bs-imbalance-panel">
+      <div className="flex items-start gap-2 mb-3">
+        <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-red-800">Balance Sheet Does Not Tie</p>
+          <p className="text-xs text-red-700 mt-1">
+            Assets ≠ Liabilities + Equity.{' '}
+            <span className="font-mono font-semibold">Variance: {fmt(variance)}</span>
+          </p>
+          <p className="text-xs text-red-600 mt-2">
+            Likely causes: synthetic Net Income in equity missing P&L section, subtotals extracted as accounts,
+            or statement is a partial/section export.
+          </p>
+        </div>
+      </div>
+      <div className="text-xs text-red-700 space-y-0.5 mb-3 pl-7">
+        <p>Correction options:</p>
+        <ul className="list-disc pl-4 space-y-0.5">
+          <li>Edit amounts in the preview to correct extraction errors</li>
+          <li>Add or remove lines causing the imbalance</li>
+          <li>Change import type to "Trial Balance" if this is not a balanced statement</li>
+          <li>Override and apply anyway if you understand the variance</li>
+        </ul>
+      </div>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={onForceApply}
+        className="text-xs px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+        data-testid="force-apply-btn"
+      >
+        {isPending ? 'Applying…' : 'Apply Anyway (override)'}
+      </button>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -624,20 +1014,34 @@ export function PDFImportPage() {
     { key: 'preview', label: 'Preview', status: phaseIndex > 1 ? 'complete' : phaseIndex === 1 ? 'active' : 'pending' },
     { key: 'applied', label: 'Applied', status: phaseIndex === 2 ? 'complete' : 'pending' },
   ]
+
+  // Step 1 form state (P0)
   const [entityId, setEntityId] = useState<number | ''>('')
+  const [periodId, setPeriodId] = useState<number | ''>('')
+  const [importType, setImportType] = useState('financial_statements')
+  const [statementScope, setStatementScope] = useState('')
+  const [basisOverride, setBasisOverride] = useState('')
+
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [preview, setPreview] = useState<PDFImportPreview | null>(null)
   const [appliedBatch, setAppliedBatch] = useState<PDFImportBatch | null>(null)
   const [apiError, setApiError] = useState<string | null>(null)
 
-  // Preview filters + search
+  // P6: ONE global control bar state for preview
   const [stmtFilter, setStmtFilter] = useState<StmtFilter>('all')
   const [showSubtotals, setShowSubtotals] = useState(false)
   const [showMapping, setShowMapping] = useState(false)
   const [previewSearch, setPreviewSearch] = useState('')
 
-  // Section collapse/expand state (shared across preview and applied views)
+  // Applied tab state
+  const [appliedStmtFilter, setAppliedStmtFilter] = useState<StmtFilter>('all')
+  const [appliedShowSubtotals, setAppliedShowSubtotals] = useState(false)
+  const [appliedSearch, setAppliedSearch] = useState('')
+  // P7: legal entity/consol hidden by default
+  const [showLegalEntity, setShowLegalEntity] = useState(false)
+
+  // Section collapse/expand state
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const toggleSection = useCallback((key: string) => {
     setCollapsedSections((prev) => {
@@ -647,17 +1051,30 @@ export function PDFImportPage() {
       return next
     })
   }, [])
+  const expandAll = useCallback(() => setCollapsedSections(new Set()), [])
+  const collapseAll = useCallback((groups: string[]) => setCollapsedSections(new Set(groups)), [])
 
   // Applied view state
   const [activeTab, setActiveTab] = useState<'lines' | 'audit'>('lines')
-  const [appliedStmtFilter, setAppliedStmtFilter] = useState<StmtFilter>('all')
-  const [appliedShowSubtotals, setAppliedShowSubtotals] = useState(false)
+
+  // P4: Conflict resolution panel
+  const [conflictLine, setConflictLine] = useState<PDFLineOut | null>(null)
 
   const appliedBatchId = appliedBatch?.id ?? null
 
   // ---------------------------------------------------------------------------
   // Queries
   // ---------------------------------------------------------------------------
+
+  const { data: periods = [] } = useQuery({
+    queryKey: ['periods-list', entityId],
+    queryFn: () => periodsApi.list(entityId as number),
+    enabled: !!entityId,
+    staleTime: 30_000,
+  })
+
+  const selectedPeriod = periods.find((p) => p.id === periodId)
+  const statementDate = selectedPeriod?.end_date || undefined
 
   const { data: recentBatches = [] } = useQuery({
     queryKey: ['pdf-batches'],
@@ -685,7 +1102,13 @@ export function PDFImportPage() {
     mutationFn: () => {
       if (!file) throw new Error('No file selected')
       if (!entityId) throw new Error('Entity required')
-      return pdfImportApi.upload(file, entityId as number)
+      return pdfImportApi.upload(file, {
+        entityId: entityId as number,
+        importType,
+        statementScope: statementScope || undefined,
+        basisOverride: basisOverride || undefined,
+        statementDate: statementDate,
+      })
     },
     onSuccess: (data) => {
       setPreview(data)
@@ -697,15 +1120,14 @@ export function PDFImportPage() {
   })
 
   const applyMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (forceApply = false) => {
       if (!preview) throw new Error('No preview')
-      return pdfImportApi.apply(preview.batch_id)
+      return pdfImportApi.apply(preview.batch_id, forceApply)
     },
     onSuccess: (batch) => {
       setAppliedBatch(batch)
       setPhase('applied')
       setActiveTab('lines')
-      // setPreview(null)
       qc.invalidateQueries({ queryKey: ['pdf-batches'] })
       toast(`PDF applied: ${batch.line_count ?? 0} lines with stable codes and taxonomy mappings persisted`, 'success')
     },
@@ -721,13 +1143,22 @@ export function PDFImportPage() {
     onError: (err: Error) => setApiError(err.message),
   })
 
+  const resolveConflictMutation = useMutation({
+    mutationFn: ({ lineId, body }: { lineId: number; body: PDFConflictResolutionRequest }) =>
+      pdfImportApi.resolveConflict(appliedBatchId!, lineId, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pdf-lines', appliedBatchId] })
+      toast('Taxonomy conflict resolved', 'success')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
   const patchPreviewLineMutation = useMutation({
     mutationFn: ({ lineIndex, patch }: {
       lineIndex: number
-      patch: { account_name?: string; section?: string; suggested_taxonomy_code?: string }
+      patch: { account_name?: string; section?: string; suggested_taxonomy_code?: string; proposed_account_code?: string | null; amount?: string }
     }) => pdfImportApi.patchPreviewLine(preview!.batch_id, lineIndex, patch),
     onSuccess: (_data, { lineIndex, patch }) => {
-      // Apply the edit locally so the user sees it immediately without a refetch
       setPreview((prev) => {
         if (!prev) return prev
         const lines = [...prev.lines]
@@ -757,6 +1188,10 @@ export function PDFImportPage() {
     setPhase('upload')
     setFile(null)
     setEntityId('')
+    setPeriodId('')
+    setImportType('financial_statements')
+    setStatementScope('')
+    setBasisOverride('')
     setPreview(null)
     setAppliedBatch(null)
     setApiError(null)
@@ -806,6 +1241,14 @@ export function PDFImportPage() {
   const visibleAppliedLines = appliedLines.filter((l) => {
     if (!appliedShowSubtotals && l.is_subtotal) return false
     if (appliedStmtFilter !== 'all' && l.statement_type !== appliedStmtFilter) return false
+    if (appliedSearch) {
+      const q = appliedSearch.toLowerCase()
+      const matches =
+        l.account_name.toLowerCase().includes(q) ||
+        (l.official_account_code ?? '').toLowerCase().includes(q) ||
+        l.section.toLowerCase().includes(q)
+      if (!matches) return false
+    }
     return true
   })
 
@@ -815,6 +1258,17 @@ export function PDFImportPage() {
 
   const previewGroups = groupLines(visiblePreviewLines)
   const allPreviewGroups = groupLines(preview?.lines ?? [])
+
+  const bsNotTied = preview && !preview.balance_sheet_tied && importType === 'financial_statements'
+  const bsVariance = preview?.balance_sheet_variance ?? '0'
+
+  // Should Apply button be disabled?
+  const canApply = failingCount === 0 && (!bsNotTied || importType !== 'financial_statements')
+  const applyTitle = failingCount > 0
+    ? 'Fix subtotal mismatches before applying'
+    : bsNotTied
+    ? 'Balance sheet does not tie — review imbalance below or use force-apply'
+    : undefined
 
   // ---------------------------------------------------------------------------
   // Workflow banner (shared)
@@ -826,7 +1280,7 @@ export function PDFImportPage() {
         <FileText className="w-4 h-4" /> PDF Ingestion Workflow
       </p>
       <div className="flex items-center gap-1.5 flex-wrap text-xs font-mono text-blue-600">
-        {(['Upload PDF', 'Extract Lines', 'Validate Subtotals', 'Map to Taxonomy', 'Apply / Consolidate'] as const).map(
+        {(['Upload PDF', 'Classify', 'Extract Lines', 'Validate Subtotals', 'Map to Taxonomy', 'Apply'] as const).map(
           (step, i, arr) => (
             <span key={step} className="flex items-center gap-1.5">
               <span className="bg-blue-100 px-2 py-0.5 rounded">{step}</span>
@@ -853,16 +1307,52 @@ export function PDFImportPage() {
         {workflowBanner}
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-800">Step 1 — Select entity and upload PDF</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Step 1 — Classify and upload</h2>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
-            <EntitySelect value={entityId} onChange={setEntityId} />
+          {/* P0: Entity + classification fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
+              <EntitySelect value={entityId} onChange={setEntityId} />
+            </div>
+            <div>
+              <PeriodSelect
+                label="Period *"
+                entityId={entityId}
+                value={periodId}
+                onChange={setPeriodId}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <LabeledSelect
+              label="Import Type *"
+              value={importType}
+              onChange={setImportType}
+              options={IMPORT_TYPE_OPTIONS}
+              testId="import-type-select"
+            />
+            <LabeledSelect
+              label="Accounting Basis *"
+              value={basisOverride}
+              onChange={setBasisOverride}
+              options={BASIS_OPTIONS}
+              testId="basis-select"
+            />
+            <LabeledSelect
+              label="Statement Scope *"
+              value={statementScope}
+              onChange={setStatementScope}
+              options={SCOPE_OPTIONS}
+              testId="scope-select"
+            />
           </div>
 
           <p className="text-xs text-gray-500">
             Supports compiled or reviewed financial statements with extractable text (no scanned images).
-            Income tax basis, GAAP, and cash basis PDFs are all accepted.
+            Select <strong>Trial Balance</strong> if importing raw debit/credit data instead of a presentation statement.
           </p>
 
           <div
@@ -900,7 +1390,7 @@ export function PDFImportPage() {
           <div className="flex justify-end">
             <button
               type="button"
-              disabled={!file || !entityId || uploadMutation.isPending}
+              disabled={!file || !entityId || !periodId || !importType || !basisOverride || !statementScope || uploadMutation.isPending}
               onClick={() => uploadMutation.mutate()}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
               data-testid="parse-pdf-btn"
@@ -931,11 +1421,11 @@ export function PDFImportPage() {
                   )
                 },
                 {
-                  key: 'source_entity_name',
-                  header: 'Entity',
+                  key: 'import_type',
+                  header: 'Type',
                   sortable: true,
-                  sortValue: (b) => b.source_entity_name ?? '',
-                  render: (b) => <span>{b.source_entity_name ?? '—'}</span>
+                  sortValue: (b) => b.import_type ?? '',
+                  render: (b) => <span className="text-xs capitalize">{(b.import_type ?? '').replace('_', ' ') || '—'}</span>
                 },
                 {
                   key: 'statement_date',
@@ -1009,6 +1499,8 @@ export function PDFImportPage() {
   // ---------------------------------------------------------------------------
 
   if (phase === 'preview' && preview) {
+    const previewGroupKeys = Object.keys(previewGroups)
+
     return (
       <PageLayout
         title="PDF Financial Statement Import"
@@ -1029,7 +1521,12 @@ export function PDFImportPage() {
                   {' · '}
                   {preview.statement_date ?? 'Unknown date'}
                   {' · '}
-                  <span className="capitalize">{preview.basis_of_accounting?.replace('_', ' ') ?? 'unknown basis'}</span>
+                  <span className="capitalize">{(preview.basis_of_accounting || 'unknown basis').replace('_', ' ')}</span>
+                  {' · '}
+                  <span className="capitalize">{(preview.import_type ?? 'financial_statements').replace('_', ' ')}</span>
+                  {preview.statement_scope && preview.statement_scope !== 'unknown' && (
+                    <> · <span className="capitalize">{preview.statement_scope}</span></>
+                  )}
                   {' · '}
                   {preview.page_count} pages · {preview.line_count} detail lines · {preview.subtotal_count} subtotals
                 </p>
@@ -1042,6 +1539,15 @@ export function PDFImportPage() {
                 Upload different file
               </button>
             </div>
+
+            {/* P2: Balance sheet imbalance warning */}
+            {bsNotTied && (
+              <BalanceSheetImbalancePanel
+                variance={bsVariance}
+                onForceApply={() => applyMutation.mutate(true)}
+                isPending={applyMutation.isPending}
+              />
+            )}
 
             {/* Validation summary */}
             <div
@@ -1078,9 +1584,9 @@ export function PDFImportPage() {
               </div>
             )}
 
-            {/* Search + statement filter + options */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              {/* Global search */}
+            {/* P6: ONE global control bar */}
+            <div className="flex flex-wrap items-center gap-2 mb-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              {/* Search */}
               <div className="relative flex-1 min-w-[180px] max-w-xs">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                 <input
@@ -1103,23 +1609,18 @@ export function PDFImportPage() {
               </div>
               <StmtFilterBar value={stmtFilter} onChange={setStmtFilter} />
               <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-1">
-                <input
-                  type="checkbox"
-                  checked={showSubtotals}
-                  onChange={(e) => setShowSubtotals(e.target.checked)}
-                  className="rounded"
-                />
+                <input type="checkbox" checked={showSubtotals} onChange={(e) => setShowSubtotals(e.target.checked)} className="rounded" />
                 Subtotals
               </label>
               <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showMapping}
-                  onChange={(e) => setShowMapping(e.target.checked)}
-                  className="rounded"
-                />
-                Show taxonomy mapping
+                <input type="checkbox" checked={showMapping} onChange={(e) => setShowMapping(e.target.checked)} className="rounded" />
+                Taxonomy
               </label>
+              <div className="ml-auto flex items-center gap-1.5">
+                <button type="button" onClick={expandAll} className="text-xs text-gray-500 hover:text-gray-700 underline">Expand all</button>
+                <span className="text-gray-300">|</span>
+                <button type="button" onClick={() => collapseAll(previewGroupKeys)} className="text-xs text-gray-500 hover:text-gray-700 underline">Collapse all</button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between mb-1">
@@ -1137,11 +1638,11 @@ export function PDFImportPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={applyMutation.isPending || failingCount > 0}
-                  onClick={() => applyMutation.mutate()}
+                  disabled={applyMutation.isPending || !canApply}
+                  onClick={() => applyMutation.mutate(false)}
                   className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
                   data-testid="apply-pdf-btn"
-                  title={failingCount > 0 ? 'Fix subtotal mismatches before applying' : undefined}
+                  title={applyTitle}
                 >
                   <CheckCircle className="w-4 h-4" />
                   {applyMutation.isPending ? 'Applying…' : `Apply ${preview.line_count} Lines`}
@@ -1150,7 +1651,7 @@ export function PDFImportPage() {
             </div>
           </div>
 
-          {/* Extracted lines table — preview (grouped by statement + section) */}
+          {/* Extracted lines — preview grouped by statement + section */}
           {Object.entries(previewGroups).map(([groupKey, { section, lines: groupLines }]) => {
             const [stmtType] = groupKey.split('::')
             const stmtLabel = STMT_LABELS[stmtType] ?? stmtType
@@ -1158,6 +1659,9 @@ export function PDFImportPage() {
             const detailCount = groupLines.filter((l) => !l.is_subtotal).length
             const isCollapsed = collapsedSections.has(groupKey)
             const { calculated, pdfSubtotal, variance } = getGroupTotals(allPreviewGroups[groupKey]?.lines ?? [])
+
+            // P8: drag-and-drop section for taxonomy reclassification
+            // (simplified: drop zone changes section on the line)
 
             const gridColumns = [
               {
@@ -1182,7 +1686,7 @@ export function PDFImportPage() {
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
-                      <span className="font-mono text-[10px] text-gray-300 mt-0.5 truncate" title={`Stable code: ${l.temp_account_code}`} data-testid="stable-code">
+                      <span className="font-mono text-[10px] text-gray-300 mt-0.5 truncate" title={`Stable: ${l.temp_account_code}`} data-testid="stable-code">
                         {l.temp_account_code}
                       </span>
                     </div>
@@ -1201,6 +1705,7 @@ export function PDFImportPage() {
                       {!l.is_subtotal && lineIndex >= 0 ? (
                         <EditableCell
                           value={l.account_name}
+                          disabled={l.system_managed}
                           onSave={(v) =>
                             patchPreviewLineMutation.mutate({ lineIndex, patch: { account_name: v } })
                           }
@@ -1209,7 +1714,44 @@ export function PDFImportPage() {
                       ) : (
                         <span>{l.account_name}</span>
                       )}
+                      {l.synthetic_presentation_line && (
+                        <span className="text-purple-600 text-[10px] font-semibold bg-purple-50 border border-purple-200 px-1 rounded" title="Synthetic equity presentation line — derived from P&L, not editable">
+                          synthetic
+                        </span>
+                      )}
+                      {l.locked && <Lock className="w-3 h-3 text-amber-500" title="Locked" />}
                       {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
+                    </div>
+                  )
+                }
+              },
+              // P8: Section / drag indicator
+              {
+                key: 'section',
+                header: 'Section',
+                sortable: true,
+                sortValue: (l: PDFImportPreviewLine) => l.section,
+                render: (l: PDFImportPreviewLine) => {
+                  const lineIndex = (preview?.lines ?? []).indexOf(l)
+                  return (
+                    <div className="flex items-center gap-1" title="Drag to reclassify section">
+                      <GripVertical className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                      {!l.is_subtotal && lineIndex >= 0 ? (
+                        <select
+                          value={l.section}
+                          onChange={(e) =>
+                            patchPreviewLineMutation.mutate({ lineIndex, patch: { section: e.target.value } })
+                          }
+                          className="text-xs border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-600 focus:border-blue-400"
+                          data-testid={`section-select-${lineIndex}`}
+                        >
+                          {Object.entries(SECTION_LABELS).map(([k, v]) => (
+                            <option key={k} value={k}>{v}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-gray-500">{SECTION_LABELS[l.section] ?? l.section}</span>
+                      )}
                     </div>
                   )
                 }
@@ -1223,11 +1765,11 @@ export function PDFImportPage() {
                   render: (l: PDFImportPreviewLine) => {
                     const lineIndex = (preview?.lines ?? []).indexOf(l)
                     return (
-                      <EditableCell
+                      <TaxonomySelect
                         value={l.suggested_taxonomy_code}
-                        placeholder="unmapped"
-                        onSave={(v) =>
-                          patchPreviewLineMutation.mutate({ lineIndex, patch: { suggested_taxonomy_code: v || null } })
+                        disabled={l.system_managed}
+                        onChange={(v) =>
+                          patchPreviewLineMutation.mutate({ lineIndex, patch: { suggested_taxonomy_code: v ?? undefined } })
                         }
                         testId={`preview-taxonomy-${lineIndex}`}
                       />
@@ -1245,13 +1787,6 @@ export function PDFImportPage() {
                     </span>
                   ) : <span className="text-gray-300">—</span>
                 },
-                {
-                  key: 'mapping_evidence',
-                  header: 'Evidence',
-                  sortable: true,
-                  sortValue: (l: PDFImportPreviewLine) => l.mapping_evidence ?? '',
-                  render: (l: PDFImportPreviewLine) => <span className="text-gray-400 text-xs truncate max-w-[128px]" title={l.mapping_evidence ?? ''}>{l.mapping_evidence ?? '—'}</span>
-                }
               ] : []),
               {
                 key: 'amount',
@@ -1263,7 +1798,7 @@ export function PDFImportPage() {
                   const lineIndex = (preview?.lines ?? []).indexOf(l)
                   return (
                     <div className="flex items-center justify-end font-mono">
-                      {!l.is_subtotal && lineIndex >= 0 ? (
+                      {!l.is_subtotal && lineIndex >= 0 && !l.system_managed ? (
                         <EditableCell
                           value={l.amount}
                           displayValue={fmt(l.amount)}
@@ -1314,6 +1849,7 @@ export function PDFImportPage() {
                     columns={gridColumns}
                     data={groupLines}
                     rowKey={(l) => l.temp_account_code}
+                    rowClassName={(l) => l.synthetic_presentation_line ? 'bg-purple-50/40' : ''}
                     exportFilename={`${stmtLabel}_${sectionLabel}_preview`}
                     selectionEnabled={false}
                     pageSize={100}
@@ -1331,6 +1867,8 @@ export function PDFImportPage() {
   // PHASE: applied
   // ---------------------------------------------------------------------------
 
+  const appliedGroupKeys = Object.keys(groupLines(visibleAppliedLines))
+
   return (
     <PageLayout
       title="PDF Financial Statement Import"
@@ -1339,6 +1877,17 @@ export function PDFImportPage() {
       {apiError && <ErrorBanner message={apiError} />}
       <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} />
       {workflowBanner}
+
+      {/* P4: Conflict resolution panel overlay */}
+      {conflictLine && (
+        <ConflictResolutionPanel
+          line={conflictLine}
+          onResolve={(lineId, body) => {
+            resolveConflictMutation.mutate({ lineId, body })
+          }}
+          onClose={() => setConflictLine(null)}
+        />
+      )}
 
       {/* Applied header */}
       <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
@@ -1408,20 +1957,39 @@ export function PDFImportPage() {
       {/* Lines tab */}
       {activeTab === 'lines' && (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
+          {/* P6: ONE global control bar for applied view */}
+          <div className="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+            <div className="relative min-w-[180px] max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search accounts…"
+                value={appliedSearch}
+                onChange={(e) => setAppliedSearch(e.target.value)}
+                className="w-full pl-8 pr-7 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                data-testid="applied-search"
+              />
+              {appliedSearch && (
+                <button type="button" onClick={() => setAppliedSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             <StmtFilterBar value={appliedStmtFilter} onChange={setAppliedStmtFilter} />
             <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer ml-2">
-              <input
-                type="checkbox"
-                checked={appliedShowSubtotals}
-                onChange={(e) => setAppliedShowSubtotals(e.target.checked)}
-                className="rounded"
-              />
-              Show subtotals
+              <input type="checkbox" checked={appliedShowSubtotals} onChange={(e) => setAppliedShowSubtotals(e.target.checked)} className="rounded" />
+              Subtotals
             </label>
-            <span className="ml-auto text-xs text-gray-400 italic">
-              Click any taxonomy code or official code cell to edit
-            </span>
+            {/* P7: toggle legal entity / consol group */}
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={showLegalEntity} onChange={(e) => setShowLegalEntity(e.target.checked)} className="rounded" data-testid="show-legal-entity-toggle" />
+              Legal Entity / Consol
+            </label>
+            <div className="ml-auto flex items-center gap-1.5">
+              <button type="button" onClick={expandAll} className="text-xs text-gray-500 hover:text-gray-700 underline">Expand all</button>
+              <span className="text-gray-300">|</span>
+              <button type="button" onClick={() => collapseAll(appliedGroupKeys)} className="text-xs text-gray-500 hover:text-gray-700 underline">Collapse all</button>
+            </div>
           </div>
 
           {linesLoading ? (
@@ -1434,6 +2002,8 @@ export function PDFImportPage() {
               }
               collapsedSections={collapsedSections}
               onToggleSection={toggleSection}
+              onResolveConflict={setConflictLine}
+              showLegalEntity={showLegalEntity}
             />
           )}
         </div>

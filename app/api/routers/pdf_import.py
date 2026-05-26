@@ -56,6 +56,7 @@ async def upload_pdf(
     import_type: str | None = Form(default=None),
     statement_scope: str | None = Form(default=None),
     basis_override: str | None = Form(default=None),
+    statement_date: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
@@ -126,12 +127,13 @@ async def upload_pdf(
     bs_validation = _compute_bs_validation(lines_data)
 
     effective_basis = basis_override or extracted.get("basis_of_accounting")
+    effective_statement_date = statement_date or extracted.get("statement_date")
 
     batch = PDFImportBatch(
         entity_id=entity_id,
         filename=filename,
         source_entity_name=extracted.get("source_entity_name"),
-        statement_date=extracted.get("statement_date"),
+        statement_date=effective_statement_date,
         basis_of_accounting=effective_basis,
         import_type=import_type or "financial_statements",
         statement_scope=statement_scope or "unknown",
@@ -160,7 +162,7 @@ async def upload_pdf(
         entity_id=entity_id,
         filename=filename,
         source_entity_name=extracted.get("source_entity_name"),
-        statement_date=extracted.get("statement_date"),
+        statement_date=effective_statement_date,
         basis_of_accounting=effective_basis,
         import_type=import_type or "financial_statements",
         statement_scope=statement_scope or "unknown",

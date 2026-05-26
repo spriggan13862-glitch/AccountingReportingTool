@@ -920,12 +920,14 @@ interface AccountRowProps {
   onDuplicate: (node: AccountNode) => void
   onArchive: (node: AccountNode) => void
   onActivate: (node: AccountNode) => void
+  onResolveConflict: (node: AccountNode) => void
 }
 
 function AccountRow({
   node, depth, density, taxonomyLines, flatAccounts,
   editState, onEdit, onSave, onCancel, onEditChange, isSaving,
   onOpenMenu, onAddChild, onDuplicate, onArchive, onActivate,
+  onResolveConflict,
 }: AccountRowProps) {
   const {
     dragNodeId, dropTarget, collapsedIds, highlightIds, selectedIds,
@@ -1238,6 +1240,27 @@ function AccountRow({
           )}
         </td>
 
+        {/* Conflict column cell */}
+        <td className={cn('px-3 w-24 text-center', py)}>
+          {(() => {
+            const flags = getAccountValidationFlags(node, flatAccounts, taxonomyLines)
+            const hasConflict = flags.some(f => f.code === 'conflict')
+            return hasConflict ? (
+              <button
+                type="button"
+                onClick={() => onResolveConflict(node)}
+                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-105 text-amber-700 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
+                title="Taxonomy conflict — click to resolve"
+                data-testid={`conflict-badge-${node.id}`}
+              >
+                conflict
+              </button>
+            ) : (
+              <span className="text-gray-300">—</span>
+            )
+          })()}
+        </td>
+
         {/* Parent account */}
         <td className={cn('px-3 text-xs text-slate-550 w-32 truncate', py)}>
           {isEditing ? (
@@ -1326,9 +1349,154 @@ function AccountRow({
           onDuplicate={onDuplicate}
           onArchive={onArchive}
           onActivate={onActivate}
+          onResolveConflict={onResolveConflict}
         />
       ))}
     </>
+  )
+}
+
+// P2: Dedicated Conflict Resolution Panel for COA
+function COAConflictResolutionPanel({
+  account,
+  flatAccounts,
+  taxonomyLines,
+  onResolve,
+  onClose,
+}: {
+  account: AccountNode
+  flatAccounts: Account[]
+  taxonomyLines: ReportingTaxonomyLine[]
+  onResolve: (resolution: 'keep_source' | 'use_parent' | 'apply_global' | 'create_new') => void
+  onClose: () => void
+}) {
+  const [resolution, setResolution] = useState<'keep_source' | 'use_parent' | 'apply_global' | 'create_new'>('keep_source')
+
+  const suggestionCode = getSuggestedTaxonomyCode(account.account_type, account.detail_type, account.account_name)
+  const suggestedLine = suggestionCode ? taxonomyLines.find((l) => l.code === suggestionCode) : null
+
+  const directMapping = account.reporting_taxonomy_line_id
+  const directLine = directMapping ? taxonomyLines.find((l) => l.id === directMapping) : null
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 animate-in fade-in duration-200" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-2xl w-full max-w-lg p-6 m-4 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="coa-conflict-resolution-panel"
+      >
+        <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500" />
+          <h3 className="font-bold text-gray-900 text-sm">Resolve Taxonomy Conflict</h3>
+          <button type="button" onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-4 text-xs">
+          <div className="bg-gray-50 rounded p-3 space-y-1">
+            <p className="font-medium text-gray-500 uppercase tracking-wide text-[9px]">Account</p>
+            <p className="font-bold text-gray-800 text-sm">{account.account_number} — {account.account_name}</p>
+            <p className="text-[10px] text-gray-500 font-semibold uppercase">Type: {account.account_type} · Detail: {account.detail_type || '—'}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-blue-50/50 border border-blue-100 rounded p-3">
+              <p className="font-bold text-blue-700 mb-1 text-[9px] uppercase tracking-wide">Direct Mapping</p>
+              <code className="text-xs text-blue-900 font-semibold">{directLine ? directLine.name : '—'}</code>
+            </div>
+            <div className="bg-purple-50/50 border border-purple-100 rounded p-3">
+              <p className="font-bold text-purple-700 mb-1 text-[9px] uppercase tracking-wide">Suggested taxonomy (rules)</p>
+              <code className="text-xs text-purple-900 font-semibold">{suggestedLine ? suggestedLine.name : '—'}</code>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Resolution Options</label>
+          <div className="space-y-2 border border-gray-100 rounded-lg p-3 bg-gray-50/50">
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="radio"
+                name="resolution"
+                value="keep_source"
+                checked={resolution === 'keep_source'}
+                onChange={() => setResolution('keep_source')}
+                className="mt-0.5"
+              />
+              <div className="text-xs">
+                <p className="font-bold text-gray-800">Keep Direct Mapping</p>
+                <p className="text-gray-500 text-[11px] mt-0.5">Keep the current manual mapping as is (no action).</p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2.5 cursor-pointer border-t border-gray-100 pt-2">
+              <input
+                type="radio"
+                name="resolution"
+                value="use_parent"
+                checked={resolution === 'use_parent'}
+                onChange={() => setResolution('use_parent')}
+                className="mt-0.5"
+              />
+              <div className="text-xs">
+                <p className="font-bold text-gray-800">Inherit from Parent</p>
+                <p className="text-gray-500 text-[11px] mt-0.5">Clear direct mapping to inherit taxonomy line from parent.</p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2.5 cursor-pointer border-t border-gray-100 pt-2">
+              <input
+                type="radio"
+                name="resolution"
+                value="apply_global"
+                checked={resolution === 'apply_global'}
+                onChange={() => setResolution('apply_global')}
+                className="mt-0.5"
+                disabled={!suggestedLine}
+              />
+              <div className={cn("text-xs", !suggestedLine && "opacity-50")}>
+                <p className="font-bold text-gray-800">Apply Suggested Taxonomy</p>
+                <p className="text-gray-500 text-[11px] mt-0.5">
+                  {suggestedLine 
+                    ? `Map to "${suggestedLine.name}" according to type guidelines.` 
+                    : "No suggestion available for this account."
+                  }
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-2.5 cursor-pointer border-t border-gray-100 pt-2">
+              <input
+                type="radio"
+                name="resolution"
+                value="create_new"
+                checked={resolution === 'create_new'}
+                onChange={() => setResolution('create_new')}
+                className="mt-0.5"
+              />
+              <div className="text-xs">
+                <p className="font-bold text-gray-800">Create New Taxonomy Line</p>
+                <p className="text-gray-500 text-[11px] mt-0.5">Redirect to the Taxonomy Administration page to create a custom line.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-xs text-gray-650 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold cursor-pointer">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => { onResolve(resolution); onClose() }}
+            className="px-4 py-2 text-xs bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 font-semibold cursor-pointer"
+            data-testid="coa-conflict-resolve-btn"
+          >
+            Apply Resolution
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1363,6 +1531,7 @@ export function ChartOfAccountsPage() {
   const [previewAccountId, setPreviewAccountId] = useState<number | null>(null)
   const [density, setDensity] = useState<GridDensity>('normal')
   const [showSettings, setShowSettings] = useState(false)
+  const [conflictAccount, setConflictAccount] = useState<AccountNode | null>(null)
 
   // Undo/redo
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([])
@@ -1538,6 +1707,32 @@ export function ChartOfAccountsPage() {
   function handleActivate(node: AccountNode) {
     updateMutation.mutate({ id: node.id, patch: { account_status: 'active' } })
   }
+
+  const handleResolveConflict = useCallback((resolution: 'keep_source' | 'use_parent' | 'apply_global' | 'create_new') => {
+    if (!conflictAccount) return
+    if (resolution === 'keep_source') {
+      setConflictAccount(null)
+      return
+    }
+    if (resolution === 'use_parent') {
+      updateMutation.mutate({
+        id: conflictAccount.id,
+        patch: { reporting_taxonomy_line_id: null },
+      })
+    } else if (resolution === 'apply_global') {
+      const suggestionCode = getSuggestedTaxonomyCode(conflictAccount.account_type, conflictAccount.detail_type, conflictAccount.account_name)
+      const suggestedLine = suggestionCode ? taxonomyLines.find((l) => l.code === suggestionCode) : null
+      if (suggestedLine) {
+        updateMutation.mutate({
+          id: conflictAccount.id,
+          patch: { reporting_taxonomy_line_id: suggestedLine.id },
+        })
+      }
+    } else if (resolution === 'create_new') {
+      navigate('/taxonomy-admin')
+    }
+    setConflictAccount(null)
+  }, [conflictAccount, taxonomyLines, updateMutation, navigate])
 
   // Selection
   const handleToggleSelect = useCallback((nodeId: number) => {
@@ -1724,8 +1919,17 @@ export function ChartOfAccountsPage() {
   function sortNodes(nodes: AccountNode[]): AccountNode[] {
     if (!sortKey) return nodes
     const sorted = [...nodes].sort((a, b) => {
-      const av = String((a as Record<string, unknown>)[sortKey] ?? '')
-      const bv = String((b as Record<string, unknown>)[sortKey] ?? '')
+      let av = ''
+      let bv = ''
+      if (sortKey === 'conflict') {
+        const flagsA = getAccountValidationFlags(a, flatAccounts, taxonomyLines)
+        const flagsB = getAccountValidationFlags(b, flatAccounts, taxonomyLines)
+        av = flagsA.some((f) => f.code === 'conflict') ? '1' : '0'
+        bv = flagsB.some((f) => f.code === 'conflict') ? '1' : '0'
+      } else {
+        av = String((a as Record<string, unknown>)[sortKey] ?? '')
+        bv = String((b as Record<string, unknown>)[sortKey] ?? '')
+      }
       const cmp = av.localeCompare(bv, undefined, { numeric: true })
       return sortDir === 'asc' ? cmp : -cmp
     })
@@ -2008,6 +2212,7 @@ export function ChartOfAccountsPage() {
                         ['detail_type', 'Detail Type', 'w-36'],
                         ['account_status', 'Status', 'w-24'],
                         ['reporting_taxonomy_line_id', 'Reporting Line', 'w-44'],
+                        ['conflict', 'Conflict', 'w-24'],
                         ['parent_account_id', 'Parent', 'w-28'],
                       ] as [string, string, string][]).map(([key, label, width]) => (
                         <th
@@ -2058,6 +2263,7 @@ export function ChartOfAccountsPage() {
                           onDuplicate={handleDuplicate}
                           onArchive={handleArchive}
                           onActivate={handleActivate}
+                          onResolveConflict={setConflictAccount}
                         />
                       ))
                     )}
@@ -2119,6 +2325,17 @@ export function ChartOfAccountsPage() {
             queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
             queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
           }}
+        />
+      )}
+
+      {/* Conflict Resolution Modal */}
+      {conflictAccount && (
+        <COAConflictResolutionPanel
+          account={conflictAccount}
+          flatAccounts={flatAccounts}
+          taxonomyLines={taxonomyLines}
+          onResolve={handleResolveConflict}
+          onClose={() => setConflictAccount(null)}
         />
       )}
 

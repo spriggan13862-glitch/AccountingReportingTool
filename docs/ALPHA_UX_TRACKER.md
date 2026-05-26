@@ -588,3 +588,40 @@ Pre-Tier 2 stabilization sprint. Fixes repeated visual review blockers.
 | UX-DEF-07 | PDF Review / Full Edit | PDF review should match COA review: full editable fields (amount, taxonomy, section, include/exclude), sort/filter/batch/undo-redo/drag-drop between sections. | Significant effort — requires bulk edit UX, undo stack, and drag-drop section reparenting. | Tier 2 |
 | UX-DEF-08 | COA / Global Optional Columns | COA table should have optional hidden columns (internal ID, source system, etc.) toggleable via a column visibility panel. | Low complexity but non-critical; deferred to keep scope focused. | Tier 2 |
 | UX-DEF-09 | Account Preview / FS Excerpt | Account detail sidebar should show FS hierarchy context (QuickBooks-style: which statement, section, line it falls on) with inherited vs manual mapping indicator. | Requires taxonomy path computation and sidebar redesign. | Tier 2 |
+
+---
+
+## Tier 1.9 Issues (2026-05-25)
+
+Financial Statement Import Accounting Logic, Taxonomy Conflict Resolution, and Adjustment Bridge Foundation.
+
+### Last Test Run (post-Tier 1.9)
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Python unit tests | 676 | 0 | 676 |
+| Frontend vitest | 400 | 0 | 400 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+
+### Fixes and Features Applied
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| UX-085 | P0 | PDF Import / No Statement Classification | PDF upload had no way to specify import type (Trial Balance vs Financial Statements vs Tax Return), accounting basis, or statement scope. Batch stored no classification metadata. | Added `import_type`, `statement_scope` columns to `pdf_import_batches` (migration 011). Step 1 now shows three `<select>` elements: Import Type, Accounting Basis, Statement Scope. Passed to upload endpoint. Editable before Apply. | Resolved |
+| UX-086 | P1 | PDF Import / Net Income Duplication in Equity | Equity sections on PDFs often include a "Net Income" or "Current Year Earnings" line that is derived from the P&L — importing it as a real account would double-count net income. | Added `synthetic_presentation_line`, `system_managed`, `locked` columns to `pdf_import_lines` (migration 011). Backend `_mark_synthetic_equity_lines()` detects Net Income keywords inside equity sections and sets flags. Frontend renders a purple "synthetic" badge; line is locked and not editable. | Resolved |
+| UX-087 | P2 | PDF Import / No Balance Sheet Tie Check | Apply had no validation that Assets = Liabilities + Equity. Statements with extraction errors or partial imports were applied silently. | Backend apply endpoint computes BS variance via `_compute_bs_validation()`. If `|variance| > $1.00` and `force_apply=False`, returns HTTP 422 with detailed variance breakdown. Frontend shows red `BalanceSheetImbalancePanel` with variance amount, correction guidance, and a "Force Apply" button (`data-testid="force-apply-btn"`) that calls `apply(batchId, true)`. | Resolved |
+| UX-088 | P3+P4 | PDF Import / Silent Taxonomy Override | PDF line taxonomy was silently overridden by global taxonomy suggestions with no record of the source. Conflicts between source taxonomy and global suggestion were invisible. | Added `source_taxonomy_code`, `taxonomy_conflict`, `conflict_reason`, `conflict_resolution` columns to `pdf_account_mappings` (migration 011). Backend marks conflicts on apply. Frontend shows amber "conflict" badge per line; clicking opens `ConflictResolutionPanel` modal with resolution options: keep_source / use_parent / apply_global / create_reclass / create_new / accepted. | Resolved |
+| UX-089 | P5 | PDF Import / No Taxonomy Search or Create | Taxonomy code was an inline text edit field with no discoverability. New taxonomy lines could not be created inline. | `TaxonomySelect` component added: dropdown with live search (`data-testid="taxonomy-search-input"`), full STANDARD_TAXONOMY_V2 code list, and a "+ Create new taxonomy line" option (`data-testid="create-new-taxonomy-btn"`). Used in both preview (suggested_taxonomy_code) and applied (taxonomy_code) tables. | Resolved |
+| UX-090 | P6 | PDF Import / Multiple Per-Section Control Bars | Preview had per-section controls scattered under each section header. No single place to search, filter, or export all sections at once. | Replaced per-section controls with ONE global control bar: search input, statement filter chips, Subtotals toggle, Taxonomy toggle, Expand All / Collapse All, export. Applied view has a matching global bar for the post-apply table. Single `data-testid="preview-search"` in DOM. | Resolved |
+| UX-091 | P7 | PDF Import / Legal Entity Columns Always Visible | Legal Entity Code and Consolidation Group columns were always rendered, consuming column space in the applied table for nearly all imports that don't use these fields. | Both columns hidden by default behind a checkbox toggle (`data-testid="show-legal-entity-toggle"`). Toggle reveals both columns simultaneously. Persists for the session (not localStorage — intentional reset on each import review). | Resolved |
+| UX-092 | P8 | PDF Import / No Section Reclassification | Lines extracted into the wrong section (e.g. a liability misclassified as an asset) could not be moved without re-importing. | Each non-subtotal preview line now has a section `<select>` dropdown (P8 taxonomy reclassification). Changing the dropdown calls `patchPreviewLine` to update the section on the stored preview JSON. GripVertical icon on each row signals draggable intent. | Resolved |
+| UX-093 | P9 | FS Page / Generic "Initialize" Banner | FinancialStatementsPage showed a generic "Initialize Reporting Taxonomy" message with one button, providing no guidance on what steps remain before the page is useful. | Replaced with a 6-item Setup Assistant checklist grid: accounts mapped/unmapped count, balances loaded, taxonomy initialized, period set, scenario set, FS line coverage. Each item links to the relevant action page. Five action buttons below: Import Trial Balance, Taxonomy Admin, Chart of Accounts, Periods, Adjustment Bridge. | Resolved |
+| UX-094 | P10 | Adjustment Bridge / Missing Pivot Skeleton | No page or data structure existed for the pivot/data-cube that bridges imported balances through adjustments to adjusted balances. | `AdjustmentBridgeRow` and `AdjustmentBridgeView` models added (migration 012). New router at `/adjustment-bridge` with compute, rows, and views endpoints. `AdjustmentBridgePage` renders `SlicerPanel` (entity, period, account type, group-by, measure toggles), saved views panel, compute button, and expandable grouped rows. Route `/adjustment-bridge` added to AppRouter and Sidebar. | Resolved |
+
+### Deferred (Tier 1.9)
+
+| ID | Area | Issue | Reason Deferred | Target |
+|---|---|---|---|---|
+| UX-DEF-10 | Adjustment Bridge / Full Pivot | Saved views with server-side JSON config, column pivoting, drag-drop dimension reorder, export to XLSX. | Skeleton only — requires pivot-table rendering library and view persistence UX. | Tier 2 |
+| UX-DEF-11 | PDF Import / Reconcile Net Income | Net Income in Equity must reconcile against P&L section automatically on apply — flag if they differ. | Requires cross-section summation pass after synthetic line detection. | Tier 2 |
+| UX-DEF-12 | Taxonomy Conflict / Bulk Resolution | Resolve all conflicts of the same type in one action (e.g. "apply global for all 12 revenue conflicts"). | Requires multi-select conflict resolution UX and batch API endpoint. | Tier 2 |

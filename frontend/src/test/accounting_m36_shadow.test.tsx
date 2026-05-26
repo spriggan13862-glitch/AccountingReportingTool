@@ -64,6 +64,9 @@ function makeLine(overrides: Partial<PDFImportPreviewLine> = {}): PDFImportPrevi
     mapping_evidence: 'Name: petty cash',
     page_number: 1,
     source_line_text: 'PETTY CASH $ 500.00',
+    synthetic_presentation_line: false,
+    system_managed: false,
+    locked: false,
     ...overrides,
   }
 }
@@ -147,6 +150,10 @@ const MOCK_PASSING_PREVIEW: PDFImportPreview = {
     total: 2,
   },
   warnings: [],
+  balance_sheet_variance: '0.00',
+  balance_sheet_tied: true,
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
 }
 
 const MOCK_FAILING_PREVIEW: PDFImportPreview = {
@@ -302,14 +309,14 @@ describe('PDFImportPage — preview step (all passing)', () => {
 
   it('shows section headers for balance sheet sections', async () => {
     await uploadAndPreview()
-    expect(screen.getByText('Current Assets')).toBeInTheDocument()
-    expect(screen.getByText('Fixed Assets')).toBeInTheDocument()
+    expect(screen.getAllByText('Current Assets').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Fixed Assets').length).toBeGreaterThan(0)
   })
 
   it('shows section headers for IS sections', async () => {
     await uploadAndPreview()
-    expect(screen.getByText('Income')).toBeInTheDocument()
-    expect(screen.getByText('Cost of Sales')).toBeInTheDocument()
+    expect(screen.getAllByText('Income').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Cost of Sales').length).toBeGreaterThan(0)
   })
 
   it('shows temp account codes', async () => {
@@ -379,7 +386,7 @@ describe('PDFImportPage — taxonomy mapping toggle', () => {
 
   it('taxonomy columns visible after toggling show mapping', async () => {
     await uploadAndPreview()
-    const toggle = screen.getByLabelText(/show taxonomy mapping/i)
+    const toggle = screen.getByLabelText(/^taxonomy$/i)
     fireEvent.click(toggle)
     await waitFor(() =>
       expect(screen.queryAllByText('cash_equivalents').length).toBeGreaterThan(0)
