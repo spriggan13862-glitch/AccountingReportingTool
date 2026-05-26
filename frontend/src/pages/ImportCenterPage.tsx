@@ -454,7 +454,7 @@ export function ImportCenterPage() {
           onClick={() => navigate('/import/new')}
           className="flex items-center gap-1.5 px-3 py-2 bg-indigo-650 text-white text-sm font-semibold rounded hover:bg-indigo-755 transition-colors shadow-sm cursor-pointer"
         >
-          <Upload className="w-4 h-4" /> New Import Wizard
+          <Upload className="w-4 h-4" /> Generic Tabular Import
         </button>
       }
     >
@@ -590,8 +590,8 @@ export function ImportCenterPage() {
           <div className="mx-auto mb-3 rounded-lg bg-purple-100 p-2.5 w-11 h-11 flex items-center justify-center text-purple-600">
             <Upload className="w-5 h-5" />
           </div>
-          <h3 className="text-xs font-semibold text-gray-800">Excel / CSV</h3>
-          <p className="text-[10px] text-gray-400 mt-1">Generic Wizard</p>
+          <h3 className="text-xs font-semibold text-gray-800">Generic Tabular Import</h3>
+          <p className="text-[10px] text-gray-400 mt-1 font-medium">Guided step-by-step import with sheet selection and column mapping.</p>
           <div className="flex gap-1 justify-center mt-2">
             <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">XLSX</span>
             <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">CSV</span>
@@ -612,7 +612,7 @@ export function ImportCenterPage() {
               <p className="text-xs text-gray-500 mb-4">
                 For guided step-by-step import with sheet selection and column mapping, use the{' '}
                 <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-655 font-semibold hover:underline cursor-pointer">
-                  Import Wizard
+                  Generic Tabular Import
                 </button>
                 .
               </p>
