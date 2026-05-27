@@ -14,7 +14,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Building2,
-  FileSpreadsheet,
   FileSearch,
   Calendar,
   GitMerge,
@@ -22,6 +21,8 @@ import {
   Paperclip,
   ChevronDown,
   ChevronRight,
+  TableProperties,
+  Wand2,
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,6 +40,8 @@ const navItems: NavItem[] = [
   { to: '/journal-entries', label: 'Journal Entries', icon: BookOpen },
   { to: '/adjustment-bridge', label: 'Adjustment Bridge', icon: GitCompare },
   { to: '/financial-statements', label: 'Reports Preview', icon: BarChart3 },
+  { to: '/trial-balances', label: 'Trial Balances', icon: TableProperties },
+  { to: '/fs-builder', label: 'FS Builder', icon: Wand2 },
   { to: '/help', label: 'Help Center', icon: HelpCircle },
   { to: '/reporting-settings', label: 'Settings', icon: Settings },
 ]

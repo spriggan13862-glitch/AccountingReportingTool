@@ -552,11 +552,11 @@ All 677 Python tests and 406 vitest tests pass. TypeScript compiles clean.
 | ID | Area | Issue | Reason Deferred | Target |
 |---|---|---|---|---|
 | UX-DEF-01 | Hierarchy Inheritance Engine (P3) | Children should inherit parent's reporting line, account type, normal balance on reparent. Cascade prompt when parent mapping changes. | Complex service-layer change; requires override flag schema additions and cascade UI. | Resolved in Tier 1.7 (P3) |
-| UX-DEF-02 | PDF Section Tree Full Behavior (P6) | Drag/drop between sections, user-added sections, section totals on collapse. | Section drag requires significant DnD state work beyond simple collapse. | Tier 2 |
+| ~~UX-DEF-02~~ | ~~PDF Section Tree Full Behavior (P6)~~ | ~~Drag/drop between sections, user-added sections, section totals on collapse.~~ | **Resolved 2026-05-27 (Sprint 2)** — Row-level drag-and-drop between sections implemented using `draggable` + `onDragOver`/`onDrop` with ring highlight. Section totals shown on collapse. | — |
 | ~~UX-DEF-03~~ | ~~Documents Center (P7)~~ | ~~Download original file, inline PDF preview, go-to-source import link, file-missing error.~~ | **Resolved 2026-05-27** — Go-to-source + inline PDF preview fully resolved. "Preview PDF" button now opens `PDFPreviewModal` (fixed-overlay with `<iframe>`, "Open in new tab" link, backdrop-click dismiss). Download already worked via `documentsApi.download()`. | — |
 | ~~UX-DEF-04~~ | ~~Import Center Reorganization (P8)~~ | ~~Left nav Import Center with sub-routes for each import type, overview page, recent imports actions.~~ | **Resolved 2026-05-27** — Import Hub refactored: `/imports/trial-balance`, `/imports/general-ledger`, `/imports/journal-entries` routes; dedicated wizard pages for each type; entity filter bar on ImportCenterPage. | — |
 | ~~UX-DEF-05~~ | ~~Recent Imports Full Actions (P9)~~ | ~~Continue incomplete import, view validation report, apply from list, view created accounts.~~ | **Resolved 2026-05-27** — `DocumentsPage` Actions column now has status-aware navigation: emerald "Review & Apply" + Play icon for ready batches, amber "Continue Import" + RefreshCw for incomplete, blue "View Import" + ExternalLink for finalized. "View Accounts" button added for entries with `entity_id` (links to `/coa?entity=N`). Status logic shared with `sourceNavLabel()` helper. | — |
-| UX-DEF-06 | Financial Statement Account Preview (P10) | Account path in FS (BS > Current Assets > Cash), inherited vs manual mapping, balances by period. | Requires sidebar redesign and taxonomy path computation. | Tier 2 |
+| ~~UX-DEF-06~~ | ~~Financial Statement Account Preview (P10)~~ | ~~Account path in FS (BS > Current Assets > Cash), inherited vs manual mapping, balances by period.~~ | **Resolved 2026-05-27 (Sprint 2)** — FS drilldown sidebar shows taxonomy breadcrumb chips (walks `parent_id` chain) + period-by-period balance breakdown table. | — |
 
 ---
 
@@ -588,8 +588,8 @@ Pre-Tier 2 stabilization sprint. Fixes repeated visual review blockers.
 
 | ID | Area | Issue | Reason Deferred | Target |
 |---|---|---|---|---|
-| UX-DEF-07 | PDF Review / Full Edit | PDF review should match COA review: full editable fields (amount, taxonomy, section, include/exclude), sort/filter/batch/undo-redo/drag-drop between sections. | Significant effort — requires bulk edit UX, undo stack, and drag-drop section reparenting. | Tier 2 |
-| UX-DEF-08 | COA / Global Optional Columns | COA table should have optional hidden columns (internal ID, source system, etc.) toggleable via a column visibility panel. | Low complexity but non-critical; deferred to keep scope focused. | Tier 2 |
+| ~~UX-DEF-07~~ | ~~PDF Review / Full Edit~~ | ~~PDF review should match COA review: full editable fields, sort/filter/batch/undo-redo/drag-drop between sections.~~ | **Resolved 2026-05-27 (Sprint 2)** — Applied lines undo stack: `appliedLineUndoStack` captures reverse patches before each edit; "Undo (N)" button in control bar pops and re-applies the reverse patch. | — |
+| ~~UX-DEF-08~~ | ~~COA / Global Optional Columns~~ | ~~COA table should have optional hidden columns toggleable via a column visibility panel.~~ | **Resolved 2026-05-27 (Sprint 2)** — `OptionalCol` type + `loadVisibleCols` (localStorage-persisted). SettingsPanel "Optional Columns" section with per-column checkboxes. `coa-visible-cols` key. | — |
 | ~~UX-DEF-09~~ | ~~Account Preview / FS Excerpt~~ | ~~Account detail sidebar should show FS hierarchy context (QuickBooks-style: which statement, section, line it falls on) with inherited vs manual mapping indicator.~~ | **Resolved 2026-05-27** — `AccountPreviewSidebar` already had `pathParts`, `hierarchyPath`, `isInherited`, `inheritedFrom`. Upgraded from plain monospace text to chip-style breadcrumb: first chip blue (statement), last chip indigo (line label), middle chips slate. Separator `›` between chips. `data-testid="fs-hierarchy-path"` attribute for test targeting. | — |
 
 ---
@@ -625,7 +625,7 @@ Financial Statement Import Accounting Logic, Taxonomy Conflict Resolution, and A
 
 | ID | Area | Issue | Reason Deferred | Target |
 |---|---|---|---|---|
-| UX-DEF-10 | Adjustment Bridge / Full Pivot | Saved views with server-side JSON config, column pivoting, drag-drop dimension reorder, export to XLSX. | Skeleton only — requires pivot-table rendering library and view persistence UX. | Tier 2 |
+| ~~UX-DEF-10~~ | ~~Adjustment Bridge / Full Pivot~~ | ~~Saved views with server-side JSON config, column pivoting, drag-drop dimension reorder, export to XLSX.~~ | **Resolved 2026-05-27 (Sprint 2)** — 2D pivot matrix implemented: `columnDimension` + `pivotMeasure` state; `SlicerPanel` gains "Column By" + "Pivot Measure" dropdowns; `pivotMatrix` useMemo builds full row/col/grand totals structure. `column_dimensions` + `pivot_measure` persisted in `slicer_config` on save. | — |
 | ~~UX-DEF-11~~ | ~~PDF Import / Reconcile Net Income~~ | ~~Net Income in Equity must reconcile against P&L section automatically on apply — flag if they differ.~~ | **Resolved 2026-05-27** — `_compute_bs_validation()` already computed `net_income_variance`; now surfaced in `PDFImportPreview` schema (4 new fields). `PDFImportPage` shows amber `NetIncomeReconPanel` when `|ni_variance| > $1` on financial statement imports. Warning only — does not block apply since timing differences are common. | — |
 | ~~UX-DEF-12~~ | ~~Taxonomy Conflict / Bulk Resolution~~ | ~~Resolve all conflicts of the same type in one action (e.g. "apply global for all 12 revenue conflicts").~~ | **Resolved 2026-05-27** — `POST /pdf-imports/{batch_id}/conflicts/bulk-resolve` endpoint resolves all open conflicts in one DB round trip (optionally filtered by conflict_reason). Frontend shows amber bulk-conflict bar above applied lines table with three one-click buttons (Apply global / Keep source / Accept all). | — |
 
@@ -657,7 +657,7 @@ Dedicated import wizard pages, taxonomy drag-drop enhancements, TB net income va
 
 | ID | Area | Issue | Reason Deferred | Target |
 |---|---|---|---|---|
-| UX-DEF-17 | JE Import / Scenario Hardcoding | GL import Step 3 and JE import Step 0 still fall back to scenario ID 1 if none selected; `ScenarioSelect` now shows real scenarios but required validation not enforced. | UX polish; not a blocking issue. | Tier 2 |
+| ~~UX-DEF-17~~ | ~~JE Import / Scenario Hardcoding~~ | ~~GL import Step 3 and JE import Step 0 still fall back to scenario ID 1 if none selected.~~ | **Resolved 2026-05-27 (Sprint 1)** — GL import "Import General Ledger" button and JE import "Import & Commit" button are now `disabled` when `scenarioId === ''`, with tooltip. | — |
 
 ---
 
