@@ -261,12 +261,23 @@ type HierarchyAction = 'make_parent' | 'make_child' | 'outdent' | 'move_to' | 'm
 
 interface ContextMenuState { accountId: number; x: number; y: number }
 
-interface UndoEntry {
+interface ReparentEntry {
+  type: 'reparent'
   accountId: number
+  description: string
   oldParentId: number | null
   newParentId: number | null
-  description: string
 }
+
+interface EditEntry {
+  type: 'edit'
+  accountId: number
+  description: string
+  beforePatch: AccountUpdate
+  afterPatch: AccountUpdate
+}
+
+type UndoEntry = ReparentEntry | EditEntry
 
 type DropPosition = 'before' | 'inside' | 'after'
 interface DropTarget { nodeId: number; position: DropPosition }
@@ -1585,6 +1596,7 @@ export function ChartOfAccountsPage() {
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([])
   const [redoStack, setRedoStack] = useState<UndoEntry[]>([])
   const pendingUndoRedoRef = useRef<{ type: 'undo' | 'redo'; entry: UndoEntry } | null>(null)
+  const beforeEditRef = useRef<AccountUpdate | null>(null)
 
   // Drag/drop
   const [dragNodeId, setDragNodeId] = useState<number | null>(null)
@@ -1619,13 +1631,39 @@ export function ChartOfAccountsPage() {
 
   // Mutations
   const updateMutation = useMutation({
-    mutationFn: ({ id, patch }: { id: number; patch: AccountUpdate }) => accountsApi.update(id, patch),
-    onSuccess: () => {
+    mutationFn: ({ id, patch }: { id: number; patch: AccountUpdate; beforePatch?: AccountUpdate }) =>
+      accountsApi.update(id, patch),
+    onSuccess: (_, { id, patch, beforePatch }) => {
       queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
       setEditState(null)
       toast('Account updated', 'success')
+
+      const pendingOp = pendingUndoRedoRef.current
+      pendingUndoRedoRef.current = null
+
+      if (pendingOp !== null) {
+        if (pendingOp.type === 'undo') {
+          setRedoStack((prev) => [...prev, pendingOp.entry])
+        } else {
+          setUndoStack((prev) => [...prev, pendingOp.entry])
+        }
+      } else if (beforePatch) {
+        const entry: EditEntry = {
+          type: 'edit',
+          accountId: id,
+          description: `edit ${patch.account_name ?? patch.account_number ?? 'account'}`,
+          beforePatch,
+          afterPatch: patch,
+        }
+        setUndoStack((prev) => [...prev, entry])
+        setRedoStack([])
+      }
     },
-    onError: (err: Error) => setApiError(err.message),
+    onError: (err: Error) => {
+      pendingUndoRedoRef.current = null
+      setApiError(err.message)
+    },
   })
 
   const bulkMutation = useMutation({
@@ -1656,7 +1694,8 @@ export function ChartOfAccountsPage() {
       const pendingOp = pendingUndoRedoRef.current
       pendingUndoRedoRef.current = null
 
-      const entry: UndoEntry = {
+      const entry: ReparentEntry = {
+        type: 'reparent',
         accountId: result.account_id,
         oldParentId: result.old_parent_id,
         newParentId: result.new_parent_id,
@@ -1680,21 +1719,31 @@ export function ChartOfAccountsPage() {
   })
 
   // Undo/redo
+  const isUndoRedoPending = reparentMutation.isPending || updateMutation.isPending
+
   const handleUndo = useCallback(() => {
-    if (undoStack.length === 0 || reparentMutation.isPending) return
+    if (undoStack.length === 0 || isUndoRedoPending) return
     const entry = undoStack[undoStack.length - 1]
     setUndoStack((prev) => prev.slice(0, -1))
     pendingUndoRedoRef.current = { type: 'undo', entry }
-    reparentMutation.mutate({ id: entry.accountId, parentId: entry.oldParentId })
-  }, [undoStack, reparentMutation])
+    if (entry.type === 'reparent') {
+      reparentMutation.mutate({ id: entry.accountId, parentId: entry.oldParentId })
+    } else {
+      updateMutation.mutate({ id: entry.accountId, patch: entry.beforePatch })
+    }
+  }, [undoStack, isUndoRedoPending, reparentMutation, updateMutation])
 
   const handleRedo = useCallback(() => {
-    if (redoStack.length === 0 || reparentMutation.isPending) return
+    if (redoStack.length === 0 || isUndoRedoPending) return
     const entry = redoStack[redoStack.length - 1]
     setRedoStack((prev) => prev.slice(0, -1))
     pendingUndoRedoRef.current = { type: 'redo', entry }
-    reparentMutation.mutate({ id: entry.accountId, parentId: entry.newParentId })
-  }, [redoStack, reparentMutation])
+    if (entry.type === 'reparent') {
+      reparentMutation.mutate({ id: entry.accountId, parentId: entry.newParentId })
+    } else {
+      updateMutation.mutate({ id: entry.accountId, patch: entry.afterPatch })
+    }
+  }, [redoStack, isUndoRedoPending, reparentMutation, updateMutation])
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -1707,6 +1756,15 @@ export function ChartOfAccountsPage() {
 
   // Edit handlers
   function handleEdit(node: AccountNode) {
+    beforeEditRef.current = {
+      account_number: node.account_number,
+      account_name: node.account_name,
+      account_type: node.account_type,
+      detail_type: node.detail_type ?? null,
+      account_status: node.account_status,
+      reporting_taxonomy_line_id: node.reporting_taxonomy_line_id ?? null,
+      parent_account_id: node.parent_account_id ?? null,
+    }
     setEditState({
       accountId: node.id,
       account_number: node.account_number,
@@ -1721,6 +1779,8 @@ export function ChartOfAccountsPage() {
 
   function handleSave() {
     if (!editState) return
+    const beforePatch = beforeEditRef.current ?? undefined
+    beforeEditRef.current = null
     updateMutation.mutate({
       id: editState.accountId,
       patch: {
@@ -1732,6 +1792,7 @@ export function ChartOfAccountsPage() {
         reporting_taxonomy_line_id: editState.reporting_taxonomy_line_id || null,
         parent_account_id: editState.parent_account_id || null,
       },
+      beforePatch,
     })
   }
 
@@ -2063,7 +2124,7 @@ export function ChartOfAccountsPage() {
                 <button
                   type="button"
                   onClick={handleUndo}
-                  disabled={undoStack.length === 0 || reparentMutation.isPending}
+                  disabled={undoStack.length === 0 || isUndoRedoPending}
                   className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none border-r border-slate-150 transition-colors cursor-pointer"
                   title={lastUndo ? `Undo: ${lastUndo.description} (Ctrl+Z)` : 'Nothing to undo'}
                   data-testid="undo-btn"
@@ -2073,7 +2134,7 @@ export function ChartOfAccountsPage() {
                 <button
                   type="button"
                   onClick={handleRedo}
-                  disabled={redoStack.length === 0 || reparentMutation.isPending}
+                  disabled={redoStack.length === 0 || isUndoRedoPending}
                   className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                   title={lastRedo ? `Redo: ${lastRedo.description} (Ctrl+Shift+Z)` : 'Nothing to redo'}
                   data-testid="redo-btn"

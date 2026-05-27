@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useRef, useState, ReactNode } from 'react'
+import { createContext, useContext, useCallback, useState, ReactNode } from 'react'
 
 export type ActionCategory =
   | 'account_edit'
@@ -17,6 +17,7 @@ export interface HistoryEntry {
   description: string
   timestamp: number
   undo?: () => Promise<void> | void
+  redo?: () => Promise<void> | void
   metadata?: Record<string, unknown>
 }
 
@@ -35,9 +36,10 @@ const ActionHistoryContext = createContext<ActionHistoryContextValue | null>(nul
 const MAX_HISTORY = 50
 
 export function ActionHistoryProvider({ children }: { children: ReactNode }) {
-  const [entries, setEntries] = useState<HistoryEntry[]>([])
-  // pointer into entries: -1 means nothing undone, 0 means first undo-able entry is entries[0]
-  const pointerRef = useRef<number>(-1) // index of the last applied action
+  const [{ entries, pointer }, setState] = useState<{
+    entries: HistoryEntry[]
+    pointer: number
+  }>({ entries: [], pointer: -1 })
 
   const push = useCallback((entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => {
     const newEntry: HistoryEntry = {
@@ -45,46 +47,41 @@ export function ActionHistoryProvider({ children }: { children: ReactNode }) {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: Date.now(),
     }
-    setEntries((prev) => {
-      // Truncate any redoable items ahead of pointer + add new
-      const next = [...prev.slice(0, pointerRef.current + 1), newEntry]
+    setState((prev) => {
+      const trimmed = prev.entries.slice(0, prev.pointer + 1)
+      const next = [...trimmed, newEntry]
       if (next.length > MAX_HISTORY) next.shift()
-      pointerRef.current = next.length - 1
-      return next
+      return { entries: next, pointer: next.length - 1 }
     })
   }, [])
 
   const undo = useCallback(async () => {
-    setEntries((prev) => {
-      if (pointerRef.current < 0) return prev
-      const entry = prev[pointerRef.current]
-      if (entry?.undo) {
-        Promise.resolve(entry.undo()).catch(console.error)
-      }
-      pointerRef.current -= 1
-      return prev
+    setState((prev) => {
+      if (prev.pointer < 0) return prev
+      const entry = prev.entries[prev.pointer]
+      if (entry?.undo) Promise.resolve(entry.undo()).catch(console.error)
+      return { entries: prev.entries, pointer: prev.pointer - 1 }
     })
   }, [])
 
   const redo = useCallback(async () => {
-    // Redo is not always possible without stored forward actions — noop for most categories
-    setEntries((prev) => {
-      const nextPtr = pointerRef.current + 1
-      if (nextPtr >= prev.length) return prev
-      pointerRef.current = nextPtr
-      return prev
+    setState((prev) => {
+      const nextPtr = prev.pointer + 1
+      if (nextPtr >= prev.entries.length) return prev
+      const entry = prev.entries[nextPtr]
+      if (entry?.redo) Promise.resolve(entry.redo()).catch(console.error)
+      return { entries: prev.entries, pointer: nextPtr }
     })
   }, [])
 
   const clear = useCallback(() => {
-    setEntries([])
-    pointerRef.current = -1
+    setState({ entries: [], pointer: -1 })
   }, [])
 
   const value: ActionHistoryContextValue = {
     entries,
-    canUndo: pointerRef.current >= 0,
-    canRedo: pointerRef.current < entries.length - 1,
+    canUndo: pointer >= 0,
+    canRedo: pointer < entries.length - 1,
     push,
     undo,
     redo,
