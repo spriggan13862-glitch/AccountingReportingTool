@@ -551,7 +551,7 @@ All 671 Python tests and 360 vitest tests pass. TypeScript compiles clean.
 | UX-DEF-01 | Hierarchy Inheritance Engine (P3) | Children should inherit parent's reporting line, account type, normal balance on reparent. Cascade prompt when parent mapping changes. | Complex service-layer change; requires override flag schema additions and cascade UI. | Resolved in Tier 1.7 (P3) |
 | UX-DEF-02 | PDF Section Tree Full Behavior (P6) | Drag/drop between sections, user-added sections, section totals on collapse. | Section drag requires significant DnD state work beyond simple collapse. | Tier 2 |
 | UX-DEF-03 | Documents Center (P7) | Download original file, inline PDF preview, go-to-source import link, file-missing error. | Need file storage/serving infrastructure changes. | Tier 2 |
-| UX-DEF-04 | Import Center Reorganization (P8) | Left nav Import Center with sub-routes for each import type, overview page, recent imports actions. | Nav refactor + new pages; low visual review risk to defer. | Tier 2 |
+| ~~UX-DEF-04~~ | ~~Import Center Reorganization (P8)~~ | ~~Left nav Import Center with sub-routes for each import type, overview page, recent imports actions.~~ | **Resolved 2026-05-27** — Import Hub refactored: `/imports/trial-balance`, `/imports/general-ledger`, `/imports/journal-entries` routes; dedicated wizard pages for each type; entity filter bar on ImportCenterPage. | — |
 | UX-DEF-05 | Recent Imports Full Actions (P9) | Continue incomplete import, view validation report, apply from list, view created accounts. | Builds on Documents Center and Import Center — deferred together. | Tier 2 |
 | UX-DEF-06 | Financial Statement Account Preview (P10) | Account path in FS (BS > Current Assets > Cash), inherited vs manual mapping, balances by period. | Requires sidebar redesign and taxonomy path computation. | Tier 2 |
 
@@ -625,6 +625,36 @@ Financial Statement Import Accounting Logic, Taxonomy Conflict Resolution, and A
 | UX-DEF-10 | Adjustment Bridge / Full Pivot | Saved views with server-side JSON config, column pivoting, drag-drop dimension reorder, export to XLSX. | Skeleton only — requires pivot-table rendering library and view persistence UX. | Tier 2 |
 | UX-DEF-11 | PDF Import / Reconcile Net Income | Net Income in Equity must reconcile against P&L section automatically on apply — flag if they differ. | Requires cross-section summation pass after synthetic line detection. | Tier 2 |
 | UX-DEF-12 | Taxonomy Conflict / Bulk Resolution | Resolve all conflicts of the same type in one action (e.g. "apply global for all 12 revenue conflicts"). | Requires multi-select conflict resolution UX and batch API endpoint. | Tier 2 |
+
+---
+
+## Import Hub Phase 2 (2026-05-27)
+
+Dedicated import wizard pages, taxonomy drag-drop enhancements, TB net income validation, and UI component consistency.
+
+### Last Test Run
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Python unit tests | 677 | 0 | 677 |
+| Frontend vitest | 406 | 0 | 406 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+
+### Fixes and Features Applied
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| UX-102 | High | Import Hub / No Dedicated Wizard Pages | ImportCenterPage used in-page tabs for TB/GL/JE imports, requiring tab switching instead of dedicated flows. GL and JE imports had no wizard pages at all. | `GeneralLedgerImportPage` (4-step: upload → column mapping → balance preview → post parameters) and `JournalEntryImportPage` (4-step: upload+config → column mapping → verify → finalize) added. ImportCenterPage cards now navigate to `/imports/trial-balance`, `/imports/general-ledger`, `/imports/journal-entries`. Entity filter bar added to overview. Resolves UX-DEF-04. | Resolved |
+| UX-103 | High | JE Import / No overlay_group or is_reversing Support | `POST /journal-entries/import` had no overlay_group or reversing entry support. Scenario was required. | `overlay_group` and `is_reversing` Form params added to backend endpoint. Auto-resolves active scenario when none specified. Creates reversing JE on next month 1st when `is_reversing=True`. Frontend `importCsv()` updated to pass both params. | Resolved |
+| UX-104 | Medium | TB Import / Net Income Mismatch Validation | `validate_batch()` did not cross-check P&L net income against equity net income lines. Silent mismatches imported undetected. | `_validate_retained_earnings_net_income()` added to import_batch_service — warns `TB_NET_INCOME_MISMATCH` when P&L net income ≠ equity net income line(s) after mapping. | Resolved |
+| UX-105 | Medium | Taxonomy / No Drag-Over Drop Zones | TaxonomyAdminPage had no visual feedback when dragging accounts over taxonomy nodes; mapped categories didn't auto-expand. | `dragOverNodeId` state + `onDragOver`/`onDrop` handlers added to taxonomy tree nodes. Auto-expand `useEffect` opens categories containing mapped accounts on load. `GripVertical` handle on account rows. `POST /taxonomy/reorder` endpoint for sort-order persistence. | Resolved |
+| UX-106 | Medium | Import Wizard / Inconsistent Entity/Scenario Selects | TB, GL, and JE import pages used raw `<select>` with manually fetched entity lists and hardcoded scenario options (Scenario 1–3), inconsistent with the rest of the app. | Replaced with `EntitySelect`, `PeriodSelect`, and `ScenarioSelect` components on all three import wizard pages. State types corrected from `string` to `number \| ''`. | Resolved |
+
+### Deferred
+
+| ID | Area | Issue | Reason Deferred | Target |
+|---|---|---|---|---|
+| UX-DEF-17 | JE Import / Scenario Hardcoding | GL import Step 3 and JE import Step 0 still fall back to scenario ID 1 if none selected; `ScenarioSelect` now shows real scenarios but required validation not enforced. | UX polish; not a blocking issue. | Tier 2 |
 
 ---
 
