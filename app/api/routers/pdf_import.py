@@ -174,6 +174,11 @@ async def upload_pdf(
         warnings=extracted.get("warnings", []),
         balance_sheet_variance=bs_validation["variance"],
         balance_sheet_tied=bs_validation["tied"],
+        net_income_variance=bs_validation["net_income_variance"],
+        net_income_reconciled=bs_validation["net_income_variance"] is None
+        or abs(float(bs_validation["net_income_variance"])) <= 1.0,
+        net_income_in_equity=bs_validation["net_income_in_equity"],
+        pnl_net_income=bs_validation["pnl_net_income"],
     )
 
 
@@ -465,6 +470,11 @@ def get_pdf_preview(batch_id: int, db: Session = Depends(get_db)):
         warnings=extracted.get("warnings", []),
         balance_sheet_variance=bs_validation["variance"],
         balance_sheet_tied=bs_validation["tied"],
+        net_income_variance=bs_validation["net_income_variance"],
+        net_income_reconciled=bs_validation["net_income_variance"] is None
+        or abs(float(bs_validation["net_income_variance"])) <= 1.0,
+        net_income_in_equity=bs_validation["net_income_in_equity"],
+        pnl_net_income=bs_validation["pnl_net_income"],
     )
 
 

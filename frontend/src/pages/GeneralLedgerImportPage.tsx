@@ -524,7 +524,8 @@ export function GeneralLedgerImportPage() {
               
               <button
                 type="button"
-                disabled={importMutation.isPending}
+                disabled={importMutation.isPending || scenarioId === ''}
+                title={scenarioId === '' ? 'Select a scenario before importing' : undefined}
                 onClick={() => importMutation.mutate()}
                 className="flex items-center gap-1 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-100 cursor-pointer"
               >

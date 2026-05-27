@@ -1209,6 +1209,11 @@ export interface PDFImportPreview {
   // P2: balance sheet tie check
   balance_sheet_variance: string | null
   balance_sheet_tied: boolean
+  // UX-DEF-11: net income reconciliation
+  net_income_variance: string | null
+  net_income_reconciled: boolean
+  net_income_in_equity: string | null
+  pnl_net_income: string | null
 }
 
 export interface PDFValidationCheck {

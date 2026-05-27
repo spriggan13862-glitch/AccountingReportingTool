@@ -996,6 +996,39 @@ function BalanceSheetImbalancePanel({
   )
 }
 
+// UX-DEF-11: Net income reconciliation warning panel
+function NetIncomeReconPanel({
+  niVariance,
+  niInEquity,
+  plNI,
+}: {
+  niVariance: string
+  niInEquity: string | null
+  plNI: string | null
+}) {
+  return (
+    <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-4" data-testid="ni-recon-panel">
+      <div className="flex items-start gap-2 mb-2">
+        <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-amber-800">Net Income Reconciliation Mismatch</p>
+          <p className="text-xs text-amber-700 mt-1">
+            The Net Income shown in the Equity section (
+            <span className="font-mono font-semibold">{fmt(niInEquity ?? '0')}</span>) does not match
+            the P&amp;L net income (
+            <span className="font-mono font-semibold">{fmt(plNI ?? '0')}</span>). Variance:{' '}
+            <span className="font-mono font-semibold">{fmt(niVariance)}</span>.
+          </p>
+          <p className="text-xs text-amber-600 mt-2">
+            Common causes: year-end vs. interim timing, partial P&amp;L extraction, or a retained earnings
+            adjustment not reflected in the income statement. You may still apply — verify after import.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -1261,6 +1294,8 @@ export function PDFImportPage() {
 
   const bsNotTied = preview && !preview.balance_sheet_tied && importType === 'financial_statements'
   const bsVariance = preview?.balance_sheet_variance ?? '0'
+  const niMismatch = preview && !preview.net_income_reconciled && importType === 'financial_statements'
+  const niVariance = preview?.net_income_variance ?? '0'
 
   // Should Apply button be disabled?
   const canApply = failingCount === 0 && (!bsNotTied || importType !== 'financial_statements')
@@ -1546,6 +1581,15 @@ export function PDFImportPage() {
                 variance={bsVariance}
                 onForceApply={() => applyMutation.mutate(true)}
                 isPending={applyMutation.isPending}
+              />
+            )}
+
+            {/* UX-DEF-11: Net income reconciliation warning */}
+            {niMismatch && !bsNotTied && (
+              <NetIncomeReconPanel
+                niVariance={niVariance}
+                niInEquity={preview?.net_income_in_equity ?? null}
+                plNI={preview?.pnl_net_income ?? null}
               />
             )}
 

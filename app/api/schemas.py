@@ -1940,6 +1940,11 @@ class PDFImportPreview(BaseModel):
     # P2: balance sheet tie status
     balance_sheet_variance: str | None = None
     balance_sheet_tied: bool = True
+    # UX-DEF-11: net income reconciliation
+    net_income_variance: str | None = None
+    net_income_reconciled: bool = True
+    net_income_in_equity: str | None = None
+    pnl_net_income: str | None = None
 
 
 class PDFValidationCheck(BaseModel):
