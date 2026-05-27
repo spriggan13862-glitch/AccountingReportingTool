@@ -116,19 +116,6 @@ vi.mock('@/components/ui/EntitySelect', () => ({
   ),
 }))
 
-vi.mock('@/components/ui/PeriodSelect', () => ({
-  PeriodSelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
-    <select
-      data-testid="period-select"
-      value={String(value)}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
-    >
-      <option value="">—</option>
-      <option value="1">Q1-2026</option>
-    </select>
-  ),
-}))
-
 async function uploadAndPreview() {
   const { pdfImportApi } = await import('@/api/pdfImport')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -142,10 +129,6 @@ async function uploadAndPreview() {
 
   renderPage()
   fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
-  fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
-  fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
-  fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
-  
   const input = screen.getByTestId('pdf-file-input') as HTMLInputElement
   const file = new File(['pdf'], 'test.pdf', { type: 'application/pdf' })
   fireEvent.change(input, { target: { files: [file] } })

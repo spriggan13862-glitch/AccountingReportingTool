@@ -1390,7 +1390,7 @@ export function PDFImportPage() {
           <div className="flex justify-end">
             <button
               type="button"
-              disabled={!file || !entityId || !periodId || !importType || !basisOverride || !statementScope || uploadMutation.isPending}
+              disabled={!file || !entityId || uploadMutation.isPending}
               onClick={() => uploadMutation.mutate()}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
               data-testid="parse-pdf-btn"
