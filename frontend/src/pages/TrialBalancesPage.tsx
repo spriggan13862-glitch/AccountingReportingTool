@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { reportingApi } from '@/api/reporting'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -26,7 +27,8 @@ function fmtBalance(val: string) {
 type TBMode = 'cumulative' | 'period'
 
 export function TrialBalancesPage() {
-  const [entityId, setEntityId] = useState<number | ''>('')
+  const { activeEntity } = useWorkspace()
+  const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().slice(0, 10))
   const [fromDate, setFromDate] = useState('')
   const [tbMode, setTbMode] = useState<TBMode>('cumulative')

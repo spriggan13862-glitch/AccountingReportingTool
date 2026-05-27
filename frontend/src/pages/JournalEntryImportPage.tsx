@@ -13,6 +13,7 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
@@ -32,11 +33,12 @@ export function JournalEntryImportPage() {
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
+  const { activeEntity } = useWorkspace()
 
   const [step, setStep] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [entityId, setEntityId] = useState<number | ''>('')
+  const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [periodId, setPeriodId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState<string>('')
 

@@ -12,6 +12,7 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { DrilldownPanel } from '@/components/reports/DrilldownPanel'
 import { useOrg } from '@/providers/OrgProvider'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { cn } from '@/utils/cn'
 import type { TaxonomyFsLine, CashFlowSection, CashFlowLine, OverlayCalculateRequest, OverlayLineItem, ReportingTaxonomyLine } from '@/types'
 
@@ -391,8 +392,9 @@ export function FinancialStatementsPage() {
   const { org } = useOrg()
   const orgId = org?.id ?? 0
   const queryClient = useQueryClient()
+  const { activeEntity } = useWorkspace()
 
-  const [entityId, setEntityId] = useState<number | ''>('')
+  const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
 
   // Mutation for Initialize Reporting Taxonomy setup flow
   const initializeTaxonomyMutation = useMutation({

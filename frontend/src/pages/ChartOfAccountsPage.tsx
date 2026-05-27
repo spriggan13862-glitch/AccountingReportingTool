@@ -18,6 +18,7 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { CreateAccountModal } from '@/components/ui/CreateAccountModal'
 import { BatchActionBar } from '@/components/data-grid'
 import { useToast } from '@/providers/ToastProvider'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import type { Account, AccountNode, ReportingTaxonomyLine } from '@/types'
 import { cn } from '@/utils/cn'
 
@@ -1555,9 +1556,10 @@ export function ChartOfAccountsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { activeEntity } = useWorkspace()
 
   const [entityId, setEntityId] = useState<number | ''>(
-    searchParams.get('entity') ? Number(searchParams.get('entity')) : ''
+    searchParams.get('entity') ? Number(searchParams.get('entity')) : (activeEntity?.id ?? '')
   )
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
