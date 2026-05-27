@@ -30,10 +30,11 @@ router = APIRouter(prefix="/reporting", tags=["reporting"])
 def trial_balance(
     entity_id: int,
     as_of_date: datetime.date,
+    from_date: datetime.date | None = Query(default=None),
     scenario_ids: list[int] = Query(default=[]),
     db: Session = Depends(get_db),
 ):
-    rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids)
+    rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids, from_date=from_date)
     return [
         TBRowOut(
             account_id=r.account_id,
@@ -45,6 +46,10 @@ def trial_balance(
             total_credit=r.total_credit,
             net_debit=r.net_debit,
             signed_balance=r.signed_balance,
+            beginning_balance=r.beginning_balance,
+            period_debit=r.period_debit,
+            period_credit=r.period_credit,
+            ending_balance=r.ending_balance,
         )
         for r in rows
     ]

@@ -17,23 +17,33 @@ function fmt(val: string) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function fmtSigned(val: string) {
+function fmtBalance(val: string) {
   const n = parseFloat(val)
   if (isNaN(n)) return '—'
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+type TBMode = 'cumulative' | 'period'
+
 export function TrialBalancesPage() {
   const [entityId, setEntityId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().slice(0, 10))
+  const [fromDate, setFromDate] = useState('')
+  const [tbMode, setTbMode] = useState<TBMode>('cumulative')
   const [scenarioIds, setScenarioIds] = useState<number[]>([])
   const [submitted, setSubmitted] = useState(false)
 
-  const canRun = !!entityId && !!asOfDate
+  const isPeriodMode = tbMode === 'period'
+  const canRun = !!entityId && !!asOfDate && (!isPeriodMode || !!fromDate)
 
   const { data: rows, isFetching, error, refetch } = useQuery<TBRow[]>({
-    queryKey: ['trial-balance', entityId, asOfDate, scenarioIds],
-    queryFn: () => reportingApi.trialBalance(entityId as number, asOfDate, scenarioIds),
+    queryKey: ['trial-balance', entityId, asOfDate, fromDate, tbMode, scenarioIds],
+    queryFn: () => reportingApi.trialBalance(
+      entityId as number,
+      asOfDate,
+      scenarioIds,
+      isPeriodMode && fromDate ? fromDate : undefined,
+    ),
     enabled: submitted && canRun,
     retry: false,
   })
@@ -43,10 +53,12 @@ export function TrialBalancesPage() {
     if (submitted) refetch()
   }
 
-  const totalDebit = rows?.reduce((s, r) => s + parseFloat(r.total_debit), 0) ?? 0
-  const totalCredit = rows?.reduce((s, r) => s + parseFloat(r.total_credit), 0) ?? 0
+  const debitKey = isPeriodMode ? 'period_debit' : 'total_debit'
+  const creditKey = isPeriodMode ? 'period_credit' : 'total_credit'
+  const totalDebit = rows?.reduce((s, r) => s + parseFloat(r[debitKey] ?? r.total_debit), 0) ?? 0
+  const totalCredit = rows?.reduce((s, r) => s + parseFloat(r[creditKey] ?? r.total_credit), 0) ?? 0
 
-  const columns = [
+  const cumulativeColumns = [
     {
       key: 'account_number',
       header: 'Number',
@@ -100,7 +112,7 @@ export function TrialBalancesPage() {
       sortValue: (row: TBRow) => parseFloat(row.signed_balance) || 0,
       render: (row: TBRow) => (
         <span className="font-mono tabular-nums font-semibold text-gray-900 block text-right pr-2">
-          {fmtSigned(row.signed_balance)}
+          {fmtBalance(row.signed_balance)}
         </span>
       ),
       className: 'text-right',
@@ -108,21 +120,128 @@ export function TrialBalancesPage() {
     },
   ]
 
+  const periodColumns = [
+    {
+      key: 'account_number',
+      header: 'Number',
+      sortable: true,
+      filterable: true,
+      sortValue: (row: TBRow) => row.account_number || '',
+      render: (row: TBRow) => <span className="font-mono text-xs text-gray-500">{row.account_number}</span>,
+    },
+    {
+      key: 'account_name',
+      header: 'Account',
+      sortable: true,
+      filterable: true,
+      sortValue: (row: TBRow) => row.account_name,
+      render: (row: TBRow) => <span className="text-gray-800 font-medium">{row.account_name}</span>,
+    },
+    {
+      key: 'account_type',
+      header: 'Type',
+      sortable: true,
+      filterable: true,
+      sortValue: (row: TBRow) => row.account_type,
+      render: (row: TBRow) => (
+        <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10 uppercase tracking-wider">
+          {row.account_type}
+        </span>
+      ),
+    },
+    {
+      key: 'beginning_balance',
+      header: 'Beg. Balance',
+      sortable: true,
+      sortValue: (row: TBRow) => parseFloat(row.beginning_balance) || 0,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-600">{fmtBalance(row.beginning_balance)}</span>,
+      className: 'text-right',
+      headerClassName: 'justify-end',
+    },
+    {
+      key: 'period_debit',
+      header: 'Period Debits',
+      sortable: true,
+      sortValue: (row: TBRow) => parseFloat(row.period_debit) || 0,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.period_debit)}</span>,
+      className: 'text-right',
+      headerClassName: 'justify-end',
+    },
+    {
+      key: 'period_credit',
+      header: 'Period Credits',
+      sortable: true,
+      sortValue: (row: TBRow) => parseFloat(row.period_credit) || 0,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.period_credit)}</span>,
+      className: 'text-right',
+      headerClassName: 'justify-end',
+    },
+    {
+      key: 'ending_balance',
+      header: 'End. Balance',
+      sortable: true,
+      sortValue: (row: TBRow) => parseFloat(row.ending_balance) || 0,
+      render: (row: TBRow) => (
+        <span className="font-mono tabular-nums font-semibold text-gray-900 block text-right pr-2">
+          {fmtBalance(row.ending_balance)}
+        </span>
+      ),
+      className: 'text-right',
+      headerClassName: 'justify-end',
+    },
+  ]
+
+  const columns = isPeriodMode ? periodColumns : cumulativeColumns
+
   return (
     <PageLayout title="Trial Balance">
-      <div className="space-y-4 max-w-5xl">
+      <div className="space-y-4 max-w-6xl">
         {/* Parameters */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Parameters</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Parameters</h2>
+            {/* TB Mode toggle */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => { setTbMode('cumulative'); setSubmitted(false) }}
+                className={cn(
+                  'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
+                  tbMode === 'cumulative' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                )}
+              >
+                Cumulative
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTbMode('period'); setSubmitted(false) }}
+                className={cn(
+                  'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
+                  tbMode === 'period' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                )}
+              >
+                Period
+              </button>
+            </div>
+          </div>
+          <div className={cn('grid gap-3 items-end', isPeriodMode ? 'grid-cols-1 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3')}>
             <EntitySelect
               label="Entity"
               value={entityId}
               onChange={(id) => { setEntityId(id); setSubmitted(false) }}
               required
             />
+            {isPeriodMode && (
+              <Input
+                label="From Date"
+                type="date"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setSubmitted(false) }}
+                required
+              />
+            )}
             <Input
-              label="As-of Date"
+              label={isPeriodMode ? 'To Date' : 'As-of Date'}
               type="date"
               value={asOfDate}
               onChange={(e) => { setAsOfDate(e.target.value); setSubmitted(false) }}
@@ -155,7 +274,7 @@ export function TrialBalancesPage() {
                 <ArrowUpRight className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 font-medium">Total Debits</p>
+                <p className="text-xs text-gray-500 font-medium">{isPeriodMode ? 'Period Debits' : 'Total Debits'}</p>
                 <p className="text-lg font-mono font-bold text-gray-900">
                   {totalDebit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>
@@ -167,7 +286,7 @@ export function TrialBalancesPage() {
                 <ArrowDownRight className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 font-medium">Total Credits</p>
+                <p className="text-xs text-gray-500 font-medium">{isPeriodMode ? 'Period Credits' : 'Total Credits'}</p>
                 <p className="text-lg font-mono font-bold text-gray-900">
                   {totalCredit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </p>

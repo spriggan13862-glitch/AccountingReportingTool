@@ -22,6 +22,15 @@ def create_account(body: AccountCreate, db: Session = Depends(get_db)):
         tax_line=body.tax_line,
         source_system=body.source_system,
         reporting_taxonomy_line_id=body.reporting_taxonomy_line_id,
+        is_header=body.is_header,
+        is_postable=body.is_postable,
+        fs_sign_convention=body.fs_sign_convention,
+        cfs_section=body.cfs_section,
+        fs_statement=body.fs_statement,
+        fs_section=body.fs_section,
+        fs_line_label=body.fs_line_label,
+        fs_line_order=body.fs_line_order,
+        sort_order=body.sort_order,
     )
     if body.account_status is not None:
         account.account_status = body.account_status
@@ -210,6 +219,24 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
         account.parent_account_id = body.parent_account_id
     if body.active is not None:
         account.active = body.active
+    if body.is_header is not None:
+        account.is_header = body.is_header
+    if body.is_postable is not None:
+        account.is_postable = body.is_postable
+    if "fs_sign_convention" in body.model_fields_set:
+        account.fs_sign_convention = body.fs_sign_convention
+    if body.cfs_section is not None:
+        account.cfs_section = body.cfs_section
+    if body.fs_statement is not None:
+        account.fs_statement = body.fs_statement
+    if "fs_section" in body.model_fields_set:
+        account.fs_section = body.fs_section
+    if body.fs_line_label is not None:
+        account.fs_line_label = body.fs_line_label
+    if body.fs_line_order is not None:
+        account.fs_line_order = body.fs_line_order
+    if body.sort_order is not None:
+        account.sort_order = body.sort_order
 
     db.flush()
     db.refresh(account)

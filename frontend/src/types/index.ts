@@ -98,6 +98,17 @@ export interface Account {
   tax_line: string | null
   source_system: string | null
   reporting_taxonomy_line_id: number | null
+  is_header: boolean
+  is_postable: boolean
+  fs_sign_convention: number | null
+  cfs_section: string | null
+  fs_statement: string | null
+  fs_section: string | null
+  fs_line_label: string | null
+  fs_line_order: number | null
+  account_path: string | null
+  depth_level: number | null
+  sort_order: number | null
 }
 
 export interface AccountNode extends Account {
@@ -1111,6 +1122,10 @@ export interface TBRow {
   total_credit: string
   net_debit: string
   signed_balance: string
+  beginning_balance: string
+  period_debit: string
+  period_credit: string
+  ending_balance: string
 }
 
 export interface TaxonomyFsLine {

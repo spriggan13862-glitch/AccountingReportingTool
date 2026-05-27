@@ -247,7 +247,7 @@ describe('TrialBalancesPage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /Run/i }))
     await waitFor(() => {
-      expect(reportingApi.trialBalance).toHaveBeenCalledWith(1, expect.any(String), [])
+      expect(reportingApi.trialBalance).toHaveBeenCalledWith(1, expect.any(String), [], undefined)
     })
   })
 

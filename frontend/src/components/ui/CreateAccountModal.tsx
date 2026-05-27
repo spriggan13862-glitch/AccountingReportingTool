@@ -167,6 +167,11 @@ export function CreateAccountModal({ entityId, existingAccounts, onClose, onCrea
   const [description, setDescription] = useState('')
   const [taxLine, setTaxLine] = useState('')
   const [active, setActive] = useState(true)
+  const [isHeader, setIsHeader] = useState(false)
+  const [cfsSection, setCfsSection] = useState('')
+  const [fsStatement, setFsStatement] = useState('')
+  const [fsSectionValue, setFsSectionValue] = useState('')
+  const [fsLineLabel, setFsLineLabel] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   const { data: taxonomyLines = [] } = useQuery({
@@ -212,6 +217,12 @@ export function CreateAccountModal({ entityId, existingAccounts, onClose, onCrea
       reporting_taxonomy_line_id: reportingLineId || null,
       description: description || null,
       tax_line: taxLine || null,
+      is_header: isHeader,
+      is_postable: !isHeader,
+      cfs_section: cfsSection || null,
+      fs_statement: fsStatement || null,
+      fs_section: fsSectionValue || null,
+      fs_line_label: fsLineLabel || null,
     })
   }
 
@@ -389,15 +400,83 @@ export function CreateAccountModal({ entityId, existingAccounts, onClose, onCrea
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  id="create-active"
-                  type="checkbox"
-                  checked={active}
-                  onChange={(e) => setActive(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                <label htmlFor="create-active" className="text-xs text-gray-600">Active</label>
+              {/* Financial Statement Mapping */}
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Financial Statement Mapping</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">FS Statement</label>
+                    <select
+                      value={fsStatement}
+                      onChange={(e) => setFsStatement(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    >
+                      <option value="">— not mapped —</option>
+                      <option value="IncomeStatement">Income Statement</option>
+                      <option value="BalanceSheet">Balance Sheet</option>
+                      <option value="CashFlow">Cash Flow Statement</option>
+                      <option value="StatementOfEquity">Statement of Equity</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">CFS Section</label>
+                    <select
+                      value={cfsSection}
+                      onChange={(e) => setCfsSection(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    >
+                      <option value="">— not applicable —</option>
+                      <option value="Operating">Operating</option>
+                      <option value="Investing">Investing</option>
+                      <option value="Financing">Financing</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">FS Section</label>
+                    <input
+                      type="text"
+                      value={fsSectionValue}
+                      onChange={(e) => setFsSectionValue(e.target.value)}
+                      placeholder="e.g. Current Assets"
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">FS Line Label</label>
+                    <input
+                      type="text"
+                      value={fsLineLabel}
+                      onChange={(e) => setFsLineLabel(e.target.value)}
+                      placeholder="e.g. Cash and Cash Equivalents"
+                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="create-active"
+                    type="checkbox"
+                    checked={active}
+                    onChange={(e) => setActive(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="create-active" className="text-xs text-gray-600">Active</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="create-is-header"
+                    type="checkbox"
+                    checked={isHeader}
+                    onChange={(e) => setIsHeader(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor="create-is-header" className="text-xs text-gray-600">
+                    Header account <span className="text-gray-400">(no direct posting)</span>
+                  </label>
+                </div>
               </div>
 
               {/* Mapping chain reminder */}

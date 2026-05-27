@@ -434,6 +434,47 @@ function AccountPreviewSidebar({
                 <dd className="font-semibold text-gray-800">{account.detail_type}</dd>
               </div>
             )}
+            <div className="flex items-center gap-2 pt-1">
+              {account.is_header && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded border border-amber-200 bg-amber-50 text-amber-700 text-[10px] font-bold uppercase tracking-wider">
+                  Header
+                </span>
+              )}
+              {!account.is_postable && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded border border-red-200 bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider">
+                  No Posting
+                </span>
+              )}
+              {account.is_postable && !account.is_header && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded border border-green-200 bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wider">
+                  Postable
+                </span>
+              )}
+            </div>
+            {account.fs_statement && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-gray-500">FS Statement</dt>
+                <dd className="font-semibold text-gray-800">{account.fs_statement.replace(/([A-Z])/g, ' $1').trim()}</dd>
+              </div>
+            )}
+            {account.fs_section && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-gray-500">FS Section</dt>
+                <dd className="font-semibold text-gray-800">{account.fs_section}</dd>
+              </div>
+            )}
+            {account.fs_line_label && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-gray-500">FS Line Label</dt>
+                <dd className="font-semibold text-gray-800">{account.fs_line_label}</dd>
+              </div>
+            )}
+            {account.cfs_section && (
+              <div className="flex justify-between items-center text-xs">
+                <dt className="text-gray-500">CFS Section</dt>
+                <dd className="font-semibold text-gray-800">{account.cfs_section}</dd>
+              </div>
+            )}
             {account.description && (
               <div className="border-t border-gray-200/50 pt-2 mt-2">
                 <dt className="text-gray-500 text-[10px] font-semibold uppercase tracking-wide mb-1">Description</dt>
@@ -1124,7 +1165,12 @@ function AccountRow({
               <option value="liability">liability</option>
               <option value="equity">equity</option>
               <option value="revenue">revenue</option>
+              <option value="cogs">cogs</option>
               <option value="expense">expense</option>
+              <option value="other_income">other_income</option>
+              <option value="other_expense">other_expense</option>
+              <option value="tax">tax</option>
+              <option value="intercompany">intercompany</option>
             </select>
           ) : (
             <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider", TYPE_COLORS[node.account_type] ?? 'bg-gray-100 text-gray-600 border-gray-200')}>

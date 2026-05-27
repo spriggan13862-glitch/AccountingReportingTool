@@ -292,6 +292,7 @@ def _build_tb_rows(
         c   = credit_totals.get(aid, Decimal("0"))
         net = d - c
         ref = meta[aid]
+        signed = net if ref.normal_balance == "debit" else -net
         result.append(TrialBalanceRow(
             account_id=aid,
             account_number=ref.account_number,
@@ -301,7 +302,11 @@ def _build_tb_rows(
             total_debit=d,
             total_credit=c,
             net_debit=net,
-            signed_balance=(net if ref.normal_balance == "debit" else -net),
+            signed_balance=signed,
+            beginning_balance=Decimal("0"),
+            period_debit=d,
+            period_credit=c,
+            ending_balance=signed,
         ))
     return result
 

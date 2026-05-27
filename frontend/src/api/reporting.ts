@@ -11,10 +11,15 @@ const serializeArrayParams = (params: Record<string, unknown>) => {
 }
 
 export const reportingApi = {
-  trialBalance: (entityId: number, asOfDate: string, scenarioIds: number[] = []) =>
+  trialBalance: (entityId: number, asOfDate: string, scenarioIds: number[] = [], fromDate?: string) =>
     api
       .get<TBRow[]>('/reporting/trial-balance', {
-        params: { entity_id: entityId, as_of_date: asOfDate, scenario_ids: scenarioIds },
+        params: {
+          entity_id: entityId,
+          as_of_date: asOfDate,
+          scenario_ids: scenarioIds,
+          ...(fromDate ? { from_date: fromDate } : {}),
+        },
         paramsSerializer: serializeArrayParams,
       })
       .then((r) => r.data),

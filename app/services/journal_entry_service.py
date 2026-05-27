@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
+from app.models.account import Account
 from app.models.accounting_period import AccountingPeriod
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
@@ -83,6 +84,34 @@ def _check_period_not_closed(
             f"Cannot post into closed period '{closed.period_name}' "
             f"({closed.start_date} – {closed.end_date}) [{status_label}]"
         )
+
+
+# ---------------------------------------------------------------------------
+# Account postability guard
+# ---------------------------------------------------------------------------
+
+def _check_accounts_postable(db: Session, data: JournalEntryCreate) -> None:
+    """Raise JournalEntryValidationError if any line targets a non-postable account."""
+    account_ids = [l.account_id for l in data.lines]
+    non_postable = (
+        db.query(Account.id, Account.account_number, Account.account_name)
+        .filter(Account.id.in_(account_ids), Account.is_postable == False)
+        .all()
+    )
+    if non_postable:
+        details = ", ".join(
+            f"{r.account_number} ({r.account_name})" for r in non_postable
+        )
+        result = ValidationResult()
+        result.error(
+            code="JE_NONPOSTABLE_ACCOUNT",
+            message=f"Cannot post to header/non-postable account(s): {details}",
+            source_type="journal_entry",
+            source_id=data.je_number,
+            suggested_resolution="Post to a postable detail account, not a header account.",
+        )
+        msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
+        raise JournalEntryValidationError(msg, result=result)
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +232,7 @@ def post_journal_entry(
         raise JournalEntryValidationError(msg, result=result)
 
     _check_period_not_closed(db, data.entity_id, data.entry_date)
+    _check_accounts_postable(db, data)
 
     now = datetime.datetime.now()
     user_id = acting_user.id if acting_user is not None else None
@@ -253,6 +283,8 @@ def create_draft_journal_entry(
     if acting_user is not None:
         require_permission(db, acting_user, "create_journal_entries")
         check_entity_org_access(db, acting_user, data.entity_id)
+
+    _check_accounts_postable(db, data)
 
     user_id = acting_user.id if acting_user is not None else None
     je = JournalEntry(
@@ -499,6 +531,7 @@ def reverse_journal_entry(
         created_by_user_id=user_id,
         posted_by_user_id=user_id,
         reversed_by_user_id=user_id,
+        overlay_group=original.overlay_group,
     )
     db.add(reversal)
     db.flush()

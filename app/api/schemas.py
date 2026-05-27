@@ -88,7 +88,7 @@ class AccountCreate(BaseModel):
     entity_id: int | None = None
     account_number: str
     account_name: str
-    account_type: str                    # asset/liability/equity/revenue/expense
+    account_type: str                    # asset/liability/equity/revenue/cogs/expense/other_income/other_expense/tax/intercompany
     normal_balance: str                  # debit/credit
     parent_account_id: int | None = None
     detail_type: str | None = None
@@ -98,6 +98,15 @@ class AccountCreate(BaseModel):
     reporting_taxonomy_line_id: int | None = None
     account_status: str | None = None
     active: bool | None = None
+    is_header: bool = False
+    is_postable: bool = True
+    fs_sign_convention: int | None = None
+    cfs_section: str | None = None
+    fs_statement: str | None = None
+    fs_section: str | None = None
+    fs_line_label: str | None = None
+    fs_line_order: int | None = None
+    sort_order: int | None = None
 
 
 class AccountUpdate(BaseModel):
@@ -112,6 +121,15 @@ class AccountUpdate(BaseModel):
     reporting_taxonomy_line_id: int | None = None
     parent_account_id: int | None = None
     active: bool | None = None
+    is_header: bool | None = None
+    is_postable: bool | None = None
+    fs_sign_convention: int | None = None
+    cfs_section: str | None = None
+    fs_statement: str | None = None
+    fs_section: str | None = None
+    fs_line_label: str | None = None
+    fs_line_order: int | None = None
+    sort_order: int | None = None
 
 
 class AccountOut(BaseModel):
@@ -130,6 +148,17 @@ class AccountOut(BaseModel):
     tax_line: str | None = None
     source_system: str | None = None
     reporting_taxonomy_line_id: int | None = None
+    is_header: bool = False
+    is_postable: bool = True
+    fs_sign_convention: int | None = None
+    cfs_section: str | None = None
+    fs_statement: str | None = None
+    fs_section: str | None = None
+    fs_line_label: str | None = None
+    fs_line_order: int | None = None
+    account_path: str | None = None
+    depth_level: int | None = None
+    sort_order: int | None = None
 
 
 class AccountBulkUpdate(BaseModel):
@@ -237,6 +266,16 @@ class TaxonomyImportApplyResult(BaseModel):
     created: int
     updated: int
     errors: list[str]
+
+
+class TaxonomyLineReorderItem(BaseModel):
+    id: int
+    sort_order: int
+
+
+class TaxonomyReorderRequest(BaseModel):
+    items: list[TaxonomyLineReorderItem]
+
 
 
 # Reporting Views
@@ -486,6 +525,10 @@ class TBRowOut(BaseModel):
     total_credit: Decimal
     net_debit: Decimal
     signed_balance: Decimal
+    beginning_balance: Decimal = Decimal("0")
+    period_debit: Decimal = Decimal("0")
+    period_credit: Decimal = Decimal("0")
+    ending_balance: Decimal = Decimal("0")
 
 
 # ---------------------------------------------------------------------------

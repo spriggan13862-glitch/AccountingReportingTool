@@ -312,7 +312,7 @@ describe('ChartOfAccountsPage — M33 Create Account', () => {
       expect(screen.getByText(/Checking, savings, and money-market/i)).toBeTruthy()
       // Form fields appear
       expect(screen.getByPlaceholderText(/e.g. 1000/i)).toBeTruthy()
-      expect(screen.getByPlaceholderText(/e.g. Cash/i)).toBeTruthy()
+      expect(screen.getByPlaceholderText(/e.g. Cash — Operating/i)).toBeTruthy()
     })
   })
 

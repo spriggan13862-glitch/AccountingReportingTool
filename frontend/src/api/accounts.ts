@@ -13,6 +13,15 @@ export interface AccountCreate {
   tax_line?: string | null
   source_system?: string | null
   reporting_taxonomy_line_id?: number | null
+  is_header?: boolean
+  is_postable?: boolean
+  fs_sign_convention?: number | null
+  cfs_section?: string | null
+  fs_statement?: string | null
+  fs_section?: string | null
+  fs_line_label?: string | null
+  fs_line_order?: number | null
+  sort_order?: number | null
 }
 
 export interface AccountUpdate {
@@ -27,6 +36,15 @@ export interface AccountUpdate {
   reporting_taxonomy_line_id?: number | null
   parent_account_id?: number | null
   active?: boolean
+  is_header?: boolean
+  is_postable?: boolean
+  fs_sign_convention?: number | null
+  cfs_section?: string | null
+  fs_statement?: string | null
+  fs_section?: string | null
+  fs_line_label?: string | null
+  fs_line_order?: number | null
+  sort_order?: number | null
 }
 
 interface AccountPage {

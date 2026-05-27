@@ -29,10 +29,14 @@ class TrialBalanceRow:
     account_name: str
     account_type: str
     normal_balance: str
-    total_debit: Decimal   # raw sum of all debit postings
-    total_credit: Decimal  # raw sum of all credit postings
-    net_debit: Decimal     # total_debit - total_credit; positive = net debit position
-    signed_balance: Decimal  # balance in the account's natural direction (always positive when normal)
+    total_debit: Decimal
+    total_credit: Decimal
+    net_debit: Decimal
+    signed_balance: Decimal
+    beginning_balance: Decimal = Decimal("0")  # signed balance before from_date
+    period_debit: Decimal = Decimal("0")       # debits in [from_date, as_of_date]
+    period_credit: Decimal = Decimal("0")      # credits in [from_date, as_of_date]
+    ending_balance: Decimal = Decimal("0")     # signed balance at as_of_date
 
 
 def get_account_balance(
@@ -69,13 +73,25 @@ def get_trial_balance(
     entity_id: int,
     as_of_date: datetime.date,
     scenario_ids: Sequence[int],
+    from_date: datetime.date | None = None,
 ) -> list[TrialBalanceRow]:
     """
-    Returns one TrialBalanceRow per account that has posted activity through as_of_date.
-    Rows are sorted by account_number.
-    When scenario_ids is empty, all scenarios for the entity are included.
+    Returns one TrialBalanceRow per account with posted activity through as_of_date.
+
+    When from_date is provided (period mode), also computes:
+      - beginning_balance: signed balance before from_date
+      - period_debit / period_credit: activity in [from_date, as_of_date]
+      - ending_balance: signed balance at as_of_date
     """
     resolved_ids = _resolve_scenario_ids(db, entity_id, scenario_ids)
+
+    base_filter = [
+        JournalEntryLine.entity_id == entity_id,
+        JournalEntry.entry_date <= as_of_date,
+        JournalEntry.scenario_id.in_(resolved_ids),
+        JournalEntry.status == "posted",
+    ]
+
     rows = (
         db.query(
             Account,
@@ -84,16 +100,54 @@ def get_trial_balance(
         )
         .join(JournalEntryLine, JournalEntryLine.account_id == Account.id)
         .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
-        .filter(
-            JournalEntryLine.entity_id == entity_id,
-            JournalEntry.entry_date <= as_of_date,
-            JournalEntry.scenario_id.in_(resolved_ids),
-            JournalEntry.status == "posted",
-        )
+        .filter(*base_filter)
         .group_by(Account.id)
         .order_by(Account.account_number)
         .all()
     )
+
+    # Pre-compute prior-period and period-only activity when from_date given
+    prior_by_account: dict[int, tuple[Decimal, Decimal]] = {}
+    period_by_account: dict[int, tuple[Decimal, Decimal]] = {}
+    if from_date is not None:
+        prior_rows = (
+            db.query(
+                JournalEntryLine.account_id,
+                func.coalesce(func.sum(JournalEntryLine.debit), 0),
+                func.coalesce(func.sum(JournalEntryLine.credit), 0),
+            )
+            .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
+            .filter(
+                JournalEntryLine.entity_id == entity_id,
+                JournalEntry.entry_date < from_date,
+                JournalEntry.scenario_id.in_(resolved_ids),
+                JournalEntry.status == "posted",
+            )
+            .group_by(JournalEntryLine.account_id)
+            .all()
+        )
+        for acct_id, pd, pc in prior_rows:
+            prior_by_account[acct_id] = (Decimal(str(pd)), Decimal(str(pc)))
+
+        period_rows = (
+            db.query(
+                JournalEntryLine.account_id,
+                func.coalesce(func.sum(JournalEntryLine.debit), 0),
+                func.coalesce(func.sum(JournalEntryLine.credit), 0),
+            )
+            .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
+            .filter(
+                JournalEntryLine.entity_id == entity_id,
+                JournalEntry.entry_date >= from_date,
+                JournalEntry.entry_date <= as_of_date,
+                JournalEntry.scenario_id.in_(resolved_ids),
+                JournalEntry.status == "posted",
+            )
+            .group_by(JournalEntryLine.account_id)
+            .all()
+        )
+        for acct_id, pd, pc in period_rows:
+            period_by_account[acct_id] = (Decimal(str(pd)), Decimal(str(pc)))
 
     result: list[TrialBalanceRow] = []
     for account, total_debit, total_credit in rows:
@@ -101,6 +155,19 @@ def get_trial_balance(
         c = Decimal(str(total_credit))
         net_debit = d - c
         signed_balance = net_debit if account.normal_balance == "debit" else -net_debit
+
+        if from_date is not None:
+            pr_d, pr_c = prior_by_account.get(account.id, (Decimal("0"), Decimal("0")))
+            pe_d, pe_c = period_by_account.get(account.id, (Decimal("0"), Decimal("0")))
+            pr_net = pr_d - pr_c
+            beg_balance = pr_net if account.normal_balance == "debit" else -pr_net
+            end_balance = signed_balance
+        else:
+            beg_balance = Decimal("0")
+            pe_d = d
+            pe_c = c
+            end_balance = signed_balance
+
         result.append(TrialBalanceRow(
             account_id=account.id,
             account_number=account.account_number,
@@ -111,6 +178,10 @@ def get_trial_balance(
             total_credit=c,
             net_debit=net_debit,
             signed_balance=signed_balance,
+            beginning_balance=beg_balance,
+            period_debit=pe_d,
+            period_credit=pe_c,
+            ending_balance=end_balance,
         ))
     return result
 
