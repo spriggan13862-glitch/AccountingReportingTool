@@ -23,6 +23,7 @@ from app.api.schemas import (
     ReportingTaxonomyViewUpdate,
     ReportingPresentationSettingsOut,
     ReportingPresentationSettingsUpdate,
+    TaxonomyReorderRequest,
 )
 from app.models.reporting_taxonomy import (
     ReportingTaxonomyLine,
@@ -304,6 +305,17 @@ def delete_taxonomy_line(line_id: int, db: Session = Depends(get_db)):
             )
         db.delete(line)
         db.commit()
+
+
+@router.post("/reorder", status_code=200)
+def reorder_taxonomy_lines(body: TaxonomyReorderRequest, db: Session = Depends(get_db)):
+    """Update sort order weights for multiple taxonomy lines."""
+    for item in body.items:
+        line = db.query(ReportingTaxonomyLine).get(item.id)
+        if line:
+            line.sort_order = item.sort_order
+    db.commit()
+    return {"status": "success"}
 
 
 @router.post("/seed", status_code=200)

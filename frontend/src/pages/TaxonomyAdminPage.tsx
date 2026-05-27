@@ -4,7 +4,7 @@ import {
   ChevronRight, ChevronDown, Plus, Pencil, X, Check, Download, Upload,
   RefreshCw, Copy, Trash2, BookOpen, AlertCircle, CheckCircle, Search,
   Filter, Settings, Flag, ArrowRight, ArrowLeft, Zap, Info, ShieldAlert,
-  Sparkles, SlidersHorizontal, Eye, EyeOff, Lock, Unlock
+  Sparkles, SlidersHorizontal, Eye, EyeOff, Lock, Unlock, GripVertical
 } from 'lucide-react'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import type { TaxonomyLineCreate, TaxonomyLineUpdate } from '@/api/reportingTaxonomy'
@@ -1142,6 +1142,7 @@ export function TaxonomyAdminPage() {
   const [unmappedOnlyFilter, setUnmappedOnlyFilter] = useState(false)
   const [leftSearchQuery, setLeftSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set())
+  const [dragOverNodeId, setDragOverNodeId] = useState<number | null>(null)
 
   // Flagged for review persist list in localStorage
   const [flaggedIds, setFlaggedIds] = useState<Set<number>>(() => {
@@ -1211,6 +1212,31 @@ export function TaxonomyAdminPage() {
     queryKey: ['reporting-taxonomy', 'all'],
     queryFn: () => reportingTaxonomyApi.list(false),
   })
+
+  // Automatically expand categories containing mapped accounts
+  useEffect(() => {
+    if (accounts.length === 0 || lines.length === 0) return
+    const nextExpanded = new Set<number>(expandedCategories)
+    let changed = false
+    
+    accounts.forEach(a => {
+      if (a.reporting_taxonomy_line_id) {
+        let currentId: number | null = a.reporting_taxonomy_line_id
+        while (currentId) {
+          if (!nextExpanded.has(currentId)) {
+            nextExpanded.add(currentId)
+            changed = true
+          }
+          const line = lines.find(l => l.id === currentId)
+          currentId = line?.parent_id ?? null
+        }
+      }
+    })
+    
+    if (changed) {
+      setExpandedCategories(nextExpanded)
+    }
+  }, [accounts, lines])
 
   // Mutation to map single/bulk accounts to a taxonomy line
   const mapAccountsMutation = useMutation({
@@ -1486,10 +1512,46 @@ export function TaxonomyAdminPage() {
       <div key={node.id} className="border-l border-slate-150/65 pl-2 ml-1 mt-0.5">
         <div
           onClick={() => hasChildren && toggleCategory(node.id)}
+          onDragOver={(e) => {
+            if (!node.is_subtotal) {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+            }
+          }}
+          onDragEnter={(e) => {
+            if (!node.is_subtotal) {
+              e.preventDefault()
+              setDragOverNodeId(node.id)
+            }
+          }}
+          onDragLeave={() => {
+            if (dragOverNodeId === node.id) {
+              setDragOverNodeId(null)
+            }
+          }}
+          onDrop={(e) => {
+            if (node.is_subtotal) return
+            e.preventDefault()
+            setDragOverNodeId(null)
+            const acctIdStr = e.dataTransfer.getData('text/plain')
+            if (!acctIdStr) return
+            const acctId = Number(acctIdStr)
+            if (isNaN(acctId)) return
+            
+            const idsToMap = selectedAccountIds.has(acctId)
+              ? Array.from(selectedAccountIds)
+              : [acctId]
+            
+            mapAccountsMutation.mutate({
+              accountIds: idsToMap,
+              taxonomyLineId: node.id
+            })
+          }}
           className={cn(
-            "flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-xs transition-colors cursor-pointer",
-            selectedAccountIds.size > 0 ? "hover:bg-indigo-50/70 border border-transparent hover:border-indigo-150" : "hover:bg-slate-50",
-            node.is_subtotal ? "bg-slate-50/65 font-bold" : ""
+            "flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-xs transition-colors cursor-pointer border border-transparent",
+            selectedAccountIds.size > 0 ? "hover:bg-indigo-50/70 hover:border-indigo-150" : "hover:bg-slate-50",
+            node.is_subtotal ? "bg-slate-50/65 font-bold" : "",
+            dragOverNodeId === node.id ? "bg-indigo-100 border-indigo-400 border-dashed scale-[1.02] shadow-sm font-semibold" : ""
           )}
         >
           {hasChildren ? (
@@ -1508,8 +1570,14 @@ export function TaxonomyAdminPage() {
           )}
 
           {rolledCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200/50 shrink-0">
+            <span className={cn(
+              "px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 border transition-all",
+              selfMapped.length > 0 
+                ? "bg-indigo-50 text-indigo-750 border-indigo-200" 
+                : "bg-slate-100 text-slate-600 border-slate-200/50"
+            )}>
               {rolledCount} mapped
+              {selfMapped.length > 0 && ` (${selfMapped.length} direct)`}
             </span>
           )}
 
@@ -1622,7 +1690,7 @@ export function TaxonomyAdminPage() {
               if (v.code === 'tax_basis') label = 'Tax'
               if (v.code === 'sba_lender') label = 'SBA'
               if (v.code === 'qoe') label = 'Industry'
-              return <option key={v.id} value={v.id}>{label} View</option>
+              return <option key={v.id} value={v.id}>{label}</option>
             })}
           </select>
         </div>
@@ -1676,7 +1744,7 @@ export function TaxonomyAdminPage() {
                           if (v.code === 'tax_basis') label = 'Tax'
                           if (v.code === 'sba_lender') label = 'SBA'
                           if (v.code === 'qoe') label = 'Industry'
-                          return <option key={v.id} value={v.id}>{label} View</option>
+                          return <option key={v.id} value={v.id}>{label}</option>
                         })}
                       </select>
                     </div>
@@ -1798,11 +1866,26 @@ export function TaxonomyAdminPage() {
                         return (
                           <div
                             key={acct.id}
+                            draggable={!isLocked}
+                            onDragStart={(e) => {
+                              if (isLocked) {
+                                e.preventDefault()
+                                return
+                              }
+                              e.dataTransfer.setData('text/plain', String(acct.id))
+                              e.dataTransfer.effectAllowed = 'move'
+                            }}
                             className={cn(
-                              "flex gap-3 items-start p-3 hover:bg-slate-50 transition-colors duration-150 relative",
-                              isSelected ? "bg-indigo-50/15" : ""
+                              "flex gap-3 items-start p-3 hover:bg-slate-50 transition-colors duration-150 relative select-none",
+                              isSelected ? "bg-indigo-50/15" : "",
+                              !isLocked ? "cursor-grab active:cursor-grabbing" : ""
                             )}
                           >
+                            {!isLocked ? (
+                              <GripVertical className="w-3.5 h-3.5 text-slate-355 hover:text-slate-500 shrink-0 mt-1 cursor-grab" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 shrink-0" />
+                            )}
                             <input
                               type="checkbox"
                               checked={isSelected}

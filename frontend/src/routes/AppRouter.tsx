@@ -9,6 +9,8 @@ import { JournalEntriesPage } from '@/pages/JournalEntriesPage'
 import { JournalEntryDetailPage } from '@/pages/JournalEntryDetailPage'
 import { JournalEntryCreatePage } from '@/pages/JournalEntryCreatePage'
 import { TrialBalanceImportPage } from '@/pages/TrialBalanceImportPage'
+import { GeneralLedgerImportPage } from '@/pages/GeneralLedgerImportPage'
+import { JournalEntryImportPage } from '@/pages/JournalEntryImportPage'
 import { PeriodsPage } from '@/pages/PeriodsPage'
 import { PeriodDetailPage } from '@/pages/PeriodDetailPage'
 import { ReportsPage } from '@/pages/ReportsPage'
@@ -73,6 +75,9 @@ export function AppRouter() {
           <Route path="journal-entries/new" element={<JournalEntryCreatePage />} />
           <Route path="journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="trial-balance-import" element={<TrialBalanceImportPage />} />
+          <Route path="imports/trial-balance" element={<TrialBalanceImportPage />} />
+          <Route path="imports/general-ledger" element={<GeneralLedgerImportPage />} />
+          <Route path="imports/journal-entries" element={<JournalEntryImportPage />} />
           <Route path="import" element={<ImportCenterPage />} />
           <Route path="import/new" element={<ImportWizardPage />} />
           <Route path="import/:id" element={<ImportReviewPage />} />

@@ -183,6 +183,8 @@ def get_je(je_id: int, db: Session = Depends(get_db)):
 async def import_journal_entries(
     entity_id: int = Form(...),
     scenario_id: int | None = Form(default=None),
+    overlay_group: str | None = Form(default=None),
+    is_reversing: bool = Form(default=False),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -197,6 +199,18 @@ async def import_journal_entries(
     entity = db.get(Entity, entity_id)
     if not entity:
         raise HTTPException(status_code=400, detail=f"Entity {entity_id} not found")
+
+    if scenario_id is None:
+        from app.models.scenario import Scenario
+        scenario = db.query(Scenario).filter(
+            Scenario.organization_id == entity.organization_id,
+            Scenario.active == True
+        ).order_by(Scenario.id).first()
+        if not scenario:
+            scenario = db.query(Scenario).filter(Scenario.active == True).order_by(Scenario.id).first()
+        if not scenario:
+            raise HTTPException(status_code=400, detail="No active scenarios found. Create a scenario first.")
+        scenario_id = scenario.id
 
     content = await file.read()
     decoded = content.decode("utf-8-sig")
@@ -307,7 +321,8 @@ async def import_journal_entries(
             je_number=first_line["je_number"] or f"JE-IMP-{datetime.datetime.now().strftime('%m%d%H%M%S')}-{key[:4]}",
             description=first_line["description"] or "Imported via CSV",
             source="csv_import",
-            status="posted"
+            status="posted",
+            overlay_group=overlay_group,
         )
         db.add(je)
         db.flush()
@@ -315,6 +330,21 @@ async def import_journal_entries(
         for l_obj in line_objects:
             l_obj.journal_entry_id = je.id
             db.add(l_obj)
+        db.flush()
+
+        if is_reversing:
+            if entry_date.month == 12:
+                reversal_date = datetime.date(entry_date.year + 1, 1, 1)
+            else:
+                reversal_date = datetime.date(entry_date.year, entry_date.month + 1, 1)
+            
+            reverse_journal_entry(
+                db,
+                je_id=je.id,
+                reversal_date=reversal_date,
+                je_number=f"REV-{je.je_number}",
+                description=f"Reversal of {je.description}",
+            )
 
         created_jes.append(je)
 

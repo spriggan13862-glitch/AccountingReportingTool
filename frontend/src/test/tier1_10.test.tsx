@@ -62,6 +62,8 @@ vi.mock('@/api/accounts', () => ({
     tree: vi.fn().mockResolvedValue([
       { id: 101, account_number: '1000', account_name: 'Cash', account_type: 'asset', detail_type: 'checking', active: true, account_status: 'active', reporting_taxonomy_line_id: 1, parent_account_id: null, children: [], flags: [{ code: 'conflict', severity: 'warning', message: 'conflict' }] }
     ]),
+    update: vi.fn().mockResolvedValue({}),
+    bulkUpdate: vi.fn().mockResolvedValue({}),
   },
 }))
 
@@ -84,7 +86,7 @@ vi.mock('@/api/entities', () => ({
 vi.mock('@/api/reportingTaxonomy', () => ({
   reportingTaxonomyApi: {
     list: vi.fn().mockResolvedValue([
-      { id: 1, code: '1000', name: 'Cash', statement_type: 'balance_sheet', section: 'assets', sort_order: 100, is_subtotal: false, parent_id: null }
+      { id: 1, code: '1000', name: 'Cash', statement_type: 'balance_sheet', section: 'assets', sort_order: 100, is_subtotal: false, parent_id: null, active: true }
     ]),
     update: vi.fn().mockResolvedValue({}),
   },
@@ -203,4 +205,45 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
       expect(screen.getByText('Import Journal Entries')).toBeInTheDocument()
     })
   })
+
+  // 6. Drag and Drop Mapping UI in TaxonomyAdminPage
+  it('handles HTML5 drag and drop of accounts onto taxonomy nodes', async () => {
+    const { container } = render(wrap(<TaxonomyAdminPage />))
+    
+    await waitFor(() => {
+      expect(screen.getAllByText('1000').length).toBeGreaterThan(0)
+    })
+    
+    const draggableElements = screen.getAllByText('1000')
+    const draggableRow = draggableElements[0].closest('[draggable="true"]')
+    expect(draggableRow).not.toBeNull()
+    
+    const mockData = new Map()
+    const mockDataTransfer = {
+      setData: vi.fn((format, data) => mockData.set(format, data)),
+      getData: vi.fn((format) => mockData.get(format)),
+      effectAllowed: 'move',
+      dropEffect: 'none',
+    }
+    
+    fireEvent.dragStart(draggableRow!, {
+      dataTransfer: mockDataTransfer,
+    })
+    
+    expect(mockDataTransfer.setData).toHaveBeenCalledWith('text/plain', '101')
+    
+    const dropZone = await screen.findByText('Cash', { selector: '.font-medium' })
+    
+    fireEvent.dragOver(dropZone, {
+      dataTransfer: mockDataTransfer,
+    })
+    
+    fireEvent.drop(dropZone, {
+      dataTransfer: mockDataTransfer,
+    })
+    
+    const { accountsApi } = await import('@/api/accounts')
+    expect(accountsApi.update).toHaveBeenCalledWith(101, { reporting_taxonomy_line_id: 1 })
+  })
 })
+

@@ -19,7 +19,8 @@ export function TopNav() {
     '/pdf-import',
     '/coa-import',
     '/trial-balance-import',
-    '/import'
+    '/import',
+    '/imports'
   ].some((path) => location.pathname === path || location.pathname.startsWith(path + '/'))
 
   const { data: entities = [] } = useQuery({

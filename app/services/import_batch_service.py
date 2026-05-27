@@ -794,6 +794,7 @@ def validate_batch(db: Session, batch_id: int) -> ValidationResult:
     _validate_duplicate_accounts(result, lines)
     _validate_sign_anomalies(db, result, lines, batch.entity_id)
     _validate_orphan_accounts(db, result, lines)
+    _validate_retained_earnings_net_income(db, result, lines)
 
     # Persist issues
     for issue in result.issues:
@@ -983,6 +984,52 @@ def _validate_orphan_accounts(
                 source_type="import_line",
                 source_id=line.id,
                 suggested_resolution="Add an FS line mapping for this account.",
+            )
+
+
+def _validate_retained_earnings_net_income(
+    db: Session, result: ValidationResult, lines: list[ImportLine]
+) -> None:
+    mapped_lines = [l for l in lines if l.mapping_status == "mapped" and l.resolved_account_id is not None]
+    if not mapped_lines:
+        return
+
+    accounts_map = {
+        acct.id: acct
+        for acct in db.query(Account).filter(Account.id.in_([l.resolved_account_id for l in mapped_lines])).all()
+    }
+
+    total_rev_credit = Decimal("0")
+    total_rev_debit = Decimal("0")
+    total_exp_credit = Decimal("0")
+    total_exp_debit = Decimal("0")
+    equity_ni_lines = []
+
+    for l in mapped_lines:
+        acct = accounts_map.get(l.resolved_account_id)
+        if not acct:
+            continue
+        if acct.account_type == "revenue":
+            total_rev_credit += l.credit
+            total_rev_debit += l.debit
+        elif acct.account_type == "expense":
+            total_exp_credit += l.credit
+            total_exp_debit += l.debit
+        elif acct.account_type == "equity":
+            name = acct.account_name.lower()
+            if any(kw in name for kw in ["net income", "current year earnings", "current year net income", "retained earnings"]):
+                equity_ni_lines.append(l)
+
+    pnl_net_income = (total_rev_credit - total_rev_debit) - (total_exp_debit - total_exp_credit)
+
+    if equity_ni_lines:
+        reported_equity_ni = sum(el.credit - el.debit for el in equity_ni_lines)
+        if abs(pnl_net_income - reported_equity_ni) > Decimal("0.01"):
+            result.warning(
+                code="TB_NET_INCOME_MISMATCH",
+                message=f"Calculated period Net Income from P&L ({pnl_net_income:,.2f}) does not match the reported equity Net Income/Retained Earnings lines ({reported_equity_ni:,.2f}).",
+                source_type="import_batch",
+                suggested_resolution="Check the mapping and amounts of your revenue, expense, and equity net income accounts.",
             )
 
 

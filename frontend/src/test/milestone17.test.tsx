@@ -57,6 +57,10 @@ vi.mock('@/api/journalEntries', () => ({
   },
 }))
 
+vi.mock('@/providers/ToastProvider', () => ({
+  useToast: () => vi.fn(),
+}))
+
 vi.mock('@/api/tbImport', async () => {
   // re-use the real implementation so test 7 exercises actual FormData building
   const real = await vi.importActual<typeof import('@/api/tbImport')>('@/api/tbImport')

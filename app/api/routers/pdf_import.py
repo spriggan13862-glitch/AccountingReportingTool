@@ -981,8 +981,6 @@ _EQUITY_SECTIONS = {"equity", "stockholders_equity", "members_equity", "owners_e
 def _mark_synthetic_equity_lines(lines_data: list[dict]) -> None:
     """In-place: mark Net Income lines inside equity as synthetic (P1)."""
     for line in lines_data:
-        if line.get("is_subtotal"):
-            continue
         section = (line.get("section") or "").lower()
         stmt = (line.get("statement_type") or "").lower()
         name = (line.get("account_name") or "").lower().strip()
@@ -992,6 +990,7 @@ def _mark_synthetic_equity_lines(lines_data: list[dict]) -> None:
                 line["synthetic_presentation_line"] = True
                 line["system_managed"] = True
                 line["locked"] = True
+                line["is_subtotal"] = True
 
 
 # Balance sheet section groupings
@@ -1025,7 +1024,7 @@ def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> d
     pnl_net_income = None
 
     for line in lines_data:
-        if line.get("is_subtotal"):
+        if line.get("is_subtotal") and not line.get("synthetic_presentation_line"):
             continue
         stmt = (line.get("statement_type") or "").lower()
         section = (line.get("section") or "").lower()

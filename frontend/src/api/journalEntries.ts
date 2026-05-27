@@ -29,11 +29,17 @@ export const journalEntriesApi = {
   reverse: (id: number, data: ReverseJERequest) =>
     api.post<JournalEntry>(`/journal-entries/${id}/reverse`, data).then((r) => r.data),
 
-  importCsv: (entityId: number, file: File, scenarioId?: number) => {
+  importCsv: (entityId: number, file: File, scenarioId?: number, overlayGroup?: string, isReversing?: boolean) => {
     const form = new FormData()
     form.append('entity_id', String(entityId))
     if (scenarioId !== undefined) {
       form.append('scenario_id', String(scenarioId))
+    }
+    if (overlayGroup !== undefined) {
+      form.append('overlay_group', overlayGroup)
+    }
+    if (isReversing !== undefined) {
+      form.append('is_reversing', String(isReversing))
     }
     form.append('file', file)
     return api.post<{ success: boolean; message: string; imported_count: number }>('/journal-entries/import', form, {

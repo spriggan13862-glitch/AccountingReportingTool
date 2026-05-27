@@ -480,6 +480,18 @@ export function ImportCenterPage() {
         </div>
       )}
 
+      {/* Workspace Filters Bar */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between flex-wrap gap-4 mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Filter workspace by entity:</span>
+          <EntitySelect
+            value={entityId}
+            onChange={(val) => setEntityId(val)}
+            className="w-56"
+          />
+        </div>
+      </div>
+
       {/* Operational summary pipeline indicators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
@@ -510,93 +522,131 @@ export function ImportCenterPage() {
       </div>
 
       {/* Modern dashed Upload Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Trial Balance Card */}
         <div
-          onClick={() => setActiveTab('tb')}
-          className={`border rounded-lg p-5 text-center cursor-pointer transition-all duration-200 ${
-            activeTab === 'tb'
-              ? 'border-indigo-600 bg-indigo-50/50 shadow-sm ring-1 ring-indigo-600'
-              : 'border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-          }`}
+          onClick={() => navigate('/imports/trial-balance')}
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-indigo-650 hover:bg-indigo-50/10 transition-all duration-200"
         >
-          <div className="mx-auto mb-3 rounded-lg bg-indigo-100 p-2.5 w-11 h-11 flex items-center justify-center text-indigo-600">
+          <div className="mx-auto mb-3 rounded-lg bg-indigo-50 p-2.5 w-11 h-11 flex items-center justify-center text-indigo-600">
             <FileText className="w-5 h-5" />
           </div>
           <h3 className="text-xs font-semibold text-gray-800">Trial Balance</h3>
-          <p className="text-[10px] text-gray-400 mt-1">CSV, XLSX</p>
+          <p className="text-[10px] text-gray-400 mt-1">Guided step-by-step import & validation</p>
           <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">CSV</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">XLSX</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">CSV</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">XLSX</span>
           </div>
         </div>
 
         {/* General Ledger Card */}
         <div
-          onClick={() => setActiveTab('gl')}
-          className={`border rounded-lg p-5 text-center cursor-pointer transition-all duration-200 ${
-            activeTab === 'gl'
-              ? 'border-indigo-600 bg-indigo-50/50 shadow-sm ring-1 ring-indigo-600'
-              : 'border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-          }`}
+          onClick={() => navigate('/imports/general-ledger')}
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-emerald-650 hover:bg-emerald-50/10 transition-all duration-200"
         >
-          <div className="mx-auto mb-3 rounded-lg bg-emerald-100 p-2.5 w-11 h-11 flex items-center justify-center text-emerald-600">
+          <div className="mx-auto mb-3 rounded-lg bg-emerald-50 p-2.5 w-11 h-11 flex items-center justify-center text-emerald-600">
             <FileText className="w-5 h-5" />
           </div>
           <h3 className="text-xs font-semibold text-gray-800">General Ledger</h3>
-          <p className="text-[10px] text-gray-400 mt-1">CSV, XLSX</p>
+          <p className="text-[10px] text-gray-400 mt-1">Transaction journals import & check</p>
           <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">CSV</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">XLSX</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">CSV</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">XLSX</span>
+          </div>
+        </div>
+
+        {/* Journal Entries Card */}
+        <div
+          onClick={() => navigate('/imports/journal-entries')}
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-amber-650 hover:bg-amber-50/10 transition-all duration-200"
+        >
+          <div className="mx-auto mb-3 rounded-lg bg-amber-50 p-2.5 w-11 h-11 flex items-center justify-center text-amber-600">
+            <FileText className="w-5 h-5" />
+          </div>
+          <h3 className="text-xs font-semibold text-gray-800">Journal Entries</h3>
+          <p className="text-[10px] text-gray-400 mt-1">Reversing entries & overlay scenarios</p>
+          <div className="flex gap-1 justify-center mt-2">
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">CSV</span>
           </div>
         </div>
 
         {/* Chart of Accounts Card */}
         <div
           onClick={() => navigate('/coa-import')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-indigo-600 hover:bg-indigo-50/10 transition-all duration-200"
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50/10 transition-all duration-200"
         >
-          <div className="mx-auto mb-3 rounded-lg bg-blue-100 p-2.5 w-11 h-11 flex items-center justify-center text-blue-600">
+          <div className="mx-auto mb-3 rounded-lg bg-blue-50 p-2.5 w-11 h-11 flex items-center justify-center text-blue-600">
             <FileText className="w-5 h-5" />
           </div>
           <h3 className="text-xs font-semibold text-gray-800">Chart of Accounts</h3>
-          <p className="text-[10px] text-gray-400 mt-1">QuickBooks, CSV</p>
+          <p className="text-[10px] text-gray-400 mt-1">QuickBooks, CSV structure mapping</p>
           <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">QB</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">CSV</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">QB</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">CSV</span>
           </div>
         </div>
 
         {/* PDF Card */}
         <div
           onClick={() => navigate('/pdf-import')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-indigo-600 hover:bg-indigo-50/10 transition-all duration-200"
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-orange-655 hover:bg-orange-50/10 transition-all duration-200"
         >
-          <div className="mx-auto mb-3 rounded-lg bg-orange-100 p-2.5 w-11 h-11 flex items-center justify-center text-orange-600">
+          <div className="mx-auto mb-3 rounded-lg bg-orange-50 p-2.5 w-11 h-11 flex items-center justify-center text-orange-600">
             <Sparkles className="w-5 h-5" />
           </div>
           <h3 className="text-xs font-semibold text-gray-800">PDF Import</h3>
-          <p className="text-[10px] text-gray-400 mt-1">AI-Powered Parser</p>
+          <p className="text-[10px] text-gray-400 mt-1">AI-Powered Statement Parser</p>
           <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">PDF</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">PDF</span>
           </div>
         </div>
 
-        {/* Excel / CSV Card */}
+        {/* Generic Tabular Card */}
         <div
           onClick={() => navigate('/import/new')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-indigo-600 hover:bg-indigo-50/10 transition-all duration-200"
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-purple-600 hover:bg-purple-50/10 transition-all duration-200"
         >
-          <div className="mx-auto mb-3 rounded-lg bg-purple-100 p-2.5 w-11 h-11 flex items-center justify-center text-purple-600">
+          <div className="mx-auto mb-3 rounded-lg bg-purple-50 p-2.5 w-11 h-11 flex items-center justify-center text-purple-600">
             <Upload className="w-5 h-5" />
           </div>
           <h3 className="text-xs font-semibold text-gray-800">Generic Tabular Import</h3>
-          <p className="text-[10px] text-gray-400 mt-1 font-medium">Guided step-by-step import with sheet selection and column mapping.</p>
+          <p className="text-[10px] text-gray-400 mt-1">Custom excel sheets & schema builder</p>
           <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">XLSX</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">CSV</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">XLSX</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">CSV</span>
           </div>
         </div>
+      </div>
+
+      {/* Format Help Collapse Section */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowFormatHelp(!showFormatHelp)}
+          className="text-xs font-bold text-indigo-650 hover:text-indigo-850 flex items-center gap-1 cursor-pointer select-none"
+        >
+          {showFormatHelp ? 'Hide accepted formats' : 'Show accepted formats'}
+        </button>
+        {showFormatHelp && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs animate-in slide-in-from-top-2 duration-150 border-t border-slate-100 pt-3">
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
+              <h4 className="font-bold text-slate-800 mb-1">Format A: Standard trial balance</h4>
+              <p className="text-slate-500 leading-relaxed">Required columns: account_number, account_name, debit, credit.</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
+              <h4 className="font-bold text-slate-800 mb-1">Format B: Multi-period trial balance</h4>
+              <p className="text-slate-500 leading-relaxed">Columns: account, debit_Q1, credit_Q1, debit_Q2, credit_Q2...</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
+              <h4 className="font-bold text-slate-800 mb-1">Format C: Transactions detail ledger</h4>
+              <p className="text-slate-500 leading-relaxed">Columns: date, journal_id, description, account, amount...</p>
+            </div>
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
+              <h4 className="font-bold text-slate-800 mb-1">Format D: Chart of accounts structure</h4>
+              <p className="text-slate-500 leading-relaxed">Columns: account_code, name, type, detail_type, parent_code...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main split layout */}
@@ -604,170 +654,6 @@ export function ImportCenterPage() {
         
         {/* Left Column: Form/Placeholder & History Grid (Col span 3) */}
         <div className="lg:col-span-3 space-y-6">
-          
-          {/* Quick upload form inline (if Trial Balance selected) */}
-          {activeTab === 'tb' && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-              <h2 className="text-sm font-semibold text-gray-800 mb-1">Quick Upload — Trial Balance</h2>
-              <p className="text-xs text-gray-500 mb-4">
-                For guided step-by-step import with sheet selection and column mapping, use the{' '}
-                <button type="button" onClick={() => navigate('/import/new')} className="text-indigo-655 font-semibold hover:underline cursor-pointer">
-                  Generic Tabular Import
-                </button>
-                .
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Entity</label>
-                  <EntitySelect value={entityId} onChange={setEntityId} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">As-of Date</label>
-                  <input
-                    type="date"
-                    value={asOfDate}
-                    onChange={(e) => setAsOfDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              {/* Format guidance toggle */}
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => setShowFormatHelp((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium hover:text-indigo-800 cursor-pointer"
-                >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  {showFormatHelp ? 'Hide format guidance' : 'Show accepted formats & tips'}
-                </button>
-                {showFormatHelp && (
-                  <div className="mt-2 p-4 bg-indigo-50/50 border border-indigo-100 rounded-lg text-xs text-indigo-900 space-y-3">
-                    <p className="font-semibold text-indigo-950">Accepted file formats:</p>
-                    <ul className="space-y-1 list-disc list-inside text-indigo-800">
-                      <li><strong>CSV/XLSX</strong> — account number, account name, and debit/credit or signed-amount columns</li>
-                      <li><strong>QuickBooks (.QBO)</strong> — QuickBooks transaction export</li>
-                      <li><strong>NetSuite</strong> — GL detail export with "Account" and "Amount" columns</li>
-                      <li><strong>Sage</strong> — trial balance export</li>
-                    </ul>
-
-                    <p className="font-semibold text-indigo-950">Common column name patterns (auto-detected):</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-white border border-indigo-100 p-2.5 rounded font-mono text-[10px] text-indigo-700">
-                      <span>Account #, Acct, Number → account number</span>
-                      <span>Name, Description → account name</span>
-                      <span>Debit, Dr → debit amount</span>
-                      <span>Credit, Cr → credit amount</span>
-                      <span>Balance, Amount, Net → signed net balance</span>
-                      <span>"1000 - Cash" → combined number/name</span>
-                    </div>
-
-                    <div>
-                      <p className="font-semibold text-indigo-950 mb-1.5">Download starter templates:</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {[
-                          { label: 'Format A — Debit/Credit', filename: 'template_debit_credit.csv',
-                            content: 'Account Number,Account Name,Debit,Credit\n1000,Cash,50000.00,0.00\n4000,Revenue,0.00,50000.00\n' },
-                          { label: 'Format B — Signed Amount', filename: 'template_signed_amount.csv',
-                            content: 'Account Number,Account Name,Amount\n1000,Cash,50000.00\n4000,Revenue,-50000.00\n' },
-                          { label: 'Format C — Combined Account', filename: 'template_combined.csv',
-                            content: 'Account,Debit,Credit\n1000 - Cash,50000.00,0.00\n4000 - Revenue,0.00,50000.00\n' },
-                          { label: 'Format D — Mapping Template', filename: 'template_mapping.csv',
-                            content: 'Source Account Number,Source Account Name,Internal Account Number,Internal Account Name,Account Type,Detail Type,Reporting Line\n1000,Cash,1000,Cash,asset,current_asset,Current Assets\n4000,Revenue,4000,Revenue,revenue,operating_revenue,Revenue\n' },
-                        ].map(({ label, filename, content }) => (
-                          <button
-                            key={filename}
-                            type="button"
-                            onClick={() => {
-                              const blob = new Blob([content], { type: 'text/csv' })
-                              const url = URL.createObjectURL(blob)
-                              const a = document.createElement('a')
-                              a.href = url
-                              a.download = filename
-                              a.click()
-                              URL.revokeObjectURL(url)
-                            }}
-                            className="flex items-center gap-1.5 px-2 py-1.5 bg-white border border-indigo-200 rounded text-indigo-700 hover:bg-indigo-100 font-semibold transition-colors cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5 flex-shrink-0" />
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Drop zone */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current?.click()}
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
-                  dragOver ? 'border-indigo-400 bg-indigo-50/50' : 'border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                {file ? (
-                  <p className="text-sm font-semibold text-gray-700">{file.name}</p>
-                ) : (
-                  <>
-                     <p className="text-sm text-gray-600">Drag &amp; drop a CSV or XLSX file, or click to browse</p>
-                     <p className="text-xs text-gray-400 mt-1">Supports CSV, XLSX, QBO, NetSuite, Sage exports</p>
-                  </>
-                )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  disabled={!file || !entityId || !asOfDate || uploadMutation.isPending}
-                  onClick={() => uploadMutation.mutate()}
-                  className="px-4 py-2 bg-indigo-650 text-white text-sm font-semibold rounded hover:bg-indigo-755 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
-                >
-                  {uploadMutation.isPending ? 'Uploading…' : 'Upload & Begin Review'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* General Ledger Placeholder inline (if GL selected) */}
-          {activeTab === 'gl' && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-600">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-sm font-semibold text-gray-800 mb-1">General Ledger Import</h2>
-                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                    Sync full transaction journals directly from your general ledger. Direct ERP API synchronization
-                    (NetSuite, QuickBooks Online, Sage Intacct) is currently in closed preview.
-                  </p>
-                  
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-100 space-y-2">
-                    <p className="text-xs text-gray-650 font-semibold">Alternative Manual Mechanics:</p>
-                    <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
-                      <li>Use the <button type="button" onClick={() => navigate('/journal-entries/new')} className="text-indigo-600 font-semibold hover:underline cursor-pointer">Journal Entries</button> ledger modules to create manual journals.</li>
-                      <li>Import a Trial Balance using the left card above to establish period-end balances.</li>
-                      <li>Contact <span className="font-mono text-[10px] bg-white border px-1.5 py-0.5 rounded text-gray-700">ledger-support@livemarketing.test</span> to request API access.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Import Center Tabs Card */}
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4 bg-gray-50/50">
