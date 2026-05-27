@@ -25,12 +25,15 @@ All schema-level changes — model additions, column additions/removals, migrati
 | 2026-05-27 | Added `from_date` query param to `/reporting/trial-balance` endpoint | `app/api/routers/reporting.py`, `app/api/schemas.py` | — |
 | 2026-05-27 | Added Period TB mode (Beg. Balance / Period Debits / Period Credits / End. Balance columns) to TrialBalancesPage | `frontend/src/pages/TrialBalancesPage.tsx` | — |
 | 2026-05-27 | Updated `TBRow` TypeScript interface + `reportingApi.trialBalance()` to support `from_date` | `frontend/src/types/index.ts`, `frontend/src/api/reporting.ts` | — |
+| 2026-05-27 | Added `_set_path_and_depth()` + `_rebuild_subtree_paths()` — auto-populate `account_path`/`depth_level` on create and reparent | `app/api/routers/accounts.py` | — |
+| 2026-05-27 | Added `POST /accounts/backfill-paths` endpoint for existing-data backfill | `app/api/routers/accounts.py` | — |
+| 2026-05-27 | Updated ALPHA_UX_TRACKER with schema enforcement section (UX-095 – UX-101, DEF-13 – DEF-16) | `docs/ALPHA_UX_TRACKER.md` | — |
 
 ## Pending
 
 | Priority | Change | Notes |
 |----------|--------|-------|
-| Medium | `account_path` / `depth_level` auto-population on create/reparent | Service-layer hook needed |
+| Medium | `account_path` / `depth_level` backfill for existing records | Call `POST /accounts/backfill-paths?entity_id=N` per entity |
 | Medium | Implement `validate_three_statement_model()` | IS net income = BS RE delta; BS cash = CFS cash |
 | Medium | Formal `trial_balances` / `trial_balance_lines` tables | Currently computed at query time |
 | Low | `budget_versions` / `budget_lines` tables | Future milestone |

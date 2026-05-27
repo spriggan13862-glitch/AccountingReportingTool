@@ -625,3 +625,39 @@ Financial Statement Import Accounting Logic, Taxonomy Conflict Resolution, and A
 | UX-DEF-10 | Adjustment Bridge / Full Pivot | Saved views with server-side JSON config, column pivoting, drag-drop dimension reorder, export to XLSX. | Skeleton only — requires pivot-table rendering library and view persistence UX. | Tier 2 |
 | UX-DEF-11 | PDF Import / Reconcile Net Income | Net Income in Equity must reconcile against P&L section automatically on apply — flag if they differ. | Requires cross-section summation pass after synthetic line detection. | Tier 2 |
 | UX-DEF-12 | Taxonomy Conflict / Bulk Resolution | Resolve all conflicts of the same type in one action (e.g. "apply global for all 12 revenue conflicts"). | Requires multi-select conflict resolution UX and batch API endpoint. | Tier 2 |
+
+---
+
+## Schema Enforcement Pass (2026-05-27)
+
+Canonical COA fields, period-aware Trial Balance, FS mapping UI exposure.
+
+### Last Test Run (post-schema-enforcement)
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Python unit tests | 677 | 0 | 677 |
+| Frontend vitest | 406 | 0 | 406 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+| Alembic migration (013) | Applied cleanly | — | — |
+
+### Fixes and Features Applied
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| UX-095 | Critical | COA / Missing Postability Enforcement | `is_header` and `is_postable` columns absent from `accounts` table. Journal entries could be posted to header/group accounts with no guard. | Added both columns to `accounts` model (migration 013). `is_header=False`, `is_postable=True` defaults. `_check_accounts_postable()` guard added to both `post_journal_entry()` and `create_draft_journal_entry()` — raises `JE_NONPOSTABLE_ACCOUNT` error. | Resolved |
+| UX-096 | Critical | COA / FS Mapping Fields Missing | `fs_sign_convention`, `cfs_section`, `fs_statement`, `fs_section`, `fs_line_label`, `fs_line_order` absent from `accounts`. Accounts could not specify which financial statement line they belong to. | All 6 columns added to model + migration 013. `ck_accounts_fs_sign` CHECK constraint added for `fs_sign_convention IN (-1, 1)`. | Resolved |
+| UX-097 | High | COA / Hierarchy Metadata Missing | `account_path` (materialized path), `depth_level`, `sort_order` absent from `accounts`. Subtree queries required full tree traversal. | All 3 columns added to model + migration 013. `_set_path_and_depth()` auto-populates on create. `_rebuild_subtree_paths()` cascades on reparent. `POST /accounts/backfill-paths` endpoint for existing data. | Resolved |
+| UX-098 | High | COA / account_type Constraint Too Narrow | `account_type` CHECK only allowed 5 types; spec requires 10. `cogs`, `other_income`, `other_expense`, `tax`, `intercompany` caused 500 on insert. | CHECK expanded to 10 types via `batch_alter_table` in migration 013. TypeScript `Account` interface, Pydantic schemas, and router updated. | Resolved |
+| UX-099 | High | COA / FS Mapping UI | COA editor had no way to set `is_header`, `is_postable`, `fs_statement`, `cfs_section`, `fs_section`, `fs_line_label`. Account type dropdown only showed 5 types. | `CreateAccountModal`: added FS Mapping section (4 fields + is_header checkbox). COA drawer: added is_header/is_postable badges + FS fields. Inline type dropdown expanded to 10 types. | Resolved |
+| UX-100 | High | Trial Balance / Period-Aware TB Missing | TB always showed cumulative debits/credits. No way to view beginning balance, period activity, ending balance for a specific date range. | `get_trial_balance()` extended with optional `from_date`. `TrialBalancesPage` gains Cumulative/Period mode toggle and From Date input. Period mode shows Beg. Balance / Period Debits / Period Credits / End. Balance columns. `/reporting/trial-balance` endpoint accepts `from_date` query param. `TBRowOut` and `TBRow` TS type updated. | Resolved |
+| UX-101 | Medium | Schema / Missing Canonical Docs | No single canonical schema reference, no assumptions doc, no audit report. Future contributors had no authoritative reference to check implementations against. | Created `docs/schema/ACCOUNTING_SCHEMA.md` (1724-line verbatim spec), `ASSUMPTIONS.md`, `AUDIT_REPORT.md`, `SCHEMA_CHANGELOG.md`. Created `CLAUDE.md` at project root with schema reference block and coding rules. | Resolved |
+
+### Deferred (Schema Enforcement)
+
+| ID | Area | Issue | Reason Deferred | Target |
+|---|---|---|---|---|
+| UX-DEF-13 | COA / account_path Backfill | Existing accounts in DB have NULL `account_path` / `depth_level`. Backfill requires calling `POST /accounts/backfill-paths` per entity. | Admin-only one-time operation; no automated migration to avoid long-running lock. | On next deploy |
+| UX-DEF-14 | COA / fs_sign_convention Backfill | Existing accounts have NULL `fs_sign_convention`. Should be populated from `normal_balance` (debit → 1, credit → -1 for most types). | Data migration deferred; query-time computation still active as fallback. | Tier 2 |
+| UX-DEF-15 | FS / Three-Statement Validator UI | `validate_financial_statements()` exists at `GET /financial-statements/validate` but no UI indicator shows the tie-out status on the FinancialStatementsPage or Dashboard. | Needs a compact "three-statement health" widget on dashboard. | Tier 2 |
+| UX-DEF-16 | Trial Balance / Formal TB Tables | Spec calls for `trial_balances` / `trial_balance_lines` persistent tables. Currently computed at query time. | Performance adequate for current scale. Formalize when audit trail requirement is added. | Tier 2 |

@@ -8,6 +8,30 @@ from app.models.account import Account
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 
+def _set_path_and_depth(db: Session, account: Account) -> None:
+    """Compute and store account_path and depth_level from the parent chain."""
+    if account.parent_account_id is None:
+        account.account_path = str(account.id)
+        account.depth_level = 0
+    else:
+        parent = db.get(Account, account.parent_account_id)
+        if parent is None:
+            account.account_path = str(account.id)
+            account.depth_level = 0
+        else:
+            parent_path = parent.account_path or str(parent.id)
+            account.account_path = f"{parent_path}/{account.id}"
+            account.depth_level = (parent.depth_level or 0) + 1
+
+
+def _rebuild_subtree_paths(db: Session, parent: Account) -> None:
+    """Recursively recompute account_path and depth_level for all descendants."""
+    children = db.query(Account).filter(Account.parent_account_id == parent.id).all()
+    for child in children:
+        _set_path_and_depth(db, child)
+        _rebuild_subtree_paths(db, child)
+
+
 @router.post("/", response_model=AccountOut, status_code=201)
 def create_account(body: AccountCreate, db: Session = Depends(get_db)):
     account = Account(
@@ -39,6 +63,8 @@ def create_account(body: AccountCreate, db: Session = Depends(get_db)):
     if body.active is not None:
         account.active = body.active
     db.add(account)
+    db.flush()
+    _set_path_and_depth(db, account)
     db.flush()
     db.refresh(account)
     return account
@@ -338,6 +364,9 @@ def reparent_account(
                 if old_status != new_parent_acct.account_status:
                     propagate_status_to_children(account.id, old_status, new_parent_acct.account_status, db)
 
+    _set_path_and_depth(db, account)
+    _rebuild_subtree_paths(db, account)
+
     db.flush()
     db.refresh(account)
 
@@ -354,3 +383,30 @@ def reparent_account(
         new_parent_number=new_parent.account_number if new_parent else None,
         new_parent_name=new_parent.account_name if new_parent else None,
     )
+
+
+@router.post("/backfill-paths", status_code=200)
+def backfill_account_paths(entity_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Backfill account_path and depth_level for all accounts that lack them.
+    Process root accounts first, then children in BFS order.
+    """
+    q = db.query(Account).filter(Account.account_path == None)  # noqa: E711
+    if entity_id is not None:
+        q = q.filter(Account.entity_id == entity_id)
+    accounts_missing = q.all()
+
+    def process(account: Account) -> None:
+        if account.account_path is not None:
+            return
+        if account.parent_account_id is not None:
+            parent = db.get(Account, account.parent_account_id)
+            if parent and parent.account_path is None:
+                process(parent)
+        _set_path_and_depth(db, account)
+
+    for acct in accounts_missing:
+        process(acct)
+
+    db.flush()
+    return {"updated": len(accounts_missing)}
