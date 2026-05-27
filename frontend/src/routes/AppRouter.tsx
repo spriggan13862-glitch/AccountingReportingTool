@@ -22,6 +22,7 @@ import { DraftPreviewPage } from '@/pages/DraftPreviewPage'
 import { ReconciliationPage } from '@/pages/ReconciliationPage'
 import { ReconciliationDetailPage } from '@/pages/ReconciliationDetailPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { ConsolidationsPage } from '@/pages/ConsolidationsPage'
 import { TrialBalancesPage } from '@/pages/TrialBalancesPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
@@ -92,7 +93,7 @@ export function AppRouter() {
           <Route path="fs-builder" element={<FSBuilderPage />} />
           <Route path="adjustment-bridge" element={<AdjustmentBridgePage />} />
           <Route path="report-builder" element={<ReportBuilderPage />} />
-          <Route path="consolidations" element={<PlaceholderPage title="Consolidations" />} />
+          <Route path="consolidations" element={<ConsolidationsPage />} />
           <Route path="workflow" element={<WorkflowPage />} />
           <Route path="issues" element={<IssuesPage />} />
           <Route path="reports" element={<ReportsPage />} />
