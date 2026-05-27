@@ -120,7 +120,7 @@ export function DocumentsPage() {
 
   function navToSource(entry: ImportRegistryEntry) {
     if (entry.source_module === 'pdf_import') {
-      navigate('/pdf-import')
+      navigate(entry.source_id ? `/pdf-import?batch=${entry.source_id}` : '/pdf-import')
     } else if (entry.source_module === 'tb_import') {
       navigate(`/import/${entry.source_id}`)
     } else if (entry.source_module === 'coa_import') {

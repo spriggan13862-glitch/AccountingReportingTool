@@ -712,6 +712,53 @@ export function FinancialStatementsPage() {
     return computeTaxonomyColumns(isRows)
   }, [isRows, computedItems, accounts, taxonomyLines, includeDrafts, officialOnly])
 
+  // Drilldown enrichment — taxonomy path and period balances
+  const drilldownAccount = useMemo(() => {
+    if (!drilldownState || !accounts) return null
+    return accounts.find((a) => a.id === drilldownState.account_id) ?? null
+  }, [drilldownState, accounts])
+
+  const drilldownTaxonomyPath = useMemo(() => {
+    if (!drilldownAccount || !taxonomyLines) return []
+    const lineId = drilldownAccount.reporting_taxonomy_line_id
+    if (!lineId) return []
+    const path: string[] = []
+    let currentId: number | null = lineId
+    while (currentId) {
+      const line = taxonomyLines.find((t) => t.id === currentId)
+      if (!line) break
+      path.unshift(line.name)
+      currentId = line.parent_id
+    }
+    return path
+  }, [drilldownAccount, taxonomyLines])
+
+  const drilldownPeriodBalances = useMemo(() => {
+    if (!drilldownState || !journalEntries) return []
+    const accountId = drilldownState.account_id
+    const type = drilldownState.type
+    const monthMap = new Map<string, { debit: number; credit: number }>()
+    for (const je of journalEntries) {
+      const isPostedMatch = type === 'posted' && je.status === 'posted' && je.source !== 'import' && je.source !== 'tb_import'
+      const isDraftMatch = type === 'draft' && je.status === 'draft' && !excludedMap[je.id]
+      if (isPostedMatch || isDraftMatch) {
+        for (const line of je.lines) {
+          if (line.account_id === accountId) {
+            const month = je.entry_date.slice(0, 7)
+            const existing = monthMap.get(month) ?? { debit: 0, credit: 0 }
+            monthMap.set(month, {
+              debit: existing.debit + parseFloat(line.debit || '0'),
+              credit: existing.credit + parseFloat(line.credit || '0'),
+            })
+          }
+        }
+      }
+    }
+    return [...monthMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, { debit, credit }]) => ({ month, debit, credit, net: debit - credit }))
+  }, [drilldownState, journalEntries, excludedMap])
+
   // Drilldown lines query details for side drawer
   const drilldownLines = useMemo(() => {
     if (!drilldownState || !journalEntries) return []
@@ -1144,13 +1191,25 @@ export function FinancialStatementsPage() {
           <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40 transition-opacity animate-in fade-in" />
           <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-white shadow-2xl border-l border-slate-200 flex flex-col focus:outline-none animate-in slide-in-from-right duration-250">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div>
+              <div className="flex-1 min-w-0">
                 <Dialog.Title className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  Drilldown Details
+                  {drilldownState?.account_number} — {drilldownState?.account_name}
                 </Dialog.Title>
                 <Dialog.Description className="text-xs text-slate-500 mt-0.5">
-                  {drilldownState && `Account: ${drilldownState.account_number} — ${drilldownState.account_name} (${drilldownState.type === 'posted' ? 'Posted' : 'Draft'} Adjustments)`}
+                  {drilldownState?.type === 'posted' ? 'Posted' : 'Draft'} Adjustments
                 </Dialog.Description>
+                {drilldownTaxonomyPath.length > 0 && (
+                  <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                    {drilldownTaxonomyPath.map((segment, i) => (
+                      <span key={i} className="flex items-center gap-1">
+                        {i > 0 && <span className="text-slate-300 text-[10px]">›</span>}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${i === drilldownTaxonomyPath.length - 1 ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                          {segment}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <Dialog.Close asChild>
                 <button
@@ -1206,6 +1265,34 @@ export function FinancialStatementsPage() {
                 </table>
               </div>
             </div>
+
+            {drilldownPeriodBalances.length > 1 && (
+              <div className="px-5 py-4 border-t border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Period Balances</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                        <th className="py-1.5 pr-3 text-left">Period</th>
+                        <th className="py-1.5 pr-3 text-right">Debit</th>
+                        <th className="py-1.5 pr-3 text-right">Credit</th>
+                        <th className="py-1.5 text-right">Net</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drilldownPeriodBalances.map(({ month, debit, credit, net }) => (
+                        <tr key={month} className="border-b border-slate-50">
+                          <td className="py-1.5 pr-3 font-mono text-slate-600">{month}</td>
+                          <td className="py-1.5 pr-3 text-right font-mono text-emerald-700">{debit > 0 ? fmt(debit.toFixed(2)) : '—'}</td>
+                          <td className="py-1.5 pr-3 text-right font-mono text-rose-700">{credit > 0 ? fmt(credit.toFixed(2)) : '—'}</td>
+                          <td className={`py-1.5 text-right font-mono font-semibold ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(Math.abs(net).toFixed(2))}{net < 0 ? ' Cr' : ' Dr'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 px-5 py-4 border-t border-slate-100 bg-slate-50">
               <Dialog.Close asChild>

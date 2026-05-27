@@ -187,7 +187,7 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
     fireEvent.change(entitySelect, { target: { value: '1' } })
 
     await waitFor(() => {
-      expect(screen.getByText('Excel-like Pivot Summary Table')).toBeInTheDocument()
+      expect(screen.getByText('Pivot Summary Table')).toBeInTheDocument()
       expect(screen.getByText('Grand Total')).toBeInTheDocument()
     })
   })

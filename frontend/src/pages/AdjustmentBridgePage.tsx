@@ -101,6 +101,8 @@ function SlicerPanel({
   scenarioId, setScenarioId,
   accountType, setAccountType,
   groupDimension, setGroupDimension,
+  columnDimension, setColumnDimension,
+  pivotMeasure, setPivotMeasure,
   visibleMeasures, setVisibleMeasures,
   orgId,
 }: {
@@ -114,6 +116,10 @@ function SlicerPanel({
   setAccountType: (v: string) => void
   groupDimension: string
   setGroupDimension: (v: string) => void
+  columnDimension: string
+  setColumnDimension: (v: string) => void
+  pivotMeasure: string
+  setPivotMeasure: (v: string) => void
   visibleMeasures: string[]
   setVisibleMeasures: (v: string[]) => void
   orgId?: number
@@ -157,7 +163,7 @@ function SlicerPanel({
         </select>
       </div>
       <div className="relative z-40">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Group By</label>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Row By</label>
         <select
           value={groupDimension}
           onChange={(e) => setGroupDimension(e.target.value)}
@@ -169,6 +175,35 @@ function SlicerPanel({
           ))}
         </select>
       </div>
+      <div className="relative z-40">
+        <label className="block text-xs font-medium text-gray-600 mb-1">Column By</label>
+        <select
+          value={columnDimension}
+          onChange={(e) => setColumnDimension(e.target.value)}
+          className="text-xs border border-gray-300 rounded px-2 py-1.5 h-[38px] bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+          data-testid="column-dimension-select"
+        >
+          <option value="">— none —</option>
+          {GROUP_DIMENSION_OPTIONS.filter((o) => o.value !== groupDimension).map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+      {columnDimension && (
+        <div className="relative z-40">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Pivot Measure</label>
+          <select
+            value={pivotMeasure}
+            onChange={(e) => setPivotMeasure(e.target.value)}
+            className="text-xs border border-gray-300 rounded px-2 py-1.5 h-[38px] bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+            data-testid="pivot-measure-select"
+          >
+            {MEASURE_OPTIONS.map((m) => (
+              <option key={m.key} value={m.key}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="relative z-40">
         <label className="block text-xs font-medium text-gray-600 mb-1">Measures</label>
         <button
@@ -270,6 +305,8 @@ export function AdjustmentBridgePage() {
   const [scenarioId, setScenarioId] = useState<number | ''>('')
   const [accountType, setAccountType] = useState('')
   const [groupDimension, setGroupDimension] = useState<keyof AdjustmentBridgeRow>('account_type')
+  const [columnDimension, setColumnDimension] = useState('')
+  const [pivotMeasure, setPivotMeasure] = useState('adjusted_balance')
   const [visibleMeasures, setVisibleMeasures] = useState(['imported_balance', 'posted_adjustments', 'adjusted_balance', 'variance'])
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [activeViewId, setActiveViewId] = useState<number | null>(null)
@@ -318,8 +355,9 @@ export function AdjustmentBridgePage() {
         entity_id: entityId as number,
         name: saveViewName,
         row_dimensions: [groupDimension],
+        column_dimensions: columnDimension ? [columnDimension] : [],
         visible_measures: visibleMeasures,
-        slicer_config: { account_type: accountType, period_end: periodEnd, scenario_id: scenarioId },
+        slicer_config: { account_type: accountType, period_end: periodEnd, scenario_id: scenarioId, pivot_measure: pivotMeasure },
       }),
     onSuccess: (view) => {
       qc.invalidateQueries({ queryKey: ['ab-views', entityId as number] })
@@ -332,10 +370,13 @@ export function AdjustmentBridgePage() {
   function activateView(view: AdjustmentBridgeView) {
     setActiveViewId(view.id)
     if (view.row_dimensions?.[0]) setGroupDimension(view.row_dimensions[0] as keyof AdjustmentBridgeRow)
+    if (view.column_dimensions?.[0]) setColumnDimension(view.column_dimensions[0])
+    else setColumnDimension('')
     if (view.visible_measures) setVisibleMeasures(view.visible_measures)
     if (view.slicer_config) {
       const sc = view.slicer_config as Record<string, string>
       if (sc.account_type !== undefined) setAccountType(sc.account_type)
+      if (sc.pivot_measure !== undefined) setPivotMeasure(sc.pivot_measure)
       if (sc.period_end !== undefined) {
         setPeriodEnd(sc.period_end)
         const matched = periods.find(p => p.end_date === sc.period_end)
@@ -381,6 +422,28 @@ export function AdjustmentBridgePage() {
     }
   }, [grouped, rows, visibleMeasures])
 
+  const pivotMatrix = useMemo(() => {
+    if (!columnDimension || rows.length === 0) return null
+    const rowValues = [...new Set(rows.map((r) => String(r[groupDimension] ?? '(none)')))]
+    const colValues = [...new Set(rows.map((r) => String(r[columnDimension as keyof AdjustmentBridgeRow] ?? '(none)')))].sort()
+    const matrix: Record<string, Record<string, number>> = {}
+    const rowTotals: Record<string, number> = {}
+    const colTotals: Record<string, number> = {}
+    let grandTotal = 0
+    for (const row of rows) {
+      const rv = String(row[groupDimension] ?? '(none)')
+      const cv = String(row[columnDimension as keyof AdjustmentBridgeRow] ?? '(none)')
+      const val = parseFloat(String(row[pivotMeasure as keyof AdjustmentBridgeRow] ?? '0'))
+      const safeVal = isNaN(val) ? 0 : val
+      if (!matrix[rv]) matrix[rv] = {}
+      matrix[rv][cv] = (matrix[rv][cv] ?? 0) + safeVal
+      rowTotals[rv] = (rowTotals[rv] ?? 0) + safeVal
+      colTotals[cv] = (colTotals[cv] ?? 0) + safeVal
+      grandTotal += safeVal
+    }
+    return { rowValues, colValues, matrix, rowTotals, colTotals, grandTotal }
+  }, [rows, groupDimension, columnDimension, pivotMeasure])
+
   const measureCols = MEASURE_OPTIONS.filter((m) => visibleMeasures.includes(m.key)).map((m) => ({
     key: m.key,
     header: m.label,
@@ -416,6 +479,10 @@ export function AdjustmentBridgePage() {
           setAccountType={setAccountType}
           groupDimension={groupDimension as string}
           setGroupDimension={(v) => setGroupDimension(v as keyof AdjustmentBridgeRow)}
+          columnDimension={columnDimension}
+          setColumnDimension={setColumnDimension}
+          pivotMeasure={pivotMeasure}
+          setPivotMeasure={setPivotMeasure}
           visibleMeasures={visibleMeasures}
           setVisibleMeasures={setVisibleMeasures}
           orgId={org?.id}
@@ -486,61 +553,107 @@ export function AdjustmentBridgePage() {
           </div>
         </div>
 
-        {/* Pivot Summary Table */}
+        {/* Pivot Summary Table — 2D when column dimension set, 1D otherwise */}
         {ready && rows.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs mb-4">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Excel-like Pivot Summary Table
+                {pivotMatrix ? '2D Pivot Table' : 'Pivot Summary Table'}
               </h3>
               <span className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
-                Pivot View
+                {pivotMatrix ? `${MEASURE_OPTIONS.find(m => m.key === pivotMeasure)?.label ?? pivotMeasure}` : 'Pivot View'}
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-2 text-left capitalize">
-                      {GROUP_DIMENSION_OPTIONS.find(o => o.value === groupDimension)?.label || groupDimension}
-                    </th>
-                    {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => (
-                      <th key={m.key} className="px-4 py-2 text-right">{m.label}</th>
+              {pivotMatrix ? (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2 text-left">
+                        {GROUP_DIMENSION_OPTIONS.find(o => o.value === groupDimension)?.label || groupDimension}
+                        {' '}<span className="text-slate-300 font-normal normal-case">↓</span>
+                        {' / '}{GROUP_DIMENSION_OPTIONS.find(o => o.value === columnDimension)?.label || columnDimension}
+                        {' '}<span className="text-slate-300 font-normal normal-case">→</span>
+                      </th>
+                      {pivotMatrix.colValues.map((cv) => (
+                        <th key={cv} className="px-4 py-2 text-right capitalize">{cv}</th>
+                      ))}
+                      <th className="px-4 py-2 text-right bg-slate-50/50 text-slate-700">Row Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pivotMatrix.rowValues.map((rv) => (
+                      <tr key={rv} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-2 font-bold text-slate-750 capitalize">{rv}</td>
+                        {pivotMatrix.colValues.map((cv) => {
+                          const val = pivotMatrix.matrix[rv]?.[cv] ?? 0
+                          return (
+                            <td key={cv} className={`px-4 py-2 text-right font-mono ${val !== 0 ? (val < 0 ? 'text-red-650 font-semibold' : 'text-slate-650 font-semibold') : 'text-slate-300'}`}>
+                              {val !== 0 ? fmt(val.toString()) : '—'}
+                            </td>
+                          )
+                        })}
+                        <td className="px-4 py-2 text-right font-mono font-bold text-slate-800 bg-slate-50/50">
+                          {fmt((pivotMatrix.rowTotals[rv] ?? 0).toString())}
+                        </td>
+                      </tr>
                     ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {pivotSummaryData.summaryRows.map((row) => (
-                    <tr key={row.groupName} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-2 font-bold text-slate-750 capitalize">
-                        {row.groupName}
-                      </td>
-                      {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => {
-                        const val = row[m.key] as number || 0
+                    <tr className="bg-slate-50/80 border-t-2 border-slate-250 font-extrabold text-slate-900">
+                      <td className="px-4 py-2.5">Col Totals</td>
+                      {pivotMatrix.colValues.map((cv) => {
+                        const val = pivotMatrix.colTotals[cv] ?? 0
                         return (
-                          <td key={m.key} className={`px-4 py-2 text-right font-mono ${val < 0 ? 'text-red-650 font-semibold' : 'text-slate-650 font-semibold'}`}>
+                          <td key={cv} className={`px-4 py-2.5 text-right font-mono ${val < 0 ? 'text-red-650' : 'text-slate-900'}`}>
+                            {fmt(val.toString())}
+                          </td>
+                        )
+                      })}
+                      <td className="px-4 py-2.5 text-right font-mono bg-indigo-50 text-indigo-900 font-black">
+                        {fmt(pivotMatrix.grandTotal.toString())}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2 text-left capitalize">
+                        {GROUP_DIMENSION_OPTIONS.find(o => o.value === groupDimension)?.label || groupDimension}
+                      </th>
+                      {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => (
+                        <th key={m.key} className="px-4 py-2 text-right">{m.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pivotSummaryData.summaryRows.map((row) => (
+                      <tr key={row.groupName} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-2 font-bold text-slate-750 capitalize">{row.groupName}</td>
+                        {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => {
+                          const val = row[m.key] as number || 0
+                          return (
+                            <td key={m.key} className={`px-4 py-2 text-right font-mono ${val < 0 ? 'text-red-650 font-semibold' : 'text-slate-650 font-semibold'}`}>
+                              {fmt(val.toString())}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50/80 border-t-2 border-slate-250 font-extrabold text-slate-900">
+                      <td className="px-4 py-2.5">Grand Total</td>
+                      {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => {
+                        const val = pivotSummaryData.grandTotals[m.key] || 0
+                        return (
+                          <td key={m.key} className={`px-4 py-2.5 text-right font-mono ${val < 0 ? 'text-red-650' : 'text-slate-900'}`}>
                             {fmt(val.toString())}
                           </td>
                         )
                       })}
                     </tr>
-                  ))}
-                  {/* Grand Total row */}
-                  <tr className="bg-slate-50/80 border-t-2 border-slate-250 font-extrabold text-slate-900">
-                    <td className="px-4 py-2.5">
-                      Grand Total
-                    </td>
-                    {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => {
-                      const val = pivotSummaryData.grandTotals[m.key] || 0
-                      return (
-                        <td key={m.key} className={`px-4 py-2.5 text-right font-mono ${val < 0 ? 'text-red-650' : 'text-slate-900'}`}>
-                          {fmt(val.toString())}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )}
@@ -642,9 +755,8 @@ export function AdjustmentBridgePage() {
           </div>
         )}
 
-        {/* Skeleton notice */}
         <div className="text-xs text-gray-400 text-center py-2">
-          Adjustment Bridge skeleton — Tier 1.9. Full drag/drop grouping, multi-period comparison, and Excel export in Tier 2.
+          Adjustment Bridge — set Column By for 2D pivot. Multi-period comparison and Excel export coming in a future release.
         </div>
       </div>
     </PageLayout>

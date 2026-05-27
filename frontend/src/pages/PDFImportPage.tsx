@@ -1,4 +1,5 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
@@ -14,6 +15,7 @@ import {
   Lock,
   Search,
   ShieldAlert,
+  Undo2,
   Unlock,
   Upload,
   X,
@@ -1037,6 +1039,7 @@ export function PDFImportPage() {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
+  const [searchParams] = useSearchParams()
 
   // Phase machine
   const [phase, setPhase] = useState<Phase>('upload')
@@ -1093,7 +1096,25 @@ export function PDFImportPage() {
   // P4: Conflict resolution panel
   const [conflictLine, setConflictLine] = useState<PDFLineOut | null>(null)
 
+  // UX-DEF-02: Preview section drag/drop
+  const draggingLineIndexRef = useRef<number | null>(null)
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null)
+
   const appliedBatchId = appliedBatch?.id ?? null
+
+  // Deep-link: ?batch=<id> navigates directly to the applied view for that batch
+  useEffect(() => {
+    const batchParam = searchParams.get('batch')
+    if (!batchParam) return
+    const id = Number(batchParam)
+    if (!id || appliedBatch?.id === id) return
+    pdfImportApi.get(id).then((batch) => {
+      setAppliedBatch(batch)
+      setPhase('applied')
+      setActiveTab('lines')
+      setAppliedLineUndoStack([])
+    }).catch(() => { /* batch not found — stay on upload */ })
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Queries
@@ -1161,11 +1182,14 @@ export function PDFImportPage() {
       setAppliedBatch(batch)
       setPhase('applied')
       setActiveTab('lines')
+      setAppliedLineUndoStack([])
       qc.invalidateQueries({ queryKey: ['pdf-batches'] })
       toast(`PDF applied: ${batch.line_count ?? 0} lines with stable codes and taxonomy mappings persisted`, 'success')
     },
     onError: (err: Error) => setApiError(err.message),
   })
+
+  const [appliedLineUndoStack, setAppliedLineUndoStack] = useState<Array<{ lineId: number; reverse: PDFLineUpdateRequest }>>([])
 
   const updateLineMutation = useMutation({
     mutationFn: ({ lineId, patch }: { lineId: number; patch: PDFLineUpdateRequest }) =>
@@ -1175,6 +1199,28 @@ export function PDFImportPage() {
     },
     onError: (err: Error) => setApiError(err.message),
   })
+
+  function onUpdateLineWithUndo(lineId: number, patch: PDFLineUpdateRequest) {
+    const line = appliedLines.find((l) => l.id === lineId)
+    if (line) {
+      const reverse: PDFLineUpdateRequest = {}
+      if ('official_account_code' in patch) reverse.official_account_code = line.official_account_code ?? null
+      if ('account_name' in patch) reverse.account_name = line.account_name ?? null
+      if ('taxonomy_code' in patch) reverse.taxonomy_code = line.taxonomy_code ?? null
+      if ('taxonomy_locked' in patch) reverse.taxonomy_locked = line.taxonomy_locked ?? false
+      if ('consolidation_group' in patch) reverse.consolidation_group = line.consolidation_group ?? null
+      if ('amount' in patch) reverse.amount = line.amount ?? null
+      setAppliedLineUndoStack((prev) => [...prev, { lineId, reverse }])
+    }
+    updateLineMutation.mutate({ lineId, patch })
+  }
+
+  function undoAppliedLineEdit() {
+    const last = appliedLineUndoStack[appliedLineUndoStack.length - 1]
+    if (!last) return
+    setAppliedLineUndoStack((prev) => prev.slice(0, -1))
+    updateLineMutation.mutate({ lineId: last.lineId, patch: last.reverse })
+  }
 
   const resolveConflictMutation = useMutation({
     mutationFn: ({ lineId, body }: { lineId: number; body: PDFConflictResolutionRequest }) =>
@@ -1781,7 +1827,7 @@ export function PDFImportPage() {
                   )
                 }
               },
-              // P8: Section / drag indicator
+              // P8/UX-DEF-02: Section / drag-and-drop reclassification
               {
                 key: 'section',
                 header: 'Section',
@@ -1790,8 +1836,16 @@ export function PDFImportPage() {
                 render: (l: PDFImportPreviewLine) => {
                   const lineIndex = (preview?.lines ?? []).indexOf(l)
                   return (
-                    <div className="flex items-center gap-1" title="Drag to reclassify section">
-                      <GripVertical className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                    <div className="flex items-center gap-1">
+                      <span
+                        draggable={!l.is_subtotal && lineIndex >= 0}
+                        onDragStart={() => { draggingLineIndexRef.current = lineIndex }}
+                        onDragEnd={() => { draggingLineIndexRef.current = null; setDragOverSection(null) }}
+                        title="Drag to reclassify section"
+                        className="cursor-grab active:cursor-grabbing"
+                      >
+                        <GripVertical className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                      </span>
                       {!l.is_subtotal && lineIndex >= 0 ? (
                         <select
                           value={l.section}
@@ -1873,7 +1927,21 @@ export function PDFImportPage() {
             ]
 
             return (
-              <div key={groupKey} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div
+                key={groupKey}
+                className={`bg-white border rounded-lg overflow-hidden transition-colors ${dragOverSection === groupKey ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-gray-200'}`}
+                onDragOver={(e) => { e.preventDefault(); setDragOverSection(groupKey) }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSection(null) }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const idx = draggingLineIndexRef.current
+                  if (idx !== null && idx >= 0) {
+                    patchPreviewLineMutation.mutate({ lineIndex: idx, patch: { section } })
+                  }
+                  setDragOverSection(null)
+                  draggingLineIndexRef.current = null
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => toggleSection(groupKey)}
@@ -2095,6 +2163,21 @@ export function PDFImportPage() {
               <button type="button" onClick={expandAll} className="text-xs text-gray-500 hover:text-gray-700 underline">Expand all</button>
               <span className="text-gray-300">|</span>
               <button type="button" onClick={() => collapseAll(appliedGroupKeys)} className="text-xs text-gray-500 hover:text-gray-700 underline">Collapse all</button>
+              {appliedLineUndoStack.length > 0 && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={undoAppliedLineEdit}
+                    disabled={updateLineMutation.isPending}
+                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                    title={`Undo last edit (${appliedLineUndoStack.length} in stack)`}
+                  >
+                    <Undo2 className="w-3.5 h-3.5" />
+                    Undo ({appliedLineUndoStack.length})
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -2103,9 +2186,7 @@ export function PDFImportPage() {
           ) : (
             <AppliedLinesTable
               lines={visibleAppliedLines}
-              onUpdateLine={(lineId, patch) =>
-                updateLineMutation.mutate({ lineId, patch })
-              }
+              onUpdateLine={onUpdateLineWithUndo}
               collapsedSections={collapsedSections}
               onToggleSection={toggleSection}
               onResolveConflict={setConflictLine}

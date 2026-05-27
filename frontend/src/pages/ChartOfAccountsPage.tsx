@@ -49,6 +49,25 @@ const STATUS_COLORS: Record<string, string> = {
   deprecated: 'bg-amber-50 text-amber-700 border-amber-200',
 }
 
+type OptionalCol = 'detail_type' | 'reporting_taxonomy_line_id' | 'conflict' | 'parent_account_id'
+
+const ALL_OPTIONAL_COLS: { key: OptionalCol; label: string }[] = [
+  { key: 'detail_type', label: 'Detail Type' },
+  { key: 'reporting_taxonomy_line_id', label: 'Reporting Line' },
+  { key: 'conflict', label: 'Conflict' },
+  { key: 'parent_account_id', label: 'Parent' },
+]
+
+const DEFAULT_VISIBLE_COLS = new Set<OptionalCol>(['detail_type', 'reporting_taxonomy_line_id', 'conflict', 'parent_account_id'])
+
+function loadVisibleCols(): Set<OptionalCol> {
+  try {
+    const raw = localStorage.getItem('coa-visible-cols')
+    if (raw) return new Set(JSON.parse(raw) as OptionalCol[])
+  } catch { /* ignore */ }
+  return new Set(DEFAULT_VISIBLE_COLS)
+}
+
 const AUTHORITATIVE_QB_TYPES: Record<string, string> = {
   checking: 'cash_and_cash_equivalents',
   savings: 'cash_and_cash_equivalents',
@@ -624,10 +643,12 @@ interface SettingsPanelProps {
   onDensity: (d: GridDensity) => void
   showInactive: boolean
   onShowInactive: (v: boolean) => void
+  visibleColumns: Set<OptionalCol>
+  onToggleColumn: (col: OptionalCol) => void
   onClose: () => void
 }
 
-function SettingsPanel({ density, onDensity, showInactive, onShowInactive, onClose }: SettingsPanelProps) {
+function SettingsPanel({ density, onDensity, showInactive, onShowInactive, visibleColumns, onToggleColumn, onClose }: SettingsPanelProps) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function h(e: MouseEvent) {
@@ -674,6 +695,22 @@ function SettingsPanel({ density, onDensity, showInactive, onShowInactive, onClo
           />
           <span className="text-xs text-gray-700">Show inactive / archived</span>
         </label>
+      </div>
+      <div className="border-t border-gray-100 mt-1.5 pt-1.5 px-3">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Optional Columns</p>
+        <div className="flex flex-col gap-1">
+          {ALL_OPTIONAL_COLS.map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={visibleColumns.has(key)}
+                onChange={() => onToggleColumn(key)}
+                className="rounded border-gray-300 text-indigo-600"
+              />
+              <span className="text-xs text-gray-700">{label}</span>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -974,13 +1011,14 @@ interface AccountRowProps {
   onArchive: (node: AccountNode) => void
   onActivate: (node: AccountNode) => void
   onResolveConflict: (node: AccountNode) => void
+  visibleColumns: Set<OptionalCol>
 }
 
 function AccountRow({
   node, depth, density, taxonomyLines, flatAccounts,
   editState, onEdit, onSave, onCancel, onEditChange, isSaving,
   onOpenMenu, onAddChild, onDuplicate, onArchive, onActivate,
-  onResolveConflict,
+  onResolveConflict, visibleColumns,
 }: AccountRowProps) {
   const {
     dragNodeId, dropTarget, collapsedIds, highlightIds, selectedIds,
@@ -1192,18 +1230,20 @@ function AccountRow({
         </td>
 
         {/* Detail type */}
-        <td className={cn('px-3 text-xs text-slate-550 w-36', py)}>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editState.detail_type}
-              onChange={(e) => onEditChange({ detail_type: e.target.value })}
-              className="w-36 border border-slate-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white shadow-xs"
-            />
-          ) : (
-            node.detail_type || <span className="text-slate-300">—</span>
-          )}
-        </td>
+        {visibleColumns.has('detail_type') && (
+          <td className={cn('px-3 text-xs text-slate-550 w-36', py)}>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editState.detail_type}
+                onChange={(e) => onEditChange({ detail_type: e.target.value })}
+                className="w-36 border border-slate-200 rounded px-2 py-0.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white shadow-xs"
+              />
+            ) : (
+              node.detail_type || <span className="text-slate-300">—</span>
+            )}
+          </td>
+        )}
 
         {/* Status */}
         <td className={cn('px-3 w-24', py)}>
@@ -1226,7 +1266,7 @@ function AccountRow({
         </td>
 
         {/* Reporting taxonomy */}
-        <td className={cn('px-3 text-xs text-slate-550 max-w-[180px] truncate', py)}>
+        {visibleColumns.has('reporting_taxonomy_line_id') && <td className={cn('px-3 text-xs text-slate-550 max-w-[180px] truncate', py)}>
           {isEditing ? (
             <select
               value={editState.reporting_taxonomy_line_id}
@@ -1296,10 +1336,10 @@ function AccountRow({
               )
             })()
           )}
-        </td>
+        </td>}
 
         {/* Conflict column cell */}
-        <td className={cn('px-3 w-24 text-center', py)}>
+        {visibleColumns.has('conflict') && <td className={cn('px-3 w-24 text-center', py)}>
           {(() => {
             const flags = getAccountValidationFlags(node, flatAccounts, taxonomyLines)
             const hasConflict = flags.some(f => f.code === 'conflict')
@@ -1317,10 +1357,10 @@ function AccountRow({
               <span className="text-gray-300">—</span>
             )
           })()}
-        </td>
+        </td>}
 
         {/* Parent account */}
-        <td className={cn('px-3 text-xs text-slate-550 w-32 truncate', py)}>
+        {visibleColumns.has('parent_account_id') && <td className={cn('px-3 text-xs text-slate-550 w-32 truncate', py)}>
           {isEditing ? (
             <select
               value={editState.parent_account_id}
@@ -1341,7 +1381,7 @@ function AccountRow({
               <span className="text-slate-300">—</span>
             )
           )}
-        </td>
+        </td>}
 
         {/* Actions */}
         <td className={cn('px-2 text-right w-20', py)}>
@@ -1408,6 +1448,7 @@ function AccountRow({
           onArchive={onArchive}
           onActivate={onActivate}
           onResolveConflict={onResolveConflict}
+          visibleColumns={visibleColumns}
         />
       ))}
     </>
@@ -1590,6 +1631,17 @@ export function ChartOfAccountsPage() {
   const [previewAccountId, setPreviewAccountId] = useState<number | null>(null)
   const [density, setDensity] = useState<GridDensity>('normal')
   const [showSettings, setShowSettings] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState<Set<OptionalCol>>(loadVisibleCols)
+
+  const toggleColumn = useCallback((col: OptionalCol) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev)
+      if (next.has(col)) next.delete(col)
+      else next.add(col)
+      localStorage.setItem('coa-visible-cols', JSON.stringify([...next]))
+      return next
+    })
+  }, [])
   const [conflictAccount, setConflictAccount] = useState<AccountNode | null>(null)
 
   // Undo/redo
@@ -2187,6 +2239,8 @@ export function ChartOfAccountsPage() {
                     onDensity={setDensity}
                     showInactive={showInactive}
                     onShowInactive={(v) => { setShowInactive(v); if (v) setStatusFilter('') }}
+                    visibleColumns={visibleColumns}
+                    onToggleColumn={toggleColumn}
                     onClose={() => setShowSettings(false)}
                   />
                 )}
@@ -2315,15 +2369,17 @@ export function ChartOfAccountsPage() {
                       </th>
                       <th className="px-1 py-3 w-5" />
                       {([
-                        ['account_number', 'Acct #', 'w-24'],
-                        ['account_name', 'Account Name', ''],
-                        ['account_type', 'Type', 'w-24'],
-                        ['detail_type', 'Detail Type', 'w-36'],
-                        ['account_status', 'Status', 'w-24'],
-                        ['reporting_taxonomy_line_id', 'Reporting Line', 'w-44'],
-                        ['conflict', 'Conflict', 'w-24'],
-                        ['parent_account_id', 'Parent', 'w-28'],
-                      ] as [string, string, string][]).map(([key, label, width]) => (
+                        ['account_number', 'Acct #', 'w-24', false],
+                        ['account_name', 'Account Name', '', false],
+                        ['account_type', 'Type', 'w-24', false],
+                        ['detail_type', 'Detail Type', 'w-36', true],
+                        ['account_status', 'Status', 'w-24', false],
+                        ['reporting_taxonomy_line_id', 'Reporting Line', 'w-44', true],
+                        ['conflict', 'Conflict', 'w-24', true],
+                        ['parent_account_id', 'Parent', 'w-28', true],
+                      ] as [string, string, string, boolean][]).filter(([key, , , optional]) =>
+                        !optional || visibleColumns.has(key as OptionalCol)
+                      ).map(([key, label, width]) => (
                         <th
                           key={key}
                           className={`px-3 py-3 text-left cursor-pointer select-none hover:bg-slate-100 transition-colors ${width}`}
@@ -2348,7 +2404,7 @@ export function ChartOfAccountsPage() {
                   <tbody className="divide-y divide-slate-100">
                     {filteredTree.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="px-4 py-8 text-center text-xs text-slate-400">
+                        <td colSpan={7 + visibleColumns.size} className="px-4 py-8 text-center text-xs text-slate-400">
                           No accounts match the current filter
                         </td>
                       </tr>
@@ -2373,6 +2429,7 @@ export function ChartOfAccountsPage() {
                           onArchive={handleArchive}
                           onActivate={handleActivate}
                           onResolveConflict={setConflictAccount}
+                          visibleColumns={visibleColumns}
                         />
                       ))
                     )}
