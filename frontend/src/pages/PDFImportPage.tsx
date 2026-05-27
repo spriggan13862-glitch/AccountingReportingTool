@@ -1186,6 +1186,18 @@ export function PDFImportPage() {
     onError: (err: Error) => setApiError(err.message),
   })
 
+  const bulkResolveMutation = useMutation({
+    mutationFn: ({ resolution, conflictReason }: {
+      resolution: 'keep_source' | 'apply_global' | 'accepted'
+      conflictReason?: string
+    }) => pdfImportApi.bulkResolveConflicts(appliedBatchId!, resolution, conflictReason),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['pdf-lines', appliedBatchId] })
+      toast(`${data.resolved} conflict${data.resolved === 1 ? '' : 's'} resolved`, 'success')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
   const patchPreviewLineMutation = useMutation({
     mutationFn: ({ lineIndex, patch }: {
       lineIndex: number
@@ -2001,6 +2013,56 @@ export function PDFImportPage() {
       {/* Lines tab */}
       {activeTab === 'lines' && (
         <div className="space-y-3">
+          {/* UX-DEF-12: Bulk conflict resolution bar */}
+          {(() => {
+            const conflicting = appliedLines.filter((l) => l.taxonomy_conflict)
+            if (conflicting.length === 0) return null
+            const byReason = conflicting.reduce<Record<string, number>>((acc, l) => {
+              const r = l.conflict_reason ?? 'unknown'
+              acc[r] = (acc[r] ?? 0) + 1
+              return acc
+            }, {})
+            return (
+              <div className="flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" data-testid="bulk-conflict-bar">
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                <span className="text-xs font-medium text-amber-800">
+                  {conflicting.length} taxonomy conflict{conflicting.length === 1 ? '' : 's'}
+                  {Object.keys(byReason).length > 1 && ` across ${Object.keys(byReason).length} types`}
+                </span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <span className="text-xs text-amber-700">Resolve all:</span>
+                  <button
+                    type="button"
+                    disabled={bulkResolveMutation.isPending}
+                    onClick={() => bulkResolveMutation.mutate({ resolution: 'apply_global' })}
+                    className="px-2 py-1 text-xs rounded border border-amber-400 bg-white text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                    data-testid="bulk-resolve-global-btn"
+                  >
+                    Apply global
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bulkResolveMutation.isPending}
+                    onClick={() => bulkResolveMutation.mutate({ resolution: 'keep_source' })}
+                    className="px-2 py-1 text-xs rounded border border-amber-400 bg-white text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                    data-testid="bulk-resolve-source-btn"
+                  >
+                    Keep source
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bulkResolveMutation.isPending}
+                    onClick={() => bulkResolveMutation.mutate({ resolution: 'accepted' })}
+                    className="px-2 py-1 text-xs rounded border border-amber-400 bg-white text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                    data-testid="bulk-resolve-accept-btn"
+                  >
+                    Accept all
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* P6: ONE global control bar for applied view */}
           <div className="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
             <div className="relative min-w-[180px] max-w-xs">

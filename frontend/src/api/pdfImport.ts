@@ -54,6 +54,18 @@ export const pdfImportApi = {
   resolveConflict: (batchId: number, lineId: number, body: PDFConflictResolutionRequest): Promise<PDFLineOut> =>
     api.post<PDFLineOut>(`/pdf-imports/${batchId}/lines/${lineId}/resolve-conflict`, body).then((r) => r.data),
 
+  bulkResolveConflicts: (
+    batchId: number,
+    resolution: 'keep_source' | 'apply_global' | 'accepted',
+    conflictReason?: string,
+  ): Promise<{ resolved: number }> =>
+    api
+      .post<{ resolved: number }>(`/pdf-imports/${batchId}/conflicts/bulk-resolve`, {
+        resolution,
+        conflict_reason: conflictReason ?? null,
+      })
+      .then((r) => r.data),
+
   list: (entityId?: number): Promise<PDFImportBatch[]> =>
     api
       .get<PDFImportBatch[]>('/pdf-imports/', {

@@ -947,6 +947,65 @@ def resolve_taxonomy_conflict(
 
 
 # ---------------------------------------------------------------------------
+# UX-DEF-12: Bulk conflict resolution
+# ---------------------------------------------------------------------------
+
+class BulkConflictResolveRequest(BaseModel):
+    resolution: str
+    conflict_reason: str | None = None  # when set, only resolve conflicts with this reason
+
+
+@router.post("/{batch_id}/conflicts/bulk-resolve")
+def bulk_resolve_conflicts(
+    batch_id: int,
+    body: BulkConflictResolveRequest,
+    db: Session = Depends(get_db),
+):
+    """Resolve all open taxonomy conflicts in a batch in one call.
+
+    Optionally filter by conflict_reason to resolve only one conflict type at a time.
+    Supports the same resolution values as the single-line endpoint, except
+    'use_parent' (which requires per-line account lookup) and
+    'create_reclass' / 'create_new' (which are per-line actions).
+    """
+    VALID_BULK = {"keep_source", "apply_global", "accepted"}
+    if body.resolution not in VALID_BULK:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Bulk resolution must be one of: {', '.join(sorted(VALID_BULK))}",
+        )
+
+    batch = db.get(PDFImportBatch, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+
+    q = (
+        db.query(PDFAccountMapping)
+        .filter(PDFAccountMapping.batch_id == batch_id, PDFAccountMapping.taxonomy_conflict == True)
+    )
+    if body.conflict_reason:
+        q = q.filter(PDFAccountMapping.conflict_reason == body.conflict_reason)
+
+    mappings = q.all()
+    if not mappings:
+        return {"resolved": 0}
+
+    resolution = body.resolution
+    for mapping in mappings:
+        if resolution == "keep_source":
+            mapping.taxonomy_code = mapping.source_taxonomy_code
+            mapping.taxonomy_source = "manual"
+        elif resolution == "apply_global":
+            mapping.taxonomy_source = "manual"
+        # accepted: no taxonomy change
+        mapping.taxonomy_conflict = False
+        mapping.conflict_resolution = resolution
+
+    db.commit()
+    return {"resolved": len(mappings)}
+
+
+# ---------------------------------------------------------------------------
 # P2: Balance sheet validation endpoint
 # ---------------------------------------------------------------------------
 
