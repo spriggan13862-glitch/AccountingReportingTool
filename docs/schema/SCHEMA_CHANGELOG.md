@@ -28,13 +28,14 @@ All schema-level changes — model additions, column additions/removals, migrati
 | 2026-05-27 | Added `_set_path_and_depth()` + `_rebuild_subtree_paths()` — auto-populate `account_path`/`depth_level` on create and reparent | `app/api/routers/accounts.py` | — |
 | 2026-05-27 | Added `POST /accounts/backfill-paths` endpoint for existing-data backfill | `app/api/routers/accounts.py` | — |
 | 2026-05-27 | Updated ALPHA_UX_TRACKER with schema enforcement section (UX-095 – UX-101, DEF-13 – DEF-16) | `docs/ALPHA_UX_TRACKER.md` | — |
+| 2026-05-27 | Added three-statement health widget to FinancialStatementsPage (UX-DEF-15 resolved) | `frontend/src/pages/FinancialStatementsPage.tsx` | — |
 
 ## Pending
 
 | Priority | Change | Notes |
 |----------|--------|-------|
 | Medium | `account_path` / `depth_level` backfill for existing records | Call `POST /accounts/backfill-paths?entity_id=N` per entity |
-| Medium | Implement `validate_three_statement_model()` | IS net income = BS RE delta; BS cash = CFS cash |
+| ~~Medium~~ | ~~Implement `validate_three_statement_model()`~~ | Resolved — three-statement health widget added to FS page; backend already existed at `GET /financial-statements/validate` |
 | Medium | Formal `trial_balances` / `trial_balance_lines` tables | Currently computed at query time |
 | Low | `budget_versions` / `budget_lines` tables | Future milestone |
 | Low | `variance_reports` / `variance_report_lines` tables | Future milestone |

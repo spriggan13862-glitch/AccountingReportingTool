@@ -429,6 +429,11 @@ export function FinancialStatementsPage() {
   const scenarioIds = scenarioId !== '' ? [scenarioId] : []
   const ready = entityId !== '' && !!asOfDate
 
+  const periodStart = useMemo(() => {
+    if (!asOfDate) return ''
+    return `${asOfDate.slice(0, 4)}-01-01`
+  }, [asOfDate])
+
   // Queries for calculations & rollup
   const { data: accounts } = useQuery({
     queryKey: ['accounts', entityId],
@@ -497,6 +502,15 @@ export function FinancialStatementsPage() {
 
   const inheritMutation = useMutation({
     mutationFn: () => reportingApi.inheritTaxonomy(entityId as number),
+  })
+
+  const { data: fsValidation } = useQuery({
+    queryKey: ['fs-validate', entityId, asOfDate, scenarioIds, periodStart],
+    queryFn: () =>
+      financialStatementsApi
+        .validateStatements(entityId as number, asOfDate, scenarioIds, periodStart)
+        .then((r) => r.data),
+    enabled: ready && !!periodStart,
   })
 
   const { data: drilldown } = useQuery({
@@ -1040,6 +1054,65 @@ export function FinancialStatementsPage() {
               />
             )}
           </div>
+        </div>
+      )}
+
+      {/* Three-Statement Health Widget */}
+      {ready && fsValidation && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-3">Three-Statement Health</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              {
+                label: 'Balance Sheet',
+                ok: fsValidation.is_balanced,
+                detail: fsValidation.is_balanced ? 'In balance' : `Off by ${fmt(fsValidation.bs_difference)}`,
+              },
+              {
+                label: 'Cash Flow',
+                ok: fsValidation.cf_tied,
+                detail: fsValidation.cf_tied
+                  ? 'Tied to BS cash'
+                  : fsValidation.cf_difference != null
+                  ? `Off by ${fmt(fsValidation.cf_difference)}`
+                  : 'Not computed',
+              },
+              {
+                label: 'Retained Earnings',
+                ok: fsValidation.re_tied,
+                detail: fsValidation.re_tied
+                  ? 'Tied to net income'
+                  : fsValidation.re_difference != null
+                  ? `Off by ${fmt(fsValidation.re_difference)}`
+                  : 'Not computed',
+              },
+            ].map(({ label, ok, detail }) => (
+              <div
+                key={label}
+                className={`flex items-start gap-3 rounded-lg border p-3 text-xs ${
+                  ok ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'
+                }`}
+              >
+                <span className={`mt-0.5 text-base leading-none ${ok ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {ok ? '✓' : '✗'}
+                </span>
+                <div>
+                  <p className={`font-semibold ${ok ? 'text-emerald-800' : 'text-rose-800'}`}>{label}</p>
+                  <p className={`mt-0.5 ${ok ? 'text-emerald-700' : 'text-rose-700'}`}>{detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {fsValidation.issues.length > 0 && (
+            <ul className="mt-3 space-y-1">
+              {fsValidation.issues.map((issue, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-amber-800">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 shrink-0" />
+                  {issue}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
