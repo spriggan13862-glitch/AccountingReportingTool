@@ -3,19 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
-  FileText, Download, Building2, Layers
+  FileText, Download, Layers
 } from 'lucide-react'
 import { journalEntriesApi } from '@/api/journalEntries'
-import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { PeriodSelect } from '@/components/ui/PeriodSelect'
+import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard/types'
-import type { Entity, AccountingPeriod } from '@/types'
+import type { AccountingPeriod } from '@/types'
 
 const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
@@ -34,44 +36,34 @@ export function GeneralLedgerImportPage() {
   const [step, setStep] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [entityId, setEntityId] = useState<string>('')
-  const [periodId, setPeriodId] = useState<string>('')
+  const [entityId, setEntityId] = useState<number | ''>('')
+  const [periodId, setPeriodId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState<string>('')
-  
+
   const [fileHeaders, setFileHeaders] = useState<string[]>([])
-  const [fileRows, setFileRows] = useState<any[]>([])
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
-  
+
   const [groupedTransactions, setGroupedTransactions] = useState<any[]>([])
   const [validationErrors, setValidationErrors] = useState<string[]>([])
-  
-  const [scenarioId, setScenarioId] = useState<string>('1') // default to Actual
+
+  const [scenarioId, setScenarioId] = useState<number | ''>('')
   const [overlayGroup, setOverlayGroup] = useState<string>('')
   const [isReversing, setIsReversing] = useState<boolean>(false)
-  
+
   const [apiError, setApiError] = useState<string | null>(null)
 
-  // Fetch entities
-  const { data: entities = [] } = useQuery<Entity[]>({
-    queryKey: ['entities'],
-    queryFn: () => entitiesApi.list(),
-    enabled: !!orgId,
-  })
-
-  // Fetch periods for the selected entity
+  // Fetch periods to derive as_of_date from selected period's end_date
   const { data: periods = [] } = useQuery<AccountingPeriod[]>({
-    queryKey: ['periods', entityId],
-    queryFn: () => periodsApi.list(Number(entityId)),
+    queryKey: ['periods-list', entityId],
+    queryFn: () => periodsApi.list(entityId as number),
     enabled: !!entityId,
+    staleTime: 30_000,
   })
 
-  // Set default date from selected period
   useEffect(() => {
     if (periodId) {
-      const selected = periods.find(p => p.id === Number(periodId))
-      if (selected) {
-        setAsOfDate(selected.end_date)
-      }
+      const p = periods.find((p) => p.id === periodId)
+      if (p) setAsOfDate(p.end_date)
     }
   }, [periodId, periods])
 
@@ -218,9 +210,9 @@ export function GeneralLedgerImportPage() {
     mutationFn: () => {
       if (!file || !entityId) throw new Error('Entity selection is required')
       return journalEntriesApi.importCsv(
-        Number(entityId),
+        entityId as number,
         file,
-        scenarioId ? Number(scenarioId) : undefined,
+        scenarioId !== '' ? scenarioId : undefined,
         overlayGroup || undefined,
         isReversing
       )
@@ -276,37 +268,19 @@ export function GeneralLedgerImportPage() {
           <div className="space-y-6">
             <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Workspace Parameters</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Entity</label>
-                <select
-                  value={entityId}
-                  onChange={(e) => {
-                    setEntityId(e.target.value)
-                    setPeriodId('')
-                  }}
-                  className="w-full h-9 rounded border border-gray-300 px-3 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">— Select Entity —</option>
-                  {entities.map((e) => (
-                    <option key={e.id} value={e.id}>{e.code} — {e.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Period</label>
-                <select
-                  value={periodId}
-                  onChange={(e) => setPeriodId(e.target.value)}
-                  disabled={!entityId}
-                  className="w-full h-9 rounded border border-gray-300 px-3 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-                >
-                  <option value="">— Select Period —</option>
-                  {periods.map((p) => (
-                    <option key={p.id} value={p.id}>{p.fiscal_year} Period {p.period_number} ({p.period_name})</option>
-                  ))}
-                </select>
-              </div>
+              <EntitySelect
+                value={entityId}
+                onChange={(id) => { setEntityId(id); setPeriodId('') }}
+                label="Entity"
+                required
+              />
+              <PeriodSelect
+                entityId={entityId}
+                value={periodId}
+                onChange={setPeriodId}
+                label="Period"
+                required
+              />
             </div>
 
             <div className="border-t border-gray-100 pt-5">
@@ -500,18 +474,12 @@ export function GeneralLedgerImportPage() {
             <p className="text-xs text-gray-500">Configure overlay scenarios, reversing flags, and adjustment categories prior to import.</p>
             
             <div className="space-y-4 max-w-md">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Scenario Type</label>
-                <select
-                  value={scenarioId}
-                  onChange={(e) => setScenarioId(e.target.value)}
-                  className="w-full border border-gray-300 rounded h-9 px-3 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="1">Scenario 1 — Actuals</option>
-                  <option value="2">Scenario 2 — Topside Adjustments</option>
-                  <option value="3">Scenario 3 — Pro Forma Adjustments</option>
-                </select>
-              </div>
+              <ScenarioSelect
+                value={scenarioId}
+                onChange={setScenarioId}
+                label="Scenario"
+                organizationId={orgId || undefined}
+              />
 
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1.5">Adjustment Category / Overlay Group (Optional)</label>

@@ -3,19 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
-  FileText, Download, Building2, Sparkles, RefreshCw
+  FileText, Download, Sparkles, RefreshCw
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
-import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { EntitySelect } from '@/components/ui/EntitySelect'
+import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard/types'
-import type { Entity, AccountingPeriod } from '@/types'
 
 const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
@@ -36,8 +36,8 @@ export function TrialBalanceImportPage() {
   const [step, setStep] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  const [entityId, setEntityId] = useState<string>('')
-  const [periodId, setPeriodId] = useState<string>('')
+  const [entityId, setEntityId] = useState<number | ''>('')
+  const [periodId, setPeriodId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState<string>('')
   
   const [detected, setDetected] = useState<any>(null)
@@ -52,27 +52,18 @@ export function TrialBalanceImportPage() {
   const [notes, setNotes] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
 
-  // Fetch entities
-  const { data: entities = [] } = useQuery<Entity[]>({
-    queryKey: ['entities'],
-    queryFn: () => entitiesApi.list(),
-    enabled: !!orgId,
-  })
-
-  // Fetch periods for the selected entity
-  const { data: periods = [] } = useQuery<AccountingPeriod[]>({
-    queryKey: ['periods', entityId],
-    queryFn: () => periodsApi.list(Number(entityId)),
+  // Fetch periods to derive as_of_date from the selected period's end_date
+  const { data: periods = [] } = useQuery({
+    queryKey: ['periods-list', entityId],
+    queryFn: () => periodsApi.list(entityId as number),
     enabled: !!entityId,
+    staleTime: 30_000,
   })
 
-  // Set the default date when a period is selected
   useEffect(() => {
     if (periodId) {
-      const selected = periods.find(p => p.id === Number(periodId))
-      if (selected) {
-        setAsOfDate(selected.end_date)
-      }
+      const p = periods.find((p) => p.id === periodId)
+      if (p) setAsOfDate(p.end_date)
     }
   }, [periodId, periods])
 
@@ -106,7 +97,7 @@ export function TrialBalanceImportPage() {
     mutationFn: () => {
       if (!file || !entityId || !asOfDate) throw new Error('Entity and date are required')
       return tbImportApi.uploadBatch({
-        entity_id: Number(entityId),
+        entity_id: entityId as number,
         organization_id: orgId,
         as_of_date: asOfDate,
         scenario_id: 1, // Default scenario (Actual)
@@ -196,37 +187,22 @@ export function TrialBalanceImportPage() {
           <div className="space-y-6">
             <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Workspace Parameters</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Entity</label>
-                <select
-                  value={entityId}
-                  onChange={(e) => {
-                    setEntityId(e.target.value)
-                    setPeriodId('')
-                  }}
-                  className="w-full h-9 rounded border border-gray-300 px-3 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="">— Select Entity —</option>
-                  {entities.map((e) => (
-                    <option key={e.id} value={e.id}>{e.code} — {e.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Period</label>
-                <select
-                  value={periodId}
-                  onChange={(e) => setPeriodId(e.target.value)}
-                  disabled={!entityId}
-                  className="w-full h-9 rounded border border-gray-300 px-3 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-                >
-                  <option value="">— Select Period —</option>
-                  {periods.map((p) => (
-                    <option key={p.id} value={p.id}>{p.fiscal_year} Period {p.period_number} ({p.period_name})</option>
-                  ))}
-                </select>
-              </div>
+              <EntitySelect
+                value={entityId}
+                onChange={(id) => { setEntityId(id); setPeriodId('') }}
+                label="Entity"
+                required
+              />
+              <PeriodSelect
+                entityId={entityId}
+                value={periodId}
+                onChange={(id) => {
+                  setPeriodId(id)
+                  // PeriodSelect doesn't expose end_date directly; keep asOfDate in sync via effect below
+                }}
+                label="Period"
+                required
+              />
             </div>
 
             <div className="border-t border-gray-100 pt-5">
