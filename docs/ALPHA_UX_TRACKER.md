@@ -346,7 +346,7 @@ Stabilization pass before Tier 2. Focus: core workflow correctness for import �
 
 | ID | Area | Description | Priority |
 |---|---|---|---|
-| T15-OPEN-001 | ContextBar / Pages | Per-page EntitySelect dropdowns do not auto-sync to global active entity from WorkspaceProvider | Medium |
+| ~~T15-OPEN-001~~ | ~~ContextBar / Pages~~ | ~~Per-page EntitySelect dropdowns do not auto-sync to global active entity from WorkspaceProvider~~ | **Resolved 2026-05-27** — All six pages (`FinancialStatementsPage`, `TrialBalancesPage`, `ChartOfAccountsPage`, `GeneralLedgerImportPage`, `JournalEntryImportPage`, `TrialBalanceImportPage`) now initialize `entityId` from `useWorkspace().activeEntity` using the pattern already in `PeriodsPage`. |
 | T15-OPEN-002 | Entity Setup | EntitiesPage does not show account count or document count per entity | Low |
 | T15-OPEN-004 | COA Undo | Undo/redo in ChartOfAccountsPage only covers reparent operations; ActionHistoryProvider global redo is a stub | Low |
 
@@ -359,8 +359,9 @@ Core workflow (import → COA → Financial Statements) is now functional end-to
 - Taxonomy auto-seeds on first use (no manual seed step required)
 - Financial statements render correctly when no scenario filter is selected
 - Empty states provide actionable guidance instead of generic fallbacks
+- Global active entity syncs automatically to all per-page EntitySelect dropdowns on navigation
 
-All 671 Python tests and 360 vitest tests pass. TypeScript compiles clean.
+All 677 Python tests and 406 vitest tests pass. TypeScript compiles clean.
 
 **Safe to merge to main** — all E2E tests (`smoke.spec.ts`, `workflow.spec.ts`, `accounting.spec.ts`, `pdf_import.spec.ts`, and `shadow.spec.ts`) are fully passing.
 
