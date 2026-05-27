@@ -8,6 +8,9 @@ import {
   Table2,
   Download,
   Eye,
+  ListTree,
+  Play,
+  RefreshCw,
 } from 'lucide-react'
 import { importRegistryApi, type ImportRegistryEntry } from '@/api/importRegistry'
 import { documentsApi } from '@/api/documents'
@@ -108,6 +111,18 @@ export function DocumentList({ documents }: DocumentListProps) {
 // ---------------------------------------------------------------------------
 // Main page — Import Registry
 // ---------------------------------------------------------------------------
+
+const FINALIZED_STATUSES = new Set(['finalized', 'posted', 'applied'])
+const INCOMPLETE_STATUSES = new Set(['uploaded', 'parsed', 'validation_failed', 'failed', 'error', 'awaiting mapping', 'mapping_required'])
+const READY_STATUSES = new Set(['ready for review', 'ready_to_post'])
+
+function sourceNavLabel(entry: ImportRegistryEntry): string {
+  const s = entry.status.toLowerCase()
+  if (FINALIZED_STATUSES.has(s)) return 'View Import'
+  if (READY_STATUSES.has(s)) return 'Review & Apply'
+  if (INCOMPLETE_STATUSES.has(s)) return 'Continue Import'
+  return 'Open Import'
+}
 
 export function DocumentsPage() {
   const navigate = useNavigate()
@@ -255,11 +270,36 @@ export function DocumentsPage() {
           <button
             type="button"
             onClick={(ev) => { ev.stopPropagation(); navToSource(e) }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
-            title="Open Source Import"
+            className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded border ${
+              READY_STATUSES.has(e.status.toLowerCase())
+                ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
+                : INCOMPLETE_STATUSES.has(e.status.toLowerCase())
+                ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                : 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
+            }`}
+            title={sourceNavLabel(e)}
           >
-            <ExternalLink className="w-3 h-3" /> Open Source Import
+            {READY_STATUSES.has(e.status.toLowerCase())
+              ? <Play className="w-3 h-3" />
+              : INCOMPLETE_STATUSES.has(e.status.toLowerCase())
+              ? <RefreshCw className="w-3 h-3" />
+              : <ExternalLink className="w-3 h-3" />
+            }
+            {sourceNavLabel(e)}
           </button>
+          {e.entity_id && (
+            <button
+              type="button"
+              onClick={(ev) => {
+                ev.stopPropagation()
+                navigate(`/coa?entity=${e.entity_id}`)
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100"
+              title="View entity accounts in Chart of Accounts"
+            >
+              <ListTree className="w-3 h-3" /> View Accounts
+            </button>
+          )}
         </div>
       ),
     },

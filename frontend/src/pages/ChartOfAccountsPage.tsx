@@ -581,10 +581,23 @@ function AccountPreviewSidebar({
                       {isInherited ? 'Inherited' : 'Manual'}
                     </span>
                   </div>
-                  {hierarchyPath && (
-                    <p className="text-[10px] text-indigo-650 font-mono" data-testid="fs-hierarchy-path">
-                      {hierarchyPath}
-                    </p>
+                  {pathParts.length > 0 && (
+                    <div className="flex items-center gap-0.5 flex-wrap mt-1" data-testid="fs-hierarchy-path">
+                      {pathParts.map((segment, i) => (
+                        <span key={i} className="flex items-center gap-0.5">
+                          {i > 0 && <span className="text-indigo-200 text-[10px]">›</span>}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                            i === 0
+                              ? 'bg-blue-50 border-blue-200 text-blue-700 font-semibold'
+                              : i === pathParts.length - 1
+                              ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-semibold'
+                              : 'bg-slate-50 border-slate-200 text-slate-500'
+                          }`}>
+                            {segment}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
                   )}
                   {isInherited && inheritedFrom && (
                     <p className="text-[10px] text-gray-555 mt-1 italic" data-testid="inherited-from-text">
@@ -645,10 +658,12 @@ interface SettingsPanelProps {
   onShowInactive: (v: boolean) => void
   visibleColumns: Set<OptionalCol>
   onToggleColumn: (col: OptionalCol) => void
+  entityId: number | ''
   onClose: () => void
 }
 
-function SettingsPanel({ density, onDensity, showInactive, onShowInactive, visibleColumns, onToggleColumn, onClose }: SettingsPanelProps) {
+function SettingsPanel({ density, onDensity, showInactive, onShowInactive, visibleColumns, onToggleColumn, entityId, onClose }: SettingsPanelProps) {
+  const [backfillMsg, setBackfillMsg] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     function h(e: MouseEvent) {
@@ -710,6 +725,32 @@ function SettingsPanel({ density, onDensity, showInactive, onShowInactive, visib
               <span className="text-xs text-gray-700">{label}</span>
             </label>
           ))}
+        </div>
+      </div>
+      <div className="border-t border-gray-100 mt-1.5 pt-1.5 px-3 pb-1">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Data Maintenance</p>
+        {backfillMsg && <p className="text-[10px] text-emerald-600 mb-1.5">{backfillMsg}</p>}
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              const eid = entityId !== '' ? entityId : undefined
+              accountsApi.backfillPaths(eid).then((r) => setBackfillMsg(`Paths updated: ${r.updated} accounts`))
+            }}
+            className="text-left text-xs text-gray-600 hover:text-indigo-700 py-0.5 underline-offset-2 hover:underline"
+          >
+            Backfill account paths
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const eid = entityId !== '' ? entityId : undefined
+              accountsApi.backfillFsSign(eid).then((r) => setBackfillMsg(`FS sign updated: ${r.updated} accounts`))
+            }}
+            className="text-left text-xs text-gray-600 hover:text-indigo-700 py-0.5 underline-offset-2 hover:underline"
+          >
+            Backfill FS sign convention
+          </button>
         </div>
       </div>
     </div>
@@ -2241,6 +2282,7 @@ export function ChartOfAccountsPage() {
                     onShowInactive={(v) => { setShowInactive(v); if (v) setStatusFilter('') }}
                     visibleColumns={visibleColumns}
                     onToggleColumn={toggleColumn}
+                    entityId={entityId}
                     onClose={() => setShowSettings(false)}
                   />
                 )}

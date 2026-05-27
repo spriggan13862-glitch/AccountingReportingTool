@@ -89,6 +89,12 @@ export const accountsApi = {
 
   bulkUpdate: (ids: number[], patch: AccountUpdate) =>
     api.patch<Account[]>('/accounts/bulk', { ids, patch }).then((r) => r.data),
+
+  backfillPaths: (entityId?: number): Promise<{ updated: number }> =>
+    api.post('/accounts/backfill-paths', null, { params: entityId != null ? { entity_id: entityId } : {} }).then((r) => r.data),
+
+  backfillFsSign: (entityId?: number): Promise<{ updated: number }> =>
+    api.post('/accounts/backfill-fs-sign', null, { params: entityId != null ? { entity_id: entityId } : {} }).then((r) => r.data),
 }
 
 export interface AccountReparentResult {

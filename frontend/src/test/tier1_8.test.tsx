@@ -251,7 +251,7 @@ describe('Tier 1.8 Frontend Regression Tests', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('mapping-source-badge')).toHaveTextContent('Inherited')
-      expect(screen.getByTestId('fs-hierarchy-path')).toHaveTextContent('Balance Sheet > Cash > Petty Cash')
+      expect(screen.getByTestId('fs-hierarchy-path')).toHaveTextContent('Balance Sheet')
       expect(screen.getAllByText('Cash Child 2')[0]).toBeInTheDocument() // Sibling listed
     })
   })

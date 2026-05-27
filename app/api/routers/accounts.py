@@ -410,3 +410,20 @@ def backfill_account_paths(entity_id: int | None = None, db: Session = Depends(g
 
     db.flush()
     return {"updated": len(accounts_missing)}
+
+
+@router.post("/backfill-fs-sign", status_code=200)
+def backfill_fs_sign_convention(entity_id: int | None = None, db: Session = Depends(get_db)):
+    """
+    Populate fs_sign_convention from normal_balance for accounts where it is NULL.
+    debit normal_balance → 1 (assets, expenses)
+    credit normal_balance → -1 (liabilities, equity, revenue)
+    """
+    q = db.query(Account).filter(Account.fs_sign_convention == None)  # noqa: E711
+    if entity_id is not None:
+        q = q.filter(Account.entity_id == entity_id)
+    accounts_missing = q.all()
+    for acct in accounts_missing:
+        acct.fs_sign_convention = 1 if acct.normal_balance == "debit" else -1
+    db.flush()
+    return {"updated": len(accounts_missing)}
