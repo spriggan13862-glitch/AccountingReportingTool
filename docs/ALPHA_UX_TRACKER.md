@@ -347,12 +347,12 @@ Stabilization pass before Tier 2. Focus: core workflow correctness for import �
 | ID | Area | Description | Priority |
 |---|---|---|---|
 | ~~T15-OPEN-001~~ | ~~ContextBar / Pages~~ | ~~Per-page EntitySelect dropdowns do not auto-sync to global active entity from WorkspaceProvider~~ | **Resolved 2026-05-27** — All six pages (`FinancialStatementsPage`, `TrialBalancesPage`, `ChartOfAccountsPage`, `GeneralLedgerImportPage`, `JournalEntryImportPage`, `TrialBalanceImportPage`) now initialize `entityId` from `useWorkspace().activeEntity` using the pattern already in `PeriodsPage`. |
-| T15-OPEN-002 | Entity Setup | EntitiesPage does not show account count or document count per entity | Low |
-| T15-OPEN-004 | COA Undo | Undo/redo in ChartOfAccountsPage only covers reparent operations; ActionHistoryProvider global redo is a stub | Low |
+| ~~T15-OPEN-002~~ | ~~Entity Setup~~ | ~~EntitiesPage does not show account count or document count per entity~~ | **Resolved 2026-05-27** — `EntityOut` gains `account_count` + `import_count` (defaults 0); `list_entities` populates via two grouped subqueries; `get_entity` adds two scalar counts. `Entity` TS type updated. EntitiesPage table shows Accounts and Imports columns; zero values render as em-dash. |
+| ~~T15-OPEN-004~~ | ~~COA Undo~~ | ~~Undo/redo in ChartOfAccountsPage only covers reparent operations; ActionHistoryProvider global redo is a stub~~ | **Resolved 2026-05-27** — `UndoEntry` expanded to `ReparentEntry \| EditEntry` discriminated union. `beforeEditRef` snapshots original node values at edit start; `handleSave` passes `beforePatch` to `updateMutation`; `onSuccess` pushes `EditEntry` to undo stack. `handleUndo`/`handleRedo` dispatch to correct mutation by type. `ActionHistoryProvider` rewritten: combined `{entries, pointer}` state for reactive `canUndo`/`canRedo`; `HistoryEntry` gains optional `redo` callback; `redo()` calls it. |
 
 ### Branch Readiness Assessment
 
-The `tier-1-global-grid-and-batch-actions` branch is **ready for visual review**.
+The `tier-1-global-grid-and-batch-actions` branch is **complete — all open issues resolved**.
 
 Core workflow (import → COA → Financial Statements) is now functional end-to-end:
 - PDF import apply no longer throws 500 on real PDF data
@@ -360,6 +360,8 @@ Core workflow (import → COA → Financial Statements) is now functional end-to
 - Financial statements render correctly when no scenario filter is selected
 - Empty states provide actionable guidance instead of generic fallbacks
 - Global active entity syncs automatically to all per-page EntitySelect dropdowns on navigation
+- EntitiesPage shows account and import counts per entity
+- COA undo/redo covers both reparent operations and inline field edits
 
 All 677 Python tests and 406 vitest tests pass. TypeScript compiles clean.
 
