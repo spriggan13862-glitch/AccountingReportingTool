@@ -4,6 +4,7 @@ import { workflowApi } from '@/api/workflow'
 import { reportsApi } from '@/api/reports'
 import { journalEntriesApi } from '@/api/journalEntries'
 import { tbImportApi } from '@/api/tbImport'
+import { importRegistryApi } from '@/api/importRegistry'
 import { useOrg } from '@/providers/OrgProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { PageLayout } from '@/components/ui/PageLayout'
@@ -11,8 +12,11 @@ import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SetupWizardPage } from '@/pages/SetupWizardPage'
-import { AlertCircle, Clock, CheckCircle } from 'lucide-react'
+import { AlertCircle, Clock, CheckCircle, FileText } from 'lucide-react'
 import { cn } from '@/utils/cn'
+
+const PDF_INCOMPLETE_STATUSES = new Set(['uploaded', 'parsed', 'validation_failed', 'failed', 'error', 'awaiting mapping', 'mapping_required'])
+const PDF_READY_STATUSES = new Set(['ready for review', 'ready_to_post'])
 
 
 const QUICK_LINKS = [
@@ -143,6 +147,13 @@ export function DashboardPage() {
     enabled: orgId > 0,
   })
 
+  const pdfRegistry = useQuery({
+    queryKey: ['import-registry-pdf'],
+    queryFn: () => importRegistryApi.list(),
+    enabled: orgId > 0,
+    select: (entries) => entries.filter((e) => e.source_module === 'pdf_import'),
+  })
+
   if (!org) {
     return (
       <PageLayout title="Dashboard">
@@ -156,6 +167,8 @@ export function DashboardPage() {
 
   // Metric computations
   const pendingImportsCount = batches.data?.filter((b) => ['mapping_required', 'validation_failed', 'uploaded', 'parsed'].includes(b.status)).length ?? 0
+  const pdfNeedsAttention = pdfRegistry.data?.filter((e) => PDF_INCOMPLETE_STATUSES.has(e.status.toLowerCase())).length ?? 0
+  const pdfReadyToApply = pdfRegistry.data?.filter((e) => PDF_READY_STATUSES.has(e.status.toLowerCase())).length ?? 0
   const unmappedAccountsCount = status.data?.unmapped_line_count ?? 0
   const draftAJEs = jes.data?.filter((je) => je.status === 'draft') ?? []
   const draftAJEsCount = draftAJEs.length
@@ -252,7 +265,7 @@ export function DashboardPage() {
         </div>
 
         {/* Operational Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Card 1: Pending Imports */}
           <div className="rounded-xl border border-yellow-200 bg-yellow-50/20 p-4 shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:shadow transition-all duration-200">
             <div className="flex justify-between items-start">
@@ -315,6 +328,30 @@ export function DashboardPage() {
             </div>
             <Link to="/import" className="text-xs text-rose-700 hover:text-rose-850 font-semibold inline-flex items-center gap-1 mt-2 hover:underline">
               Validate TB Batches →
+            </Link>
+          </div>
+
+          {/* Card 5: PDF Imports */}
+          <div className={cn(
+            "rounded-xl border p-4 shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:shadow transition-all duration-200",
+            pdfNeedsAttention > 0 ? "border-orange-200 bg-orange-50/20" : pdfReadyToApply > 0 ? "border-emerald-200 bg-emerald-50/20" : "border-slate-200 bg-slate-50/20"
+          )}>
+            <div className="flex justify-between items-start">
+              <span className={cn("text-[10px] font-bold uppercase tracking-wider", pdfNeedsAttention > 0 ? "text-orange-600" : pdfReadyToApply > 0 ? "text-emerald-600" : "text-slate-500")}>
+                PDF Imports
+              </span>
+              <FileText className={cn("w-3.5 h-3.5 mt-0.5", pdfNeedsAttention > 0 ? "text-orange-400" : pdfReadyToApply > 0 ? "text-emerald-400" : "text-slate-300")} />
+            </div>
+            <div className="flex items-baseline gap-2 mt-2">
+              <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                {pdfNeedsAttention > 0 ? pdfNeedsAttention : pdfReadyToApply > 0 ? pdfReadyToApply : pdfRegistry.data?.length ?? 0}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">
+                {pdfNeedsAttention > 0 ? 'need attention' : pdfReadyToApply > 0 ? 'ready to apply' : 'total batches'}
+              </span>
+            </div>
+            <Link to="/pdf-import" className={cn("text-xs font-semibold inline-flex items-center gap-1 mt-2 hover:underline", pdfNeedsAttention > 0 ? "text-orange-700" : pdfReadyToApply > 0 ? "text-emerald-700" : "text-slate-500")}>
+              {pdfNeedsAttention > 0 ? 'Continue PDF Imports →' : pdfReadyToApply > 0 ? 'Review & Apply →' : 'Open PDF Import →'}
             </Link>
           </div>
         </div>
