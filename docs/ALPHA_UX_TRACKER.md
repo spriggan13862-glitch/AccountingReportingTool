@@ -553,7 +553,7 @@ All 677 Python tests and 406 vitest tests pass. TypeScript compiles clean.
 |---|---|---|---|---|
 | UX-DEF-01 | Hierarchy Inheritance Engine (P3) | Children should inherit parent's reporting line, account type, normal balance on reparent. Cascade prompt when parent mapping changes. | Complex service-layer change; requires override flag schema additions and cascade UI. | Resolved in Tier 1.7 (P3) |
 | UX-DEF-02 | PDF Section Tree Full Behavior (P6) | Drag/drop between sections, user-added sections, section totals on collapse. | Section drag requires significant DnD state work beyond simple collapse. | Tier 2 |
-| UX-DEF-03 | Documents Center (P7) | Download original file, inline PDF preview, go-to-source import link, file-missing error. | Need file storage/serving infrastructure changes. | Tier 2 |
+| ~~UX-DEF-03~~ | ~~Documents Center (P7)~~ | ~~Download original file, inline PDF preview, go-to-source import link, file-missing error.~~ | **Resolved 2026-05-27** — Go-to-source + inline PDF preview fully resolved. "Preview PDF" button now opens `PDFPreviewModal` (fixed-overlay with `<iframe>`, "Open in new tab" link, backdrop-click dismiss). Download already worked via `documentsApi.download()`. | — |
 | ~~UX-DEF-04~~ | ~~Import Center Reorganization (P8)~~ | ~~Left nav Import Center with sub-routes for each import type, overview page, recent imports actions.~~ | **Resolved 2026-05-27** — Import Hub refactored: `/imports/trial-balance`, `/imports/general-ledger`, `/imports/journal-entries` routes; dedicated wizard pages for each type; entity filter bar on ImportCenterPage. | — |
 | ~~UX-DEF-05~~ | ~~Recent Imports Full Actions (P9)~~ | ~~Continue incomplete import, view validation report, apply from list, view created accounts.~~ | **Resolved 2026-05-27** — `DocumentsPage` Actions column now has status-aware navigation: emerald "Review & Apply" + Play icon for ready batches, amber "Continue Import" + RefreshCw for incomplete, blue "View Import" + ExternalLink for finalized. "View Accounts" button added for entries with `entity_id` (links to `/coa?entity=N`). Status logic shared with `sourceNavLabel()` helper. | — |
 | UX-DEF-06 | Financial Statement Account Preview (P10) | Account path in FS (BS > Current Assets > Cash), inherited vs manual mapping, balances by period. | Requires sidebar redesign and taxonomy path computation. | Tier 2 |
@@ -741,3 +741,15 @@ Branch: `tier-2-pdf-quality-and-import-polish`
 | UX-DEF-09 | Medium | COA / Account Preview Chip Breadcrumb | Account sidebar showed `hierarchyPath` as monospace plain text; hard to scan nested path segments. | Replaced with chip-style breadcrumb: each path segment a distinct pill (blue for first/statement, indigo for last/line, slate for middle), `›` separator. `data-testid="fs-hierarchy-path"` for test targeting. | Resolved |
 | UX-DEF-13 | Small | COA / account_path Backfill UI | No in-app way to trigger path backfill for existing accounts. | `SettingsPanel` gains "Data Maintenance" section with "Backfill Account Paths" button calling `accountsApi.backfillPaths(entityId?)`. Shows "Updated N accounts" on success. | Resolved |
 | UX-DEF-14 | Small | COA / fs_sign_convention Backfill | No endpoint or UI to populate NULL `fs_sign_convention` from `normal_balance`. | Added `POST /accounts/backfill-fs-sign` backend endpoint. `accountsApi.backfillFsSign(entityId?)` added. `SettingsPanel` "Data Maintenance" also includes "Backfill FS Sign" button. | Resolved |
+
+### Tier 2 Sprint 4 — FSBuilder Live Data + Inline PDF Preview (2026-05-27)
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Frontend vitest | 406 | 0 | 406 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| FSBuilder-S4 | Medium | FS Builder / Live Statement Preview | Steps 4–6 were placeholders (string-label scenario selector, hollow accounts summary, no live FS data, disabled Export PDF). | Step 4: replaced custom pill buttons with `ScenarioSelect` (real numeric scenario ID). Step 5: loads accounts via `accountsApi.list(entityId)`, groups by `fs_statement`, shows mapped/unmapped counts + per-statement breakdown table with amber warning when unmapped > 0. Step 6: queries `reportingApi.taxonomyBalanceSheet` + `taxonomyIncomeStatement`, renders with shared `TaxonomyTable` component (BS/IS tabs). "Print / Export PDF" button calls `window.print()`. | Resolved |
+| UX-DEF-03-inline | Medium | Documents Center / Inline PDF Preview | "Preview PDF" button called `window.open(…, '_blank')`, opening a new browser tab instead of staying in-app. | `PDFPreviewModal` component: full-height fixed overlay with `<iframe src="/api/v1/documents/{id}/download?preview=true">`, header bar with filename + "Open in new tab" link + close button, backdrop-click to dismiss. Both the Actions column button and row-action menu now open the modal. | Resolved |

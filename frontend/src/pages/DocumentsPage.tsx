@@ -11,6 +11,7 @@ import {
   ListTree,
   Play,
   RefreshCw,
+  X,
 } from 'lucide-react'
 import { importRegistryApi, type ImportRegistryEntry } from '@/api/importRegistry'
 import { documentsApi } from '@/api/documents'
@@ -109,6 +110,52 @@ export function DocumentList({ documents }: DocumentListProps) {
 }
 
 // ---------------------------------------------------------------------------
+// PDF Preview Modal
+// ---------------------------------------------------------------------------
+
+function PDFPreviewModal({ documentId, filename, onClose }: { documentId: number; filename: string | null; onClose: () => void }) {
+  const src = `/api/v1/documents/${documentId}/download?preview=true`
+  return (
+    <div className="fixed inset-0 z-50 flex items-stretch bg-black/60" onClick={onClose}>
+      <div
+        className="relative flex flex-col w-full max-w-5xl mx-auto my-6 bg-white rounded-lg shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50 shrink-0">
+          <span className="text-sm font-medium text-gray-700 truncate max-w-lg" title={filename ?? ''}>
+            {filename || `Document #${documentId}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <a
+              href={src}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> Open in new tab
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+              aria-label="Close preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <iframe
+          src={src}
+          title="PDF Preview"
+          className="flex-1 w-full border-0"
+          style={{ minHeight: '70vh' }}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main page — Import Registry
 // ---------------------------------------------------------------------------
 
@@ -127,6 +174,7 @@ function sourceNavLabel(entry: ImportRegistryEntry): string {
 export function DocumentsPage() {
   const navigate = useNavigate()
   const [entityId, setEntityId] = useState<number | ''>('')
+  const [pdfPreview, setPdfPreview] = useState<{ documentId: number; filename: string | null } | null>(null)
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['import-registry', entityId],
@@ -259,7 +307,7 @@ export function DocumentsPage() {
               type="button"
               onClick={(ev) => {
                 ev.stopPropagation()
-                window.open(`/api/v1/documents/${e.document_id}/download?preview=true`, '_blank')
+                setPdfPreview({ documentId: e.document_id!, filename: e.filename ?? null })
               }}
               className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-orange-700 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100"
               title="Preview PDF"
@@ -324,7 +372,7 @@ export function DocumentsPage() {
       hidden: (e) => !e.document_id || e.source_module !== 'pdf_import',
       onClick: (e) => {
         if (e.document_id) {
-          window.open(`/api/v1/documents/${e.document_id}/download?preview=true`, '_blank')
+          setPdfPreview({ documentId: e.document_id, filename: e.filename ?? null })
         }
       },
     },
@@ -339,30 +387,39 @@ export function DocumentsPage() {
   ]
 
   return (
-    <PageLayout
-      title="Document Registry"
-      subtitle="All uploaded files and imports across all modules"
-    >
-      <AccountingDataGrid
-        columns={columns}
-        data={data}
-        rowKey={(e) => e.id}
-        onRowClick={navToSource}
-        rowActions={rowActions}
-        exportFilename="import_registry"
-        pageSize={50}
-        loading={isLoading}
-        emptyMessage="No import records found. Uploads from PDF Import, Trial Balance, and COA Import will appear here."
-        toolbarLeft={
-          <EntitySelect
-            value={entityId}
-            onChange={setEntityId}
-            placeholder="All entities"
-            className="min-w-[180px] text-sm"
-          />
-        }
-        data-testid="document-registry-grid"
-      />
-    </PageLayout>
+    <>
+      {pdfPreview && (
+        <PDFPreviewModal
+          documentId={pdfPreview.documentId}
+          filename={pdfPreview.filename}
+          onClose={() => setPdfPreview(null)}
+        />
+      )}
+      <PageLayout
+        title="Document Registry"
+        subtitle="All uploaded files and imports across all modules"
+      >
+        <AccountingDataGrid
+          columns={columns}
+          data={data}
+          rowKey={(e) => e.id}
+          onRowClick={navToSource}
+          rowActions={rowActions}
+          exportFilename="import_registry"
+          pageSize={50}
+          loading={isLoading}
+          emptyMessage="No import records found. Uploads from PDF Import, Trial Balance, and COA Import will appear here."
+          toolbarLeft={
+            <EntitySelect
+              value={entityId}
+              onChange={setEntityId}
+              placeholder="All entities"
+              className="min-w-[180px] text-sm"
+            />
+          }
+          data-testid="document-registry-grid"
+        />
+      </PageLayout>
+    </>
   )
 }
