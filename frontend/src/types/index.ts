@@ -81,6 +81,8 @@ export interface Entity {
   active: boolean
   fiscal_year_end_month: number | null
   fiscal_year_convention: string | null
+  account_count: number
+  import_count: number
 }
 
 export interface Account {

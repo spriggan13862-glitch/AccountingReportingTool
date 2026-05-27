@@ -78,6 +78,8 @@ class EntityOut(BaseModel):
     active: bool
     fiscal_year_end_month: int | None = None
     fiscal_year_convention: str | None = None
+    account_count: int = 0
+    import_count: int = 0
 
 
 # ---------------------------------------------------------------------------

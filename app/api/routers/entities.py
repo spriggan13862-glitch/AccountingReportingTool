@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 
 from app.api.deps import get_db
 from app.api.schemas import EntityCreate, EntityOut, Page
 from app.models.entity import Entity
+from app.models.account import Account
+from app.models.import_batch import ImportBatch
 
 
 def _has_accounting_data(db: Session, entity_id: int) -> list[str]:
@@ -66,7 +69,31 @@ def list_entities(
     if active is not None:
         q = q.filter(Entity.active == active)
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    entities = q.offset((page - 1) * page_size).limit(page_size).all()
+
+    entity_ids = [e.id for e in entities]
+    account_counts = {
+        row.entity_id: row.cnt
+        for row in db.query(Account.entity_id, func.count(Account.id).label("cnt"))
+        .filter(Account.entity_id.in_(entity_ids))
+        .group_by(Account.entity_id)
+        .all()
+    }
+    import_counts = {
+        row.entity_id: row.cnt
+        for row in db.query(ImportBatch.entity_id, func.count(ImportBatch.id).label("cnt"))
+        .filter(ImportBatch.entity_id.in_(entity_ids))
+        .group_by(ImportBatch.entity_id)
+        .all()
+    }
+
+    items = []
+    for e in entities:
+        out = EntityOut.model_validate(e)
+        out.account_count = account_counts.get(e.id, 0)
+        out.import_count = import_counts.get(e.id, 0)
+        items.append(out)
+
     return Page(
         items=items,
         total=total,
@@ -81,7 +108,10 @@ def get_entity(entity_id: int, db: Session = Depends(get_db)):
     entity = db.get(Entity, entity_id)
     if entity is None:
         raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
-    return entity
+    out = EntityOut.model_validate(entity)
+    out.account_count = db.query(func.count(Account.id)).filter(Account.entity_id == entity_id).scalar() or 0
+    out.import_count = db.query(func.count(ImportBatch.id)).filter(ImportBatch.entity_id == entity_id).scalar() or 0
+    return out
 
 
 @router.patch("/{entity_id}", response_model=EntityOut)

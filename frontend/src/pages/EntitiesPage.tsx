@@ -214,6 +214,8 @@ export function EntitiesPage() {
                 <th className="px-4 py-2 text-left">Type</th>
                 <th className="px-4 py-2 text-left">Currency</th>
                 <th className="px-4 py-2 text-left">FY End</th>
+                <th className="px-4 py-2 text-right">Accounts</th>
+                <th className="px-4 py-2 text-right">Imports</th>
                 <th className="px-4 py-2 text-left">Status</th>
                 <th className="px-4 py-2 w-28" />
               </tr>
@@ -222,7 +224,7 @@ export function EntitiesPage() {
               {entities.map((entity) => (
                 editingId === entity.id ? (
                   <tr key={entity.id} className="bg-indigo-50">
-                    <td colSpan={7} className="px-4 py-3">
+                    <td colSpan={9} className="px-4 py-3">
                       <EntityForm
                         form={form}
                         onChange={(f) => setForm(f)}
@@ -244,6 +246,12 @@ export function EntitiesPage() {
                       {entity.fiscal_year_end_month
                         ? MONTHS.find((m) => m.value === entity.fiscal_year_end_month)?.label ?? '—'
                         : <span className="text-red-400">Not set</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-600">
+                      {entity.account_count > 0 ? entity.account_count.toLocaleString() : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-600">
+                      {entity.import_count > 0 ? entity.import_count.toLocaleString() : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={entity.active ? 'success' : 'default'}>
