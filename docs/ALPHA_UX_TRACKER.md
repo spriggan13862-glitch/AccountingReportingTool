@@ -626,8 +626,8 @@ Financial Statement Import Accounting Logic, Taxonomy Conflict Resolution, and A
 | ID | Area | Issue | Reason Deferred | Target |
 |---|---|---|---|---|
 | UX-DEF-10 | Adjustment Bridge / Full Pivot | Saved views with server-side JSON config, column pivoting, drag-drop dimension reorder, export to XLSX. | Skeleton only — requires pivot-table rendering library and view persistence UX. | Tier 2 |
-| UX-DEF-11 | PDF Import / Reconcile Net Income | Net Income in Equity must reconcile against P&L section automatically on apply — flag if they differ. | Requires cross-section summation pass after synthetic line detection. | Tier 2 |
-| UX-DEF-12 | Taxonomy Conflict / Bulk Resolution | Resolve all conflicts of the same type in one action (e.g. "apply global for all 12 revenue conflicts"). | Requires multi-select conflict resolution UX and batch API endpoint. | Tier 2 |
+| ~~UX-DEF-11~~ | ~~PDF Import / Reconcile Net Income~~ | ~~Net Income in Equity must reconcile against P&L section automatically on apply — flag if they differ.~~ | **Resolved 2026-05-27** — `_compute_bs_validation()` already computed `net_income_variance`; now surfaced in `PDFImportPreview` schema (4 new fields). `PDFImportPage` shows amber `NetIncomeReconPanel` when `|ni_variance| > $1` on financial statement imports. Warning only — does not block apply since timing differences are common. | — |
+| ~~UX-DEF-12~~ | ~~Taxonomy Conflict / Bulk Resolution~~ | ~~Resolve all conflicts of the same type in one action (e.g. "apply global for all 12 revenue conflicts").~~ | **Resolved 2026-05-27** — `POST /pdf-imports/{batch_id}/conflicts/bulk-resolve` endpoint resolves all open conflicts in one DB round trip (optionally filtered by conflict_reason). Frontend shows amber bulk-conflict bar above applied lines table with three one-click buttons (Apply global / Keep source / Accept all). | — |
 
 ---
 
@@ -694,3 +694,25 @@ Canonical COA fields, period-aware Trial Balance, FS mapping UI exposure.
 | UX-DEF-14 | COA / fs_sign_convention Backfill | Existing accounts have NULL `fs_sign_convention`. Should be populated from `normal_balance` (debit → 1, credit → -1 for most types). | Data migration deferred; query-time computation still active as fallback. | Tier 2 |
 | ~~UX-DEF-15~~ | ~~FS / Three-Statement Validator UI~~ | ~~`validate_financial_statements()` exists at `GET /financial-statements/validate` but no UI indicator shows the tie-out status on the FinancialStatementsPage or Dashboard.~~ | **Resolved 2026-05-27** — Three-statement health widget added to `FinancialStatementsPage`. Shows BS in-balance, CF tied, RE tied checks with ✓/✗ and difference amounts. Auto-computes `period_start` as Jan 1 of `asOfDate` year. | — |
 | UX-DEF-16 | Trial Balance / Formal TB Tables | Spec calls for `trial_balances` / `trial_balance_lines` persistent tables. Currently computed at query time. | Performance adequate for current scale. Formalize when audit trail requirement is added. | Tier 2 |
+
+---
+
+## Tier 2 Sprint 1 — PDF Quality & Import Polish (2026-05-27)
+
+Branch: `tier-2-pdf-quality-and-import-polish`
+
+### Last Test Run
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Python unit tests | 677 | 0 | 677 |
+| Frontend vitest | 406 | 0 | 406 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+
+### Fixes and Features Applied
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| UX-DEF-11 | Medium | PDF Import / Net Income Reconciliation | Net Income in equity section vs P&L was computed by `_compute_bs_validation()` but never surfaced to the user. Mismatches imported silently. | `PDFImportPreview` schema gains `net_income_variance`, `net_income_reconciled`, `net_income_in_equity`, `pnl_net_income`. Both upload and preview-reload endpoints populate these fields. `PDFImportPage` shows amber `NetIncomeReconPanel` when `|ni_variance| > $1` on financial statement imports. Warning only — does not block apply. | Resolved |
+| UX-DEF-12 | Medium | PDF Import / Bulk Conflict Resolution | Resolving taxonomy conflicts required clicking each conflict badge individually. No way to resolve all conflicts of the same type in one action. | `POST /pdf-imports/{batch_id}/conflicts/bulk-resolve` accepts `resolution` + optional `conflict_reason` filter. Resolves all matching open conflicts in one DB round trip. Frontend adds amber bulk-conflict bar above applied lines table with three one-click buttons (Apply global / Keep source / Accept all). | Resolved |
+| UX-DEF-17 | Low | GL/JE Import / Scenario Not Enforced | `ScenarioSelect` was shown on GL/JE import final steps but the post button was not disabled when no scenario was selected; backend silently fell back to scenario ID 1. | GL import "Import General Ledger" button and JE import "Import & Commit" button are now `disabled` when `scenarioId === ''`, with a tooltip explaining why. | Resolved |
