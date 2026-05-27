@@ -55,17 +55,23 @@ function OperationalStatusCards({ orgId }: { orgId: number }) {
     queryFn: () => tbImportApi.listBatches(orgId),
     enabled: !!orgId,
   })
+  const { data: pdfBatches } = useQuery({
+    queryKey: ['import-registry-pdf'],
+    queryFn: () => importRegistryApi.list(),
+    enabled: !!orgId,
+    select: (entries) => entries.filter((e) => e.source_module === 'pdf_import'),
+  })
 
-  if (!batches?.length) return null
+  const pending = batches?.filter((b) => ['mapping_required', 'validation_failed'].includes(b.status)) ?? []
+  const readyToPost = batches?.filter((b) => b.status === 'ready_to_post') ?? []
+  const totalUnmapped = batches?.reduce((acc, b) => acc + (b.unmapped_row_count ?? 0), 0) ?? 0
+  const pdfIncomplete = pdfBatches?.filter((e) => PDF_INCOMPLETE_STATUSES.has(e.status.toLowerCase())) ?? []
+  const pdfReady = pdfBatches?.filter((e) => PDF_READY_STATUSES.has(e.status.toLowerCase())) ?? []
 
-  const pending = batches.filter((b) => ['mapping_required', 'validation_failed'].includes(b.status))
-  const readyToPost = batches.filter((b) => b.status === 'ready_to_post')
-  const totalUnmapped = batches.reduce((acc, b) => acc + (b.unmapped_row_count ?? 0), 0)
-
-  if (!pending.length && !readyToPost.length) return null
+  if (!pending.length && !readyToPost.length && !pdfIncomplete.length && !pdfReady.length) return null
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
       {pending.length > 0 && (
         <button
           type="button"
@@ -74,7 +80,7 @@ function OperationalStatusCards({ orgId }: { orgId: number }) {
         >
           <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-yellow-800">{pending.length} import{pending.length > 1 ? 's' : ''} need attention</p>
+            <p className="text-sm font-semibold text-yellow-800">{pending.length} TB import{pending.length > 1 ? 's' : ''} need attention</p>
             <p className="text-xs text-yellow-600">{totalUnmapped} unmapped accounts</p>
           </div>
         </button>
@@ -87,8 +93,34 @@ function OperationalStatusCards({ orgId }: { orgId: number }) {
         >
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-green-800">{readyToPost.length} import{readyToPost.length > 1 ? 's' : ''} ready to post</p>
+            <p className="text-sm font-semibold text-green-800">{readyToPost.length} TB import{readyToPost.length > 1 ? 's' : ''} ready to post</p>
             <p className="text-xs text-green-600">Validated and awaiting posting</p>
+          </div>
+        </button>
+      )}
+      {pdfIncomplete.length > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate('/pdf-import')}
+          className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+        >
+          <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-orange-800">{pdfIncomplete.length} PDF import{pdfIncomplete.length > 1 ? 's' : ''} incomplete</p>
+            <p className="text-xs text-orange-600">Review or continue import</p>
+          </div>
+        </button>
+      )}
+      {pdfReady.length > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate('/documents')}
+          className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-left hover:bg-emerald-100 transition-colors"
+        >
+          <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-emerald-800">{pdfReady.length} PDF import{pdfReady.length > 1 ? 's' : ''} ready to apply</p>
+            <p className="text-xs text-emerald-600">Validated and awaiting apply</p>
           </div>
         </button>
       )}
