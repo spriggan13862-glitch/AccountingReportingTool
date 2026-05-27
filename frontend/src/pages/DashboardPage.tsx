@@ -24,8 +24,10 @@ const QUICK_LINKS = [
   { label: 'Chart of Accounts', to: '/accounts', description: 'validate account classifications' },
   { label: 'Taxonomy Mapping', to: '/taxonomy-admin', description: 'apply standard reporting frameworks' },
   { label: 'Journal Entries', to: '/journal-entries', description: 'prepare Adjusting Journal Entries' },
-  { label: 'Adjustment Bridge', to: '/draft-preview', description: 'book vs. GAAP pro forma analysis' },
+  { label: 'Adjustment Bridge', to: '/adjustment-bridge', description: 'book vs. GAAP pro forma analysis' },
   { label: 'Reports Preview', to: '/financial-statements', description: 'view draft-adjusted financial statements' },
+  { label: 'Document Registry', to: '/documents', description: 'all uploaded files and import history' },
+  { label: 'FS Builder', to: '/fs-builder', description: 'configure and preview financial statements' },
 ]
 
 function QuickLinks() {
