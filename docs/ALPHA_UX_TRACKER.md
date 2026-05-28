@@ -753,3 +753,29 @@ Branch: `tier-2-pdf-quality-and-import-polish`
 |---|---|---|---|---|---|
 | FSBuilder-S4 | Medium | FS Builder / Live Statement Preview | Steps 4–6 were placeholders (string-label scenario selector, hollow accounts summary, no live FS data, disabled Export PDF). | Step 4: replaced custom pill buttons with `ScenarioSelect` (real numeric scenario ID). Step 5: loads accounts via `accountsApi.list(entityId)`, groups by `fs_statement`, shows mapped/unmapped counts + per-statement breakdown table with amber warning when unmapped > 0. Step 6: queries `reportingApi.taxonomyBalanceSheet` + `taxonomyIncomeStatement`, renders with shared `TaxonomyTable` component (BS/IS tabs). "Print / Export PDF" button calls `window.print()`. | Resolved |
 | UX-DEF-03-inline | Medium | Documents Center / Inline PDF Preview | "Preview PDF" button called `window.open(…, '_blank')`, opening a new browser tab instead of staying in-app. | `PDFPreviewModal` component: full-height fixed overlay with `<iframe src="/api/v1/documents/{id}/download?preview=true">`, header bar with filename + "Open in new tab" link + close button, backdrop-click to dismiss. Both the Actions column button and row-action menu now open the modal. | Resolved |
+
+### Tier 2 Sprint 5 — PDF Import Corrections (Tier 1.10D) (2026-05-28)
+
+| Suite | Passed | Failed | Total |
+|---|---|---|---|
+| Frontend vitest | 419 | 0 | 419 |
+| TypeScript `--noEmit` | 0 errors | — | clean |
+
+| ID | Priority | Area | Issue | Fix | Status |
+|---|---|---|---|---|---|
+| PDF-P0 | P0 | PDF Import / Period Selector | `PeriodSelect` required pre-existing backend period records; broke for any entity with no periods set up. | Replaced with inline Monthly/Quarterly/Annual picker (3 state vars: `pickerType`, `pickerMonth`/`pickerQuarter`, `pickerYear`). `lastDayOfPeriod()` derives `statement_date` directly (e.g. Q1 2025 → 2025-03-31). No backend period records needed. `data-testid="period-type-{type}"`, `period-month-select`, `period-quarter-select`, `period-year-select`, `period-derived-date`. | Resolved |
+| PDF-P1 | P1 | PDF Import / Button Guard | "Extract & Preview" button was only guarded by `!file`. Clicking without entity/basis/scope resulted in backend 422 with unhelpful error. | Frontend: button disabled unless all 6 fields set (entity, period, import type, basis, scope, file); missing fields hint shown via `data-testid="missing-fields-hint"`. Backend: explicit 422 with `{"error":"missing_required_fields","missing_fields":[...]}` before PDF extraction begins. | Resolved |
+| PDF-P2 | P2 | PDF Import / Subtotal Validation | `_EXPECTED_TOTALS` was hardcoded with 14 Live Marketing LLC-specific amounts; caused spurious failures for every other client. | Removed `_EXPECTED_TOTALS` and `_SUBTOTAL_NAME_MAP`. `_build_validation` now groups lines by `statement_type::section`, compares each section's PDF subtotal line against the computed sum of its detail lines — fully entity-agnostic. Expanded `_SUBTOTAL_PREFIXES` with 6 additional keywords. | Resolved |
+| PDF-P3 | P3 | PDF Import / Balance Sheet Variance | BS tie computed by summing all detail lines, ignoring sign conventions and missing extracted top-level subtotals. | `_compute_bs_validation` rewritten: Pass 1 searches extracted subtotals for "total assets" and "total liabilities and..." patterns; Pass 2 uses them when found (method: `extracted_subtotals`) or falls back to section-sum (method: `summed_detail_lines`). | Resolved |
+| PDF-P7 | P7 | PDF Import / Entity Flow | No regression test verifying `entity_id` propagates from picker through upload call into backend. | Added `describe('Tier1.9: P7 — entity_id flows into upload')` — 2 tests confirm `pdfImportApi.upload` receives correct `entity_id` when entity is selected (or null when blank). | Resolved |
+| PDF-P9 | P9 | PDF Import / Tab Help Text | "Extracted Lines" and "Audit Trail" tabs had no inline explanation of their purpose; users confused about what was editable. | Added help text below tab bar: "Extracted Lines — editable working copy…" and "Audit Trail — immutable record…". `data-testid="tab-lines-help"` and `data-testid="tab-audit-help"`. | Resolved |
+
+**Open (deferred):**
+
+| ID | Priority | Issue |
+|---|---|---|
+| PDF-P4 | P4 | Line edit/restore controls — delete, exclude, restore, reclassify; undo/redo |
+| PDF-P5 | P5 | Preview persistence + save indicator (Saved / Unsaved / Saving) |
+| PDF-P6 | P6 | Immutable audit trail — store original extracted lines separate from working preview |
+| PDF-P8 | P8 | Conflict column — show actionable conflicts only; resolution panel |
+| PDF-P10 | P10 | Entity mismatch warning — deferred (no global workspace entity context exists) |
