@@ -265,7 +265,7 @@ def apply_pdf_import(
                 },
             )
 
-    detail_lines = [l for l in lines_data if not l.get("is_subtotal")]
+    detail_lines = [l for l in lines_data if not l.get("is_subtotal") and not l.get("excluded")]
 
     # Generate intelligent account numbers (taxonomy → range mapping)
     account_numbers = generate_account_numbers(lines_data)
@@ -845,6 +845,8 @@ def patch_preview_line(
         line["proposed_account_code"] = body.proposed_account_code
     if body.amount is not None:
         line["amount"] = body.amount
+    if body.excluded is not None:
+        line["excluded"] = body.excluded
 
     extracted["lines"] = lines_data
     batch.raw_preview = json.dumps(extracted)

@@ -1258,21 +1258,62 @@ export function PDFImportPage() {
     onError: (err: Error) => setApiError(err.message),
   })
 
+  // P5: preview save indicator
+  const [previewSaveStatus, setPreviewSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // P4: preview undo stack — stores the reverse patch for each edit
+  const [previewUndoStack, setPreviewUndoStack] = useState<Array<{ lineIndex: number; reverse: Record<string, unknown> }>>([])
+
   const patchPreviewLineMutation = useMutation({
     mutationFn: ({ lineIndex, patch }: {
       lineIndex: number
-      patch: { account_name?: string; section?: string; suggested_taxonomy_code?: string; proposed_account_code?: string | null; amount?: string }
+      patch: { account_name?: string; section?: string; suggested_taxonomy_code?: string; proposed_account_code?: string | null; amount?: string; excluded?: boolean }
     }) => pdfImportApi.patchPreviewLine(preview!.batch_id, lineIndex, patch),
+    onMutate: ({ lineIndex, patch }) => {
+      setPreviewSaveStatus('saving')
+      // Build reverse patch for undo before applying the change
+      const line = preview?.lines[lineIndex]
+      if (line) {
+        const reverse: Record<string, unknown> = {}
+        if ('account_name' in patch) reverse.account_name = line.account_name
+        if ('section' in patch) reverse.section = line.section
+        if ('suggested_taxonomy_code' in patch) reverse.suggested_taxonomy_code = line.suggested_taxonomy_code
+        if ('proposed_account_code' in patch) reverse.proposed_account_code = line.proposed_account_code
+        if ('amount' in patch) reverse.amount = line.amount
+        if ('excluded' in patch) reverse.excluded = line.excluded ?? false
+        setPreviewUndoStack((prev) => [...prev, { lineIndex, reverse }])
+      }
+    },
     onSuccess: (_data, { lineIndex, patch }) => {
+      setPreviewSaveStatus('saved')
       setPreview((prev) => {
         if (!prev) return prev
         const lines = [...prev.lines]
         lines[lineIndex] = { ...lines[lineIndex], ...patch }
         return { ...prev, lines }
       })
+      setTimeout(() => setPreviewSaveStatus('idle'), 2000)
     },
-    onError: (err: Error) => setApiError(err.message),
+    onError: (err: Error) => {
+      setPreviewSaveStatus('error')
+      setApiError(err.message)
+      setPreviewUndoStack((prev) => prev.slice(0, -1))
+    },
   })
+
+  function undoPreviewEdit() {
+    const last = previewUndoStack[previewUndoStack.length - 1]
+    if (!last) return
+    setPreviewUndoStack((prev) => prev.slice(0, -1))
+    pdfImportApi.patchPreviewLine(preview!.batch_id, last.lineIndex, last.reverse as Parameters<typeof pdfImportApi.patchPreviewLine>[2]).then((data) => {
+      setPreview((prev) => {
+        if (!prev) return prev
+        const lines = [...prev.lines]
+        lines[last.lineIndex] = { ...lines[last.lineIndex], ...data.updated }
+        return { ...prev, lines }
+      })
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -1804,16 +1845,48 @@ export function PDFImportPage() {
                 <input type="checkbox" checked={showMapping} onChange={(e) => setShowMapping(e.target.checked)} className="rounded" />
                 Taxonomy
               </label>
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="ml-auto flex items-center gap-2">
+                {/* P5: save indicator */}
+                {previewSaveStatus === 'saving' && (
+                  <span className="text-xs text-amber-500" data-testid="preview-save-indicator">Saving…</span>
+                )}
+                {previewSaveStatus === 'saved' && (
+                  <span className="text-xs text-green-600" data-testid="preview-save-indicator">Saved</span>
+                )}
+                {previewSaveStatus === 'error' && (
+                  <span className="text-xs text-red-500" data-testid="preview-save-indicator">Save failed</span>
+                )}
+                {/* P4: undo */}
+                <button
+                  type="button"
+                  disabled={previewUndoStack.length === 0}
+                  onClick={undoPreviewEdit}
+                  title="Undo last edit"
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                  data-testid="preview-undo-btn"
+                >
+                  <Undo2 className="w-3.5 h-3.5" /> Undo
+                </button>
+                <span className="text-gray-300">|</span>
                 <button type="button" onClick={expandAll} className="text-xs text-gray-500 hover:text-gray-700 underline">Expand all</button>
                 <span className="text-gray-300">|</span>
                 <button type="button" onClick={() => collapseAll(previewGroupKeys)} className="text-xs text-gray-500 hover:text-gray-700 underline">Collapse all</button>
               </div>
             </div>
 
+            {/* P4: excluded line count */}
+            {(() => {
+              const excludedCount = (preview.lines ?? []).filter((l) => l.excluded).length
+              return excludedCount > 0 ? (
+                <p className="text-xs text-amber-600 mb-2" data-testid="excluded-lines-hint">
+                  {excludedCount} line{excludedCount !== 1 ? 's' : ''} excluded from apply — restore below to include
+                </p>
+              ) : null
+            })()}
+
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs text-gray-400 italic">
-                Click account name or section to edit before applying
+                Click account name or section to edit · X to exclude a line from apply
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -1833,7 +1906,7 @@ export function PDFImportPage() {
                   title={applyTitle}
                 >
                   <CheckCircle className="w-4 h-4" />
-                  {applyMutation.isPending ? 'Applying…' : `Apply ${preview.line_count} Lines`}
+                  {applyMutation.isPending ? 'Applying…' : `Apply ${(preview.lines ?? []).filter((l) => !l.excluded && !l.is_subtotal).length} Lines`}
                 </button>
               </div>
             </div>
@@ -2009,7 +2082,39 @@ export function PDFImportPage() {
                     </div>
                   )
                 }
-              }
+              },
+              // P4: exclude/restore action column
+              {
+                key: 'actions',
+                header: '',
+                sortable: false,
+                className: 'w-8 text-center',
+                render: (l: PDFImportPreviewLine) => {
+                  const lineIndex = (preview?.lines ?? []).indexOf(l)
+                  if (l.is_subtotal || l.system_managed || lineIndex < 0) return null
+                  return l.excluded ? (
+                    <button
+                      type="button"
+                      onClick={() => patchPreviewLineMutation.mutate({ lineIndex, patch: { excluded: false } })}
+                      title="Restore line — include in apply"
+                      className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+                      data-testid={`restore-line-${lineIndex}`}
+                    >
+                      ↩
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => patchPreviewLineMutation.mutate({ lineIndex, patch: { excluded: true } })}
+                      title="Exclude line from apply"
+                      className="text-gray-300 hover:text-red-500 transition-colors"
+                      data-testid={`exclude-line-${lineIndex}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )
+                }
+              },
             ]
 
             return (
@@ -2059,7 +2164,7 @@ export function PDFImportPage() {
                     columns={gridColumns}
                     data={groupLines}
                     rowKey={(l) => l.temp_account_code}
-                    rowClassName={(l) => l.synthetic_presentation_line ? 'bg-purple-50/40' : ''}
+                    rowClassName={(l) => l.excluded ? 'opacity-40 line-through bg-red-50/40' : l.synthetic_presentation_line ? 'bg-purple-50/40' : ''}
                     exportFilename={`${stmtLabel}_${sectionLabel}_preview`}
                     selectionEnabled={false}
                     pageSize={100}

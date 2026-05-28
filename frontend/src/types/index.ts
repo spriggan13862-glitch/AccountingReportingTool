@@ -1189,6 +1189,8 @@ export interface PDFImportPreviewLine {
   synthetic_presentation_line: boolean
   system_managed: boolean
   locked: boolean
+  // P4: user-excluded from apply
+  excluded?: boolean
 }
 
 export interface PDFImportPreview {

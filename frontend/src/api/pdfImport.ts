@@ -16,6 +16,7 @@ export interface PDFPreviewLinePatch {
   suggested_taxonomy_code?: string | null
   proposed_account_code?: string | null
   amount?: string | null
+  excluded?: boolean | null
 }
 
 export interface PDFUploadOptions {

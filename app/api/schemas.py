@@ -1920,6 +1920,7 @@ class PDFPreviewLinePatch(BaseModel):
     suggested_taxonomy_code: str | None = None
     proposed_account_code: str | None = None
     amount: str | None = None
+    excluded: bool | None = None
 
 
 class PDFImportPreview(BaseModel):

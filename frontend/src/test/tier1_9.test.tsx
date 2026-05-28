@@ -223,6 +223,7 @@ vi.mock('@/api/pdfImport', () => ({
     updateLine: vi.fn(),
     audit: vi.fn(),
     resolveConflict: vi.fn(),
+    patchPreviewLine: vi.fn().mockResolvedValue({ line_index: 0, updated: {} }),
   },
 }))
 
@@ -634,6 +635,66 @@ describe('Tier1.9: P9 — tab help text', () => {
     fireEvent.click(screen.getByTestId('tab-audit'))
     expect(screen.getByTestId('tab-audit-help')).toBeInTheDocument()
     expect(screen.getByTestId('tab-audit-help').textContent).toMatch(/immutable/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// P4 — Line exclude/restore controls
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P4 — exclude/restore line controls', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('undo button is present in preview phase', async () => {
+    await goToPreview(TIED_PREVIEW)
+    expect(screen.getByTestId('preview-undo-btn')).toBeInTheDocument()
+  })
+
+  it('undo button is disabled when no edits have been made', async () => {
+    await goToPreview(TIED_PREVIEW)
+    expect(screen.getByTestId('preview-undo-btn')).toBeDisabled()
+  })
+
+  it('exclude button (data-testid=exclude-line-N) is present for detail lines', async () => {
+    await goToPreview(TIED_PREVIEW)
+    // The line at index 0 is a detail line — should have exclude button
+    expect(screen.getByTestId('exclude-line-0')).toBeInTheDocument()
+  })
+
+  it('clicking exclude button calls patchPreviewLine with excluded: true', async () => {
+    const mockPatch = pdfImportApi.patchPreviewLine as ReturnType<typeof vi.fn>
+    mockPatch.mockResolvedValue({ line_index: 0, updated: { excluded: true } })
+    await goToPreview(TIED_PREVIEW)
+    fireEvent.click(screen.getByTestId('exclude-line-0'))
+    await waitFor(() =>
+      expect(mockPatch).toHaveBeenCalledWith(42, 0, expect.objectContaining({ excluded: true }))
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// P5 — Preview save indicator
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P5 — preview save indicator', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('save indicator not visible when no edits pending', async () => {
+    await goToPreview(TIED_PREVIEW)
+    expect(screen.queryByTestId('preview-save-indicator')).not.toBeInTheDocument()
+  })
+
+  it('save indicator shows Saved after successful edit', async () => {
+    const mockPatch = pdfImportApi.patchPreviewLine as ReturnType<typeof vi.fn>
+    mockPatch.mockResolvedValue({ line_index: 0, updated: { excluded: true } })
+    await goToPreview(TIED_PREVIEW)
+    fireEvent.click(screen.getByTestId('exclude-line-0'))
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-save-indicator')).toBeInTheDocument()
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('preview-save-indicator').textContent).toMatch(/saved/i)
+    )
   })
 })
 
