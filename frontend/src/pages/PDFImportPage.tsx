@@ -1162,6 +1162,14 @@ export function PDFImportPage() {
     enabled: phase === 'applied' && appliedBatchId != null && activeTab === 'audit',
   })
 
+  // P6: preview diff — compare original extraction vs current working state
+  const previewBatchId = preview?.batch_id ?? null
+  const { data: previewDiff } = useQuery({
+    queryKey: ['pdf-preview-diff', previewBatchId],
+    queryFn: () => pdfImportApi.previewDiff(previewBatchId!),
+    enabled: phase === 'preview' && previewBatchId != null,
+  })
+
   // ---------------------------------------------------------------------------
   // Mutations
   // ---------------------------------------------------------------------------
@@ -1874,7 +1882,18 @@ export function PDFImportPage() {
               </div>
             </div>
 
-            {/* P4: excluded line count */}
+            {/* P4+P6: diff summary banner */}
+            {previewDiff && (previewDiff.changed_count > 0 || previewDiff.excluded_count > 0) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2 flex items-center gap-3 text-xs" data-testid="preview-diff-banner">
+                <span className="text-blue-700 font-medium">Working preview differs from original extraction:</span>
+                {previewDiff.changed_count > 0 && (
+                  <span className="text-blue-600">{previewDiff.changed_count} edited</span>
+                )}
+                {previewDiff.excluded_count > 0 && (
+                  <span className="text-amber-600">{previewDiff.excluded_count} excluded</span>
+                )}
+              </div>
+            )}
             {(() => {
               const excludedCount = (preview.lines ?? []).filter((l) => l.excluded).length
               return excludedCount > 0 ? (

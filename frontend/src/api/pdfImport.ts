@@ -99,4 +99,22 @@ export const pdfImportApi = {
 
   patchPreviewLine: (batchId: number, lineIndex: number, patch: PDFPreviewLinePatch): Promise<{ line_index: number; updated: Record<string, unknown> }> =>
     api.patch(`/pdf-imports/${batchId}/preview-lines/${lineIndex}`, patch).then((r) => r.data),
+
+  previewDiff: (batchId: number): Promise<{
+    batch_id: number
+    total_lines: number
+    changed_count: number
+    excluded_count: number
+    diff: Array<{
+      line_index: number
+      temp_account_code: string
+      account_name: string
+      changed: boolean
+      excluded: boolean
+      changes: string[]
+      original: Record<string, unknown>
+      current: Record<string, unknown>
+    }>
+  }> =>
+    api.get(`/pdf-imports/${batchId}/preview-diff`).then((r) => r.data),
 }

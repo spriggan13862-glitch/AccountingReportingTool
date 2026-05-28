@@ -162,6 +162,7 @@ async def upload_pdf(
         line_count=len(detail_lines),
         status="parsed",
         raw_preview=json.dumps(extracted),
+        original_preview=json.dumps(extracted),
         validation_summary=json.dumps(extracted.get("validation", {})),
     )
     db.add(batch)
@@ -853,6 +854,64 @@ def patch_preview_line(
     db.flush()
 
     return {"line_index": line_index, "updated": line}
+
+
+# ---------------------------------------------------------------------------
+# P6: Preview diff — compare original extraction vs current working preview
+# ---------------------------------------------------------------------------
+
+@router.get("/{batch_id}/preview-diff")
+def get_preview_diff(
+    batch_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return a line-by-line diff of original_preview vs current raw_preview.
+
+    Each entry has: line_index, original (dict), current (dict), changed (bool), changes (list[str])
+    Lines present in original but excluded=True in current are flagged as excluded.
+    """
+    batch = db.get(PDFImportBatch, batch_id)
+    if batch is None:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if not batch.original_preview:
+        return {"batch_id": batch_id, "diff": [], "note": "no_original_snapshot"}
+
+    try:
+        original = json.loads(batch.original_preview)
+        current = json.loads(batch.raw_preview or batch.original_preview)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Cannot parse preview data: {exc}") from exc
+
+    orig_lines: list[dict] = original.get("lines", [])
+    curr_lines: list[dict] = current.get("lines", [])
+
+    diff = []
+    TRACKED_FIELDS = ["account_name", "section", "amount", "proposed_account_code", "suggested_taxonomy_code", "excluded"]
+    for i, (orig_line, curr_line) in enumerate(zip(orig_lines, curr_lines)):
+        changes = [
+            f for f in TRACKED_FIELDS
+            if str(orig_line.get(f)) != str(curr_line.get(f))
+        ]
+        diff.append({
+            "line_index": i,
+            "temp_account_code": curr_line.get("temp_account_code"),
+            "account_name": curr_line.get("account_name"),
+            "changed": bool(changes),
+            "excluded": bool(curr_line.get("excluded")),
+            "changes": changes,
+            "original": {f: orig_line.get(f) for f in TRACKED_FIELDS},
+            "current": {f: curr_line.get(f) for f in TRACKED_FIELDS},
+        })
+
+    changed_count = sum(1 for d in diff if d["changed"])
+    excluded_count = sum(1 for d in diff if d["excluded"])
+    return {
+        "batch_id": batch_id,
+        "total_lines": len(diff),
+        "changed_count": changed_count,
+        "excluded_count": excluded_count,
+        "diff": diff,
+    }
 
 
 # ---------------------------------------------------------------------------

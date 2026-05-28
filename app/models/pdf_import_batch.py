@@ -27,5 +27,6 @@ class PDFImportBatch(Base):
     status = Column(String(20), nullable=False, default="uploaded")
     error_message = Column(Text, nullable=True)
     raw_preview = Column(Text, nullable=True)
+    original_preview = Column(Text, nullable=True)
     validation_summary = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
