@@ -548,6 +548,96 @@ describe('Tier1.9: P6 — single global control bar', () => {
 })
 
 // ---------------------------------------------------------------------------
+// P7 — Entity ID regression: flows from Step 1 into upload call
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P7 — entity_id flows into upload', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUpload.mockResolvedValue(TIED_PREVIEW)
+  })
+
+  it('upload is called with entity_id matching selected entity', async () => {
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), {
+      target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => expect(mockUpload).toHaveBeenCalled())
+    const [, opts] = mockUpload.mock.calls[0]
+    expect(opts.entityId).toBe(1)
+  })
+
+  it('upload includes statementDate derived from period picker', async () => {
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), {
+      target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => expect(mockUpload).toHaveBeenCalled())
+    const [, opts] = mockUpload.mock.calls[0]
+    expect(opts.statementDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// P9 — Tab help text
+// ---------------------------------------------------------------------------
+
+describe('Tier1.9: P9 — tab help text', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockApply.mockResolvedValue(MOCK_BATCH)
+    mockLines.mockResolvedValue([makeLineOut()])
+    ;(pdfImportApi.audit as ReturnType<typeof vi.fn>).mockResolvedValue(MOCK_AUDIT)
+  })
+
+  it('Extracted Lines tab shows editable working copy help text', async () => {
+    mockUpload.mockResolvedValue(TIED_PREVIEW)
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), {
+      target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => screen.getByTestId('apply-pdf-btn'))
+    fireEvent.click(screen.getByTestId('apply-pdf-btn'))
+    await waitFor(() => screen.getByTestId('export-csv-btn'))
+
+    fireEvent.click(screen.getByTestId('tab-lines'))
+    expect(screen.getByTestId('tab-lines-help')).toBeInTheDocument()
+    expect(screen.getByTestId('tab-lines-help').textContent).toMatch(/editable/i)
+  })
+
+  it('Audit Trail tab shows immutable help text', async () => {
+    mockUpload.mockResolvedValue(TIED_PREVIEW)
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), {
+      target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => screen.getByTestId('apply-pdf-btn'))
+    fireEvent.click(screen.getByTestId('apply-pdf-btn'))
+    await waitFor(() => screen.getByTestId('export-csv-btn'))
+
+    fireEvent.click(screen.getByTestId('tab-audit'))
+    expect(screen.getByTestId('tab-audit-help')).toBeInTheDocument()
+    expect(screen.getByTestId('tab-audit-help').textContent).toMatch(/immutable/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // 8. Adjustment Bridge skeleton (P10)
 // ---------------------------------------------------------------------------
 
