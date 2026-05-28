@@ -758,7 +758,7 @@ Branch: `tier-2-pdf-quality-and-import-polish`
 
 | Suite | Passed | Failed | Total |
 |---|---|---|---|
-| Frontend vitest | 419 | 0 | 419 |
+| Frontend vitest | 425 | 0 | 425 |
 | TypeScript `--noEmit` | 0 errors | — | clean |
 
 | ID | Priority | Area | Issue | Fix | Status |
@@ -767,15 +767,15 @@ Branch: `tier-2-pdf-quality-and-import-polish`
 | PDF-P1 | P1 | PDF Import / Button Guard | "Extract & Preview" button was only guarded by `!file`. Clicking without entity/basis/scope resulted in backend 422 with unhelpful error. | Frontend: button disabled unless all 6 fields set (entity, period, import type, basis, scope, file); missing fields hint shown via `data-testid="missing-fields-hint"`. Backend: explicit 422 with `{"error":"missing_required_fields","missing_fields":[...]}` before PDF extraction begins. | Resolved |
 | PDF-P2 | P2 | PDF Import / Subtotal Validation | `_EXPECTED_TOTALS` was hardcoded with 14 Live Marketing LLC-specific amounts; caused spurious failures for every other client. | Removed `_EXPECTED_TOTALS` and `_SUBTOTAL_NAME_MAP`. `_build_validation` now groups lines by `statement_type::section`, compares each section's PDF subtotal line against the computed sum of its detail lines — fully entity-agnostic. Expanded `_SUBTOTAL_PREFIXES` with 6 additional keywords. | Resolved |
 | PDF-P3 | P3 | PDF Import / Balance Sheet Variance | BS tie computed by summing all detail lines, ignoring sign conventions and missing extracted top-level subtotals. | `_compute_bs_validation` rewritten: Pass 1 searches extracted subtotals for "total assets" and "total liabilities and..." patterns; Pass 2 uses them when found (method: `extracted_subtotals`) or falls back to section-sum (method: `summed_detail_lines`). | Resolved |
+| PDF-P4 | P4 | PDF Import / Line Exclude/Restore | No way to exclude individual lines from apply without deleting them. No undo for preview edits. | Exclude button (X) per detail line calls PATCH preview-lines/{n} with excluded=true; apply skips excluded lines. Restore (↩) sets excluded=false. Preview undo stack tracks reverse patches. Excluded lines rendered with opacity-40 + line-through. `data-testid="exclude-line-N"`, `data-testid="restore-line-N"`, `data-testid="preview-undo-btn"`. | Resolved |
+| PDF-P5 | P5 | PDF Import / Save Indicator | No visual feedback when preview edits are being persisted to the backend. | Save indicator in preview control bar shows "Saving…" / "Saved" / "Save failed" via patchPreviewLineMutation state. `data-testid="preview-save-indicator"`. Auto-clears to idle after 2s on success. | Resolved |
+| PDF-P6 | P6 | PDF Import / Immutable Original | patchPreviewLine mutated raw_preview directly, destroying the original extraction for comparison. | `original_preview` column added to `pdf_import_batches` (migration af3a982c28ac); written once at upload, never touched. `GET /{batch_id}/preview-diff` returns line-by-line diff (changed fields + excluded flag). Frontend diff banner shows "N edited / N excluded" when working preview differs from original. `data-testid="preview-diff-banner"`. | Resolved |
 | PDF-P7 | P7 | PDF Import / Entity Flow | No regression test verifying `entity_id` propagates from picker through upload call into backend. | Added `describe('Tier1.9: P7 — entity_id flows into upload')` — 2 tests confirm `pdfImportApi.upload` receives correct `entity_id` when entity is selected (or null when blank). | Resolved |
+| PDF-P8 | P8 | PDF Import / Conflict Column | Conflict badge shown for all lines with taxonomy_conflict=true, including already-resolved lines. | Badge now only renders when `taxonomy_conflict=true AND conflict_resolution=null`. Resolved conflicts show green "resolved" label (title shows resolution type). `data-testid="conflict-resolved-N"`. | Resolved |
 | PDF-P9 | P9 | PDF Import / Tab Help Text | "Extracted Lines" and "Audit Trail" tabs had no inline explanation of their purpose; users confused about what was editable. | Added help text below tab bar: "Extracted Lines — editable working copy…" and "Audit Trail — immutable record…". `data-testid="tab-lines-help"` and `data-testid="tab-audit-help"`. | Resolved |
 
 **Open (deferred):**
 
 | ID | Priority | Issue |
 |---|---|---|
-| PDF-P4 | P4 | Line edit/restore controls — delete, exclude, restore, reclassify; undo/redo |
-| PDF-P5 | P5 | Preview persistence + save indicator (Saved / Unsaved / Saving) |
-| PDF-P6 | P6 | Immutable audit trail — store original extracted lines separate from working preview |
-| PDF-P8 | P8 | Conflict column — show actionable conflicts only; resolution panel |
 | PDF-P10 | P10 | Entity mismatch warning — deferred (no global workspace entity context exists) |
