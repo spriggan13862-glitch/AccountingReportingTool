@@ -734,23 +734,36 @@ function AppliedLinesTable({
             key: 'conflict',
             header: 'Conflict',
             sortable: true,
-            sortValue: (l: PDFLineOut) => (l.taxonomy_conflict ? 1 : 0),
+            sortValue: (l: PDFLineOut) => (l.taxonomy_conflict && !l.conflict_resolution ? 1 : 0),
             className: 'text-center w-24',
-            render: (l: PDFLineOut) => (
-              !l.is_subtotal && l.taxonomy_conflict ? (
-                <button
-                  type="button"
-                  onClick={() => onResolveConflict(l)}
-                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 transition-colors"
-                  title="Taxonomy conflict — click to resolve"
-                  data-testid={`conflict-badge-${l.id}`}
-                >
-                  conflict
-                </button>
-              ) : (
-                <span className="text-gray-300">—</span>
-              )
-            )
+            render: (l: PDFLineOut) => {
+              const actionable = !l.is_subtotal && l.taxonomy_conflict && !l.conflict_resolution
+              if (actionable) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onResolveConflict(l)}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 hover:bg-amber-200 transition-colors"
+                    title="Taxonomy conflict — click to resolve"
+                    data-testid={`conflict-badge-${l.id}`}
+                  >
+                    conflict
+                  </button>
+                )
+              }
+              if (!l.is_subtotal && l.taxonomy_conflict && l.conflict_resolution) {
+                return (
+                  <span
+                    className="text-[10px] text-green-600"
+                    title={`Resolved: ${l.conflict_resolution}`}
+                    data-testid={`conflict-resolved-${l.id}`}
+                  >
+                    resolved
+                  </span>
+                )
+              }
+              return <span className="text-gray-300">—</span>
+            }
           },
           ...(showLegalEntity ? [
             {
