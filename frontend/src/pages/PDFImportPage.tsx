@@ -24,8 +24,6 @@ import { pdfImportApi } from '@/api/pdfImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
-import { PeriodSelect } from '@/components/ui/PeriodSelect'
-import { periodsApi } from '@/api/periods'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
@@ -91,6 +89,27 @@ const SCOPE_OPTIONS = [
   { value: 'consolidated', label: 'Consolidated' },
   { value: 'combined',    label: 'Combined' },
 ]
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+const CURRENT_YEAR = new Date().getFullYear()
+const PERIOD_YEARS = Array.from({ length: 9 }, (_, i) => CURRENT_YEAR - 6 + i)
+
+function lastDayOfPeriod(
+  type: 'monthly' | 'quarterly' | 'annual',
+  month: number,
+  quarter: number,
+  year: number,
+): string {
+  const endMonth = type === 'monthly' ? month : type === 'quarterly' ? quarter * 3 : 12
+  const d = new Date(year, endMonth, 0)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 const CONFLICT_RESOLUTIONS = [
   { value: 'keep_source',    label: 'Keep source taxonomy (from PDF/COA)' },
@@ -256,7 +275,7 @@ function ValidationTable({ checks }: { checks: PDFValidationCheck[] }) {
         },
         {
           key: 'extracted',
-          header: 'Extracted',
+          header: 'PDF Subtotal',
           sortable: true,
           sortValue: (c) => parseFloat(c.extracted || '0'),
           className: 'text-right font-mono',
@@ -264,7 +283,7 @@ function ValidationTable({ checks }: { checks: PDFValidationCheck[] }) {
         },
         {
           key: 'expected',
-          header: 'Expected (PDF)',
+          header: 'Calculated Sum',
           sortable: true,
           sortValue: (c) => parseFloat(c.expected || '0'),
           className: 'text-right font-mono',
@@ -1053,7 +1072,10 @@ export function PDFImportPage() {
 
   // Step 1 form state (P0)
   const [entityId, setEntityId] = useState<number | ''>('')
-  const [periodId, setPeriodId] = useState<number | ''>('')
+  const [pickerType, setPickerType] = useState<'monthly' | 'quarterly' | 'annual'>('monthly')
+  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth() + 1)
+  const [pickerQuarter, setPickerQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3))
+  const [pickerYear, setPickerYear] = useState(CURRENT_YEAR)
   const [importType, setImportType] = useState('financial_statements')
   const [statementScope, setStatementScope] = useState('')
   const [basisOverride, setBasisOverride] = useState('')
@@ -1120,15 +1142,7 @@ export function PDFImportPage() {
   // Queries
   // ---------------------------------------------------------------------------
 
-  const { data: periods = [] } = useQuery({
-    queryKey: ['periods-list', entityId],
-    queryFn: () => periodsApi.list(entityId as number),
-    enabled: !!entityId,
-    staleTime: 30_000,
-  })
-
-  const selectedPeriod = periods.find((p) => p.id === periodId)
-  const statementDate = selectedPeriod?.end_date || undefined
+  const statementDate = lastDayOfPeriod(pickerType, pickerMonth, pickerQuarter, pickerYear)
 
   const { data: recentBatches = [] } = useQuery({
     queryKey: ['pdf-batches'],
@@ -1279,7 +1293,10 @@ export function PDFImportPage() {
     setPhase('upload')
     setFile(null)
     setEntityId('')
-    setPeriodId('')
+    setPickerType('monthly')
+    setPickerMonth(new Date().getMonth() + 1)
+    setPickerQuarter(Math.ceil((new Date().getMonth() + 1) / 3))
+    setPickerYear(CURRENT_YEAR)
     setImportType('financial_statements')
     setStatementScope('')
     setBasisOverride('')
@@ -1402,20 +1419,71 @@ export function PDFImportPage() {
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
           <h2 className="text-sm font-semibold text-gray-800">Step 1 — Classify and upload</h2>
 
-          {/* P0: Entity + classification fields */}
+          {/* P0: Entity + period picker */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
               <EntitySelect value={entityId} onChange={setEntityId} />
             </div>
-            <div>
-              <PeriodSelect
-                label="Period *"
-                entityId={entityId}
-                value={periodId}
-                onChange={setPeriodId}
-                required
-              />
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-gray-600">Period *</label>
+              <div className="flex gap-0.5 p-0.5 bg-gray-100 rounded w-fit">
+                {(['monthly', 'quarterly', 'annual'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setPickerType(t)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium capitalize transition-colors ${
+                      pickerType === t
+                        ? 'bg-white shadow-sm text-blue-700 border border-gray-200'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    data-testid={`period-type-${t}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2 flex-wrap items-center">
+                {pickerType === 'monthly' && (
+                  <select
+                    value={pickerMonth}
+                    onChange={(e) => setPickerMonth(Number(e.target.value))}
+                    className="text-sm border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-400"
+                    data-testid="period-month-select"
+                  >
+                    {MONTH_NAMES.map((m, i) => (
+                      <option key={m} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                )}
+                {pickerType === 'quarterly' && (
+                  <select
+                    value={pickerQuarter}
+                    onChange={(e) => setPickerQuarter(Number(e.target.value))}
+                    className="text-sm border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-400"
+                    data-testid="period-quarter-select"
+                  >
+                    <option value={1}>Q1 (Jan–Mar)</option>
+                    <option value={2}>Q2 (Apr–Jun)</option>
+                    <option value={3}>Q3 (Jul–Sep)</option>
+                    <option value={4}>Q4 (Oct–Dec)</option>
+                  </select>
+                )}
+                <select
+                  value={pickerYear}
+                  onChange={(e) => setPickerYear(Number(e.target.value))}
+                  className="text-sm border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-400"
+                  data-testid="period-year-select"
+                >
+                  {PERIOD_YEARS.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Statement date: <strong className="text-gray-600" data-testid="period-derived-date">{statementDate}</strong>
+              </p>
             </div>
           </div>
 
@@ -1480,16 +1548,34 @@ export function PDFImportPage() {
             />
           </div>
 
-          <div className="flex justify-end">
-            <button
-              type="button"
-              disabled={!file || !entityId || uploadMutation.isPending}
-              onClick={() => uploadMutation.mutate()}
-              className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-              data-testid="parse-pdf-btn"
-            >
-              {uploadMutation.isPending ? 'Extracting…' : 'Extract & Preview'}
-            </button>
+          <div className="flex items-center justify-end gap-3">
+            {(() => {
+              const missing = [
+                !entityId && 'Entity',
+                !basisOverride && 'Accounting Basis',
+                !statementScope && 'Statement Scope',
+                !file && 'PDF file',
+              ].filter(Boolean) as string[]
+              const disabled = missing.length > 0 || uploadMutation.isPending
+              return (
+                <>
+                  {missing.length > 0 && !uploadMutation.isPending && (
+                    <p className="text-xs text-amber-600" data-testid="missing-fields-hint">
+                      Required: {missing.join(', ')}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => uploadMutation.mutate()}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                    data-testid="parse-pdf-btn"
+                  >
+                    {uploadMutation.isPending ? 'Extracting…' : 'Extract & Preview'}
+                  </button>
+                </>
+              )
+            })()}
           </div>
         </div>
 
@@ -2059,23 +2145,35 @@ export function PDFImportPage() {
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 mb-4 border-b border-gray-200">
-        {(['lines', 'audit'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              activeTab === tab
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-            data-testid={`tab-${tab}`}
-          >
-            {tab === 'lines' ? 'Extracted Lines' : 'Audit Trail'}
-          </button>
-        ))}
+      {/* Tab bar + P9 help text */}
+      <div className="mb-4 border-b border-gray-200">
+        <div className="flex gap-1">
+          {(['lines', 'audit'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                activeTab === tab
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              data-testid={`tab-${tab}`}
+            >
+              {tab === 'lines' ? 'Extracted Lines' : 'Audit Trail'}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'lines' && (
+          <p className="text-[11px] text-gray-400 px-1 py-1.5" data-testid="tab-lines-help">
+            Editable working copy — update account codes, taxonomy assignments, and amounts.
+          </p>
+        )}
+        {activeTab === 'audit' && (
+          <p className="text-[11px] text-gray-400 px-1 py-1.5" data-testid="tab-audit-help">
+            Immutable source evidence — shows the original extracted lines as-parsed from the PDF. Cannot be edited.
+          </p>
+        )}
       </div>
 
       {/* Lines tab */}

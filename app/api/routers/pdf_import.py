@@ -20,6 +20,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user, get_storage
@@ -66,6 +67,26 @@ async def upload_pdf(
 
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
+
+    # P1: reject missing required metadata before touching the PDF
+    missing: list[str] = []
+    if entity_id is None:
+        missing.append("entity_id")
+    if not statement_date:
+        missing.append("statement_date")
+    if not basis_override:
+        missing.append("basis_override")
+    if not statement_scope:
+        missing.append("statement_scope")
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "missing_required_fields",
+                "message": f"Missing required fields: {', '.join(missing)}",
+                "missing_fields": missing,
+            },
+        )
 
     organization_id = None
     if entity_id is not None:
@@ -1069,7 +1090,12 @@ _BS_EQUITY_SECTIONS = {"equity", "stockholders_equity", "members_equity", "owner
 
 
 def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> dict:
-    """Compute balance sheet tie: Assets vs Liabilities + Equity."""
+    """Compute balance sheet tie: Assets vs Liabilities + Equity.
+
+    Prefers extracted subtotal lines (Total Assets, Total Liabilities & Equity)
+    when present in the PDF. Falls back to summing detail lines by section when
+    those subtotals are absent.
+    """
     from decimal import Decimal, InvalidOperation
 
     def safe_dec(raw) -> Decimal:
@@ -1086,11 +1112,62 @@ def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> d
         except InvalidOperation:
             return Decimal("0")
 
+    # Pass 1: look for PDF-level subtotal lines for the tie check
+    total_assets_from_subtotal: Decimal | None = None
+    total_le_from_subtotal: Decimal | None = None
+    net_income_in_equity: Decimal | None = None
+    pnl_net_income: Decimal | None = None
+
+    for line in lines_data:
+        stmt = (line.get("statement_type") or "").lower()
+        name = (line.get("account_name") or "").strip().lower()
+        amount = safe_dec(line.get("amount"))
+
+        if line.get("is_subtotal") and not line.get("synthetic_presentation_line"):
+            if stmt == "balance_sheet":
+                if "total assets" in name and "liab" not in name and "equity" not in name:
+                    total_assets_from_subtotal = amount
+                elif (
+                    ("total liabilities and" in name)
+                    or ("total liabilities &" in name)
+                    or ("total liab" in name and "equity" in name)
+                    or ("total liab" in name and "stockholder" in name)
+                    or ("total liab" in name and "shareholder" in name)
+                ):
+                    total_le_from_subtotal = amount
+
+        if stmt == "income_statement" and not line.get("is_subtotal"):
+            is_ni = any(kw in name for kw in _NET_INCOME_EQUITY_KEYWORDS)
+            if is_ni:
+                pnl_net_income = amount
+
+        if line.get("synthetic_presentation_line"):
+            net_income_in_equity = amount
+
+    # Pass 2: if subtotals were found, use them directly
+    if total_assets_from_subtotal is not None and total_le_from_subtotal is not None:
+        variance = total_assets_from_subtotal - total_le_from_subtotal
+        ni_variance = None
+        if net_income_in_equity is not None and pnl_net_income is not None:
+            ni_variance = net_income_in_equity - pnl_net_income
+        return {
+            "total_assets": str(total_assets_from_subtotal),
+            "total_liabilities": None,
+            "total_equity": None,
+            "total_liabilities_equity": str(total_le_from_subtotal),
+            "variance": str(variance),
+            "tied": abs(float(variance)) <= tolerance,
+            "tolerance": str(tolerance),
+            "method": "extracted_subtotals",
+            "net_income_in_equity": str(net_income_in_equity) if net_income_in_equity is not None else None,
+            "pnl_net_income": str(pnl_net_income) if pnl_net_income is not None else None,
+            "net_income_variance": str(ni_variance) if ni_variance is not None else None,
+        }
+
+    # Fall back: sum detail lines by section
     total_assets = Decimal("0")
     total_liabilities = Decimal("0")
     total_equity = Decimal("0")
-    net_income_in_equity = None
-    pnl_net_income = None
 
     for line in lines_data:
         if line.get("is_subtotal") and not line.get("synthetic_presentation_line"):
@@ -1098,7 +1175,6 @@ def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> d
         stmt = (line.get("statement_type") or "").lower()
         section = (line.get("section") or "").lower()
         amount = safe_dec(line.get("amount"))
-        name = (line.get("account_name") or "").lower()
 
         if stmt == "balance_sheet":
             if section in _BS_ASSET_SECTIONS:
@@ -1106,20 +1182,10 @@ def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> d
             elif section in _BS_LIABILITY_SECTIONS:
                 total_liabilities += amount
             elif section in _BS_EQUITY_SECTIONS:
-                if line.get("synthetic_presentation_line"):
-                    net_income_in_equity = amount
                 total_equity += amount
-
-        # Track P&L net income for reconciliation
-        if stmt == "income_statement":
-            is_ni = any(kw in name for kw in _NET_INCOME_EQUITY_KEYWORDS)
-            if is_ni and not line.get("is_subtotal"):
-                pnl_net_income = amount
 
     total_le = total_liabilities + total_equity
     variance = total_assets - total_le
-
-    # Net income reconciliation
     ni_variance = None
     if net_income_in_equity is not None and pnl_net_income is not None:
         ni_variance = net_income_in_equity - pnl_net_income
@@ -1132,6 +1198,7 @@ def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> d
         "variance": str(variance),
         "tied": abs(float(variance)) <= tolerance,
         "tolerance": str(tolerance),
+        "method": "summed_detail_lines",
         "net_income_in_equity": str(net_income_in_equity) if net_income_in_equity is not None else None,
         "pnl_net_income": str(pnl_net_income) if pnl_net_income is not None else None,
         "net_income_variance": str(ni_variance) if ni_variance is not None else None,

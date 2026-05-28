@@ -129,6 +129,8 @@ async function uploadAndPreview() {
 
   renderPage()
   fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+  fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+  fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
   const input = screen.getByTestId('pdf-file-input') as HTMLInputElement
   const file = new File(['pdf'], 'test.pdf', { type: 'application/pdf' })
   fireEvent.change(input, { target: { files: [file] } })

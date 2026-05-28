@@ -251,6 +251,8 @@ describe('PDFImportPage — preview step (all passing)', () => {
   async function uploadAndPreview() {
     renderPage()
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
     const input = screen.getByTestId('pdf-file-input')
     const file = new File(['%PDF-1.4'], 'test.pdf', { type: 'application/pdf' })
     fireEvent.change(input, { target: { files: [file] } })
@@ -341,6 +343,8 @@ describe('PDFImportPage — preview step (failing validation)', () => {
   async function uploadAndPreview() {
     renderPage()
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
     const input = screen.getByTestId('pdf-file-input')
     const file = new File(['%PDF-1.4'], 'test.pdf', { type: 'application/pdf' })
     fireEvent.change(input, { target: { files: [file] } })
@@ -373,6 +377,8 @@ describe('PDFImportPage — taxonomy mapping toggle', () => {
   async function uploadAndPreview() {
     renderPage()
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
     const input = screen.getByTestId('pdf-file-input')
     fireEvent.change(input, { target: { files: [new File(['%PDF'], 'f.pdf', { type: 'application/pdf' })] } })
     fireEvent.click(screen.getByTestId('parse-pdf-btn'))

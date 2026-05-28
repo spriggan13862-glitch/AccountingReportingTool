@@ -257,6 +257,8 @@ async function uploadPreviewApply() {
   renderPage()
 
   fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+  fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+  fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
 
   const input = screen.getByTestId('pdf-file-input')
   const file = new File(['%PDF-1.4'], 'test.pdf', { type: 'application/pdf' })
@@ -478,6 +480,8 @@ describe('PDFImportPage — legal entity and consolidation group', () => {
 
     renderPage()
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
     const input = screen.getByTestId('pdf-file-input')
     fireEvent.change(input, { target: { files: [new File(['%PDF'], 'f.pdf', { type: 'application/pdf' })] } })
     fireEvent.click(screen.getByTestId('parse-pdf-btn'))

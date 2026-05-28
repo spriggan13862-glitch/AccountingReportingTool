@@ -250,18 +250,6 @@ vi.mock('@/components/ui/EntitySelect', () => ({
   ),
 }))
 
-vi.mock('@/components/ui/PeriodSelect', () => ({
-  PeriodSelect: ({ onChange, value }: { onChange: (v: number | '') => void; value: number | '' }) => (
-    <select
-      data-testid="period-select"
-      value={String(value)}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
-    >
-      <option value="">—</option>
-      <option value="1">Q1-2026</option>
-    </select>
-  ),
-}))
 
 import { pdfImportApi } from '@/api/pdfImport'
 const mockUpload = pdfImportApi.upload as ReturnType<typeof vi.fn>
@@ -280,7 +268,6 @@ async function goToPreview(previewData: PDFImportPreview) {
 
   renderPDFPage()
   fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
-  fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
   fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
   fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
 
@@ -291,7 +278,7 @@ async function goToPreview(previewData: PDFImportPreview) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Import classification fields in Step 1
+// 1. Import classification fields in Step 1 + P0 period picker + P1 button guard
 // ---------------------------------------------------------------------------
 
 describe('Tier1.9: P0 — import type classification', () => {
@@ -316,6 +303,89 @@ describe('Tier1.9: P0 — import type classification', () => {
     renderPDFPage()
     const select = screen.getByTestId('import-type-select') as HTMLSelectElement
     expect(select.value).toBe('financial_statements')
+  })
+})
+
+describe('Tier1.9: P0 — period picker', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('shows monthly/quarterly/annual type tabs', () => {
+    renderPDFPage()
+    expect(screen.getByTestId('period-type-monthly')).toBeInTheDocument()
+    expect(screen.getByTestId('period-type-quarterly')).toBeInTheDocument()
+    expect(screen.getByTestId('period-type-annual')).toBeInTheDocument()
+  })
+
+  it('monthly mode shows month and year selectors', () => {
+    renderPDFPage()
+    fireEvent.click(screen.getByTestId('period-type-monthly'))
+    expect(screen.getByTestId('period-month-select')).toBeInTheDocument()
+    expect(screen.getByTestId('period-year-select')).toBeInTheDocument()
+  })
+
+  it('quarterly mode shows quarter and year selectors', () => {
+    renderPDFPage()
+    fireEvent.click(screen.getByTestId('period-type-quarterly'))
+    expect(screen.getByTestId('period-quarter-select')).toBeInTheDocument()
+    expect(screen.getByTestId('period-year-select')).toBeInTheDocument()
+  })
+
+  it('annual mode shows only year selector', () => {
+    renderPDFPage()
+    fireEvent.click(screen.getByTestId('period-type-annual'))
+    expect(screen.queryByTestId('period-month-select')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('period-quarter-select')).not.toBeInTheDocument()
+    expect(screen.getByTestId('period-year-select')).toBeInTheDocument()
+  })
+
+  it('shows derived statement date', () => {
+    renderPDFPage()
+    expect(screen.getByTestId('period-derived-date')).toBeInTheDocument()
+    expect(screen.getByTestId('period-derived-date').textContent).toMatch(/\d{4}-\d{2}-\d{2}/)
+  })
+})
+
+describe('Tier1.9: P1 — Extract & Preview button guard', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('button is disabled when entity and file are missing', () => {
+    renderPDFPage()
+    expect(screen.getByTestId('parse-pdf-btn')).toBeDisabled()
+  })
+
+  it('button is disabled when basis is missing', () => {
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    const file = new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), { target: { files: [file] } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    expect(screen.getByTestId('parse-pdf-btn')).toBeDisabled()
+  })
+
+  it('button is disabled when scope is missing', () => {
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    const file = new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), { target: { files: [file] } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    expect(screen.getByTestId('parse-pdf-btn')).toBeDisabled()
+  })
+
+  it('button is enabled when entity, basis, scope, and file are set', () => {
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+    const file = new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(screen.getByTestId('pdf-file-input'), { target: { files: [file] } })
+    expect(screen.getByTestId('parse-pdf-btn')).not.toBeDisabled()
+  })
+
+  it('shows missing fields hint when incomplete', () => {
+    renderPDFPage()
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    expect(screen.getByTestId('missing-fields-hint')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-fields-hint').textContent).toMatch(/Accounting Basis|Statement Scope|PDF file/)
   })
 })
 
@@ -397,7 +467,6 @@ describe('Tier1.9: P4 — taxonomy conflict badge', () => {
     mockUpload.mockResolvedValue(TIED_PREVIEW)
     renderPDFPage()
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
-    fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
     fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
     fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
     
@@ -444,7 +513,6 @@ describe('Tier1.9: P5 — taxonomy create-new', () => {
     mockUpload.mockResolvedValue(TIED_PREVIEW)
     renderPDFPage()
     fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
-    fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
     fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
     fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
 
