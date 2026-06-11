@@ -21,7 +21,9 @@ import {
   X,
 } from 'lucide-react'
 import { pdfImportApi } from '@/api/pdfImport'
+import { entitiesApi } from '@/api/entities'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useToast } from '@/providers/ToastProvider'
@@ -1064,6 +1066,26 @@ function NetIncomeReconPanel({
 }
 
 // ---------------------------------------------------------------------------
+// P10: Entity name fuzzy match
+// ---------------------------------------------------------------------------
+
+function entityNamesSimilar(a: string, b: string): boolean {
+  const normalize = (s: string) =>
+    s.toLowerCase()
+      .replace(/\b(llc|inc|corp|ltd|co|company|the|and)\b/g, '')
+      .replace(/[^a-z0-9 ]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  const na = normalize(a)
+  const nb = normalize(b)
+  if (na === nb) return true
+  if (na.includes(nb) || nb.includes(na)) return true
+  const wa = new Set(na.split(' ').filter((w) => w.length > 2))
+  const wb = nb.split(' ').filter((w) => w.length > 2)
+  return wb.filter((w) => wa.has(w)).length >= 2
+}
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
@@ -1182,6 +1204,18 @@ export function PDFImportPage() {
     queryFn: () => pdfImportApi.previewDiff(previewBatchId!),
     enabled: phase === 'preview' && previewBatchId != null,
   })
+
+  // P10: entity name mismatch — entities already cached by EntitySelect
+  const { data: entitiesList = [] } = useQuery({
+    queryKey: ['entities-list'],
+    queryFn: () => entitiesApi.list(),
+    staleTime: 30_000,
+  })
+  const selectedEntity = entitiesList.find((e) => e.id === entityId)
+  const entityNameMismatch = (() => {
+    if (!preview?.source_entity_name || !selectedEntity?.name) return false
+    return !entityNamesSimilar(preview.source_entity_name, selectedEntity.name)
+  })()
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -1473,6 +1507,7 @@ export function PDFImportPage() {
       <PageLayout
         title="PDF Financial Statement Import"
         subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
+        breadcrumb={<Breadcrumb items={[{ label: 'Client Data', href: '/client-data/imports' }, { label: 'Imports', href: '/client-data/imports' }, { label: 'PDF Statement' }]} />}
       >
         {apiError && <ErrorBanner message={apiError} />}
         <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} onStepClick={handleStepClick} />
@@ -1746,6 +1781,7 @@ export function PDFImportPage() {
       <PageLayout
         title="PDF Financial Statement Import"
         subtitle="Extract balance sheet and income statement accounts from a compiled PDF"
+        breadcrumb={<Breadcrumb items={[{ label: 'Client Data', href: '/client-data/imports' }, { label: 'Imports', href: '/client-data/imports' }, { label: 'PDF Statement' }]} />}
       >
         {apiError && <ErrorBanner message={apiError} />}
         <StepIndicator steps={PDF_WIZARD_STEPS} currentStep={phaseIndex} onStepClick={handleStepClick} />
@@ -1780,6 +1816,25 @@ export function PDFImportPage() {
                 Upload different file
               </button>
             </div>
+
+            {/* P10: Entity name mismatch warning */}
+            {entityNameMismatch && (
+              <div
+                className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2"
+                data-testid="entity-mismatch-warning"
+              >
+                <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Entity name mismatch</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    The PDF identifies this statement as{' '}
+                    <span className="font-medium">&ldquo;{preview.source_entity_name}&rdquo;</span>,
+                    but you selected <span className="font-medium">&ldquo;{selectedEntity?.name}&rdquo;</span>.
+                    Verify you uploaded the correct file before applying.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* P2: Balance sheet imbalance warning */}
             {bsNotTied && (

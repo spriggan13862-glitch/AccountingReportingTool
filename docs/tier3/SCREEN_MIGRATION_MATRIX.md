@@ -1,6 +1,7 @@
 # Screen Migration Matrix
-**Status:** Awaiting Approval  
-**Produced:** 2026-06-11
+**Status:** Sprint 3.1 ✅ Complete | Sprint 3.2 ✅ Complete  
+**Produced:** 2026-06-11  
+**Updated:** 2026-06-11
 
 All 45 screens. Columns: current route → new route, nav group, nav item label, sprint, action required.
 
@@ -107,6 +108,49 @@ These are the nav entries being **added or changed** in Sprint 3.1. Route paths 
 | HELP | Help Center | `/help` | Moved to own group |
 
 **Net change:** 10 screens that previously had no nav entry are now reachable. 0 route paths changed in Sprint 3.1.
+
+---
+
+## Sprint 3.2 Scope — Route Normalization
+
+All new canonical routes are live. Legacy redirects added for every old path. Sub-routes with query strings (`/pdf-import?batch=`, `/import/:id`) kept as direct routes to preserve deep-linking.
+
+### New Canonical Route Map
+
+| Old Route | New Canonical Route | Redirect Type |
+|-----------|-------------------|---------------|
+| `/` | `/engagement/dashboard` | Navigate replace |
+| `/import` | `/client-data/imports` | Navigate replace |
+| `/pdf-import` | `/client-data/imports/pdf` | Direct (kept for `?batch=` query strings) |
+| `/coa-import` | `/client-data/imports/coa` | Direct (kept as alias) |
+| `/imports/trial-balance` | `/client-data/imports/trial-balance` | Navigate replace |
+| `/imports/general-ledger` | `/client-data/imports/general-ledger` | Navigate replace |
+| `/imports/journal-entries` | `/client-data/imports/journal-entries` | Navigate replace |
+| `/import/:id` | `/client-data/imports/:id` | Direct (params) |
+| `/documents` | `/client-data/documents` | Navigate replace |
+| `/accounts` | `/client-data/chart-of-accounts` | Navigate replace |
+| `/taxonomy-admin` | `/client-data/taxonomy-mapping` | Navigate replace |
+| `/entities` | `/client-data/entities` | Navigate replace |
+| `/periods` | `/client-data/periods` | Navigate replace |
+| `/periods/:id` | `/client-data/periods/:id` | Direct (params) |
+| `/adjustment-bridge` | `/workbench/adjustment-bridge` | Navigate replace |
+| `/journal-entries` | `/workbench/journal-entries` | Navigate replace |
+| `/journal-entries/:id` | `/workbench/journal-entries/:id` | Direct (params) |
+| `/draft-preview` | `/workbench/draft-preview` | Navigate replace |
+| `/consolidations` | `/workbench/eliminations` | Navigate replace |
+| `/trial-balances` | `/financial-impact/trial-balance` | Navigate replace |
+| `/financial-statements` | `/financial-impact/statements` | Navigate replace |
+| `/fs-builder` | `/financial-impact/builder` | Navigate replace |
+| `/comparative-financials` | `/financial-impact/comparatives` | Navigate replace |
+| `/variance-analysis` | `/financial-impact/variance` | Navigate replace |
+| `/close` | `/deliverables/close-package` | Navigate replace |
+| `/close/workpapers` | `/deliverables/workpapers` | Navigate replace |
+| `/close/:id` | `/deliverables/close-package/:id` | Direct (params) |
+| `/reconciliations` | `/deliverables/reconciliations` | Navigate replace |
+| `/report-builder` | `/deliverables/report-builder` | Navigate replace |
+| `/reports` | `/deliverables/reports` | Navigate replace |
+| `/reporting-settings` | `/setup/settings` | Navigate replace |
+| `/help` | `/setup/help` | Navigate replace |
 
 ---
 

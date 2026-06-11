@@ -190,7 +190,7 @@ All old routes get a `<Navigate replace to={newRoute} />` entry in `AppRouter.ts
 
 ## 5. Sprint Plan
 
-### Sprint 3.1 — Navigation Shell (this sprint)
+### Sprint 3.1 — Navigation Shell ✅ Complete
 **Scope:** Sidebar redesign only. No route changes. No page changes.
 - New sidebar group structure with collapsible groups
 - All 45+ pages wired into the new nav (no orphaned routes)
@@ -200,7 +200,19 @@ All old routes get a `<Navigate replace to={newRoute} />` entry in `AppRouter.ts
 
 **Why first:** Every other sprint depends on the sidebar being correct. Route changes reference nav links; page layout breadcrumbs reference nav groups.
 
-### Sprint 3.2 — Route Consolidation
+### Sprint 3.2 — Route Normalization ✅ Complete
+**Scope:** New route tree under structured prefixes + legacy redirects. Nav links updated. Lightweight breadcrumbs added.
+- New canonical routes under `/engagement/`, `/client-data/`, `/workbench/`, `/financial-impact/`, `/deliverables/`, `/setup/`
+- `<Navigate replace>` redirects for every old static path
+- Routes with query strings (`/pdf-import?batch=`, `/import/:id`) kept as direct routes  
+- `nav.ts` updated to all new canonical paths
+- `import-center` nav item gets `end: true` (prevents false active match on sub-import pages)
+- `Breadcrumb` component added to PDFImportPage, AdjustmentBridgePage, FinancialStatementsPage, ReportBuilderPage
+- 494 tests passing, TypeScript clean
+
+**Legacy redirect details:** See `docs/tier3/SCREEN_MIGRATION_MATRIX.md` Sprint 3.2 section.
+
+### Sprint 3.2 — Route Consolidation (original plan — merged into above)
 **Scope:** Rename routes, add redirects, update all internal links and `useNavigate` calls.
 - All route renames from §4.1
 - `<Navigate>` redirects for every old path

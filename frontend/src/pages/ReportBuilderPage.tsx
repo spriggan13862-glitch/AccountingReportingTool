@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { financialStatementsApi } from '@/api/financialStatements'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import type { ReportDefinitionCreate } from '@/types'
 
 export function ReportBuilderPage() {
@@ -31,6 +32,7 @@ export function ReportBuilderPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <Breadcrumb items={[{ label: 'Deliverables', href: '/deliverables' }, { label: 'Report Builder' }]} />
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Report Builder</h1>
         <button

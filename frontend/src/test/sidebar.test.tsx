@@ -150,8 +150,7 @@ describe('Sidebar — Sprint 3.1', () => {
 
   it('active group auto-expands when navigating into it', () => {
     // deliverables is defaultOpen=false; navigate to a route inside it
-    renderSidebar('/close')
-    // The deliverables group contains close-package at /close — should auto-expand
+    renderSidebar('/deliverables/close-package')
     expect(screen.getByTestId('nav-group-items-deliverables')).toBeInTheDocument()
   })
 })

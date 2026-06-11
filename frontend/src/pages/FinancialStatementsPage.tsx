@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Download, ShieldAlert, X, Search } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -890,6 +891,7 @@ export function FinancialStatementsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
+      <Breadcrumb items={[{ label: 'Financial Impact', href: '/financial-impact' }, { label: 'Statements' }]} />
       {/* Title & Page Header */}
       <div className="flex items-center justify-between">
         <div>
