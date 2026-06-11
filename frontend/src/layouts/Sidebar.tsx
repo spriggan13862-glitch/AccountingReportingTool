@@ -1,66 +1,19 @@
 import { useState, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import {
-  LayoutDashboard,
-  BookOpen,
-  Upload,
-  List,
-  GitBranch,
-  GitCompare,
-  BarChart3,
-  HelpCircle,
-  Settings,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Building2,
-  FileSearch,
-  Calendar,
-  GitMerge,
-  GitPullRequest,
-  Paperclip,
-  ChevronDown,
-  ChevronRight,
-  TableProperties,
-  Wand2,
-} from 'lucide-react'
-
-interface NavItem {
-  to: string
-  label: string
-  icon: React.ElementType
-  end?: boolean
-}
-
-const navItems: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/import', label: 'Import Center', icon: Upload },
-  { to: '/accounts', label: 'Chart of Accounts', icon: List },
-  { to: '/taxonomy-admin', label: 'Taxonomy Mapping', icon: GitBranch },
-  { to: '/journal-entries', label: 'Journal Entries', icon: BookOpen },
-  { to: '/adjustment-bridge', label: 'Adjustment Bridge', icon: GitCompare },
-  { to: '/financial-statements', label: 'Reports Preview', icon: BarChart3 },
-  { to: '/trial-balances', label: 'Trial Balances', icon: TableProperties },
-  { to: '/fs-builder', label: 'FS Builder', icon: Wand2 },
-  { to: '/help', label: 'Help Center', icon: HelpCircle },
-  { to: '/reporting-settings', label: 'Settings', icon: Settings },
-]
-
-const secondaryItems = [
-  { to: '/entities', label: 'Entities', icon: Building2 },
-  { to: '/periods', label: 'Periods', icon: Calendar },
-  { to: '/consolidations', label: 'Consolidations', icon: GitMerge },
-  { to: '/reconciliations', label: 'Reconciliations', icon: GitPullRequest },
-  { to: '/documents', label: 'Documents', icon: Paperclip },
-]
+import { NAV_GROUPS } from '@/config/nav'
+import { SidebarGroup } from '@/components/navigation/SidebarGroup'
+import { useAuth } from '@/providers/AuthProvider'
 
 const LS_KEY = 'sidebar_collapsed'
 
 export function Sidebar() {
+  const { user } = useAuth()
+  const isAdmin = user?.is_superuser ?? false
+
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(LS_KEY) === 'true' } catch { return false }
   })
-  const [showOther, setShowOther] = useState(false)
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, String(collapsed)) } catch { /* ignore */ }
@@ -72,11 +25,12 @@ export function Sidebar() {
         'flex h-full flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200',
         collapsed ? 'w-12' : 'w-56',
       )}
+      data-testid="sidebar"
     >
       {/* Header */}
       <div className={cn(
-        "flex h-14 items-center border-b border-sidebar-border px-3 justify-between",
-        collapsed && "flex-col justify-center gap-2 py-2 h-auto"
+        'flex h-14 items-center border-b border-sidebar-border px-3 justify-between',
+        collapsed && 'flex-col justify-center gap-2 py-2 h-auto',
       )}>
         {!collapsed ? (
           <div className="flex items-center gap-2 min-w-0">
@@ -100,68 +54,26 @@ export function Sidebar() {
             collapsed && 'mt-1',
           )}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          data-testid="sidebar-collapse-btn"
         >
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-1">
-        {navItems.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center rounded-md transition-colors',
-                collapsed ? 'justify-center px-0 py-1.5' : 'gap-2.5 px-3 py-1.5',
-                'text-sm font-medium',
-                isActive
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-              )
-            }
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {!collapsed && label}
-          </NavLink>
-        ))}
-
-        {/* Separator / Collapsible Secondary Items */}
-        {!collapsed && (
-          <div className="pt-2 mt-2 border-t border-sidebar-border">
-            <button
-              onClick={() => setShowOther(!showOther)}
-              className="flex w-full items-center justify-between px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/45 hover:text-sidebar-foreground transition-colors"
-            >
-              <span>Admin & Setup</span>
-              {showOther ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            </button>
-            {showOther && (
-              <div className="mt-1 space-y-0.5">
-                {secondaryItems.map(({ to, label, icon: Icon }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs transition-colors',
-                        isActive
-                          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold'
-                          : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
-                      )
-                    }
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span>{label}</span>
-                  </NavLink>
-                ))}
-              </div>
+      {/* Nav groups */}
+      <nav className="flex-1 overflow-y-auto px-1.5 py-2 space-y-1" data-testid="sidebar-nav">
+        {NAV_GROUPS.map((group, index) => (
+          <div key={group.id}>
+            {index > 0 && !collapsed && (
+              <div className="my-1 border-t border-sidebar-border" />
             )}
+            <SidebarGroup
+              group={group}
+              sidebarCollapsed={collapsed}
+              isAdmin={isAdmin}
+            />
           </div>
-        )}
+        ))}
       </nav>
     </aside>
   )
