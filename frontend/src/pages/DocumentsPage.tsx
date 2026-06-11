@@ -16,6 +16,7 @@ import {
 import { importRegistryApi, type ImportRegistryEntry } from '@/api/importRegistry'
 import { documentsApi } from '@/api/documents'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { GridColumn, RowAction } from '@/components/data-grid'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -398,6 +399,9 @@ export function DocumentsPage() {
       <PageLayout
         title="Document Registry"
         subtitle="All uploaded files and imports across all modules"
+        breadcrumb={
+          <Breadcrumb items={[{ label: 'Client Data', href: '/client-data' }, { label: 'Documents' }]} />
+        }
       >
         <AccountingDataGrid
           columns={columns}

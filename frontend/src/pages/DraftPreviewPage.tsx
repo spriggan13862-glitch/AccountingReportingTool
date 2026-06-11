@@ -9,6 +9,8 @@ import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { WorkspaceContextBar } from '@/components/workspace'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { PreviewBanner } from '@/components/overlay/PreviewBanner'
 import { DraftOverlayModal } from '@/components/overlay/DraftOverlayModal'
@@ -540,8 +542,12 @@ export function DraftPreviewPage() {
       />
 
       <PageLayout
-        title="Adjustment Bridge"
+        title="Draft Preview"
         subtitle="Book vs. GAAP Adjusting Entry Bridge — Pro Forma Workpaper"
+        breadcrumb={
+          <Breadcrumb items={[{ label: 'Workbench', href: '/workbench' }, { label: 'Draft Preview' }]} />
+        }
+        contextBar={<WorkspaceContextBar />}
         actions={
           <div className="flex items-center gap-2">
             <button

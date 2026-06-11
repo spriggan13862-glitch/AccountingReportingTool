@@ -1,12 +1,15 @@
+import type { ReactNode } from 'react'
+
 interface PageLayoutProps {
   title: string
   subtitle?: string
-  breadcrumb?: React.ReactNode
-  actions?: React.ReactNode
-  children: React.ReactNode
+  breadcrumb?: ReactNode
+  actions?: ReactNode
+  contextBar?: ReactNode
+  children: ReactNode
 }
 
-export function PageLayout({ title, subtitle, breadcrumb, actions, children }: PageLayoutProps) {
+export function PageLayout({ title, subtitle, breadcrumb, actions, contextBar, children }: PageLayoutProps) {
   return (
     <div className="flex flex-col gap-6 p-6">
       {breadcrumb && (
@@ -21,6 +24,9 @@ export function PageLayout({ title, subtitle, breadcrumb, actions, children }: P
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
+      {contextBar && (
+        <div className="-mt-3">{contextBar}</div>
+      )}
       {children}
     </div>
   )

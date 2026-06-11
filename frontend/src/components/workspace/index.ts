@@ -1,0 +1,8 @@
+export { WorkspaceShell } from './WorkspaceShell'
+export { WorkspaceHeader } from './WorkspaceHeader'
+export { WorkspaceContextBar } from './WorkspaceContextBar'
+export { WorkspaceFilterBar } from './WorkspaceFilterBar'
+export { WorkspaceStatusBadge } from './WorkspaceStatusBadge'
+export { WorkspaceToolbar } from './WorkspaceToolbar'
+export { WorkspaceEmptyState } from './WorkspaceEmptyState'
+export { WorkspaceBody } from './WorkspaceBody'

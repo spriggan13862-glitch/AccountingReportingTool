@@ -13,6 +13,7 @@ import { accountsApi } from '@/api/accounts'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
@@ -1632,8 +1633,11 @@ export function TaxonomyAdminPage() {
 
   return (
     <PageLayout
-      title="Taxonomy Admin"
-      subtitle="红蓝双框 SaaS Workbench — Redesign the admin screen into a split-screen mapping workpaper layout"
+      title="Taxonomy Mapping"
+      subtitle="Map accounts to reporting taxonomy lines for financial statement classification"
+      breadcrumb={
+        <Breadcrumb items={[{ label: 'Client Data', href: '/client-data' }, { label: 'Taxonomy Mapping' }]} />
+      }
     >
       {apiError && <ErrorBanner message={apiError} />}
 

@@ -23,6 +23,7 @@ import { adjustmentBridgeApi } from '@/api/adjustmentBridge'
 import type { AdjustmentBridgeRow, AdjustmentBridgeView } from '@/api/adjustmentBridge'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { WorkspaceContextBar } from '@/components/workspace'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { AccountingDataGrid } from '@/components/data-grid'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
@@ -463,6 +464,7 @@ export function AdjustmentBridgePage() {
       title="Adjustment Bridge"
       subtitle="Pivot workpaper — imported balances vs. posted/draft adjustments"
       breadcrumb={<Breadcrumb items={[{ label: 'Workbench', href: '/workbench' }, { label: 'Adjustment Bridge' }]} />}
+      contextBar={<WorkspaceContextBar />}
     >
       <div className="space-y-4">
         {/* Slicers */}

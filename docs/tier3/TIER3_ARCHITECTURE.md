@@ -258,13 +258,32 @@ Workbench is enabled only when: COA applied, TB imported, 0 unmapped rows, 0 out
 
 ---
 
-### Sprint 3.4 — Page Layout System
-**Scope:** Consistent page-level chrome for all 45 screens.
-- `PageHeader` component (title, breadcrumb, action slot)
-- `PageShell` wrapper (PageHeader + content area with correct padding)
-- Audit every page: ensure each uses `PageShell`
-- Breadcrumb auto-generated from nav group → nav item → page title
-- Empty states standardized (all use shared `EmptyState` with icon + CTA)
+### Sprint 3.4 — Workspace Framework ✅ Complete
+**Scope:** Reusable workspace layout primitives applied to all major workflow pages.
+
+**New component library — `frontend/src/components/workspace/`:**
+- `WorkspaceShell` — page wrapper with consistent flex column layout
+- `WorkspaceHeader` — title + description + breadcrumbs + status + actions slots
+- `WorkspaceContextBar` — read-only context pills (Entity from `useWorkspace()`, Period / Scenario / ReportingView as optional string props)
+- `WorkspaceFilterBar` — horizontal filter control row
+- `WorkspaceStatusBadge` — accounting workflow status badges (draft, ready, out_of_balance, mapped, validated, posted, needs_review, finalized, failed, pending, applied, mapping_required)
+- `WorkspaceToolbar` — left/right action button row
+- `WorkspaceEmptyState` — empty state with optional CTA action slot
+- `WorkspaceBody` — scrollable padded content area
+- `index.ts` — barrel exports
+
+**`PageLayout` extended** with `contextBar?: ReactNode` slot (rendered between title row and children).
+
+**Breadcrumbs added to pages missing them:**
+- `JournalEntriesPage` — `Workbench > Journal Entries` + `WorkspaceContextBar`
+- `DraftPreviewPage` — `Workbench > Draft Preview` + `WorkspaceContextBar` (title corrected from "Adjustment Bridge")
+- `AdjustmentBridgePage` — `WorkspaceContextBar` added (breadcrumb already existed)
+- `DocumentsPage` — `Client Data > Documents`
+- `ChartOfAccountsPage` — `Client Data > Chart of Accounts`
+- `TaxonomyAdminPage` — `Client Data > Taxonomy Mapping` (title normalized)
+
+**Tests:** 37 new tests in `src/test/tier3_workspace.test.tsx` covering all 8 components.  
+541 tests passing, TypeScript clean.
 
 ### Sprint 3.5 — Component Consolidation
 **Scope:** Eliminate duplication identified in §2.3.

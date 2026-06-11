@@ -16,6 +16,8 @@ import { periodsApi } from '@/api/periods'
 import { usersApi } from '@/api/users'
 
 import { PageLayout } from '@/components/ui/PageLayout'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { WorkspaceContextBar } from '@/components/workspace'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { GridColumn, RowAction, BatchAction } from '@/components/data-grid/types'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
@@ -1003,7 +1005,11 @@ export function JournalEntriesPage() {
 
       <PageLayout
         title="Journal Entries"
-        subtitle="Power workbench to draft, review, and post Adjusting Journal Entries (AJEs) for client accounting cleanup"
+        subtitle="Draft, review, and post Adjusting Journal Entries for client accounting cleanup"
+        breadcrumb={
+          <Breadcrumb items={[{ label: 'Workbench', href: '/workbench' }, { label: 'Journal Entries' }]} />
+        }
+        contextBar={<WorkspaceContextBar />}
         actions={
           <div className="flex gap-2">
             <button

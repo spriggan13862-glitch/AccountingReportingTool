@@ -13,6 +13,7 @@ import { accountsApi } from '@/api/accounts'
 import type { AccountUpdate, AccountReparentResult } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { CreateAccountModal } from '@/components/ui/CreateAccountModal'
@@ -2162,6 +2163,9 @@ export function ChartOfAccountsPage() {
     <PageLayout
       title="Chart of Accounts"
       subtitle="Entity-specific account structure with reporting taxonomy mapping"
+      breadcrumb={
+        <Breadcrumb items={[{ label: 'Client Data', href: '/client-data' }, { label: 'Chart of Accounts' }]} />
+      }
     >
       {apiError && <ErrorBanner message={apiError} />}
 

@@ -196,7 +196,7 @@ describe('ChartOfAccountsPage — M32', () => {
 
   it('renders the page title', () => {
     render(wrap(<ChartOfAccountsPage />, '/accounts?entity=1'))
-    expect(screen.getByText(/Chart of Accounts/i)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Chart of Accounts/i })).toBeTruthy()
   })
 
   it('shows "Select an entity" prompt when no entity is selected', () => {
