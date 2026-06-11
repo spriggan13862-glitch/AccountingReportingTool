@@ -23,6 +23,7 @@ import {
   GitPullRequest,
   HelpCircle,
   LayoutDashboard,
+  LayoutGrid,
   List,
   Package,
   Settings,
@@ -73,6 +74,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: Database,
     defaultOpen: true,
     items: [
+      { id: 'client-data-hub', label: 'Client Data Overview', to: '/client-data', icon: LayoutGrid, end: true },
       { id: 'import-center', label: 'Import Center', to: '/client-data/imports', icon: Upload, end: true },
       { id: 'pdf-import', label: 'PDF Statement', to: '/client-data/imports/pdf', icon: FileText },
       { id: 'coa-import', label: 'COA Import', to: '/client-data/imports/coa', icon: FileSpreadsheet },

@@ -46,6 +46,7 @@ import { ReportingSettingsPage } from '@/pages/ReportingSettingsPage'
 import { FSBuilderPage } from '@/pages/FSBuilderPage'
 import { AdjustmentBridgePage } from '@/pages/AdjustmentBridgePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { ClientDataPage } from '@/pages/ClientDataPage'
 
 function AuthedShell() {
   return (
@@ -92,7 +93,7 @@ export function AppRouter() {
           <Route path="client-data/entities" element={<EntitiesPage />} />
           <Route path="client-data/periods/:id" element={<PeriodDetailPage />} />
           <Route path="client-data/periods" element={<PeriodsPage />} />
-          <Route path="client-data" element={<Navigate replace to="/client-data/imports" />} />
+          <Route path="client-data" element={<ClientDataPage />} />
 
           {/* ── ADJUSTMENT WORKBENCH ──────────────────────────────────────── */}
           <Route path="workbench/adjustment-bridge" element={<AdjustmentBridgePage />} />

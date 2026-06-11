@@ -219,13 +219,44 @@ All old routes get a `<Navigate replace to={newRoute} />` entry in `AppRouter.ts
 - Update `AppRouter.tsx`
 - Update all `Link`, `useNavigate`, `navToSource` calls in pages and API modules
 
-### Sprint 3.3 — Import Hub Consolidation
-**Scope:** Unify import entry points under `/imports/*`.
-- Remove `TrialBalanceImportPage` (route redirects to `/imports/trial-balance`)
-- Remove `GeneralLedgerImportPage` (route redirects to `/imports/general-ledger`)
-- `JournalEntryImportPage` — assess whether modal in JEPage is sufficient
-- `ImportCenterPage` becomes the hub for all import types
-- Consistent wizard chrome across all import wizards using `WizardShell`
+### Sprint 3.3 — Client Data Workspace ✅ Complete
+**Scope:** Transform Client Data from a routing namespace into a coherent workspace showing book readiness.
+
+**New screen — `ClientDataPage` at `/client-data`:**
+- Book Readiness Grid (6 cards: COA, Trial Balance, PDF, GL, Taxonomy, Documents)
+- Issues Panel (5 clickable metric cards: unmapped accounts, out of balance, validation errors, awaiting mapping, missing period)
+- Import Quick Access bar (5 import type buttons)
+- Workbench Launch section — shows imported accounts count, doc count, readiness status; "Launch Adjustment Workbench" CTA button (disabled until all issues resolved)
+- All readiness computed from existing `tbImportApi`, `pdfImportApi`, `coaImportApi`, `importRegistryApi` — no new backend endpoints
+
+**ImportCenterPage enhancements:**
+- 4-step pipeline banner added at top: Import Data → Map & Classify → Validate → Ready for Workbench
+- Step indicators show live counts from existing stats (awaitingMapping, validationIssues, recentlyFinalized)
+- Navigate to relevant workflow on step click
+
+**nav.ts additions:**
+- `client-data-hub` item added at top of client-data group pointing to `/client-data`
+
+**Future note:** Tier 4 Advisor Data Cube will extend the book readiness model with multi-period, multi-entity, multi-scenario dimensions. The `ClientDataPage` readiness panel will become the entry point for cube configuration.
+
+---
+
+## Client Data Workspace
+
+The `/client-data` section is the "source of truth" preparation layer before adjustments begin. It answers: **are the client books ready for advisor corrections?**
+
+| Signal | Source | API |
+|--------|--------|-----|
+| COA Ready | `COAImportBatch.status === 'applied'` | `coaImportApi.list()` |
+| Trial Balance Imported | `ImportBatch.status ∈ {posted, ready_to_post, mapping_required}` | `tbImportApi.listBatches()` |
+| PDF Applied | `PDFImportBatch.status === 'applied'` | `pdfImportApi.list()` |
+| Unmapped Accounts | `ImportBatch.unmapped_row_count` sum | `tbImportApi.listBatches()` |
+| Out of Balance | debit−credit > 0.01 on any TB batch | `tbImportApi.listBatches()` |
+| Document Count | `ImportRegistryEntry.document_id != null` | `importRegistryApi.list()` |
+
+Workbench is enabled only when: COA applied, TB imported, 0 unmapped rows, 0 out-of-balance batches, 0 validation errors.
+
+---
 
 ### Sprint 3.4 — Page Layout System
 **Scope:** Consistent page-level chrome for all 45 screens.

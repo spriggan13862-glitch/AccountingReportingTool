@@ -30,6 +30,10 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     return undefined
   }
 
+  it('client-data-hub points to /client-data', () => {
+    expect(item('client-data-hub')?.to).toBe('/client-data')
+  })
+
   it('dashboard points to /engagement/dashboard', () => {
     expect(item('dashboard')?.to).toBe('/engagement/dashboard')
   })

@@ -492,6 +492,31 @@ export function ImportCenterPage() {
         </div>
       </div>
 
+      {/* 4-Step Import Pipeline */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden" data-testid="import-pipeline">
+        <div className="grid grid-cols-4 divide-x divide-slate-100">
+          {[
+            { step: 1, label: 'Import Data', sub: `${mappedEntries.length} imports`, href: null, active: true },
+            { step: 2, label: 'Map & Classify', sub: `${stats.awaitingMapping} awaiting`, href: '/client-data/chart-of-accounts', active: stats.awaitingMapping === 0 },
+            { step: 3, label: 'Validate', sub: stats.validationIssues > 0 || stats.outOfBalance > 0 ? `${stats.validationIssues + stats.outOfBalance} issues` : 'No issues', href: null, active: stats.validationIssues === 0 && stats.outOfBalance === 0 },
+            { step: 4, label: 'Ready for Workbench', sub: `${stats.recentlyFinalized} finalized`, href: '/workbench/adjustment-bridge', active: stats.recentlyFinalized > 0 },
+          ].map(({ step, label, sub, href, active }) => (
+            <button
+              key={step}
+              type="button"
+              onClick={() => href && navigate(href)}
+              className={`flex flex-col items-start px-5 py-4 text-left transition-colors ${href ? 'hover:bg-slate-50 cursor-pointer' : 'cursor-default'}`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>{step}</span>
+                <span className={`text-xs font-bold ${active ? 'text-slate-800' : 'text-slate-400'}`}>{label}</span>
+              </div>
+              <span className={`text-[10px] font-medium pl-7 ${active ? 'text-slate-500' : 'text-slate-400'}`}>{sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Operational summary pipeline indicators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">

@@ -72,7 +72,8 @@ describe('Sidebar — Sprint 3.1', () => {
     renderSidebar()
     // engagement group is defaultOpen
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
-    // client-data group is defaultOpen
+    // client-data group is defaultOpen (hub + import-center both visible)
+    expect(screen.getByTestId('nav-item-client-data-hub')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
     // workbench group is defaultOpen
     expect(screen.getByTestId('nav-item-adjustment-bridge')).toBeInTheDocument()
@@ -141,6 +142,7 @@ describe('Sidebar — Sprint 3.1', () => {
     }
     // Check a representative item from each group
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-client-data-hub')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-pdf-import')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-journal-entries')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-trial-balances')).toBeInTheDocument()
