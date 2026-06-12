@@ -45,7 +45,7 @@ describe('Sidebar — Sprint 3.1', () => {
   it('shows group labels in expanded mode', () => {
     renderSidebar()
     expect(screen.getByText('Engagement Overview')).toBeInTheDocument()
-    expect(screen.getByText('Client Data')).toBeInTheDocument()
+    expect(screen.getByText('Client Books')).toBeInTheDocument()
     expect(screen.getByText('Adjustment Workbench')).toBeInTheDocument()
     expect(screen.getByText('Financial Impact')).toBeInTheDocument()
     expect(screen.getByText('Deliverables')).toBeInTheDocument()
@@ -72,9 +72,9 @@ describe('Sidebar — Sprint 3.1', () => {
     renderSidebar()
     // engagement group is defaultOpen
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
-    // client-data group is defaultOpen (hub + import-center both visible)
-    expect(screen.getByTestId('nav-item-client-data-hub')).toBeInTheDocument()
+    // client-books group is defaultOpen
     expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
     // workbench group is defaultOpen
     expect(screen.getByTestId('nav-item-adjustment-bridge')).toBeInTheDocument()
   })
@@ -96,10 +96,10 @@ describe('Sidebar — Sprint 3.1', () => {
 
   it('clicking an expanded group header collapses it', () => {
     renderSidebar()
-    // client-data is open by default
-    expect(screen.getByTestId('nav-group-items-client-data')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('nav-group-toggle-client-data'))
-    expect(screen.queryByTestId('nav-group-items-client-data')).not.toBeInTheDocument()
+    // client-books is open by default
+    expect(screen.getByTestId('nav-group-items-client-books')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-client-books'))
+    expect(screen.queryByTestId('nav-group-items-client-books')).not.toBeInTheDocument()
   })
 
   it('admin-only item is hidden for non-admin user', () => {
@@ -142,11 +142,11 @@ describe('Sidebar — Sprint 3.1', () => {
     }
     // Check a representative item from each group
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-client-data-hub')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-pdf-import')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-journal-entries')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-trial-balances')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-reports')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-advisor-package')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-help')).toBeInTheDocument()
   })
 
@@ -154,5 +154,20 @@ describe('Sidebar — Sprint 3.1', () => {
     // deliverables is defaultOpen=false; navigate to a route inside it
     renderSidebar('/deliverables/close-package')
     expect(screen.getByTestId('nav-group-items-deliverables')).toBeInTheDocument()
+  })
+
+  it('advisor-package item navigates to reports page', () => {
+    renderSidebar()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-deliverables'))
+    const item = screen.getByTestId('nav-item-advisor-package')
+    expect(item).toBeInTheDocument()
+  })
+
+  it('admin group has entities, periods, taxonomy moved from client books', () => {
+    renderSidebar()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-admin'))
+    expect(screen.getByTestId('nav-item-entities')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-periods')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-taxonomy')).toBeInTheDocument()
   })
 })

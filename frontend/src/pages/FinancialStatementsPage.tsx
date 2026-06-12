@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Download, ShieldAlert, X, Search } from 'lucide-react'
@@ -901,6 +902,18 @@ export function FinancialStatementsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            to="/financial-impact/comparatives"
+            className="px-3 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md hover:bg-slate-50 transition-colors"
+          >
+            Comparatives
+          </Link>
+          <Link
+            to="/financial-impact/variance"
+            className="px-3 py-1.5 text-xs font-semibold border border-slate-200 bg-white rounded-md hover:bg-slate-50 transition-colors"
+          >
+            Variance
+          </Link>
           {ready && (
             <>
               <button

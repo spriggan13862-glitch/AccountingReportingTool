@@ -8,6 +8,7 @@
  * This skeleton provides: slicers, filterable table, compute trigger, saved view list.
  */
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BarChart3,
@@ -300,6 +301,7 @@ function SavedViewsPanel({
 export function AdjustmentBridgePage() {
   const qc = useQueryClient()
   const { org } = useOrg()
+  const navigate = useNavigate()
 
   const [entityId, setEntityId] = useState<number | ''>('')
   const [periodId, setPeriodId] = useState<number | ''>('')
@@ -465,6 +467,24 @@ export function AdjustmentBridgePage() {
       subtitle="Pivot workpaper — imported balances vs. posted/draft adjustments"
       breadcrumb={<Breadcrumb items={[{ label: 'Workbench', href: '/workbench' }, { label: 'Adjustment Bridge' }]} />}
       contextBar={<WorkspaceContextBar />}
+      actions={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/workbench/journal-entries/new')}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            New Journal Entry
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/workbench/draft-preview')}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+          >
+            Draft Preview
+          </button>
+        </div>
+      }
     >
       <div className="space-y-4">
         {/* Slicers */}

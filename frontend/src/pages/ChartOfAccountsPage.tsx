@@ -2164,7 +2164,26 @@ export function ChartOfAccountsPage() {
       title="Chart of Accounts"
       subtitle="Entity-specific account structure with reporting taxonomy mapping"
       breadcrumb={
-        <Breadcrumb items={[{ label: 'Client Data', href: '/client-data' }, { label: 'Chart of Accounts' }]} />
+        <Breadcrumb items={[{ label: 'Client Books', href: '/client-data/imports' }, { label: 'Chart of Accounts' }]} />
+      }
+      actions={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/client-data/imports/coa')}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            Import COA
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/client-data/taxonomy-mapping')}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
+          >
+            Open Mapping
+          </button>
+        </div>
       }
     >
       {apiError && <ErrorBanner message={apiError} />}

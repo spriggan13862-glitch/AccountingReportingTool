@@ -327,7 +327,61 @@ Tier 4 depends on Tier 3 being complete because:
 
 ---
 
-## 8. Risk Register
+## 8. Sprint 3.5 — Workflow Compression
+
+**Implemented:** 2026-06-11  
+**Commit:** `Tier 3.5 workflow compression and navigation simplification`
+
+### 8.1 Navigation Changes
+
+The sidebar was reduced from 33 items across 6 groups to 23 items, removing clutter without removing any routes.
+
+| Group (before) | Group (after) | Change |
+|---|---|---|
+| `client-data` "Client Data" | `client-books` "Client Books" | Renamed; 9 items → 3 items |
+| `workbench` | `workbench` | 6 items → 3 items (removed CS placeholders + eliminations) |
+| `financial-impact` | `financial-impact` | 5 items → 4 items (removed fs-builder) |
+| `deliverables` | `deliverables` | 8 items → 4 items (consolidated reports) |
+| `admin` | `admin` | 3 items → 7 items (received moved items) |
+
+**Items removed from nav (routes preserved):**
+- client-data-hub, pdf-import, coa-import (now reachable via Import Center)
+- taxonomy, entities, periods (moved to Admin group)
+- reclasses CS, accruals CS, eliminations (Workbench)
+- fs-builder (Financial Impact — reachable via Financial Statements page)
+- report-builder, reports, je-export CS, advisor-report CS, audit-support CS (Deliverables → advisor-package)
+
+**Items added:**
+- `advisor-package` (→ `/deliverables/reports`) — consolidates Reports + Report Builder
+- `reporting-views` Coming Soon in Admin
+
+**Label changes:**
+- `reporting-settings` → "Settings"
+- `taxonomy` label → "Taxonomy Admin"
+
+### 8.2 Contextual Actions Added
+
+| Page | Actions |
+|---|---|
+| Chart of Accounts | "Import COA" (→ coa-import route) + "Open Mapping" (→ taxonomy-mapping) |
+| Adjustment Bridge | "New Journal Entry" (→ journal-entries/new) + "Draft Preview" |
+| Financial Statements | "Comparatives" + "Variance" nav links in page header |
+
+### 8.3 Dashboard Updates
+
+- `QUICK_LINKS` updated to use canonical `/client-data/*` and `/workbench/*` routes
+- `WorkflowStrip` component added between Setup Wizard and status alerts — shows 4-phase workflow (Client Books → Adjustments → Financial Impact → Deliverables)
+
+### 8.4 Reachability Audit
+
+All pages remain reachable via:
+- Sidebar nav (primary) 
+- Contextual action buttons (secondary — Import COA, PDF import via Import Center)
+- Direct URL / legacy redirects (all preserved)
+
+---
+
+## 9. Risk Register
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|

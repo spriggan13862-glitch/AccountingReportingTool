@@ -12,7 +12,7 @@ import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SetupWizardPage } from '@/pages/SetupWizardPage'
-import { AlertCircle, Clock, CheckCircle, FileText } from 'lucide-react'
+import { AlertCircle, Clock, CheckCircle, ChevronRight, FileText } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 const PDF_INCOMPLETE_STATUSES = new Set(['uploaded', 'parsed', 'validation_failed', 'failed', 'error', 'awaiting mapping', 'mapping_required'])
@@ -20,15 +20,41 @@ const PDF_READY_STATUSES = new Set(['ready for review', 'ready_to_post'])
 
 
 const QUICK_LINKS = [
-  { label: 'Import Center', to: '/import', description: 'financial cleanup workflow hub' },
-  { label: 'Chart of Accounts', to: '/accounts', description: 'validate account classifications' },
-  { label: 'Taxonomy Mapping', to: '/taxonomy-admin', description: 'apply standard reporting frameworks' },
-  { label: 'Journal Entries', to: '/journal-entries', description: 'prepare Adjusting Journal Entries' },
-  { label: 'Adjustment Bridge', to: '/adjustment-bridge', description: 'book vs. GAAP pro forma analysis' },
-  { label: 'Reports Preview', to: '/financial-statements', description: 'view draft-adjusted financial statements' },
-  { label: 'Document Registry', to: '/documents', description: 'all uploaded files and import history' },
-  { label: 'FS Builder', to: '/fs-builder', description: 'configure and preview financial statements' },
+  { label: 'Import Center', to: '/client-data/imports', description: 'upload trial balances, PDFs, and COAs' },
+  { label: 'Chart of Accounts', to: '/client-data/chart-of-accounts', description: 'validate account classifications' },
+  { label: 'Journal Entries', to: '/workbench/journal-entries', description: 'prepare Adjusting Journal Entries' },
+  { label: 'Adjustment Bridge', to: '/workbench/adjustment-bridge', description: 'book vs. GAAP pro forma analysis' },
+  { label: 'Financial Statements', to: '/financial-impact/statements', description: 'view draft-adjusted financials' },
+  { label: 'Source Documents', to: '/client-data/documents', description: 'all uploaded files and import history' },
 ]
+
+const WORKFLOW_PHASES = [
+  { label: 'Client Books', description: 'Import & map data', to: '/client-data/imports' },
+  { label: 'Adjustments', description: 'Draft & post JEs', to: '/workbench/adjustment-bridge' },
+  { label: 'Financial Impact', description: 'Review statements', to: '/financial-impact/statements' },
+  { label: 'Deliverables', description: 'Close & deliver', to: '/deliverables/close-package' },
+]
+
+function WorkflowStrip() {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 flex items-center gap-1 overflow-x-auto" data-testid="workflow-strip">
+      {WORKFLOW_PHASES.map((phase, i) => (
+        <div key={phase.label} className="flex items-center gap-1 min-w-0">
+          <Link
+            to={phase.to}
+            className="flex flex-col min-w-0 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors group"
+          >
+            <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 whitespace-nowrap">{phase.label}</span>
+            <span className="text-[10px] text-slate-400 whitespace-nowrap">{phase.description}</span>
+          </Link>
+          {i < WORKFLOW_PHASES.length - 1 && (
+            <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function QuickLinks() {
   return (
@@ -264,6 +290,9 @@ export function DashboardPage() {
       <div className="space-y-6">
         {/* Guided onboarding wizard (dismissible) */}
         <SetupWizardPage />
+
+        {/* Workflow phase navigation */}
+        <WorkflowStrip />
 
         {/* Operational status alerts */}
         <OperationalStatusCards orgId={orgId} />

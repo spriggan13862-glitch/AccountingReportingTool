@@ -30,10 +30,6 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     return undefined
   }
 
-  it('client-data-hub points to /client-data', () => {
-    expect(item('client-data-hub')?.to).toBe('/client-data')
-  })
-
   it('dashboard points to /engagement/dashboard', () => {
     expect(item('dashboard')?.to).toBe('/engagement/dashboard')
   })
@@ -44,14 +40,6 @@ describe('nav.ts — Sprint 3.2 route values', () => {
 
   it('import-center has end:true to avoid matching sub-import routes', () => {
     expect(item('import-center')?.end).toBe(true)
-  })
-
-  it('pdf-import points to /client-data/imports/pdf', () => {
-    expect(item('pdf-import')?.to).toBe('/client-data/imports/pdf')
-  })
-
-  it('coa-import points to /client-data/imports/coa', () => {
-    expect(item('coa-import')?.to).toBe('/client-data/imports/coa')
   })
 
   it('documents points to /client-data/documents', () => {
@@ -72,10 +60,6 @@ describe('nav.ts — Sprint 3.2 route values', () => {
 
   it('draft-preview points to /workbench/draft-preview', () => {
     expect(item('draft-preview')?.to).toBe('/workbench/draft-preview')
-  })
-
-  it('eliminations points to /workbench/eliminations', () => {
-    expect(item('eliminations')?.to).toBe('/workbench/eliminations')
   })
 
   it('trial-balances points to /financial-impact/trial-balance', () => {
@@ -102,16 +86,47 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(item('reconciliations')?.to).toBe('/deliverables/reconciliations')
   })
 
-  it('report-builder points to /deliverables/report-builder', () => {
-    expect(item('report-builder')?.to).toBe('/deliverables/report-builder')
+  it('advisor-package points to /deliverables/reports', () => {
+    expect(item('advisor-package')?.to).toBe('/deliverables/reports')
   })
 
   it('reporting-settings points to /setup/settings', () => {
     expect(item('reporting-settings')?.to).toBe('/setup/settings')
   })
 
+  it('reporting-settings label is Settings', () => {
+    expect(item('reporting-settings')?.label).toBe('Settings')
+  })
+
   it('help points to /setup/help', () => {
     expect(item('help')?.to).toBe('/setup/help')
+  })
+
+  it('entities is in admin group', () => {
+    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
+    expect(adminGroup.items.find((i) => i.id === 'entities')).toBeDefined()
+  })
+
+  it('periods is in admin group', () => {
+    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
+    expect(adminGroup.items.find((i) => i.id === 'periods')).toBeDefined()
+  })
+
+  it('taxonomy is in admin group with label Taxonomy Admin', () => {
+    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
+    const tax = adminGroup.items.find((i) => i.id === 'taxonomy')
+    expect(tax).toBeDefined()
+    expect(tax?.label).toBe('Taxonomy Admin')
+  })
+
+  it('client-books group has 3 items', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'client-books')!
+    expect(group.items.length).toBe(3)
+  })
+
+  it('workbench group has 3 items', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'workbench')!
+    expect(group.items.length).toBe(3)
   })
 })
 
@@ -184,10 +199,21 @@ describe('Routes with query strings kept as direct routes', () => {
 // ── sidebar active state with new nested routes ─────────────────────────────
 
 describe('Sidebar nav config — nested route active logic', () => {
-  it('client-data group should be active on /client-data/imports/pdf sub-route', () => {
-    const cdGroup = NAV_GROUPS.find((g) => g.id === 'client-data')!
-    const pathname = '/client-data/imports/pdf'
-    const active = cdGroup.items.some((item) => {
+  it('client-books group should be active on /client-data/imports (import-center exact match)', () => {
+    const cbGroup = NAV_GROUPS.find((g) => g.id === 'client-books')!
+    const pathname = '/client-data/imports'
+    const active = cbGroup.items.some((item) => {
+      if (!item.to) return false
+      if (item.end) return pathname === item.to
+      return pathname === item.to || pathname.startsWith(item.to + '/')
+    })
+    expect(active).toBe(true)
+  })
+
+  it('client-books group should be active on /client-data/chart-of-accounts', () => {
+    const cbGroup = NAV_GROUPS.find((g) => g.id === 'client-books')!
+    const pathname = '/client-data/chart-of-accounts'
+    const active = cbGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
       return pathname === item.to || pathname.startsWith(item.to + '/')
@@ -219,19 +245,21 @@ describe('Sidebar nav config — nested route active logic', () => {
 
   it('import-center (end:true) should NOT be active at /client-data/imports/pdf', () => {
     const importItem = NAV_GROUPS
-      .find((g) => g.id === 'client-data')!
+      .find((g) => g.id === 'client-books')!
       .items.find((i) => i.id === 'import-center')!
     const pathname = '/client-data/imports/pdf'
     const isActive = importItem.end ? pathname === importItem.to : pathname.startsWith(importItem.to! + '/')
     expect(isActive).toBe(false)
   })
 
-  it('pdf-import item should be active at /client-data/imports/pdf', () => {
-    const pdfItem = NAV_GROUPS
-      .find((g) => g.id === 'client-data')!
-      .items.find((i) => i.id === 'pdf-import')!
-    const pathname = '/client-data/imports/pdf'
-    const isActive = pdfItem.end ? pathname === pdfItem.to : (pathname === pdfItem.to || pathname.startsWith(pdfItem.to! + '/'))
+  it('advisor-package should be active on /deliverables/reports/some-id', () => {
+    const advisorItem = NAV_GROUPS
+      .find((g) => g.id === 'deliverables')!
+      .items.find((i) => i.id === 'advisor-package')!
+    const pathname = '/deliverables/reports/some-id'
+    const isActive = advisorItem.end
+      ? pathname === advisorItem.to
+      : pathname === advisorItem.to || pathname.startsWith(advisorItem.to! + '/')
     expect(isActive).toBe(true)
   })
 })
