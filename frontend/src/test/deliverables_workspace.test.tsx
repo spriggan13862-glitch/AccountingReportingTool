@@ -41,6 +41,10 @@ vi.mock('@/components/ui/Breadcrumb', () => ({
   Breadcrumb: () => <nav />,
 }))
 
+vi.mock('@/components/ui/WorkspaceCrossLinks', () => ({
+  WorkspaceCrossLinks: () => null,
+}))
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -418,9 +422,9 @@ describe('DeliverablesWorkspacePage — nav config', () => {
     expect(wsItem?.to).toBe('/deliverables/workspace')
   })
 
-  it('deliverables group now has 5 items', async () => {
+  it('deliverables group now has 3 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
     const delivGroup = NAV_GROUPS.find((g) => g.id === 'deliverables')!
-    expect(delivGroup.items.length).toBe(5)
+    expect(delivGroup.items.length).toBe(3)
   })
 })

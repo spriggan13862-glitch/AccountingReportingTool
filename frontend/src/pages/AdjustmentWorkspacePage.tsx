@@ -10,6 +10,7 @@ import {
 import { adjustmentWorkspaceApi, type AdjustmentListItem, type AdjustmentPackage } from '@/api/adjustmentWorkspace'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { useToast } from '@/providers/ToastProvider'
@@ -498,7 +499,8 @@ export function AdjustmentWorkspacePage() {
           ]} />
         }
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <WorkspaceCrossLinks current="adjustment" />
             <button
               type="button"
               onClick={() => setShowPackages((v) => !v)}

@@ -109,7 +109,7 @@ export function AppRouter() {
           <Route path="workbench/eliminations" element={<ConsolidationsPage />} />
           <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />
           <Route path="workbench/accruals" element={<PlaceholderPage title="Accruals" />} />
-          <Route path="workbench" element={<Navigate replace to="/workbench/adjustment-bridge" />} />
+          <Route path="workbench" element={<Navigate replace to="/workbench/adjustment-workspace" />} />
 
           {/* ── FINANCIAL IMPACT ──────────────────────────────────────────── */}
           <Route path="financial-impact/trial-balance" element={<TrialBalancesPage />} />

@@ -11,6 +11,7 @@ import { deliverableWorkspaceApi } from '@/api/deliverableWorkspace'
 import type { DeliverablePackage, DeliverableMemo, DeliverablePackageItem } from '@/api/deliverableWorkspace'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
@@ -884,9 +885,9 @@ export function DeliverablesWorkspacePage() {
             ]} />
           }
           actions={
-            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">
-              Single source of truth for engagement outputs
-            </span>
+            <div className="flex items-center gap-3">
+              <WorkspaceCrossLinks current="deliverables" />
+            </div>
           }
         >
           {/* Tabs */}

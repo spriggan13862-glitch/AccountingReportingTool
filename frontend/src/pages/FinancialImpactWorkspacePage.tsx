@@ -13,6 +13,7 @@ import { overlayApi } from '@/api/overlay'
 import { periodGovernanceApi } from '@/api/periodGovernance'
 import { adjustmentWorkspaceApi } from '@/api/adjustmentWorkspace'
 import { reportingViewsApi } from '@/api/reportingViews'
+import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -707,13 +708,16 @@ export function FinancialImpactWorkspacePage() {
           ]} />
         }
         actions={
-          <button
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
-            title="Export adjusted financials (coming soon)"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export
-          </button>
+          <div className="flex items-center gap-3">
+            <WorkspaceCrossLinks current="analysis" />
+            <button
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              title="Export adjusted financials (coming soon)"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export
+            </button>
+          </div>
         }
       >
 

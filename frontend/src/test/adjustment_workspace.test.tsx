@@ -141,6 +141,10 @@ vi.mock('@/providers/OrgProvider', () => ({
   useOrg: vi.fn(() => ({ org: { id: 'default-org', name: 'Default Org' } })),
 }))
 
+vi.mock('@/components/ui/WorkspaceCrossLinks', () => ({
+  WorkspaceCrossLinks: () => null,
+}))
+
 vi.mock('@/api/entities', () => ({
   entitiesApi: { list: vi.fn().mockResolvedValue([{ id: 1, name: 'Test Entity' }]) },
 }))
@@ -358,9 +362,9 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
     expect(item!.to).toBe('/workbench/adjustment-workspace')
   })
 
-  it('workbench group now has 4 items', async () => {
+  it('workbench group now has 3 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
     const wb = NAV_GROUPS.find((g) => g.id === 'workbench')
-    expect(wb!.items.length).toBe(4)
+    expect(wb!.items.length).toBe(3)
   })
 })
