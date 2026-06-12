@@ -227,3 +227,123 @@ export async function getRepositoryTemplate(code: string): Promise<IssueTemplate
   const res = await api.get(`/accounting-intelligence/repository/${code}`)
   return res.data
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 3.13A — Rule Execution Engine
+// ---------------------------------------------------------------------------
+
+export type RuleType = 'threshold' | 'pct_change' | 'spread' | 'ratio' | 'existence' | 'trend' | 'compound'
+
+export interface TriggeredIssue {
+  code: string
+  name: string
+  category: string
+  risk_level: IssueRiskLevel
+  rule_type: RuleType
+  triggered: boolean
+  magnitude: number | null
+  explanation: string
+  score: number
+}
+
+export interface EvaluateRulesResult {
+  total_evaluated: number
+  total_triggered: number
+  triggered_issues: TriggeredIssue[]
+  summary: {
+    total_evaluated: number
+    total_triggered: number
+    by_category: Record<string, number>
+    by_risk_level: Record<string, number>
+    top_scores: Array<{ code: string; name: string; score: number; risk_level: string }>
+  }
+  metrics_validation: {
+    provided: number
+    unknown_keys: string[]
+    warning: string | null
+  }
+}
+
+export interface MetricCatalogEntry {
+  description: string
+  unit: string
+}
+
+export interface MetricCatalogResult {
+  quantitative_metrics: Record<string, MetricCatalogEntry>
+  qualitative_flags: string[]
+  total_quantitative: number
+  total_qualitative: number
+}
+
+export interface RepositoryImportResult {
+  added: string[]
+  skipped: string[]
+  errors: Array<{ code: string; error: string }>
+}
+
+export type MetricsDict = Record<string, number | boolean | string | null>
+
+export async function evaluateRules(metrics: MetricsDict): Promise<EvaluateRulesResult> {
+  const res = await api.post('/accounting-intelligence/evaluate-rules', { metrics })
+  return res.data
+}
+
+export async function getMetricCatalog(): Promise<MetricCatalogResult> {
+  const res = await api.get('/accounting-intelligence/metric-catalog')
+  return res.data
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 3.13A — Repository Administration
+// ---------------------------------------------------------------------------
+
+export async function createRepositoryTemplate(
+  data: Partial<IssueTemplate> & { code: string; category: string; name: string; description: string },
+  organization_id?: number,
+): Promise<IssueTemplate> {
+  const params = organization_id != null ? `?organization_id=${organization_id}` : ''
+  const res = await api.post(`/accounting-intelligence/repository${params}`, data)
+  return res.data
+}
+
+export async function updateRepositoryTemplate(
+  code: string,
+  data: Partial<IssueTemplate>,
+): Promise<IssueTemplate> {
+  const res = await api.put(`/accounting-intelligence/repository/${code}`, data)
+  return res.data
+}
+
+export async function cloneRepositoryTemplate(
+  code: string,
+  new_code: string,
+  organization_id?: number,
+): Promise<IssueTemplate> {
+  const p = new URLSearchParams({ new_code })
+  if (organization_id != null) p.set('organization_id', String(organization_id))
+  const res = await api.post(`/accounting-intelligence/repository/${code}/clone?${p}`)
+  return res.data
+}
+
+export async function archiveRepositoryTemplate(code: string): Promise<IssueTemplate> {
+  const res = await api.patch(`/accounting-intelligence/repository/${code}/archive`)
+  return res.data
+}
+
+export async function exportRepository(category?: string): Promise<{ total: number; templates: IssueTemplate[] }> {
+  const p = new URLSearchParams()
+  if (category) p.set('category', category)
+  const res = await api.get(`/accounting-intelligence/repository/export?${p}`)
+  return res.data
+}
+
+export async function importRepository(
+  templates: Partial<IssueTemplate>[],
+  organization_id?: number,
+): Promise<RepositoryImportResult> {
+  const p = new URLSearchParams()
+  if (organization_id != null) p.set('organization_id', String(organization_id))
+  const res = await api.post(`/accounting-intelligence/repository/import?${p}`, { templates })
+  return res.data
+}

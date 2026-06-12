@@ -1,13 +1,15 @@
-"""Accounting Intelligence Engine API — Sprint 3.12 / 3.13"""
+"""Accounting Intelligence Engine API — Sprint 3.12 / 3.13 / 3.13A"""
 
 from decimal import Decimal
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import accounting_intelligence_service as svc
 from app.services import issue_template_service as tmpl_svc
+from app.services import rule_engine
 
 router = APIRouter(prefix="/accounting-intelligence", tags=["accounting-intelligence"])
 
@@ -189,3 +191,161 @@ def list_repository(
         rule_type=rule_type,
         search=search,
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.13A — Rule Execution Engine endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/evaluate-rules")
+def evaluate_rules(
+    body: dict[str, Any] = Body(...),
+):
+    """
+    Rule testing harness: evaluate all 200 repository rules against a
+    caller-provided flat metrics dictionary.
+
+    Input:  { "metrics": { "current_ratio": 0.8, "revenue_pct_change": 40.0, ... } }
+    Output: triggered issues with scores, full evaluation summary.
+
+    Metric key conventions:
+      {metric}             current-period value
+      {metric}_pct_change  period-over-period % change
+      qualitative flags    boolean True/False
+    """
+    metrics: dict[str, Any] = body.get("metrics", {})
+    validation = rule_engine.validate_metrics(metrics)
+    results = rule_engine.evaluate_all_rules(metrics)
+    summary = rule_engine.summarize_triggered(results)
+
+    triggered = [
+        {
+            "code": r.code,
+            "name": r.name,
+            "category": r.category,
+            "risk_level": r.risk_level,
+            "rule_type": r.rule_type,
+            "triggered": r.triggered,
+            "magnitude": r.magnitude,
+            "explanation": r.explanation,
+            "score": r.score,
+        }
+        for r in results if r.triggered
+    ]
+
+    return {
+        "total_evaluated": summary["total_evaluated"],
+        "total_triggered": summary["total_triggered"],
+        "triggered_issues": triggered,
+        "summary": summary,
+        "metrics_validation": validation,
+    }
+
+
+@router.get("/metric-catalog")
+def get_metric_catalog():
+    """Return the full metric catalog and qualitative flag registry."""
+    from app.data.metric_catalog import METRIC_CATALOG, QUALITATIVE_FLAGS
+    return {
+        "quantitative_metrics": {
+            k: v for k, v in sorted(METRIC_CATALOG.items())
+        },
+        "qualitative_flags": sorted(QUALITATIVE_FLAGS),
+        "total_quantitative": len(METRIC_CATALOG),
+        "total_qualitative": len(QUALITATIVE_FLAGS),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.13A — Repository administration endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/repository")
+def create_repository_template(
+    body: dict[str, Any] = Body(...),
+    organization_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new custom issue template.
+    Required body fields: code, category, name, description.
+    System templates (is_system=True) are read-only; new templates are org-scoped.
+    """
+    tmpl_svc.seed_issue_templates(db)
+    required = {"code", "category", "name", "description"}
+    missing = required - body.keys()
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Missing required fields: {missing}")
+    try:
+        return tmpl_svc.create_template(db, body, organization_id=organization_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.put("/repository/{code}")
+def update_repository_template(
+    code: str,
+    body: dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+):
+    """Update editable fields of an existing template by code."""
+    tmpl_svc.seed_issue_templates(db)
+    try:
+        return tmpl_svc.update_template(db, code, body)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/repository/{code}/clone")
+def clone_repository_template(
+    code: str,
+    new_code: str = Query(..., description="Code for the cloned template"),
+    organization_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Clone an existing template under a new code."""
+    tmpl_svc.seed_issue_templates(db)
+    try:
+        return tmpl_svc.clone_template(db, code, new_code, organization_id=organization_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.patch("/repository/{code}/archive")
+def archive_repository_template(code: str, db: Session = Depends(get_db)):
+    """Archive (deactivate) a template by code."""
+    tmpl_svc.seed_issue_templates(db)
+    try:
+        return tmpl_svc.archive_template(db, code)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/repository/export")
+def export_repository(
+    category: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Export templates as portable JSON suitable for re-import."""
+    tmpl_svc.seed_issue_templates(db)
+    templates = tmpl_svc.export_templates(db, category=category)
+    return {"total": len(templates), "templates": templates}
+
+
+@router.post("/repository/import")
+def import_repository(
+    body: dict[str, Any] = Body(...),
+    organization_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk-import template dicts.
+
+    Input: { "templates": [ { "code": "CUSTOM_001", ... }, ... ] }
+    Existing codes are skipped. Returns added/skipped/error counts.
+    """
+    tmpl_svc.seed_issue_templates(db)
+    templates = body.get("templates", [])
+    if not isinstance(templates, list):
+        raise HTTPException(status_code=422, detail="body.templates must be a list")
+    return tmpl_svc.import_templates(db, templates, organization_id=organization_id)

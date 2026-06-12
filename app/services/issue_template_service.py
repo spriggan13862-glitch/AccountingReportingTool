@@ -140,6 +140,182 @@ def list_categories(db: Session) -> list[dict]:
     return [{"category": r[0], "count": r[1]} for r in rows]
 
 
+def create_template(db: Session, data: dict, organization_id: int | None = None) -> dict:
+    """Create a new custom issue template."""
+    code = data["code"].upper()
+    if db.query(IssueTemplate).filter(IssueTemplate.code == code).first():
+        raise ValueError(f"Template {code} already exists")
+
+    rule_json = data.get("detection_logic_json")
+    row = IssueTemplate(
+        code=code,
+        category=data["category"],
+        subcategory=data.get("subcategory"),
+        issue_type=data.get("issue_type", "financial_analytics"),
+        name=data["name"],
+        description=data["description"],
+        risk_level=data.get("risk_level", "moderate"),
+        materiality_note=data.get("materiality_note"),
+        detection_logic=data.get("detection_logic"),
+        detection_logic_json=json.dumps(rule_json) if rule_json is not None else None,
+        potential_causes_json=json.dumps(data.get("potential_causes", [])),
+        suggested_procedures_json=json.dumps(data.get("suggested_procedures", [])),
+        suggested_ajes_json=json.dumps(data.get("suggested_ajes", [])),
+        management_questions_json=json.dumps(data.get("management_questions", [])),
+        affected_account_types_json=json.dumps(data.get("affected_account_types", [])),
+        affected_statements_json=json.dumps(data.get("affected_statements", [])),
+        audit_assertions_json=json.dumps(data.get("audit_assertions", [])),
+        references_json=json.dumps(data.get("references", [])),
+        sort_order=data.get("sort_order", 0),
+        is_active=True,
+        is_system=False,
+        organization_id=organization_id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _row_to_dict(row)
+
+
+_ARRAY_FIELDS = {
+    "potential_causes", "suggested_procedures", "suggested_ajes",
+    "management_questions", "affected_account_types", "affected_statements",
+    "audit_assertions", "references",
+}
+
+_SCALAR_FIELDS = {
+    "name", "description", "risk_level", "materiality_note",
+    "detection_logic", "subcategory", "issue_type", "sort_order",
+}
+
+
+def update_template(db: Session, code: str, data: dict) -> dict:
+    """Update editable fields of an existing template."""
+    row = db.query(IssueTemplate).filter(IssueTemplate.code == code.upper()).first()
+    if not row:
+        raise ValueError(f"Template {code} not found")
+
+    for field_name in _SCALAR_FIELDS:
+        if field_name in data:
+            setattr(row, field_name, data[field_name])
+
+    if "detection_logic_json" in data:
+        val = data["detection_logic_json"]
+        row.detection_logic_json = json.dumps(val) if val is not None else None
+
+    for field_name in _ARRAY_FIELDS:
+        if field_name in data:
+            setattr(row, f"{field_name}_json", json.dumps(data[field_name]))
+
+    db.commit()
+    db.refresh(row)
+    return _row_to_dict(row)
+
+
+def clone_template(
+    db: Session,
+    source_code: str,
+    new_code: str,
+    organization_id: int | None = None,
+) -> dict:
+    """Clone an existing template under a new code."""
+    source = db.query(IssueTemplate).filter(IssueTemplate.code == source_code.upper()).first()
+    if not source:
+        raise ValueError(f"Source template {source_code} not found")
+
+    new_code_upper = new_code.upper()
+    if db.query(IssueTemplate).filter(IssueTemplate.code == new_code_upper).first():
+        raise ValueError(f"Template {new_code_upper} already exists")
+
+    row = IssueTemplate(
+        code=new_code_upper,
+        category=source.category,
+        subcategory=source.subcategory,
+        issue_type=source.issue_type,
+        name=f"{source.name} (Copy)",
+        description=source.description,
+        risk_level=source.risk_level,
+        materiality_note=source.materiality_note,
+        detection_logic=source.detection_logic,
+        detection_logic_json=source.detection_logic_json,
+        potential_causes_json=source.potential_causes_json,
+        suggested_procedures_json=source.suggested_procedures_json,
+        suggested_ajes_json=source.suggested_ajes_json,
+        management_questions_json=source.management_questions_json,
+        affected_account_types_json=source.affected_account_types_json,
+        affected_statements_json=source.affected_statements_json,
+        audit_assertions_json=source.audit_assertions_json,
+        references_json=source.references_json,
+        sort_order=source.sort_order,
+        is_active=True,
+        is_system=False,
+        organization_id=organization_id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _row_to_dict(row)
+
+
+def archive_template(db: Session, code: str) -> dict:
+    """Deactivate a template (soft delete)."""
+    row = db.query(IssueTemplate).filter(IssueTemplate.code == code.upper()).first()
+    if not row:
+        raise ValueError(f"Template {code} not found")
+    row.is_active = False
+    db.commit()
+    db.refresh(row)
+    return _row_to_dict(row)
+
+
+_EXPORT_FIELDS = {
+    "code", "category", "subcategory", "issue_type", "name", "description",
+    "risk_level", "materiality_note", "detection_logic", "detection_logic_json",
+    "potential_causes", "suggested_procedures", "suggested_ajes",
+    "management_questions", "affected_account_types", "affected_statements",
+    "audit_assertions", "references", "sort_order",
+}
+
+
+def export_templates(db: Session, category: str | None = None) -> list[dict]:
+    """Export templates as portable dicts suitable for re-import."""
+    return [
+        {k: v for k, v in t.items() if k in _EXPORT_FIELDS}
+        for t in list_templates(db, category=category)
+    ]
+
+
+def import_templates(
+    db: Session,
+    templates: list[dict],
+    organization_id: int | None = None,
+) -> dict:
+    """
+    Bulk-import template dicts.
+
+    Skips codes that already exist. Returns counts and error details.
+    """
+    added: list[str] = []
+    skipped: list[str] = []
+    errors: list[dict] = []
+
+    for t in templates:
+        code = str(t.get("code", "")).upper()
+        if not code:
+            errors.append({"code": "", "error": "missing code"})
+            continue
+        try:
+            if db.query(IssueTemplate).filter(IssueTemplate.code == code).first():
+                skipped.append(code)
+                continue
+            create_template(db, {**t, "code": code}, organization_id=organization_id)
+            added.append(code)
+        except Exception as exc:
+            errors.append({"code": code, "error": str(exc)})
+
+    return {"added": added, "skipped": skipped, "errors": errors}
+
+
 def validate_repository_rules() -> dict:
     """
     Validate all DETECTION_RULES entries against the DetectionRule schema.
