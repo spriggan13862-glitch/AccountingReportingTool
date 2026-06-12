@@ -362,9 +362,9 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
     expect(item!.to).toBe('/workbench/adjustment-workspace')
   })
 
-  it('workbench group now has 3 items', async () => {
+  it('workbench group now has 4 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
     const wb = NAV_GROUPS.find((g) => g.id === 'workbench')
-    expect(wb!.items.length).toBe(3)
+    expect(wb!.items.length).toBe(4)
   })
 })

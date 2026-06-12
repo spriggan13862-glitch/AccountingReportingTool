@@ -71,22 +71,6 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(group.items.length).toBe(1)
   })
 
-  it('close-package points to /deliverables/close-package', () => {
-    expect(item('close-package')?.to).toBe('/deliverables/close-package')
-  })
-
-  it('workpapers points to /deliverables/workpapers', () => {
-    expect(item('workpapers')?.to).toBe('/deliverables/workpapers')
-  })
-
-  it('reconciliations points to /deliverables/reconciliations', () => {
-    expect(item('reconciliations')?.to).toBe('/deliverables/reconciliations')
-  })
-
-  it('advisor-package points to /deliverables/reports', () => {
-    expect(item('advisor-package')?.to).toBe('/deliverables/reports')
-  })
-
   it('reporting-settings points to /setup/settings', () => {
     expect(item('reporting-settings')?.to).toBe('/setup/settings')
   })
@@ -99,19 +83,19 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(item('help')?.to).toBe('/setup/help')
   })
 
-  it('entities is in admin group', () => {
-    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
-    expect(adminGroup.items.find((i) => i.id === 'entities')).toBeDefined()
+  it('entities is in setup group', () => {
+    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
+    expect(setupGroup.items.find((i) => i.id === 'entities')).toBeDefined()
   })
 
-  it('periods is in admin group', () => {
-    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
-    expect(adminGroup.items.find((i) => i.id === 'periods')).toBeDefined()
+  it('periods is in setup group', () => {
+    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
+    expect(setupGroup.items.find((i) => i.id === 'periods')).toBeDefined()
   })
 
-  it('taxonomy is in admin group with label Taxonomy Admin', () => {
-    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
-    const tax = adminGroup.items.find((i) => i.id === 'taxonomy')
+  it('taxonomy is in setup group with label Taxonomy Admin', () => {
+    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
+    const tax = setupGroup.items.find((i) => i.id === 'taxonomy')
     expect(tax).toBeDefined()
     expect(tax?.label).toBe('Taxonomy Admin')
   })
@@ -121,14 +105,37 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(group.items.length).toBe(2)
   })
 
-  it('accounts is in admin group', () => {
-    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
-    expect(adminGroup.items.find((i) => i.id === 'accounts')).toBeDefined()
+  it('accounts is in setup group', () => {
+    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
+    expect(setupGroup.items.find((i) => i.id === 'accounts')).toBeDefined()
   })
 
   it('workbench group has 4 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'workbench')!
     expect(group.items.length).toBe(4)
+  })
+
+  it('intelligence group has 3 items', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'intelligence')!
+    expect(group.items.length).toBe(3)
+  })
+
+  it('quarterly-review points to /intelligence/quarterly-review', () => {
+    expect(item('quarterly-review')?.to).toBe('/intelligence/quarterly-review')
+  })
+
+  it('issue-repository points to /intelligence/issue-repository', () => {
+    expect(item('issue-repository')?.to).toBe('/intelligence/issue-repository')
+  })
+
+  it('financial-diagnostics points to /intelligence/financial-diagnostics', () => {
+    expect(item('financial-diagnostics')?.to).toBe('/intelligence/financial-diagnostics')
+  })
+
+  it('deliverables group has 1 item', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'deliverables')!
+    expect(group.items.length).toBe(1)
+    expect(group.items[0].id).toBe('deliverables-workspace')
   })
 })
 
@@ -212,10 +219,10 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(active).toBe(true)
   })
 
-  it('admin group should be active on /client-data/chart-of-accounts', () => {
-    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
+  it('setup group should be active on /client-data/chart-of-accounts', () => {
+    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
     const pathname = '/client-data/chart-of-accounts'
-    const active = adminGroup.items.some((item) => {
+    const active = setupGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
       return pathname === item.to || pathname.startsWith(item.to + '/')
@@ -245,9 +252,9 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(active).toBe(true)
   })
 
-  it('deliverables group should be active on /deliverables/close-package/abc-id', () => {
+  it('deliverables group should be active on /deliverables/workspace', () => {
     const dGroup = NAV_GROUPS.find((g) => g.id === 'deliverables')!
-    const pathname = '/deliverables/close-package/abc-id'
+    const pathname = '/deliverables/workspace'
     const active = dGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
@@ -265,14 +272,14 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(isActive).toBe(false)
   })
 
-  it('advisor-package should be active on /deliverables/reports/some-id', () => {
-    const advisorItem = NAV_GROUPS
+  it('deliverables-workspace should be active on /deliverables/workspace', () => {
+    const wsItem = NAV_GROUPS
       .find((g) => g.id === 'deliverables')!
-      .items.find((i) => i.id === 'advisor-package')!
-    const pathname = '/deliverables/reports/some-id'
-    const isActive = advisorItem.end
-      ? pathname === advisorItem.to
-      : pathname === advisorItem.to || pathname.startsWith(advisorItem.to! + '/')
+      .items.find((i) => i.id === 'deliverables-workspace')!
+    const pathname = '/deliverables/workspace'
+    const isActive = wsItem.end
+      ? pathname === wsItem.to
+      : pathname === wsItem.to || pathname.startsWith(wsItem.to! + '/')
     expect(isActive).toBe(true)
   })
 })

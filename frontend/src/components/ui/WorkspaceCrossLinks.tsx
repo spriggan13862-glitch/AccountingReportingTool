@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 
-type WorkspaceId = 'adjustment' | 'analysis' | 'deliverables'
+type WorkspaceId = 'adjustment' | 'intelligence' | 'analysis' | 'deliverables'
 
 const WORKSPACES: { id: WorkspaceId; label: string; to: string }[] = [
   { id: 'adjustment', label: 'Adjustments', to: '/workbench/adjustment-workspace' },
+  { id: 'intelligence', label: 'Intelligence', to: '/intelligence/quarterly-review' },
   { id: 'analysis', label: 'Analysis', to: '/financial-impact/statements' },
   { id: 'deliverables', label: 'Deliverables', to: '/deliverables/workspace' },
 ]

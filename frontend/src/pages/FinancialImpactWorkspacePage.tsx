@@ -535,6 +535,83 @@ function ComparativesTab({ entityId, scenarioId }: { entityId: number; scenarioI
 }
 
 // ---------------------------------------------------------------------------
+// Impact Analysis tab — adjustment impact summary
+// ---------------------------------------------------------------------------
+
+function ImpactAnalysisTab({
+  entityId,
+  asOfDate,
+  bookScenarioIds,
+  adjScenarioIds,
+}: {
+  entityId: number
+  asOfDate: string
+  bookScenarioIds: number[]
+  adjScenarioIds: number[]
+}) {
+  const { data: bookTb, isLoading } = useQuery({
+    queryKey: ['ia-book', entityId, asOfDate, bookScenarioIds],
+    queryFn: () => reportingApi.trialBalance(entityId, asOfDate, bookScenarioIds),
+    enabled: !!entityId && !!asOfDate,
+  })
+  const { data: adjTb } = useQuery({
+    queryKey: ['ia-adj', entityId, asOfDate, adjScenarioIds],
+    queryFn: () => reportingApi.trialBalance(entityId, asOfDate, adjScenarioIds),
+    enabled: !!entityId && !!asOfDate && adjScenarioIds.length > 0,
+  })
+
+  const bookKPIs = useMemo(() => computeKPIs(bookTb ?? []), [bookTb])
+  const adjKPIs = useMemo(() => computeKPIs(adjTb ?? bookTb ?? []), [adjTb, bookTb])
+
+  const impactRows = useMemo(() => [
+    { label: 'Net Income', book: bookKPIs.net_income, adjusted: adjKPIs.net_income },
+    { label: 'EBITDA', book: bookKPIs.ebitda, adjusted: adjKPIs.ebitda },
+    { label: 'Total Assets', book: bookKPIs.total_assets, adjusted: adjKPIs.total_assets },
+    { label: 'Total Liabilities', book: bookKPIs.total_liabilities, adjusted: adjKPIs.total_liabilities },
+    { label: 'Total Equity', book: bookKPIs.total_equity, adjusted: adjKPIs.total_equity },
+  ], [bookKPIs, adjKPIs])
+
+  return (
+    <div data-testid="impact-analysis-tab" className="space-y-3">
+      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden" data-testid="impact-analysis-grid">
+        <table className="w-full text-xs">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="px-4 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Metric</th>
+              <th className="px-4 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Book Value</th>
+              <th className="px-4 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Adjusted</th>
+              <th className="px-4 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Impact</th>
+              <th className="px-4 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Impact %</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {isLoading ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
+            ) : impactRows.map((row) => {
+              const impact = row.adjusted - row.book
+              const pct = row.book !== 0 ? (impact / Math.abs(row.book)) * 100 : 0
+              return (
+                <tr key={row.label} className="hover:bg-slate-50">
+                  <td className="px-4 py-2 font-medium text-slate-700">{row.label}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">{row.book === 0 ? '—' : fmtK(row.book)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums font-semibold text-slate-900">{row.adjusted === 0 ? '—' : fmtK(row.adjusted)}</td>
+                  <td className={`px-4 py-2 text-right tabular-nums font-semibold ${varianceClass(impact)}`}>
+                    {impact === 0 ? '—' : `${impact > 0 ? '+' : ''}${fmtK(impact)}`}
+                  </td>
+                  <td className={`px-4 py-2 text-right tabular-nums ${varianceClass(pct)}`}>
+                    {impact === 0 ? '—' : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Variance Analysis tab — account-level book vs adjusted
 // ---------------------------------------------------------------------------
 
@@ -630,13 +707,13 @@ function VarianceTab({ entityId, scenarioId }: { entityId: number; scenarioId: n
 // Main workspace page
 // ---------------------------------------------------------------------------
 
-type WorkspaceTab = 'statements' | 'trial-balance' | 'comparatives' | 'variance'
+type WorkspaceTab = 'statements' | 'comparatives' | 'variance' | 'impact-analysis'
 
 const TABS: { id: WorkspaceTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'statements', label: 'Financial Statements', icon: BarChart2 },
-  { id: 'trial-balance', label: 'Trial Balance', icon: Scale },
   { id: 'comparatives', label: 'Comparatives', icon: GitCompare },
   { id: 'variance', label: 'Variance Analysis', icon: Activity },
+  { id: 'impact-analysis', label: 'Impact Analysis', icon: Scale },
 ]
 
 export function FinancialImpactWorkspacePage() {
@@ -814,8 +891,8 @@ export function FinancialImpactWorkspacePage() {
               onDrilldown={setDrilldownCode}
             />
           )}
-          {ready && activeTab === 'trial-balance' && (
-            <TrialBalanceTab
+          {ready && activeTab === 'impact-analysis' && (
+            <ImpactAnalysisTab
               entityId={entityId as number}
               asOfDate={asOfDate}
               bookScenarioIds={bookScenarioIds}

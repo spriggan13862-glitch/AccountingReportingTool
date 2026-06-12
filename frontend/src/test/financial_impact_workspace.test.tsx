@@ -96,6 +96,14 @@ vi.mock('@/components/ui/Breadcrumb', () => ({
   Breadcrumb: () => <nav />,
 }))
 
+vi.mock('@/components/ui/WorkspaceCrossLinks', () => ({
+  WorkspaceCrossLinks: () => null,
+}))
+
+vi.mock('@/api/reportingViews', () => ({
+  reportingViewsApi: { list: vi.fn().mockResolvedValue([]) },
+}))
+
 vi.mock('@/components/reports/DrilldownPanel', () => ({
   DrilldownPanel: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="drilldown-panel">
@@ -197,9 +205,9 @@ describe('FinancialImpactWorkspacePage — structure', () => {
     renderPage()
     expect(screen.getByTestId('workspace-tabs')).toBeInTheDocument()
     expect(screen.getByTestId('tab-statements')).toBeInTheDocument()
-    expect(screen.getByTestId('tab-trial-balance')).toBeInTheDocument()
     expect(screen.getByTestId('tab-comparatives')).toBeInTheDocument()
     expect(screen.getByTestId('tab-variance')).toBeInTheDocument()
+    expect(screen.getByTestId('tab-impact-analysis')).toBeInTheDocument()
   })
 
   it('shows empty state before entity is selected', () => {
@@ -265,21 +273,20 @@ describe('FinancialImpactWorkspacePage — entity selection activates content', 
     expect(screen.getByTestId('stmt-tab-CF')).toBeInTheDocument()
   })
 
-  it('can switch to trial balance tab', async () => {
+  it('can switch to impact analysis tab', async () => {
     renderPage()
     selectEntity()
-    await waitFor(() => screen.getByTestId('tab-trial-balance'))
-    fireEvent.click(screen.getByTestId('tab-trial-balance'))
-    await waitFor(() => expect(screen.getByTestId('trial-balance-tab')).toBeInTheDocument())
+    await waitFor(() => screen.getByTestId('tab-impact-analysis'))
+    fireEvent.click(screen.getByTestId('tab-impact-analysis'))
+    await waitFor(() => expect(screen.getByTestId('impact-analysis-tab')).toBeInTheDocument())
   })
 
-  it('trial balance tab renders type filter and grid', async () => {
+  it('impact analysis tab renders grid', async () => {
     renderPage()
     selectEntity()
-    await waitFor(() => screen.getByTestId('tab-trial-balance'))
-    fireEvent.click(screen.getByTestId('tab-trial-balance'))
-    await waitFor(() => expect(screen.getByTestId('tb-grid')).toBeInTheDocument())
-    expect(screen.getByTestId('tb-type-filter')).toBeInTheDocument()
+    await waitFor(() => screen.getByTestId('tab-impact-analysis'))
+    fireEvent.click(screen.getByTestId('tab-impact-analysis'))
+    await waitFor(() => expect(screen.getByTestId('impact-analysis-grid')).toBeInTheDocument())
   })
 
   it('can switch to comparatives tab', async () => {

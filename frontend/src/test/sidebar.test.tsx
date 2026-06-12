@@ -34,8 +34,8 @@ beforeEach(() => {
   })
 })
 
-describe('Sidebar — Sprint 3.9A', () => {
-  it('renders all 7 nav groups', () => {
+describe('Sidebar — Sprint 3.11', () => {
+  it('renders all 8 nav groups', () => {
     renderSidebar()
     for (const group of NAV_GROUPS) {
       expect(screen.getByTestId(`nav-group-${group.id}`)).toBeInTheDocument()
@@ -44,13 +44,14 @@ describe('Sidebar — Sprint 3.9A', () => {
 
   it('shows correct group labels', () => {
     renderSidebar()
-    expect(screen.getByText('Engagement Overview')).toBeInTheDocument()
-    expect(screen.getByText('Client Data')).toBeInTheDocument()
-    expect(screen.getByText('Adjustment Workbench')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-group-analysis')).toBeInTheDocument()
-    expect(screen.getByText('Deliverables')).toBeInTheDocument()
-    expect(screen.getByText('Setup')).toBeInTheDocument()
-    expect(screen.getByText('Administration')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-dashboard')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-workbench')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-intelligence')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-financial-impact')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-client-books')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-deliverables')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-setup')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-admin')).toBeInTheDocument()
   })
 
   it('renders the LA logo and brand name', () => {
@@ -69,39 +70,38 @@ describe('Sidebar — Sprint 3.9A', () => {
     expect(sidebar.className).toContain('w-56')
   })
 
-  it('groups default-open show their items', () => {
+  it('default-open groups show their items', () => {
     renderSidebar()
-    // engagement group is defaultOpen
+    // dashboard group is defaultOpen
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
     // workbench group is defaultOpen
     expect(screen.getByTestId('nav-item-adjustment-workspace')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-adjustment-bridge')).toBeInTheDocument()
-    // analysis group is defaultOpen
-    expect(screen.getByTestId('nav-item-analysis-workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-draft-preview')).toBeInTheDocument()
+    // intelligence group is defaultOpen
+    expect(screen.getByTestId('nav-item-quarterly-review')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-issue-repository')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-financial-diagnostics')).toBeInTheDocument()
+    // financial-impact group is defaultOpen
+    expect(screen.getByTestId('nav-item-financial-impact')).toBeInTheDocument()
   })
 
   it('groups with defaultOpen=false are collapsed initially', () => {
     renderSidebar()
-    // client-data defaultOpen=false
-    expect(screen.queryByTestId('nav-group-items-client-data')).not.toBeInTheDocument()
-    // deliverables defaultOpen=false
+    expect(screen.queryByTestId('nav-group-items-client-books')).not.toBeInTheDocument()
     expect(screen.queryByTestId('nav-group-items-deliverables')).not.toBeInTheDocument()
-    // setup defaultOpen=false
     expect(screen.queryByTestId('nav-group-items-setup')).not.toBeInTheDocument()
-    // administration defaultOpen=false
-    expect(screen.queryByTestId('nav-group-items-administration')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('nav-group-items-admin')).not.toBeInTheDocument()
   })
 
   it('clicking a collapsed group header expands it', () => {
     renderSidebar()
-    fireEvent.click(screen.getByTestId('nav-group-toggle-deliverables'))
-    expect(screen.getByTestId('nav-group-items-deliverables')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-close-package')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-setup'))
+    expect(screen.getByTestId('nav-group-items-setup')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
   })
 
   it('clicking an expanded group header collapses it', () => {
     renderSidebar()
-    // workbench is open by default
     expect(screen.getByTestId('nav-group-items-workbench')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('nav-group-toggle-workbench'))
     expect(screen.queryByTestId('nav-group-items-workbench')).not.toBeInTheDocument()
@@ -109,7 +109,7 @@ describe('Sidebar — Sprint 3.9A', () => {
 
   it('admin-only item is hidden for non-admin user', () => {
     renderSidebar()
-    fireEvent.click(screen.getByTestId('nav-group-toggle-administration'))
+    fireEvent.click(screen.getByTestId('nav-group-toggle-admin'))
     expect(screen.queryByTestId('nav-item-admin-users')).not.toBeInTheDocument()
   })
 
@@ -123,13 +123,19 @@ describe('Sidebar — Sprint 3.9A', () => {
       logout: vi.fn(),
     })
     renderSidebar()
-    fireEvent.click(screen.getByTestId('nav-group-toggle-administration'))
+    fireEvent.click(screen.getByTestId('nav-group-toggle-admin'))
     expect(screen.getByTestId('nav-item-admin-users')).toBeInTheDocument()
+  })
+
+  it('non-admin sees settings and help in admin group', () => {
+    renderSidebar()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-admin'))
+    expect(screen.getByTestId('nav-item-reporting-settings')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-help')).toBeInTheDocument()
   })
 
   it('all nav item testids are present across open groups', () => {
     renderSidebar()
-    // Open all groups
     for (const group of NAV_GROUPS) {
       const toggle = screen.queryByTestId(`nav-group-toggle-${group.id}`)
       if (toggle) {
@@ -137,16 +143,47 @@ describe('Sidebar — Sprint 3.9A', () => {
         if (!items) fireEvent.click(toggle)
       }
     }
+    // dashboard
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
+    // workbench
     expect(screen.getByTestId('nav-item-adjustment-workspace')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-adjustment-bridge')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-journal-entries')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-analysis-workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-draft-preview')).toBeInTheDocument()
+    // intelligence
+    expect(screen.getByTestId('nav-item-quarterly-review')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-issue-repository')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-financial-diagnostics')).toBeInTheDocument()
+    // financial-impact
+    expect(screen.getByTestId('nav-item-financial-impact')).toBeInTheDocument()
+    // client-books
+    expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-documents')).toBeInTheDocument()
+    // deliverables
     expect(screen.getByTestId('nav-item-deliverables-workspace')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-workpapers')).toBeInTheDocument()
+    // setup
     expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-reporting-settings')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-taxonomy')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-reporting-views')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-entities')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-periods')).toBeInTheDocument()
+  })
+
+  it('setup group has accounts, taxonomy, reporting-views, entities, periods', () => {
+    renderSidebar()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-setup'))
+    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-taxonomy')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-reporting-views')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-entities')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-periods')).toBeInTheDocument()
+  })
+
+  it('intelligence group has quarterly-review, issue-repository, financial-diagnostics', () => {
+    renderSidebar()
+    expect(screen.getByTestId('nav-item-quarterly-review')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-issue-repository')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-financial-diagnostics')).toBeInTheDocument()
   })
 
   it('removed items are no longer in the nav', () => {
@@ -158,46 +195,38 @@ describe('Sidebar — Sprint 3.9A', () => {
         if (!items) fireEvent.click(toggle)
       }
     }
-    expect(screen.queryByTestId('nav-item-draft-preview')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('nav-item-close-package')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('nav-item-workpapers')).not.toBeInTheDocument()
     expect(screen.queryByTestId('nav-item-reconciliations')).not.toBeInTheDocument()
     expect(screen.queryByTestId('nav-item-advisor-package')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('nav-item-periods')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('nav-item-help')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('nav-item-engagement-status')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('nav-item-analysis-workspace')).not.toBeInTheDocument()
   })
 
   it('active group auto-expands when navigating into it', () => {
-    // deliverables is defaultOpen=false; navigate to a route inside it
-    renderSidebar('/deliverables/close-package')
-    expect(screen.getByTestId('nav-group-items-deliverables')).toBeInTheDocument()
+    renderSidebar('/intelligence/quarterly-review')
+    expect(screen.getByTestId('nav-group-items-intelligence')).toBeInTheDocument()
   })
 
-  it('setup group has accounts, entities, taxonomy, reporting-views, settings', () => {
-    renderSidebar()
-    fireEvent.click(screen.getByTestId('nav-group-toggle-setup'))
-    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-entities')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-taxonomy')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-reporting-views')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-reporting-settings')).toBeInTheDocument()
-  })
-
-  it('analysis group has single entry pointing to statements', () => {
-    renderSidebar()
-    const item = screen.getByTestId('nav-item-analysis-workspace')
-    expect(item).toBeInTheDocument()
-    expect(screen.queryByTestId('nav-item-trial-balances')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('nav-item-comparatives')).not.toBeInTheDocument()
-  })
-
-  it('workbench group has adjustment-workspace as first item', () => {
-    renderSidebar()
+  it('workbench group has 4 items', () => {
     const wb = NAV_GROUPS.find((g) => g.id === 'workbench')!
+    expect(wb.items.length).toBe(4)
     expect(wb.items[0].id).toBe('adjustment-workspace')
+    expect(wb.items[3].id).toBe('draft-preview')
   })
 
-  it('total nav item count is 15', () => {
+  it('intelligence group has 3 items', () => {
+    const g = NAV_GROUPS.find((g) => g.id === 'intelligence')!
+    expect(g.items.length).toBe(3)
+  })
+
+  it('financial-impact group has exactly 1 item', () => {
+    const g = NAV_GROUPS.find((g) => g.id === 'financial-impact')!
+    expect(g.items.length).toBe(1)
+    expect(g.items[0].id).toBe('financial-impact')
+  })
+
+  it('total nav item count is 20', () => {
     const total = NAV_GROUPS.reduce((sum, g) => sum + g.items.length, 0)
-    expect(total).toBe(15)
+    expect(total).toBe(20)
   })
 })

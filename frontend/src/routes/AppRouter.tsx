@@ -51,6 +51,9 @@ import { AdjustmentWorkspacePage } from '@/pages/AdjustmentWorkspacePage'
 import { ReportingViewWorkspacePage } from '@/pages/ReportingViewWorkspacePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { ClientDataPage } from '@/pages/ClientDataPage'
+import { QuarterlyReviewPage } from '@/pages/QuarterlyReviewPage'
+import { IssueRepositoryPage } from '@/pages/IssueRepositoryPage'
+import { FinancialDiagnosticsPage } from '@/pages/FinancialDiagnosticsPage'
 
 function AuthedShell() {
   return (
@@ -110,6 +113,12 @@ export function AppRouter() {
           <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />
           <Route path="workbench/accruals" element={<PlaceholderPage title="Accruals" />} />
           <Route path="workbench" element={<Navigate replace to="/workbench/adjustment-workspace" />} />
+
+          {/* ── ACCOUNTING INTELLIGENCE ──────────────────────────────────── */}
+          <Route path="intelligence/quarterly-review" element={<QuarterlyReviewPage />} />
+          <Route path="intelligence/issue-repository" element={<IssueRepositoryPage />} />
+          <Route path="intelligence/financial-diagnostics" element={<FinancialDiagnosticsPage />} />
+          <Route path="intelligence" element={<Navigate replace to="/intelligence/quarterly-review" />} />
 
           {/* ── FINANCIAL IMPACT ──────────────────────────────────────────── */}
           <Route path="financial-impact/trial-balance" element={<TrialBalancesPage />} />
