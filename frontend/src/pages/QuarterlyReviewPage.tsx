@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Brain, Loader, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Brain, Loader, AlertTriangle, RefreshCw, BookOpen, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
@@ -13,9 +14,69 @@ import {
   runDetection,
   listDetectedIssues,
   updateIssueStatus,
+  listRepository,
   type DetectedIssue,
   type IssueStatus,
+  type IssueTemplate,
 } from '@/api/accountingIntelligence'
+
+const RISK_BADGE: Record<string, string> = {
+  critical: 'bg-red-100 text-red-700',
+  high:     'bg-orange-100 text-orange-700',
+  moderate: 'bg-amber-100 text-amber-700',
+  low:      'bg-green-100 text-green-700',
+}
+
+function SuggestedTemplatesPanel({ detectedCategories }: { detectedCategories: string[] }) {
+  const uniqueCats = [...new Set(detectedCategories)].slice(0, 3)
+
+  const { data: templates } = useQuery({
+    queryKey: ['repository-templates-review', uniqueCats],
+    queryFn: async () => {
+      const results = await Promise.all(
+        uniqueCats.map((cat) => listRepository({ category: cat }))
+      )
+      return results.flat().slice(0, 6)
+    },
+    enabled: uniqueCats.length > 0,
+  })
+
+  if (!templates || templates.length === 0) return null
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-4" data-testid="suggested-templates">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-xs font-semibold text-slate-700">Suggested Review Templates</h3>
+        </div>
+        <Link
+          to="/intelligence/issue-repository"
+          className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800"
+        >
+          View full repository <ChevronRight className="w-3 h-3" />
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {templates.map((t: IssueTemplate) => (
+          <Link
+            key={t.code}
+            to={`/intelligence/issue-repository?code=${t.code}`}
+            className="flex items-start justify-between gap-2 p-2 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors group"
+          >
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-slate-700 truncate group-hover:text-indigo-700">{t.name}</p>
+              <p className="text-[10px] text-slate-400 truncate">{t.code} · {t.category.replace(/_/g, ' ')}</p>
+            </div>
+            <span className={`flex-shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${RISK_BADGE[t.risk_level] ?? 'bg-slate-100 text-slate-600'}`}>
+              {t.risk_level}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   accounts_receivable: 'Accounts Receivable',
@@ -158,6 +219,8 @@ export function QuarterlyReviewPage() {
         {issues.length > 0 && (
           <>
             <IssueSummaryWidget issues={issues} />
+
+            <SuggestedTemplatesPanel detectedCategories={issues.map((i) => i.category)} />
 
             {criticalOrHigh.length > 0 && (
               <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg" data-testid="critical-alert">

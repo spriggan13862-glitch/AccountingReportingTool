@@ -165,3 +165,65 @@ export async function upsertThreshold(params: {
   const res = await api.put(`/accounting-intelligence/thresholds?${p}`)
   return res.data
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 3.13 — Issue Template Repository
+// ---------------------------------------------------------------------------
+
+export type IssueRiskLevel = 'low' | 'moderate' | 'high' | 'critical'
+export type IssueType = 'financial_analytics' | 'balance_sheet' | 'audit' | 'qoe' | 'sba' | 'fraud' | 'disclosure' | 'presentation'
+
+export interface IssueTemplate {
+  id: number
+  code: string
+  category: string
+  subcategory: string | null
+  issue_type: IssueType
+  name: string
+  description: string
+  risk_level: IssueRiskLevel
+  materiality_note: string | null
+  detection_logic: string | null
+  potential_causes: string[]
+  suggested_procedures: string[]
+  suggested_ajes: string[]
+  management_questions: string[]
+  affected_account_types: string[]
+  affected_statements: string[]
+  audit_assertions: string[]
+  references: string[]
+  sort_order: number
+  is_active: boolean
+  is_system: boolean
+  organization_id: number | null
+}
+
+export interface RepositoryCategory {
+  category: string
+  count: number
+}
+
+export async function listRepositoryCategories(): Promise<RepositoryCategory[]> {
+  const res = await api.get('/accounting-intelligence/repository/categories')
+  return res.data
+}
+
+export async function listRepository(params?: {
+  category?: string
+  issue_type?: string
+  risk_level?: string
+  search?: string
+}): Promise<IssueTemplate[]> {
+  const p = new URLSearchParams()
+  if (params?.category) p.set('category', params.category)
+  if (params?.issue_type) p.set('issue_type', params.issue_type)
+  if (params?.risk_level) p.set('risk_level', params.risk_level)
+  if (params?.search) p.set('search', params.search)
+  const res = await api.get(`/accounting-intelligence/repository?${p}`)
+  return res.data
+}
+
+export async function getRepositoryTemplate(code: string): Promise<IssueTemplate> {
+  const res = await api.get(`/accounting-intelligence/repository/${code}`)
+  return res.data
+}

@@ -1,4 +1,4 @@
-"""Accounting Intelligence Engine API — Sprint 3.12"""
+"""Accounting Intelligence Engine API — Sprint 3.12 / 3.13"""
 
 from decimal import Decimal
 
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import accounting_intelligence_service as svc
+from app.services import issue_template_service as tmpl_svc
 
 router = APIRouter(prefix="/accounting-intelligence", tags=["accounting-intelligence"])
 
@@ -133,3 +134,46 @@ def upsert_threshold(
         raise HTTPException(status_code=422, detail="threshold_value must be a valid decimal")
 
     return svc.upsert_threshold(db, entity_id, issue_code, threshold_type, threshold_value)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.13 — Issue Template Repository endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/repository/categories")
+def get_repository_categories(db: Session = Depends(get_db)):
+    """List all repository categories with template counts."""
+    tmpl_svc.seed_issue_templates(db)
+    return tmpl_svc.list_categories(db)
+
+
+@router.get("/repository/{code}")
+def get_repository_template(code: str, db: Session = Depends(get_db)):
+    """Fetch a single issue template by code (e.g. REV_001)."""
+    tmpl_svc.seed_issue_templates(db)
+    row = tmpl_svc.get_template(db, code.upper())
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Template {code} not found")
+    return row
+
+
+@router.get("/repository")
+def list_repository(
+    category: str | None = Query(default=None),
+    issue_type: str | None = Query(default=None),
+    risk_level: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """
+    List issue templates with optional filtering.
+    Seeds the repository on first call if not yet populated.
+    """
+    tmpl_svc.seed_issue_templates(db)
+    return tmpl_svc.list_templates(
+        db,
+        category=category,
+        issue_type=issue_type,
+        risk_level=risk_level,
+        search=search,
+    )
