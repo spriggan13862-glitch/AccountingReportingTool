@@ -50,8 +50,10 @@ class IssueTemplate(Base):
     risk_level = Column(String(20), nullable=False, default="moderate")
     materiality_note = Column(Text, nullable=True)
 
-    # Detection
+    # Detection — text narrative
     detection_logic = Column(Text, nullable=True)
+    # Detection — structured rule (DetectionRule JSON, Sprint 3.14)
+    detection_logic_json = Column(Text, nullable=True)
 
     # Knowledge arrays (JSON)
     potential_causes_json = Column(Text, nullable=True)

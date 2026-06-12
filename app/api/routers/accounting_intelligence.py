@@ -157,17 +157,28 @@ def get_repository_template(code: str, db: Session = Depends(get_db)):
     return row
 
 
+@router.get("/repository/validate-rules")
+def validate_repository_rules():
+    """
+    Validate all structured detection rules against the DetectionRule schema.
+    Returns validation summary: valid count, errors per code, coverage %.
+    """
+    return tmpl_svc.validate_repository_rules()
+
+
 @router.get("/repository")
 def list_repository(
     category: str | None = Query(default=None),
     issue_type: str | None = Query(default=None),
     risk_level: str | None = Query(default=None),
+    rule_type: str | None = Query(default=None),
     search: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     """
     List issue templates with optional filtering.
     Seeds the repository on first call if not yet populated.
+    rule_type filters by detection_logic_json.rule_type (threshold, ratio, etc.).
     """
     tmpl_svc.seed_issue_templates(db)
     return tmpl_svc.list_templates(
@@ -175,5 +186,6 @@ def list_repository(
         category=category,
         issue_type=issue_type,
         risk_level=risk_level,
+        rule_type=rule_type,
         search=search,
     )

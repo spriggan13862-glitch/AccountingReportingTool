@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.data.issue_repository_data import ISSUE_REPOSITORY
 from app.models.issue_template import IssueTemplate
+from app.schemas.detection_rule import DetectionRule
 
 
 def _row_to_dict(row: IssueTemplate) -> dict:
@@ -17,6 +18,10 @@ def _row_to_dict(row: IssueTemplate) -> dict:
         "risk_level": row.risk_level,
         "materiality_note": row.materiality_note,
         "detection_logic": row.detection_logic,
+        "detection_logic_json": (
+            json.loads(row.detection_logic_json)
+            if row.detection_logic_json else None
+        ),
         "potential_causes": json.loads(row.potential_causes_json or "[]"),
         "suggested_procedures": json.loads(row.suggested_procedures_json or "[]"),
         "suggested_ajes": json.loads(row.suggested_ajes_json or "[]"),
@@ -35,9 +40,22 @@ def _row_to_dict(row: IssueTemplate) -> dict:
 def seed_issue_templates(db: Session) -> int:
     existing_codes = {r[0] for r in db.query(IssueTemplate.code).all()}
     added = 0
+    updated = 0
     for entry in ISSUE_REPOSITORY:
+        rule_json = entry.get("detection_logic_json")
+        rule_str = json.dumps(rule_json) if rule_json is not None else None
+
         if entry["code"] in existing_codes:
+            # Back-fill detection_logic_json for rows that predate Sprint 3.14
+            row = db.query(IssueTemplate).filter(
+                IssueTemplate.code == entry["code"],
+                IssueTemplate.detection_logic_json.is_(None),
+            ).first()
+            if row and rule_str:
+                row.detection_logic_json = rule_str
+                updated += 1
             continue
+
         row = IssueTemplate(
             code=entry["code"],
             category=entry["category"],
@@ -48,6 +66,7 @@ def seed_issue_templates(db: Session) -> int:
             risk_level=entry.get("risk_level", "moderate"),
             materiality_note=entry.get("materiality_note"),
             detection_logic=entry.get("detection_logic"),
+            detection_logic_json=rule_str,
             potential_causes_json=json.dumps(entry.get("potential_causes", [])),
             suggested_procedures_json=json.dumps(entry.get("suggested_procedures", [])),
             suggested_ajes_json=json.dumps(entry.get("suggested_ajes", [])),
@@ -63,6 +82,7 @@ def seed_issue_templates(db: Session) -> int:
         )
         db.add(row)
         added += 1
+
     db.commit()
     return added
 
@@ -72,6 +92,7 @@ def list_templates(
     category: str | None = None,
     issue_type: str | None = None,
     risk_level: str | None = None,
+    rule_type: str | None = None,
     search: str | None = None,
     organization_id: int | None = None,
 ) -> list[dict]:
@@ -86,6 +107,11 @@ def list_templates(
         q = q.filter(IssueTemplate.issue_type == issue_type)
     if risk_level:
         q = q.filter(IssueTemplate.risk_level == risk_level)
+    if rule_type:
+        from sqlalchemy import func
+        q = q.filter(
+            func.json_extract(IssueTemplate.detection_logic_json, "$.rule_type") == rule_type
+        )
     if search:
         term = f"%{search}%"
         q = q.filter(
@@ -112,3 +138,34 @@ def list_categories(db: Session) -> list[dict]:
         .all()
     )
     return [{"category": r[0], "count": r[1]} for r in rows]
+
+
+def validate_repository_rules() -> dict:
+    """
+    Validate all DETECTION_RULES entries against the DetectionRule schema.
+    Returns a summary dict with per-code validation results.
+    Called from the /repository/validate-rules endpoint.
+    """
+    from app.data.issue_repository_data import DETECTION_RULES
+
+    errors: dict[str, str] = {}
+    valid_codes: list[str] = []
+
+    for code, rule_dict in DETECTION_RULES.items():
+        try:
+            DetectionRule.model_validate(rule_dict)
+            valid_codes.append(code)
+        except Exception as exc:
+            errors[code] = str(exc)
+
+    all_codes = {t["code"] for t in ISSUE_REPOSITORY}
+    missing = sorted(all_codes - set(DETECTION_RULES.keys()))
+
+    return {
+        "total_templates": len(all_codes),
+        "total_rules": len(DETECTION_RULES),
+        "valid": len(valid_codes),
+        "errors": errors,
+        "missing_rules": missing,
+        "coverage_pct": round(100 * len(DETECTION_RULES) / len(all_codes), 1) if all_codes else 0,
+    }

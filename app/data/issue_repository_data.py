@@ -1,10 +1,13 @@
 """
 Accounting Intelligence Repository — Static Knowledge Base
-Sprint 3.13: 212 issue templates across 26 categories.
+Sprint 3.13 / 3.14: 200 issue templates across 26 categories.
 
 Category source files live in docs/accounting_intelligence/ and are loaded
-at module import time via importlib. The merged ISSUE_REPOSITORY list is the
+at module import time via importlib.  The merged ISSUE_REPOSITORY list is the
 single source of truth consumed by the service layer.
+
+Sprint 3.14 adds detection_logic_json to every template by merging in the
+DETECTION_RULES dict from detection_rules.py at assembly time.
 """
 import importlib.util
 import pathlib
@@ -48,8 +51,19 @@ _pres  = _load("PRES_presentation.py").PRESENTATION
 _fraud = _load("FRAUD_fraud_indicators.py").FRAUD_INDICATORS
 _ind   = _load("IND_industry_specific.py").INDUSTRY_SPECIFIC
 
-ISSUE_REPOSITORY: list[dict] = (
+_rules = _load("detection_rules.py").DETECTION_RULES
+
+_raw: list[dict] = (
     _rev + _ar + _inv + _cash + _ap + _acl + _fa + _ia + _lease +
     _debt + _eq + _tax + _pay + _wc + _gm + _opex + _ebit + _qoe +
     _sba + _rp + _cf + _fr + _disc + _pres + _fraud + _ind
 )
+
+# Merge structured detection rules into each template dict.
+# Templates without a matching rule entry carry detection_logic_json=None.
+DETECTION_RULES: dict[str, dict] = _rules
+
+ISSUE_REPOSITORY: list[dict] = [
+    {**t, "detection_logic_json": _rules.get(t["code"])}
+    for t in _raw
+]
