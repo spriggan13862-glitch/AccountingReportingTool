@@ -25,6 +25,7 @@ import { ConsolidationsPage } from '@/pages/ConsolidationsPage'
 import { TrialBalancesPage } from '@/pages/TrialBalancesPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { FinancialImpactWorkspacePage } from '@/pages/FinancialImpactWorkspacePage'
+import { DeliverablesWorkspacePage } from '@/pages/DeliverablesWorkspacePage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
 import { ImportWizardPage } from '@/pages/ImportWizardPage'
@@ -121,6 +122,7 @@ export function AppRouter() {
           <Route path="financial-impact" element={<Navigate replace to="/financial-impact/statements" />} />
 
           {/* ── DELIVERABLES ──────────────────────────────────────────────── */}
+          <Route path="deliverables/workspace" element={<DeliverablesWorkspacePage />} />
           <Route path="deliverables/close-package/tasks/:id" element={<CloseTaskDetailPage />} />
           <Route path="deliverables/close-package/:id" element={<CloseChecklistPage />} />
           <Route path="deliverables/close-package" element={<CloseDashboardPage />} />

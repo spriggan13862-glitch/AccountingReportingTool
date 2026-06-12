@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   List,
   Package,
+  LayoutGrid,
   Settings,
   Settings2,
   SlidersHorizontal,
@@ -95,6 +96,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: Package,
     defaultOpen: false,
     items: [
+      { id: 'deliverables-workspace', label: 'Deliverables Workspace', to: '/deliverables/workspace', icon: LayoutGrid },
       { id: 'close-package', label: 'Close Package', to: '/deliverables/close-package', icon: CheckSquare },
       { id: 'workpapers', label: 'Workpapers', to: '/deliverables/workpapers', icon: FolderOpen },
       { id: 'reconciliations', label: 'Reconciliations', to: '/deliverables/reconciliations', icon: GitPullRequest },

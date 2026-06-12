@@ -40,6 +40,7 @@ from app.models.workpaper_reference import WorkpaperReference
 from app.models.period_governance_event import PeriodGovernanceEvent
 from app.models.shadow_close_run import ShadowCloseRun
 from app.models.adjustment_workspace import AdjustmentPackage, AdjustmentPackageMembership, AdjustmentAdvisorNote
+from app.models.deliverable_workspace import DeliverablePackage, DeliverablePackageItem, DeliverableMemo
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -56,6 +57,7 @@ __all__ = [
     "Workpaper", "WorkpaperReference",
     "PeriodGovernanceEvent", "ShadowCloseRun",
     "AdjustmentPackage", "AdjustmentPackageMembership", "AdjustmentAdvisorNote",
+    "DeliverablePackage", "DeliverablePackageItem", "DeliverableMemo",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]

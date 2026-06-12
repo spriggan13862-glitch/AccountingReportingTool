@@ -2162,3 +2162,91 @@ class RollforwardRow(BaseModel):
     as_reported: Decimal
     adjustments: Decimal
     adjusted: Decimal
+
+
+# ---------------------------------------------------------------------------
+# Deliverable Workspace schemas (Sprint 3.8)
+# ---------------------------------------------------------------------------
+
+class DeliverablePackageCreate(BaseModel):
+    name: str
+    package_type: str = "custom"
+    description: str | None = None
+    owner: str | None = None
+
+
+class DeliverablePackageUpdate(BaseModel):
+    name: str | None = None
+    package_type: str | None = None
+    status: str | None = None
+    description: str | None = None
+    owner: str | None = None
+
+
+class DeliverablePackageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: str
+    name: str
+    package_type: str
+    status: str
+    description: str | None = None
+    owner: str | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+    item_count: int = 0
+    memo_count: int = 0
+
+
+class DeliverablePackageItemCreate(BaseModel):
+    item_type: str
+    item_ref: str
+    item_label: str | None = None
+
+
+class DeliverablePackageItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    package_id: int
+    item_type: str
+    item_ref: str
+    item_label: str | None = None
+    added_at: datetime.datetime
+
+
+class DeliverableMemoCreate(BaseModel):
+    issue: str | None = None
+    observation: str | None = None
+    recommendation: str | None = None
+    client_response: str | None = None
+    status: str = "open"
+
+
+class DeliverableMemoUpdate(BaseModel):
+    issue: str | None = None
+    observation: str | None = None
+    recommendation: str | None = None
+    client_response: str | None = None
+    status: str | None = None
+
+
+class DeliverableMemoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    package_id: int
+    issue: str | None = None
+    observation: str | None = None
+    recommendation: str | None = None
+    client_response: str | None = None
+    status: str
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+
+
+class DeliverableDashboard(BaseModel):
+    total_packages: int
+    draft_count: int
+    internal_review_count: int
+    client_review_count: int
+    finalized_count: int
+    archived_count: int
