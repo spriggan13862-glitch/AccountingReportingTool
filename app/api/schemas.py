@@ -2173,6 +2173,7 @@ class DeliverablePackageCreate(BaseModel):
     package_type: str = "custom"
     description: str | None = None
     owner: str | None = None
+    reporting_view_id: int | None = None
 
 
 class DeliverablePackageUpdate(BaseModel):
@@ -2181,6 +2182,7 @@ class DeliverablePackageUpdate(BaseModel):
     status: str | None = None
     description: str | None = None
     owner: str | None = None
+    reporting_view_id: int | None = None
 
 
 class DeliverablePackageOut(BaseModel):
@@ -2192,6 +2194,7 @@ class DeliverablePackageOut(BaseModel):
     status: str
     description: str | None = None
     owner: str | None = None
+    reporting_view_id: int | None = None
     created_at: datetime.datetime
     updated_at: datetime.datetime | None = None
     item_count: int = 0
@@ -2250,3 +2253,62 @@ class DeliverableDashboard(BaseModel):
     client_review_count: int
     finalized_count: int
     archived_count: int
+
+
+# ---------------------------------------------------------------------------
+# Reporting View — Overrides, Comparison, Impact
+# ---------------------------------------------------------------------------
+
+class ViewAccountOverrideCreate(BaseModel):
+    taxonomy_line_id: int | None = None
+    display_label: str | None = None
+
+
+class ViewAccountOverrideOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    view_id: int
+    account_id: int
+    taxonomy_line_id: int | None = None
+    display_label: str | None = None
+    created_by: str | None = None
+    created_at: datetime.datetime
+
+
+class ViewComparisonRow(BaseModel):
+    taxonomy_id: int
+    code: str
+    name: str
+    section: str
+    hierarchy_depth: int
+    is_subtotal: bool
+    view1_balance: float
+    view2_balance: float
+    delta: float
+
+
+class ViewComparisonResult(BaseModel):
+    view1_id: int
+    view2_id: int
+    entity_id: int
+    as_of_date: str
+    statement_type: str
+    rows: list[ViewComparisonRow]
+
+
+class ViewImpactAccount(BaseModel):
+    account_id: int
+    account_code: str
+    account_name: str
+    default_taxonomy_id: int | None
+    default_taxonomy_name: str | None
+    override_taxonomy_id: int | None
+    override_taxonomy_name: str | None
+    display_label: str | None
+
+
+class ViewImpactResult(BaseModel):
+    view_id: int
+    entity_id: int
+    override_count: int
+    accounts: list[ViewImpactAccount]

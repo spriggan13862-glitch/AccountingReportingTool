@@ -113,7 +113,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { id: 'entities', label: 'Entities', to: '/client-data/entities', icon: Building2 },
       { id: 'periods', label: 'Periods', to: '/client-data/periods', icon: Calendar, end: true },
       { id: 'taxonomy', label: 'Taxonomy Admin', to: '/client-data/taxonomy-mapping', icon: GitBranch },
-      { id: 'reporting-views', label: 'Reporting Views', to: null, icon: BarChart3, badge: 'Coming Soon' },
+      { id: 'reporting-views', label: 'Reporting Views', to: '/setup/reporting-views', icon: BarChart3 },
       { id: 'reporting-settings', label: 'Settings', to: '/setup/settings', icon: Settings },
       { id: 'admin-users', label: 'Admin / Users', to: '/admin', icon: Users, requiresAdmin: true, badge: 'Admin' },
       { id: 'help', label: 'Help Center', to: '/setup/help', icon: HelpCircle },

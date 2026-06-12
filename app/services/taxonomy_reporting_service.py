@@ -144,11 +144,13 @@ def get_taxonomy_fs_statement(
     as_of_date: datetime.date,
     scenario_ids: Sequence[int],
     statement_type: str,            # "balance_sheet" or "income_statement"
+    view_overrides: dict[int, int] | None = None,  # account_id → taxonomy_line_id
 ) -> list[TaxonomyFsRow]:
     """
     Build FS output using ReportingTaxonomyLine + Account.reporting_taxonomy_line_id.
 
     Children with no taxonomy_line_id inherit from their nearest ancestor account.
+    view_overrides substitutes taxonomy_line_id for specific accounts in this view.
     Returns rows sorted by sort_order, with rollup totals.
     """
     # Load all taxonomy lines for this statement type (and their ancestors)
@@ -194,7 +196,11 @@ def get_taxonomy_fs_statement(
     account_counts: dict[int, int] = {lid: 0 for lid in lines_in_scope}
 
     for account in entity_accounts:
-        tax_id = _resolve_taxonomy_id(account, accounts_by_id)
+        if view_overrides and account.id in view_overrides:
+            override_tid = view_overrides[account.id]
+            tax_id = override_tid if override_tid is not None else None
+        else:
+            tax_id = _resolve_taxonomy_id(account, accounts_by_id)
         if tax_id is None or tax_id not in lines_in_scope:
             continue
         tb_row = tb_by_account_id.get(account.id)

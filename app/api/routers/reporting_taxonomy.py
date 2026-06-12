@@ -11,6 +11,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+import datetime
+
 from app.api.schemas import (
     ReportingTaxonomyLineOut,
     ReportingTaxonomyLineCreate,
@@ -24,12 +26,19 @@ from app.api.schemas import (
     ReportingPresentationSettingsOut,
     ReportingPresentationSettingsUpdate,
     TaxonomyReorderRequest,
+    ViewAccountOverrideCreate,
+    ViewAccountOverrideOut,
+    ViewComparisonResult,
+    ViewComparisonRow,
+    ViewImpactResult,
+    ViewImpactAccount,
 )
 from app.models.reporting_taxonomy import (
     ReportingTaxonomyLine,
     ReportingTaxonomyView,
     ReportingPresentationSettings,
 )
+from app.models.view_account_override import ViewAccountOverride
 from app.services.reporting_taxonomy_service import (
     get_or_seed,
     seed_views,
@@ -411,6 +420,178 @@ def clone_view(view_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(cloned)
     return cloned
+
+
+# ---------------------------------------------------------------------------
+# View Account Overrides
+# ---------------------------------------------------------------------------
+
+@views_router.get("/{view_id}/overrides", response_model=list[ViewAccountOverrideOut])
+def list_overrides(view_id: int, db: Session = Depends(get_db)):
+    view = db.query(ReportingTaxonomyView).get(view_id)
+    if not view:
+        raise HTTPException(status_code=404, detail="Reporting view not found")
+    return db.query(ViewAccountOverride).filter_by(view_id=view_id).all()
+
+
+@views_router.put("/{view_id}/overrides/{account_id}", response_model=ViewAccountOverrideOut)
+def set_override(
+    view_id: int,
+    account_id: int,
+    body: ViewAccountOverrideCreate,
+    db: Session = Depends(get_db),
+):
+    view = db.query(ReportingTaxonomyView).get(view_id)
+    if not view:
+        raise HTTPException(status_code=404, detail="Reporting view not found")
+    existing = db.query(ViewAccountOverride).filter_by(
+        view_id=view_id, account_id=account_id
+    ).first()
+    if existing:
+        existing.taxonomy_line_id = body.taxonomy_line_id
+        existing.display_label = body.display_label
+        db.commit()
+        db.refresh(existing)
+        return existing
+    override = ViewAccountOverride(
+        view_id=view_id,
+        account_id=account_id,
+        taxonomy_line_id=body.taxonomy_line_id,
+        display_label=body.display_label,
+    )
+    db.add(override)
+    db.commit()
+    db.refresh(override)
+    return override
+
+
+@views_router.delete("/{view_id}/overrides/{account_id}", status_code=204)
+def delete_override(view_id: int, account_id: int, db: Session = Depends(get_db)):
+    override = db.query(ViewAccountOverride).filter_by(
+        view_id=view_id, account_id=account_id
+    ).first()
+    if not override:
+        raise HTTPException(status_code=404, detail="Override not found")
+    db.delete(override)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# View Comparison
+# ---------------------------------------------------------------------------
+
+@views_router.get("/compare", response_model=ViewComparisonResult)
+def compare_views(
+    view1_id: int,
+    view2_id: int,
+    entity_id: int,
+    as_of_date: datetime.date,
+    statement_type: str = Query(default="income_statement"),
+    scenario_ids: list[int] = Query(default=[]),
+    db: Session = Depends(get_db),
+):
+    from app.services.taxonomy_reporting_service import get_taxonomy_fs_statement
+
+    def _load(vid: int) -> dict[int, int]:
+        rows = db.query(ViewAccountOverride).filter_by(view_id=vid).all()
+        return {r.account_id: r.taxonomy_line_id for r in rows}
+
+    rows1 = get_taxonomy_fs_statement(
+        db, entity_id, as_of_date, scenario_ids, statement_type,
+        view_overrides=_load(view1_id),
+    )
+    rows2 = get_taxonomy_fs_statement(
+        db, entity_id, as_of_date, scenario_ids, statement_type,
+        view_overrides=_load(view2_id),
+    )
+
+    bal2_by_id = {r.taxonomy_id: r.display_balance for r in rows2}
+    result_rows = []
+    for r in rows1:
+        b2 = bal2_by_id.get(r.taxonomy_id, 0)
+        result_rows.append(ViewComparisonRow(
+            taxonomy_id=r.taxonomy_id,
+            code=r.code,
+            name=r.name,
+            section=r.section,
+            hierarchy_depth=r.hierarchy_depth,
+            is_subtotal=r.is_subtotal,
+            view1_balance=float(r.display_balance),
+            view2_balance=float(b2),
+            delta=float(b2 - r.display_balance),
+        ))
+
+    return ViewComparisonResult(
+        view1_id=view1_id,
+        view2_id=view2_id,
+        entity_id=entity_id,
+        as_of_date=str(as_of_date),
+        statement_type=statement_type,
+        rows=result_rows,
+    )
+
+
+# ---------------------------------------------------------------------------
+# View Impact Analysis
+# ---------------------------------------------------------------------------
+
+@views_router.get("/{view_id}/impact", response_model=ViewImpactResult)
+def view_impact(view_id: int, entity_id: int, db: Session = Depends(get_db)):
+    """List accounts whose classification differs under this view vs. default."""
+    from app.models.account import Account
+
+    view = db.query(ReportingTaxonomyView).get(view_id)
+    if not view:
+        raise HTTPException(status_code=404, detail="Reporting view not found")
+
+    overrides = db.query(ViewAccountOverride).filter_by(view_id=view_id).all()
+    override_map = {o.account_id: o for o in overrides}
+
+    if not override_map:
+        return ViewImpactResult(view_id=view_id, entity_id=entity_id, override_count=0, accounts=[])
+
+    accounts = (
+        db.query(Account)
+        .filter(Account.entity_id == entity_id, Account.id.in_(list(override_map.keys())))
+        .all()
+    )
+
+    tax_ids_needed = set()
+    for a in accounts:
+        if a.reporting_taxonomy_line_id:
+            tax_ids_needed.add(a.reporting_taxonomy_line_id)
+    for o in overrides:
+        if o.taxonomy_line_id:
+            tax_ids_needed.add(o.taxonomy_line_id)
+
+    tax_lines = {
+        l.id: l for l in db.query(ReportingTaxonomyLine).filter(
+            ReportingTaxonomyLine.id.in_(list(tax_ids_needed))
+        ).all()
+    } if tax_ids_needed else {}
+
+    result_accounts = []
+    for account in accounts:
+        ov = override_map[account.id]
+        default_line = tax_lines.get(account.reporting_taxonomy_line_id)
+        override_line = tax_lines.get(ov.taxonomy_line_id) if ov.taxonomy_line_id else None
+        result_accounts.append(ViewImpactAccount(
+            account_id=account.id,
+            account_code=account.account_number or "",
+            account_name=account.name,
+            default_taxonomy_id=account.reporting_taxonomy_line_id,
+            default_taxonomy_name=default_line.name if default_line else None,
+            override_taxonomy_id=ov.taxonomy_line_id,
+            override_taxonomy_name=override_line.name if override_line else None,
+            display_label=ov.display_label,
+        ))
+
+    return ViewImpactResult(
+        view_id=view_id,
+        entity_id=entity_id,
+        override_count=len(result_accounts),
+        accounts=result_accounts,
+    )
 
 
 # ---------------------------------------------------------------------------

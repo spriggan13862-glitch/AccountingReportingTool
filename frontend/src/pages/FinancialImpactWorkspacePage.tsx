@@ -12,6 +12,7 @@ import { financialStatementsApi } from '@/api/financialStatements'
 import { overlayApi } from '@/api/overlay'
 import { periodGovernanceApi } from '@/api/periodGovernance'
 import { adjustmentWorkspaceApi } from '@/api/adjustmentWorkspace'
+import { reportingViewsApi } from '@/api/reportingViews'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -167,35 +168,37 @@ function StatementsTab({
   asOfDate,
   bookScenarioIds,
   adjScenarioIds,
+  viewId,
   onDrilldown,
 }: {
   entityId: number
   asOfDate: string
   bookScenarioIds: number[]
   adjScenarioIds: number[]
+  viewId?: number
   onDrilldown: (code: string) => void
 }) {
   const [statement, setStatement] = useState<'BS' | 'IS' | 'CF'>('IS')
   const [search, setSearch] = useState('')
 
   const { data: bsBook, isLoading: bsBkLoading } = useQuery({
-    queryKey: ['fiw-bs-book', entityId, asOfDate, bookScenarioIds],
-    queryFn: () => reportingApi.taxonomyBalanceSheet(entityId, asOfDate, bookScenarioIds),
+    queryKey: ['fiw-bs-book', entityId, asOfDate, bookScenarioIds, viewId],
+    queryFn: () => reportingApi.taxonomyBalanceSheet(entityId, asOfDate, bookScenarioIds, viewId),
     enabled: !!entityId && !!asOfDate,
   })
   const { data: bsAdj } = useQuery({
-    queryKey: ['fiw-bs-adj', entityId, asOfDate, adjScenarioIds],
-    queryFn: () => reportingApi.taxonomyBalanceSheet(entityId, asOfDate, adjScenarioIds),
+    queryKey: ['fiw-bs-adj', entityId, asOfDate, adjScenarioIds, viewId],
+    queryFn: () => reportingApi.taxonomyBalanceSheet(entityId, asOfDate, adjScenarioIds, viewId),
     enabled: !!entityId && !!asOfDate && adjScenarioIds.length > 0,
   })
   const { data: isBook, isLoading: isBkLoading } = useQuery({
-    queryKey: ['fiw-is-book', entityId, asOfDate, bookScenarioIds],
-    queryFn: () => reportingApi.taxonomyIncomeStatement(entityId, asOfDate, bookScenarioIds),
+    queryKey: ['fiw-is-book', entityId, asOfDate, bookScenarioIds, viewId],
+    queryFn: () => reportingApi.taxonomyIncomeStatement(entityId, asOfDate, bookScenarioIds, viewId),
     enabled: !!entityId && !!asOfDate,
   })
   const { data: isAdj } = useQuery({
-    queryKey: ['fiw-is-adj', entityId, asOfDate, adjScenarioIds],
-    queryFn: () => reportingApi.taxonomyIncomeStatement(entityId, asOfDate, adjScenarioIds),
+    queryKey: ['fiw-is-adj', entityId, asOfDate, adjScenarioIds, viewId],
+    queryFn: () => reportingApi.taxonomyIncomeStatement(entityId, asOfDate, adjScenarioIds, viewId),
     enabled: !!entityId && !!asOfDate && adjScenarioIds.length > 0,
   })
 
@@ -645,6 +648,12 @@ export function FinancialImpactWorkspacePage() {
   const [scenarioMode, setScenarioMode] = useState<ScenarioMode>('as_reported')
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('statements')
   const [drilldownCode, setDrilldownCode] = useState<string | null>(null)
+  const [viewId, setViewId] = useState<number | ''>('')
+
+  const { data: reportingViews = [] } = useQuery({
+    queryKey: ['reporting-views'],
+    queryFn: () => reportingViewsApi.list(),
+  })
 
   const bookScenarioIds = useMemo(
     () => (bookScenarioId !== '' ? [bookScenarioId] : []),
@@ -736,6 +745,20 @@ export function FinancialImpactWorkspacePage() {
             <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block">View Mode</label>
             <ScenarioModeToggle value={scenarioMode} onChange={setScenarioMode} />
           </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide block">Reporting View</label>
+            <select
+              data-testid="view-selector"
+              value={viewId}
+              onChange={(e) => setViewId(e.target.value ? Number(e.target.value) : '')}
+              className="text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              <option value="">Default</option>
+              {reportingViews.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* KPI cards */}
@@ -783,6 +806,7 @@ export function FinancialImpactWorkspacePage() {
               asOfDate={asOfDate}
               bookScenarioIds={bookScenarioIds}
               adjScenarioIds={adjScenarioIds}
+              viewId={viewId !== '' ? viewId : undefined}
               onDrilldown={setDrilldownCode}
             />
           )}

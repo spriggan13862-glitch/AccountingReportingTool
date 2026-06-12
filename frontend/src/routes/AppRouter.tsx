@@ -48,6 +48,7 @@ import { ReportingSettingsPage } from '@/pages/ReportingSettingsPage'
 import { FSBuilderPage } from '@/pages/FSBuilderPage'
 import { AdjustmentBridgePage } from '@/pages/AdjustmentBridgePage'
 import { AdjustmentWorkspacePage } from '@/pages/AdjustmentWorkspacePage'
+import { ReportingViewWorkspacePage } from '@/pages/ReportingViewWorkspacePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { ClientDataPage } from '@/pages/ClientDataPage'
 
@@ -139,6 +140,7 @@ export function AppRouter() {
           <Route path="deliverables" element={<Navigate replace to="/deliverables/close-package" />} />
 
           {/* ── SETUP ─────────────────────────────────────────────────────── */}
+          <Route path="setup/reporting-views" element={<ReportingViewWorkspacePage />} />
           <Route path="setup/settings" element={<ReportingSettingsPage />} />
           <Route path="setup/help" element={<HelpCenterPage />} />
           <Route path="setup/taxonomy-admin" element={<TaxonomyAdminPage />} />

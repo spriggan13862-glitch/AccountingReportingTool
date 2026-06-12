@@ -41,6 +41,7 @@ from app.models.period_governance_event import PeriodGovernanceEvent
 from app.models.shadow_close_run import ShadowCloseRun
 from app.models.adjustment_workspace import AdjustmentPackage, AdjustmentPackageMembership, AdjustmentAdvisorNote
 from app.models.deliverable_workspace import DeliverablePackage, DeliverablePackageItem, DeliverableMemo
+from app.models.view_account_override import ViewAccountOverride
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -58,6 +59,7 @@ __all__ = [
     "PeriodGovernanceEvent", "ShadowCloseRun",
     "AdjustmentPackage", "AdjustmentPackageMembership", "AdjustmentAdvisorNote",
     "DeliverablePackage", "DeliverablePackageItem", "DeliverableMemo",
+    "ViewAccountOverride",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]
