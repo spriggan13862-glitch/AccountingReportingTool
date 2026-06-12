@@ -42,6 +42,7 @@ from app.models.shadow_close_run import ShadowCloseRun
 from app.models.adjustment_workspace import AdjustmentPackage, AdjustmentPackageMembership, AdjustmentAdvisorNote
 from app.models.deliverable_workspace import DeliverablePackage, DeliverablePackageItem, DeliverableMemo
 from app.models.view_account_override import ViewAccountOverride
+from app.models.detected_issue import DetectedIssue, IssueDetectionThreshold
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -60,6 +61,7 @@ __all__ = [
     "AdjustmentPackage", "AdjustmentPackageMembership", "AdjustmentAdvisorNote",
     "DeliverablePackage", "DeliverablePackageItem", "DeliverableMemo",
     "ViewAccountOverride",
+    "DetectedIssue", "IssueDetectionThreshold",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]

@@ -16,6 +16,7 @@ from app.database import Base, engine
 from app.api.routers import (
     accounting_periods,
     accounts,
+    accounting_intelligence,
     adjustment_bridge,
     adjustment_workspace,
     deliverable_workspace,
@@ -319,6 +320,7 @@ app.include_router(reporting_taxonomy.views_router, prefix=API_PREFIX)
 app.include_router(reporting_taxonomy.settings_router, prefix=API_PREFIX)
 app.include_router(coa_import.router, prefix=API_PREFIX)
 app.include_router(pdf_import.router, prefix=API_PREFIX)
+app.include_router(accounting_intelligence.router, prefix=API_PREFIX)
 app.include_router(adjustment_bridge.router, prefix=API_PREFIX)
 app.include_router(adjustment_workspace.router, prefix=API_PREFIX)
 app.include_router(deliverable_workspace.router, prefix=API_PREFIX)
