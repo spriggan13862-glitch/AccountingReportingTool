@@ -47,7 +47,7 @@ describe('Sidebar — Sprint 3.1', () => {
     expect(screen.getByText('Engagement Overview')).toBeInTheDocument()
     expect(screen.getByText('Client Books')).toBeInTheDocument()
     expect(screen.getByText('Adjustment Workbench')).toBeInTheDocument()
-    expect(screen.getByText('Financial Impact')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-financial-impact')).toBeInTheDocument()
     expect(screen.getByText('Deliverables')).toBeInTheDocument()
     expect(screen.getByText('Admin / Setup')).toBeInTheDocument()
   })
@@ -74,7 +74,8 @@ describe('Sidebar — Sprint 3.1', () => {
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
     // client-books group is defaultOpen
     expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
+    // financial-impact group is defaultOpen (single entry)
+    expect(screen.getByTestId('nav-item-financial-impact')).toBeInTheDocument()
     // workbench group is defaultOpen
     expect(screen.getByTestId('nav-item-adjustment-bridge')).toBeInTheDocument()
   })
@@ -143,10 +144,10 @@ describe('Sidebar — Sprint 3.1', () => {
     // Check a representative item from each group
     expect(screen.getByTestId('nav-item-dashboard')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-journal-entries')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-trial-balances')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-financial-impact')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-advisor-package')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-help')).toBeInTheDocument()
   })
 
@@ -163,11 +164,20 @@ describe('Sidebar — Sprint 3.1', () => {
     expect(item).toBeInTheDocument()
   })
 
-  it('admin group has entities, periods, taxonomy moved from client books', () => {
+  it('admin group has accounts, entities, periods, taxonomy', () => {
     renderSidebar()
     fireEvent.click(screen.getByTestId('nav-group-toggle-admin'))
+    expect(screen.getByTestId('nav-item-accounts')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-entities')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-periods')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-taxonomy')).toBeInTheDocument()
+  })
+
+  it('financial-impact group has single entry pointing to statements', () => {
+    renderSidebar()
+    const item = screen.getByTestId('nav-item-financial-impact')
+    expect(item).toBeInTheDocument()
+    expect(screen.queryByTestId('nav-item-trial-balances')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('nav-item-comparatives')).not.toBeInTheDocument()
   })
 })

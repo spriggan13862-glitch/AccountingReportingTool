@@ -22,8 +22,6 @@ import {
   Settings,
   Settings2,
   SlidersHorizontal,
-  TableProperties,
-  TrendingUp,
   Upload,
   Users,
 } from 'lucide-react'
@@ -67,7 +65,6 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { id: 'import-center', label: 'Import Center', to: '/client-data/imports', icon: Upload, end: true },
       { id: 'documents', label: 'Source Documents', to: '/client-data/documents', icon: FolderOpen },
-      { id: 'accounts', label: 'Chart of Accounts', to: '/client-data/chart-of-accounts', icon: List },
     ],
   },
   {
@@ -87,10 +84,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: BarChart2,
     defaultOpen: true,
     items: [
-      { id: 'trial-balances', label: 'Trial Balance', to: '/financial-impact/trial-balance', icon: TableProperties },
-      { id: 'financial-statements', label: 'Financial Statements', to: '/financial-impact/statements', icon: BarChart3 },
-      { id: 'comparatives', label: 'Comparatives', to: '/financial-impact/comparatives', icon: TrendingUp },
-      { id: 'variance', label: 'Variance Analysis', to: '/financial-impact/variance', icon: TrendingUp },
+      { id: 'financial-impact', label: 'Financial Impact', to: '/financial-impact/statements', icon: BarChart3 },
     ],
   },
   {
@@ -111,6 +105,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: Settings2,
     defaultOpen: false,
     items: [
+      { id: 'accounts', label: 'Chart of Accounts', to: '/client-data/chart-of-accounts', icon: List },
       { id: 'entities', label: 'Entities', to: '/client-data/entities', icon: Building2 },
       { id: 'periods', label: 'Periods', to: '/client-data/periods', icon: Calendar, end: true },
       { id: 'taxonomy', label: 'Taxonomy Admin', to: '/client-data/taxonomy-mapping', icon: GitBranch },

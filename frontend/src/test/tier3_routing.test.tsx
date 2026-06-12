@@ -62,16 +62,13 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(item('draft-preview')?.to).toBe('/workbench/draft-preview')
   })
 
-  it('trial-balances points to /financial-impact/trial-balance', () => {
-    expect(item('trial-balances')?.to).toBe('/financial-impact/trial-balance')
+  it('financial-impact single entry points to /financial-impact/statements', () => {
+    expect(item('financial-impact')?.to).toBe('/financial-impact/statements')
   })
 
-  it('financial-statements points to /financial-impact/statements', () => {
-    expect(item('financial-statements')?.to).toBe('/financial-impact/statements')
-  })
-
-  it('comparatives points to /financial-impact/comparatives', () => {
-    expect(item('comparatives')?.to).toBe('/financial-impact/comparatives')
+  it('financial-impact group has exactly 1 item', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'financial-impact')!
+    expect(group.items.length).toBe(1)
   })
 
   it('close-package points to /deliverables/close-package', () => {
@@ -119,9 +116,14 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(tax?.label).toBe('Taxonomy Admin')
   })
 
-  it('client-books group has 3 items', () => {
+  it('client-books group has 2 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'client-books')!
-    expect(group.items.length).toBe(3)
+    expect(group.items.length).toBe(2)
+  })
+
+  it('accounts is in admin group', () => {
+    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
+    expect(adminGroup.items.find((i) => i.id === 'accounts')).toBeDefined()
   })
 
   it('workbench group has 3 items', () => {
@@ -210,10 +212,21 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(active).toBe(true)
   })
 
-  it('client-books group should be active on /client-data/chart-of-accounts', () => {
-    const cbGroup = NAV_GROUPS.find((g) => g.id === 'client-books')!
+  it('admin group should be active on /client-data/chart-of-accounts', () => {
+    const adminGroup = NAV_GROUPS.find((g) => g.id === 'admin')!
     const pathname = '/client-data/chart-of-accounts'
-    const active = cbGroup.items.some((item) => {
+    const active = adminGroup.items.some((item) => {
+      if (!item.to) return false
+      if (item.end) return pathname === item.to
+      return pathname === item.to || pathname.startsWith(item.to + '/')
+    })
+    expect(active).toBe(true)
+  })
+
+  it('financial-impact group should be active on /financial-impact/statements', () => {
+    const fiGroup = NAV_GROUPS.find((g) => g.id === 'financial-impact')!
+    const pathname = '/financial-impact/statements'
+    const active = fiGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
       return pathname === item.to || pathname.startsWith(item.to + '/')
