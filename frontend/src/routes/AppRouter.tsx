@@ -45,6 +45,7 @@ import { TaxonomyAdminPage } from '@/pages/TaxonomyAdminPage'
 import { ReportingSettingsPage } from '@/pages/ReportingSettingsPage'
 import { FSBuilderPage } from '@/pages/FSBuilderPage'
 import { AdjustmentBridgePage } from '@/pages/AdjustmentBridgePage'
+import { AdjustmentWorkspacePage } from '@/pages/AdjustmentWorkspacePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { ClientDataPage } from '@/pages/ClientDataPage'
 
@@ -97,6 +98,7 @@ export function AppRouter() {
 
           {/* ── ADJUSTMENT WORKBENCH ──────────────────────────────────────── */}
           <Route path="workbench/adjustment-bridge" element={<AdjustmentBridgePage />} />
+          <Route path="workbench/adjustment-workspace" element={<AdjustmentWorkspacePage />} />
           <Route path="workbench/journal-entries/new" element={<JournalEntryCreatePage />} />
           <Route path="workbench/journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="workbench/journal-entries" element={<JournalEntriesPage />} />

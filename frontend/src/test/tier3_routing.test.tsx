@@ -126,9 +126,9 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(adminGroup.items.find((i) => i.id === 'accounts')).toBeDefined()
   })
 
-  it('workbench group has 3 items', () => {
+  it('workbench group has 4 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    expect(group.items.length).toBe(3)
+    expect(group.items.length).toBe(4)
   })
 })
 

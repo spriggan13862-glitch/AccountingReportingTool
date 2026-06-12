@@ -40,6 +40,9 @@ class JournalEntry(Base):
     # e.g. 'audit_adjustment', 'topside', 'elimination', 'accrual', 'pro_forma', 'tax'
     overlay_group = Column(String(50), nullable=True)
 
+    # Advisor materiality classification
+    materiality = Column(String(50), nullable=True)  # clearly_trivial|immaterial|material|critical
+
     # Audit metadata — string placeholders (kept for backward compat)
     created_by  = Column(String(100), nullable=True)
     posted_by   = Column(String(100), nullable=True)

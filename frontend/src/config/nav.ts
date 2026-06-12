@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   Upload,
   Users,
+  Layers,
 } from 'lucide-react'
 
 export type NavBadge = 'Setup' | 'Draft' | 'Beta' | 'Coming Soon' | 'Admin'
@@ -73,6 +74,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: SlidersHorizontal,
     defaultOpen: true,
     items: [
+      { id: 'adjustment-workspace', label: 'Adjustment Workspace', to: '/workbench/adjustment-workspace', icon: Layers },
       { id: 'adjustment-bridge', label: 'Adjustment Bridge', to: '/workbench/adjustment-bridge', icon: GitCompare },
       { id: 'journal-entries', label: 'Journal Entries', to: '/workbench/journal-entries', icon: BookOpen },
       { id: 'draft-preview', label: 'Draft Preview', to: '/workbench/draft-preview', icon: Eye },

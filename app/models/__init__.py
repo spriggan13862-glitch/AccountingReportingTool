@@ -39,6 +39,7 @@ from app.models.workpaper import Workpaper
 from app.models.workpaper_reference import WorkpaperReference
 from app.models.period_governance_event import PeriodGovernanceEvent
 from app.models.shadow_close_run import ShadowCloseRun
+from app.models.adjustment_workspace import AdjustmentPackage, AdjustmentPackageMembership, AdjustmentAdvisorNote
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -54,6 +55,7 @@ __all__ = [
     "CloseChecklist", "CloseTask", "CloseTaskComment", "CloseTaskAttachment",
     "Workpaper", "WorkpaperReference",
     "PeriodGovernanceEvent", "ShadowCloseRun",
+    "AdjustmentPackage", "AdjustmentPackageMembership", "AdjustmentAdvisorNote",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]

@@ -2068,3 +2068,97 @@ class PDFBalanceSheetValidation(BaseModel):
     net_income_in_equity: str | None = None
     pnl_net_income: str | None = None
     net_income_variance: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Adjustment Workspace
+# ---------------------------------------------------------------------------
+
+class AdjustmentPackageCreate(BaseModel):
+    name: str
+    package_type: str = "audit"
+    description: str | None = None
+
+
+class AdjustmentPackageUpdate(BaseModel):
+    name: str | None = None
+    package_type: str | None = None
+    status: str | None = None
+    description: str | None = None
+
+
+class AdjustmentPackageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: str
+    name: str
+    package_type: str
+    status: str
+    description: str | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+    member_count: int = 0
+
+
+class AdvisorNoteUpdate(BaseModel):
+    issue: str | None = None
+    recommendation: str | None = None
+    client_response: str | None = None
+    resolution_status: str | None = None
+
+
+class AdvisorNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    journal_entry_id: int
+    issue: str | None = None
+    recommendation: str | None = None
+    client_response: str | None = None
+    resolution_status: str
+    updated_at: datetime.datetime | None = None
+    created_at: datetime.datetime
+
+
+class MaterialityUpdate(BaseModel):
+    materiality: str | None = None  # clearly_trivial|immaterial|material|critical
+
+
+class AdjustmentImpact(BaseModel):
+    ni_impact: Decimal = Decimal("0")
+    ebitda_impact: Decimal = Decimal("0")
+    asset_impact: Decimal = Decimal("0")
+    liability_impact: Decimal = Decimal("0")
+    equity_impact: Decimal = Decimal("0")
+
+
+class AdjustmentListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    je_number: str
+    entry_date: datetime.date
+    entity_id: int
+    scenario_id: int
+    description: str
+    source: str
+    status: str
+    overlay_group: str | None = None
+    materiality: str | None = None
+    total_debit: Decimal = Decimal("0")
+    impact: AdjustmentImpact = AdjustmentImpact()
+    package_ids: list[int] = []
+    has_advisor_note: bool = False
+    advisor_resolution_status: str | None = None
+
+
+class ImpactPreviewRequest(BaseModel):
+    journal_entry_ids: list[int]
+
+
+class RollforwardRow(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    account_type: str
+    as_reported: Decimal
+    adjustments: Decimal
+    adjusted: Decimal

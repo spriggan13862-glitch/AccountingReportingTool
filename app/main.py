@@ -17,6 +17,7 @@ from app.api.routers import (
     accounting_periods,
     accounts,
     adjustment_bridge,
+    adjustment_workspace,
     auth,
     close_management,
     coa_import,
@@ -318,6 +319,7 @@ app.include_router(reporting_taxonomy.settings_router, prefix=API_PREFIX)
 app.include_router(coa_import.router, prefix=API_PREFIX)
 app.include_router(pdf_import.router, prefix=API_PREFIX)
 app.include_router(adjustment_bridge.router, prefix=API_PREFIX)
+app.include_router(adjustment_workspace.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
