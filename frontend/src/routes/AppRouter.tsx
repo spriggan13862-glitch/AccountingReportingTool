@@ -24,6 +24,7 @@ import { ReconciliationDetailPage } from '@/pages/ReconciliationDetailPage'
 import { ConsolidationsPage } from '@/pages/ConsolidationsPage'
 import { TrialBalancesPage } from '@/pages/TrialBalancesPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
+import { FinancialImpactWorkspacePage } from '@/pages/FinancialImpactWorkspacePage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
 import { ImportWizardPage } from '@/pages/ImportWizardPage'
@@ -110,7 +111,7 @@ export function AppRouter() {
 
           {/* ── FINANCIAL IMPACT ──────────────────────────────────────────── */}
           <Route path="financial-impact/trial-balance" element={<TrialBalancesPage />} />
-          <Route path="financial-impact/statements" element={<FinancialStatementsPage />} />
+          <Route path="financial-impact/statements" element={<FinancialImpactWorkspacePage />} />
           <Route path="financial-impact/builder" element={<FSBuilderPage />} />
           <Route path="financial-impact/comparatives" element={<ComparativeFinancialsPage />} />
           <Route path="financial-impact/variance" element={<VarianceAnalysisPage />} />
