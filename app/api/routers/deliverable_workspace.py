@@ -363,6 +363,92 @@ def delete_memo(
 
 
 # ---------------------------------------------------------------------------
+# Snapshots — immutable locked versions of packages
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel as _BaseModel
+
+class _SnapshotCreate(_BaseModel):
+    snapshot_name: str
+    entity_id: int | None = None
+    as_of_date: str | None = None
+    scenario_ids: list[int] | None = None
+    data_view: str = "adjusted"
+    notes: str | None = None
+    created_by: str | None = None
+
+
+class _SnapshotOut(_BaseModel):
+    id: int
+    package_id: int
+    snapshot_name: str
+    entity_id: int | None
+    as_of_date: str | None
+    scenario_ids: str | None
+    data_view: str
+    created_by: str | None
+    created_at: str
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+@router.post("/packages/{pkg_id}/snapshot", response_model=_SnapshotOut, status_code=201)
+def create_snapshot(
+    pkg_id: int,
+    body: _SnapshotCreate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Lock a deliverable package as an immutable snapshot."""
+    import json
+    from app.models.deliverable_snapshot import DeliverableSnapshot
+    import datetime as _dt
+
+    org_id = _org_from_user(user)
+    pkg = _pkg_or_404(db, pkg_id, org_id)
+
+    snap = DeliverableSnapshot(
+        package_id=pkg_id,
+        snapshot_name=body.snapshot_name,
+        entity_id=body.entity_id,
+        as_of_date=_dt.date.fromisoformat(body.as_of_date) if body.as_of_date else None,
+        scenario_ids=json.dumps(body.scenario_ids) if body.scenario_ids else None,
+        data_view=body.data_view,
+        created_by=body.created_by or getattr(user, "email", None),
+        notes=body.notes,
+    )
+    db.add(snap)
+
+    # Mark package as finalized when first snapshot is created
+    if pkg.status not in ("finalized", "archived"):
+        pkg.status = "finalized"
+
+    db.commit()
+    db.refresh(snap)
+    return snap
+
+
+@router.get("/packages/{pkg_id}/snapshots", response_model=list[_SnapshotOut])
+def list_snapshots(
+    pkg_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """List all snapshots for a deliverable package."""
+    from app.models.deliverable_snapshot import DeliverableSnapshot
+
+    org_id = _org_from_user(user)
+    _pkg_or_404(db, pkg_id, org_id)
+    return (
+        db.query(DeliverableSnapshot)
+        .filter(DeliverableSnapshot.package_id == pkg_id)
+        .order_by(DeliverableSnapshot.created_at.desc())
+        .all()
+    )
+
+
+# ---------------------------------------------------------------------------
 # Export stubs — generate Excel workbooks
 # ---------------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -27,6 +27,7 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useOrg } from '@/providers/OrgProvider'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { ImportBatch, ImportBatchStatus } from '@/types'
@@ -57,8 +58,13 @@ export function ImportCenterPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
   const [showFormatHelp, setShowFormatHelp] = useState(false)
+  const { activeEntity } = useWorkspace()
 
   const [entityId, setEntityId] = useState<number | ''>('')
+
+  useEffect(() => {
+    if (activeEntity?.id) setEntityId(activeEntity.id)
+  }, [activeEntity?.id])
   const [asOfDate, setAsOfDate] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -292,6 +298,11 @@ export function ImportCenterPage() {
     })
   }, [registryEntries, tbBatches, pdfBatches, coaBatches])
 
+  const totalUnmappedAccounts = useMemo(
+    () => (tbBatches ?? []).reduce((sum, tb) => sum + (tb.unmapped_row_count ?? 0), 0),
+    [tbBatches],
+  )
+
   // Statistics summaries calculations
   const stats = useMemo(() => {
     const awaitingMapping = mappedEntries.filter(e => e.lifecycleStatus === 'Awaiting Mapping').length
@@ -459,6 +470,28 @@ export function ImportCenterPage() {
       }
     >
       {apiError && <ErrorBanner message={apiError} />}
+
+      {totalUnmappedAccounts > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3 shadow-sm" data-testid="unmapped-banner">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">
+              {totalUnmappedAccounts} account{totalUnmappedAccounts !== 1 ? 's' : ''} unmapped — complete mapping before posting
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Unmapped accounts will not appear in financial statements.{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/client-data/chart-of-accounts')}
+                className="underline font-semibold hover:text-amber-900 cursor-pointer"
+              >
+                Go to Chart of Accounts
+              </button>{' '}
+              to assign each account to a financial statement line.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Entity-first enforcement */}
       {entityCount === 0 && (

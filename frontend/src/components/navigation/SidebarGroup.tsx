@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { SidebarItem } from './SidebarItem'
@@ -21,9 +21,10 @@ interface SidebarGroupProps {
   group: NavGroupConfig
   sidebarCollapsed: boolean
   isAdmin: boolean
+  badgeCounts?: Record<string, number>
 }
 
-export function SidebarGroup({ group, sidebarCollapsed, isAdmin }: SidebarGroupProps) {
+export function SidebarGroup({ group, sidebarCollapsed, isAdmin, badgeCounts }: SidebarGroupProps) {
   const { pathname } = useLocation()
   const active = groupIsActive(group, pathname)
 
@@ -79,7 +80,41 @@ export function SidebarGroup({ group, sidebarCollapsed, isAdmin }: SidebarGroupP
     )
   }
 
-  // Expanded sidebar: show group header + collapsible items
+  // Single-item group: render the item directly as a top-level link (no expand/collapse)
+  if (visibleItems.length === 1 && visibleItems[0].to) {
+    const item = visibleItems[0]
+    const count = item.badgeKey ? (badgeCounts?.[item.badgeKey] ?? 0) : 0
+    return (
+      <div data-testid={`nav-group-${group.id}`}>
+        <NavLink
+          to={item.to}
+          end={item.end}
+          data-testid={`nav-item-${item.id}`}
+          className={({ isActive }) =>
+            cn(
+              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors',
+              isActive
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
+            )
+          }
+        >
+          <GroupIcon className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 text-left">{group.label}</span>
+          {count > 0 && (
+            <span
+              className="shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold px-1"
+              data-testid={`count-badge-${item.id}`}
+            >
+              {count > 99 ? '99+' : count}
+            </span>
+          )}
+        </NavLink>
+      </div>
+    )
+  }
+
+  // Multi-item group: collapsible header + items
   return (
     <div data-testid={`nav-group-${group.id}`}>
       <button
@@ -110,6 +145,7 @@ export function SidebarGroup({ group, sidebarCollapsed, isAdmin }: SidebarGroupP
               key={item.id}
               item={item}
               sidebarCollapsed={false}
+              badgeCount={item.badgeKey ? (badgeCounts?.[item.badgeKey] ?? 0) : 0}
             />
           ))}
         </div>

@@ -60,6 +60,7 @@ import { AdvisoryAnalysisPage } from '@/pages/AdvisoryAnalysisPage'
 import { ReviewWorkspacePage } from '@/pages/ReviewWorkspacePage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { AdjustmentsPage } from '@/pages/AdjustmentsPage'
+import { SetupPage } from '@/pages/SetupPage'
 
 function AuthedShell() {
   return (
@@ -81,8 +82,8 @@ export function AppRouter() {
         <Route element={<AuthedShell />}>
 
           {/* ── ROOT ──────────────────────────────────────────────────────── */}
-          <Route index element={<Navigate replace to="/engagement/dashboard" />} />
-          <Route path="dashboard" element={<Navigate replace to="/engagement/dashboard" />} />
+          <Route index element={<Navigate replace to="/overview" />} />
+          <Route path="dashboard" element={<Navigate replace to="/overview" />} />
 
           {/* ── OVERVIEW ──────────────────────────────────────────────────── */}
           <Route path="overview" element={<OverviewPage />} />
@@ -91,7 +92,7 @@ export function AppRouter() {
           <Route path="engagement/dashboard" element={<DashboardPage />} />
           <Route path="engagement/getting-started" element={<PlaceholderPage title="Getting Started" />} />
           <Route path="engagement/status" element={<PlaceholderPage title="Engagement Status" />} />
-          <Route path="engagement" element={<Navigate replace to="/engagement/dashboard" />} />
+          <Route path="engagement" element={<Navigate replace to="/overview" />} />
 
           {/* ── CLIENT DATA ───────────────────────────────────────────────── */}
           <Route path="client-data/imports" element={<ImportCenterPage />} />
@@ -111,19 +112,19 @@ export function AppRouter() {
           <Route path="client-data/periods" element={<PeriodsPage />} />
           <Route path="client-data" element={<ClientDataPage />} />
 
-          {/* ── ADJUSTMENT WORKBENCH ──────────────────────────────────────── */}
-          <Route path="workbench/adjustment-bridge" element={<AdjustmentBridgePage />} />
-          <Route path="workbench/adjustment-workspace" element={<AdjustmentWorkspacePage />} />
+          {/* ── ADJUSTMENT WORKBENCH (legacy — redirect to /adjustments) ─────── */}
+          <Route path="workbench/adjustment-bridge" element={<Navigate replace to="/adjustments" />} />
+          <Route path="workbench/adjustment-workspace" element={<Navigate replace to="/adjustments" />} />
           <Route path="workbench/journal-entries/new" element={<JournalEntryCreatePage />} />
           <Route path="workbench/journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="workbench/journal-entries" element={<JournalEntriesPage />} />
-          <Route path="workbench/draft-preview" element={<DraftPreviewPage />} />
-          <Route path="workbench/scenarios" element={<ScenarioManagerPage />} />
-          <Route path="workbench/advisory-analysis" element={<AdvisoryAnalysisPage />} />
+          <Route path="workbench/draft-preview" element={<Navigate replace to="/adjustments" />} />
+          <Route path="workbench/scenarios" element={<Navigate replace to="/adjustments" />} />
+          <Route path="workbench/advisory-analysis" element={<Navigate replace to="/adjustments" />} />
           <Route path="workbench/eliminations" element={<ConsolidationsPage />} />
           <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />
           <Route path="workbench/accruals" element={<PlaceholderPage title="Accruals" />} />
-          <Route path="workbench" element={<Navigate replace to="/workbench/adjustment-workspace" />} />
+          <Route path="workbench" element={<Navigate replace to="/adjustments" />} />
 
           {/* ── REVIEW WORKSPACE ──────────────────────────────────────────── */}
           <Route path="review" element={<ReviewWorkspacePage />} />
@@ -131,23 +132,23 @@ export function AppRouter() {
           {/* ── ADJUSTMENTS WORKSPACE ─────────────────────────────────────── */}
           <Route path="adjustments" element={<AdjustmentsPage />} />
 
-          {/* ── ACCOUNTING INTELLIGENCE ──────────────────────────────────── */}
-          <Route path="intelligence/quarterly-review" element={<QuarterlyReviewPage />} />
+          {/* ── ACCOUNTING INTELLIGENCE (legacy — redirect to /review) ──────── */}
+          <Route path="intelligence/quarterly-review" element={<Navigate replace to="/review" />} />
           <Route path="intelligence/issue-repository" element={<IssueRepositoryPage />} />
-          <Route path="intelligence/financial-diagnostics" element={<FinancialDiagnosticsPage />} />
+          <Route path="intelligence/financial-diagnostics" element={<Navigate replace to="/review" />} />
           <Route path="intelligence/rule-harness" element={<RuleHarnessPage />} />
-          <Route path="intelligence" element={<Navigate replace to="/intelligence/quarterly-review" />} />
+          <Route path="intelligence" element={<Navigate replace to="/review" />} />
 
-          {/* ── FINANCIAL IMPACT ──────────────────────────────────────────── */}
+          {/* ── FINANCIAL IMPACT (legacy — redirect to /review) ───────────── */}
           <Route path="financial-impact/trial-balance" element={<TrialBalancesPage />} />
-          <Route path="financial-impact/statements" element={<FinancialImpactWorkspacePage />} />
+          <Route path="financial-impact/statements" element={<Navigate replace to="/review" />} />
           <Route path="financial-impact/builder" element={<FSBuilderPage />} />
           <Route path="financial-impact/comparatives" element={<ComparativeFinancialsPage />} />
-          <Route path="financial-impact/variance" element={<VarianceAnalysisPage />} />
+          <Route path="financial-impact/variance" element={<Navigate replace to="/review" />} />
           <Route path="financial-impact/balance-sheet" element={<PlaceholderPage title="Balance Sheet" />} />
           <Route path="financial-impact/income-statement" element={<PlaceholderPage title="Income Statement" />} />
           <Route path="financial-impact/cash-flow" element={<PlaceholderPage title="Cash Flow" />} />
-          <Route path="financial-impact" element={<Navigate replace to="/financial-impact/statements" />} />
+          <Route path="financial-impact" element={<Navigate replace to="/review" />} />
 
           {/* ── DELIVERABLES ──────────────────────────────────────────────── */}
           <Route path="deliverables/workspace" element={<DeliverablesWorkspacePage />} />
@@ -167,11 +168,11 @@ export function AppRouter() {
           <Route path="deliverables" element={<Navigate replace to="/deliverables/close-package" />} />
 
           {/* ── SETUP ─────────────────────────────────────────────────────── */}
-          <Route path="setup/reporting-views" element={<ReportingViewWorkspacePage />} />
-          <Route path="setup/settings" element={<ReportingSettingsPage />} />
+          <Route path="setup" element={<SetupPage />} />
+          <Route path="setup/reporting-views" element={<Navigate replace to="/setup?tab=reporting-views" />} />
+          <Route path="setup/settings" element={<Navigate replace to="/setup?tab=settings" />} />
           <Route path="setup/help" element={<HelpCenterPage />} />
-          <Route path="setup/taxonomy-admin" element={<TaxonomyAdminPage />} />
-          <Route path="setup" element={<Navigate replace to="/setup/settings" />} />
+          <Route path="setup/taxonomy-admin" element={<Navigate replace to="/setup?tab=taxonomy" />} />
 
           {/* ── ADMIN (role-gated) ────────────────────────────────────────── */}
           <Route

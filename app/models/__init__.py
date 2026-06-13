@@ -46,6 +46,7 @@ from app.models.view_account_override import ViewAccountOverride
 from app.models.detected_issue import DetectedIssue, IssueDetectionThreshold
 from app.models.issue_template import IssueTemplate
 from app.models.journal_entry_event import JournalEntryEvent
+from app.models.deliverable_snapshot import DeliverableSnapshot
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -67,6 +68,7 @@ __all__ = [
     "ViewAccountOverride",
     "DetectedIssue", "IssueDetectionThreshold", "IssueTemplate",
     "JournalEntryEvent",
+    "DeliverableSnapshot",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]

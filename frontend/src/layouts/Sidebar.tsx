@@ -1,15 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/utils/cn'
 import { NAV_GROUPS } from '@/config/nav'
 import { SidebarGroup } from '@/components/navigation/SidebarGroup'
 import { useAuth } from '@/providers/AuthProvider'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
+import { useOrg } from '@/providers/OrgProvider'
+import { tbImportApi } from '@/api/tbImport'
+import { journalEntriesApi } from '@/api/journalEntries'
 
 const LS_KEY = 'sidebar_collapsed'
 
 export function Sidebar() {
   const { user } = useAuth()
   const isAdmin = user?.is_superuser ?? false
+  const { org } = useOrg()
+  const orgId = org?.id ?? 0
+  const { activeEntity } = useWorkspace()
 
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(LS_KEY) === 'true' } catch { return false }
@@ -18,6 +26,25 @@ export function Sidebar() {
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, String(collapsed)) } catch { /* ignore */ }
   }, [collapsed])
+
+  const { data: tbBatches } = useQuery({
+    queryKey: ['sidebar-tb-batches', orgId],
+    queryFn: () => tbImportApi.listBatches(orgId),
+    enabled: !!orgId,
+    staleTime: 60000,
+  })
+
+  const { data: draftJEs } = useQuery({
+    queryKey: ['sidebar-draft-je', activeEntity?.id],
+    queryFn: () => journalEntriesApi.list({ status: 'draft', entity_id: activeEntity?.id }),
+    enabled: !!activeEntity?.id,
+    staleTime: 60000,
+  })
+
+  const badgeCounts = useMemo<Record<string, number>>(() => ({
+    'import-unmapped': (tbBatches ?? []).filter((b) => (b.unmapped_row_count ?? 0) > 0).length,
+    'draft-je': draftJEs?.length ?? 0,
+  }), [tbBatches, draftJEs])
 
   return (
     <aside
@@ -71,6 +98,7 @@ export function Sidebar() {
               group={group}
               sidebarCollapsed={collapsed}
               isAdmin={isAdmin}
+              badgeCounts={badgeCounts}
             />
           </div>
         ))}

@@ -4,7 +4,7 @@ import {
   Package, Plus, Copy, Trash2, Edit2, Check, X, ChevronRight,
   FileText, BarChart2, FolderOpen, Link, Download, Archive,
   AlertCircle, CheckCircle, Clock, Users, RefreshCw, Search,
-  FilePlus, MessageSquare, Eye,
+  FilePlus, MessageSquare, Eye, Lock,
 } from 'lucide-react'
 
 import { deliverableWorkspaceApi } from '@/api/deliverableWorkspace'
@@ -270,7 +270,7 @@ function PackageDetail({
   onStatusChange: (status: string) => void
 }) {
   const qc = useQueryClient()
-  const [activeSection, setActiveSection] = useState<'contents' | 'memos'>('contents')
+  const [activeSection, setActiveSection] = useState<'contents' | 'memos' | 'snapshots'>('contents')
   const [addingItem, setAddingItem] = useState(false)
   const [newItemType, setNewItemType] = useState('journal_entry')
   const [newItemRef, setNewItemRef] = useState('')
@@ -279,6 +279,9 @@ function PackageDetail({
   const [newMemoIssue, setNewMemoIssue] = useState('')
   const [newMemoObs, setNewMemoObs] = useState('')
   const [newMemoRec, setNewMemoRec] = useState('')
+  const [showSnapshotForm, setShowSnapshotForm] = useState(false)
+  const [snapshotName, setSnapshotName] = useState('')
+  const [snapshotNotes, setSnapshotNotes] = useState('')
 
   const { data: items } = useQuery({
     queryKey: ['dw-items', pkg.id],
@@ -329,6 +332,26 @@ function PackageDetail({
     },
   })
 
+  const { data: snapshots } = useQuery({
+    queryKey: ['dw-snapshots', pkg.id],
+    queryFn: () => deliverableWorkspaceApi.listSnapshots(pkg.id),
+  })
+
+  const createSnapshot = useMutation({
+    mutationFn: () =>
+      deliverableWorkspaceApi.createSnapshot(pkg.id, {
+        snapshot_name: snapshotName,
+        notes: snapshotNotes || undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['dw-snapshots', pkg.id] })
+      qc.invalidateQueries({ queryKey: ['dw-packages'] })
+      setShowSnapshotForm(false)
+      setSnapshotName('')
+      setSnapshotNotes('')
+    },
+  })
+
   const tc = typeConfig(pkg.package_type)
 
   return (
@@ -360,6 +383,16 @@ function PackageDetail({
           {PACKAGE_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <span className="ml-auto text-[10px] text-slate-400">{fmtDate(pkg.created_at)}</span>
+        {pkg.status !== 'finalized' && (
+          <button
+            data-testid="lock-snapshot-btn"
+            onClick={() => { setActiveSection('snapshots'); setShowSnapshotForm(true) }}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+          >
+            <Lock className="w-3 h-3" />
+            Lock
+          </button>
+        )}
       </div>
 
       {/* Section toggle */}
@@ -367,6 +400,7 @@ function PackageDetail({
         {([
           { id: 'contents', label: `Contents (${items?.length ?? 0})`, icon: FolderOpen },
           { id: 'memos', label: `Memos (${memos?.length ?? 0})`, icon: MessageSquare },
+          { id: 'snapshots', label: `Snapshots (${snapshots?.length ?? 0})`, icon: Lock },
         ] as const).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -546,6 +580,72 @@ function PackageDetail({
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add Memo
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Snapshots section */}
+        {activeSection === 'snapshots' && (
+          <div className="space-y-3" data-testid="snapshots-section">
+            <p className="text-[11px] text-slate-400">
+              Snapshots lock the current state of this package as an immutable reference. The package is marked <strong>Finalized</strong> when the first snapshot is created.
+            </p>
+
+            {snapshots?.map((snap) => (
+              <div key={snap.id} className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 space-y-1" data-testid={`snapshot-${snap.id}`}>
+                <div className="flex items-center gap-2">
+                  <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span className="text-xs font-semibold text-emerald-800 truncate flex-1">{snap.snapshot_name}</span>
+                  <span className="text-[10px] text-emerald-600 shrink-0">{new Date(snap.created_at).toLocaleDateString()}</span>
+                </div>
+                {snap.notes && <p className="text-[11px] text-slate-500 pl-5">{snap.notes}</p>}
+                {snap.created_by && <p className="text-[10px] text-slate-400 pl-5">By {snap.created_by}</p>}
+              </div>
+            ))}
+
+            {(snapshots?.length === 0 && !showSnapshotForm) && (
+              <p className="text-xs text-slate-400 text-center py-4">No snapshots yet.</p>
+            )}
+
+            {showSnapshotForm ? (
+              <div className="space-y-2 bg-slate-50 border border-slate-200 rounded-lg p-3" data-testid="snapshot-form">
+                <input
+                  data-testid="snapshot-name-input"
+                  className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  placeholder="Snapshot name (e.g. Q1 2024 Final)"
+                  value={snapshotName}
+                  onChange={(e) => setSnapshotName(e.target.value)}
+                />
+                <textarea
+                  data-testid="snapshot-notes-input"
+                  rows={2}
+                  className="w-full text-xs border border-slate-200 rounded px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  placeholder="Notes (optional)"
+                  value={snapshotNotes}
+                  onChange={(e) => setSnapshotNotes(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button
+                    data-testid="snapshot-save-btn"
+                    onClick={() => createSnapshot.mutate()}
+                    disabled={!snapshotName.trim() || createSnapshot.isPending}
+                    className="px-3 py-1 text-xs font-semibold bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    <Lock className="w-3 h-3" />
+                    {createSnapshot.isPending ? 'Locking…' : 'Lock as Snapshot'}
+                  </button>
+                  <button data-testid="snapshot-cancel-btn" onClick={() => setShowSnapshotForm(false)} className="px-3 py-1 text-xs border rounded hover:bg-slate-50">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                data-testid="add-snapshot-btn"
+                onClick={() => setShowSnapshotForm(true)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-emerald-700 font-semibold border border-dashed border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Lock as Snapshot
               </button>
             )}
           </div>

@@ -75,6 +75,28 @@ export interface DeliverableMemoUpdate {
   status?: string | null
 }
 
+export interface DeliverableSnapshot {
+  id: number
+  package_id: number
+  snapshot_name: string
+  entity_id: number | null
+  as_of_date: string | null
+  scenario_ids: string | null
+  data_view: string
+  created_by: string | null
+  created_at: string
+  notes: string | null
+}
+
+export interface DeliverableSnapshotCreate {
+  snapshot_name: string
+  entity_id?: number
+  as_of_date?: string
+  scenario_ids?: number[]
+  data_view?: string
+  notes?: string
+}
+
 const BASE = '/deliverable-workspace'
 
 export const deliverableWorkspaceApi = {
@@ -124,4 +146,10 @@ export const deliverableWorkspaceApi = {
     const qs = entityId ? `?entity_id=${entityId}` : ''
     return `/api/v1/deliverable-workspace/exports/adjustment-listing/excel${qs}`
   },
+
+  createSnapshot: (pkgId: number, body: DeliverableSnapshotCreate): Promise<DeliverableSnapshot> =>
+    api.post(`${BASE}/packages/${pkgId}/snapshot`, body).then((r) => r.data),
+
+  listSnapshots: (pkgId: number): Promise<DeliverableSnapshot[]> =>
+    api.get(`${BASE}/packages/${pkgId}/snapshots`).then((r) => r.data),
 }

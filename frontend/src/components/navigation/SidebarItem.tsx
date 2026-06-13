@@ -13,9 +13,10 @@ const BADGE_STYLES: Record<NavBadge, string> = {
 interface SidebarItemProps {
   item: NavItemConfig
   sidebarCollapsed: boolean
+  badgeCount?: number
 }
 
-export function SidebarItem({ item, sidebarCollapsed }: SidebarItemProps) {
+export function SidebarItem({ item, sidebarCollapsed, badgeCount }: SidebarItemProps) {
   const { label, to, icon: Icon, end, badge } = item
   const isPlaceholder = to === null
 
@@ -39,6 +40,14 @@ export function SidebarItem({ item, sidebarCollapsed }: SidebarItemProps) {
           data-testid={`badge-${item.id}`}
         >
           {badge}
+        </span>
+      )}
+      {!sidebarCollapsed && !!badgeCount && badgeCount > 0 && (
+        <span
+          className="ml-auto shrink-0 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold px-1"
+          data-testid={`count-badge-${item.id}`}
+        >
+          {badgeCount > 99 ? '99+' : badgeCount}
         </span>
       )}
     </>
