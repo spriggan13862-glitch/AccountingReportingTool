@@ -56,6 +56,7 @@ import { IssueRepositoryPage } from '@/pages/IssueRepositoryPage'
 import { FinancialDiagnosticsPage } from '@/pages/FinancialDiagnosticsPage'
 import { RuleHarnessPage } from '@/pages/RuleHarnessPage'
 import { ScenarioManagerPage } from '@/pages/ScenarioManagerPage'
+import { AdvisoryAnalysisPage } from '@/pages/AdvisoryAnalysisPage'
 
 function AuthedShell() {
   return (
@@ -112,6 +113,7 @@ export function AppRouter() {
           <Route path="workbench/journal-entries" element={<JournalEntriesPage />} />
           <Route path="workbench/draft-preview" element={<DraftPreviewPage />} />
           <Route path="workbench/scenarios" element={<ScenarioManagerPage />} />
+          <Route path="workbench/advisory-analysis" element={<AdvisoryAnalysisPage />} />
           <Route path="workbench/eliminations" element={<ConsolidationsPage />} />
           <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />
           <Route path="workbench/accruals" element={<PlaceholderPage title="Accruals" />} />

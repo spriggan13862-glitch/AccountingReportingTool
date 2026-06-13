@@ -70,6 +70,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { id: 'journal-entries', label: 'Journal Entries', to: '/workbench/journal-entries', icon: BookOpen },
       { id: 'draft-preview', label: 'Draft Preview', to: '/workbench/draft-preview', icon: Eye },
       { id: 'scenarios', label: 'Scenario Manager', to: '/workbench/scenarios', icon: GitCompare },
+      { id: 'advisory-analysis', label: 'Advisory Analysis', to: '/workbench/advisory-analysis', icon: BarChart2 },
     ],
   },
   {

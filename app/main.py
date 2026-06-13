@@ -19,6 +19,7 @@ from app.api.routers import (
     accounting_intelligence,
     adjustment_bridge,
     adjustment_workspace,
+    advisory_analysis,
     deliverable_workspace,
     auth,
     close_management,
@@ -323,6 +324,7 @@ app.include_router(pdf_import.router, prefix=API_PREFIX)
 app.include_router(accounting_intelligence.router, prefix=API_PREFIX)
 app.include_router(adjustment_bridge.router, prefix=API_PREFIX)
 app.include_router(adjustment_workspace.router, prefix=API_PREFIX)
+app.include_router(advisory_analysis.router, prefix=API_PREFIX)
 app.include_router(deliverable_workspace.router, prefix=API_PREFIX)
 
 

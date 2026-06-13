@@ -8,7 +8,7 @@ class AdjustmentPackage(Base):
     __tablename__ = "adjustment_packages"
     __table_args__ = (
         CheckConstraint(
-            "package_type IN ('audit','management','tax','qoe','seller','buyer')",
+            "package_type IN ('audit','management','tax','qoe','seller','buyer','sba','client_posting')",
             name="ck_pkg_type",
         ),
         CheckConstraint(
