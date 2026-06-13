@@ -84,9 +84,14 @@ export function OverviewPage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-6 max-w-5xl">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Overview</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Active engagement context and status</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Overview</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Active engagement context and status</p>
+        </div>
+        <span className="shrink-0 text-[10px] font-mono text-gray-400 bg-gray-100 border border-gray-200 rounded px-2 py-1 mt-1">
+          v5.0 · 556e59b
+        </span>
       </div>
 
       {/* Context cards */}
