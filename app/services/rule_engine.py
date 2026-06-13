@@ -101,14 +101,20 @@ def _float(metrics: dict[str, Any], key: str) -> float | None:
 
 def _cmp(actual: float, op: str, threshold: float) -> tuple[bool, float]:
     """Return (triggered, magnitude) for a simple comparison."""
-    if op in ("gt", "pct_change_gt", "spread_gt", "ratio_gt"):
+    if op in ("gt", "pct_change_gt", "yoy_gt", "spread_gt", "ratio_gt"):
         return actual > threshold, max(0.0, actual - threshold)
     if op in ("gte",):
         return actual >= threshold, max(0.0, actual - threshold)
-    if op in ("lt", "pct_change_lt", "spread_lt", "ratio_lt"):
+    if op in ("lt", "pct_change_lt", "yoy_lt", "spread_lt", "ratio_lt"):
         return actual < threshold, max(0.0, threshold - actual)
     if op in ("lte",):
         return actual <= threshold, max(0.0, threshold - actual)
+    if op == "eq":
+        triggered = abs(actual - threshold) < 1e-9
+        return triggered, 0.0
+    if op == "neq":
+        triggered = abs(actual - threshold) >= 1e-9
+        return triggered, abs(actual - threshold)
     return False, 0.0
 
 
@@ -139,8 +145,21 @@ def evaluate_condition(cond: dict, metrics: dict[str, Any]) -> ConditionResult:
 
     threshold = float(value) if value is not None else 0.0
 
+    # ── between ──────────────────────────────────────────────────────────────
+    if op == "between":
+        value2 = cond.get("value2")
+        if value2 is None:
+            return ConditionResult(triggered=False, explanation=f"{metric}: between requires value2")
+        actual_b = _float(metrics, metric)
+        if actual_b is None:
+            return ConditionResult(triggered=False, explanation=f"{metric} not provided")
+        triggered = threshold <= actual_b <= value2
+        mag = actual_b - threshold if triggered else None
+        return ConditionResult(triggered=triggered, magnitude=mag,
+                               explanation=f"{metric}={actual_b} BETWEEN {threshold} AND {value2}")
+
     # ── pct_change ───────────────────────────────────────────────────────────
-    if op in ("pct_change_gt", "pct_change_lt"):
+    if op in ("pct_change_gt", "pct_change_lt", "yoy_gt", "yoy_lt"):
         key = f"{metric}_pct_change"
         actual = _float(metrics, key)
         if actual is None:
@@ -237,6 +256,8 @@ def evaluate_all_rules(
     for tmpl in templates:
         rule = tmpl.get("detection_logic_json")
         if rule is None:
+            continue
+        if rule.get("enabled") is False:
             continue
 
         triggered, magnitude, explanation, crs = evaluate_rule(rule, metrics)

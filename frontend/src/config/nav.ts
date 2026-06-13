@@ -26,6 +26,7 @@ import {
   Layers,
   AlertTriangle,
   CalendarCheck,
+  FlaskConical,
 } from 'lucide-react'
 
 export type NavBadge = 'Setup' | 'Draft' | 'Beta' | 'Coming Soon' | 'Admin'
@@ -79,6 +80,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { id: 'quarterly-review', label: 'Quarterly Review', to: '/intelligence/quarterly-review', icon: CalendarCheck },
       { id: 'issue-repository', label: 'Issue Repository', to: '/intelligence/issue-repository', icon: AlertTriangle },
       { id: 'financial-diagnostics', label: 'Financial Diagnostics', to: '/intelligence/financial-diagnostics', icon: Activity },
+      { id: 'rule-harness', label: 'Rule Harness', to: '/intelligence/rule-harness', icon: FlaskConical },
     ],
   },
   {

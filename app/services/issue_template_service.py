@@ -7,6 +7,11 @@ from app.schemas.detection_rule import DetectionRule
 
 
 def _row_to_dict(row: IssueTemplate) -> dict:
+    rule_json = json.loads(row.detection_logic_json) if row.detection_logic_json else None
+    execution_status = (
+        "executable" if rule_json and rule_json.get("enabled") is not False
+        else "manual_review_only"
+    )
     return {
         "id": row.id,
         "code": row.code,
@@ -18,10 +23,8 @@ def _row_to_dict(row: IssueTemplate) -> dict:
         "risk_level": row.risk_level,
         "materiality_note": row.materiality_note,
         "detection_logic": row.detection_logic,
-        "detection_logic_json": (
-            json.loads(row.detection_logic_json)
-            if row.detection_logic_json else None
-        ),
+        "detection_logic_json": rule_json,
+        "execution_status": execution_status,
         "potential_causes": json.loads(row.potential_causes_json or "[]"),
         "suggested_procedures": json.loads(row.suggested_procedures_json or "[]"),
         "suggested_ajes": json.loads(row.suggested_ajes_json or "[]"),

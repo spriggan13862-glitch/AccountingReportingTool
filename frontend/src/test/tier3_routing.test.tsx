@@ -115,9 +115,9 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(group.items.length).toBe(4)
   })
 
-  it('intelligence group has 3 items', () => {
+  it('intelligence group has 4 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'intelligence')!
-    expect(group.items.length).toBe(3)
+    expect(group.items.length).toBe(4)
   })
 
   it('quarterly-review points to /intelligence/quarterly-review', () => {
@@ -130,6 +130,10 @@ describe('nav.ts — Sprint 3.2 route values', () => {
 
   it('financial-diagnostics points to /intelligence/financial-diagnostics', () => {
     expect(item('financial-diagnostics')?.to).toBe('/intelligence/financial-diagnostics')
+  })
+
+  it('rule-harness points to /intelligence/rule-harness', () => {
+    expect(item('rule-harness')?.to).toBe('/intelligence/rule-harness')
   })
 
   it('deliverables group has 1 item', () => {

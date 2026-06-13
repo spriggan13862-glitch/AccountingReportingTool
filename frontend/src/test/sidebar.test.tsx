@@ -214,9 +214,9 @@ describe('Sidebar — Sprint 3.11', () => {
     expect(wb.items[3].id).toBe('draft-preview')
   })
 
-  it('intelligence group has 3 items', () => {
+  it('intelligence group has 4 items', () => {
     const g = NAV_GROUPS.find((g) => g.id === 'intelligence')!
-    expect(g.items.length).toBe(3)
+    expect(g.items.length).toBe(4)
   })
 
   it('financial-impact group has exactly 1 item', () => {
@@ -225,8 +225,8 @@ describe('Sidebar — Sprint 3.11', () => {
     expect(g.items[0].id).toBe('financial-impact')
   })
 
-  it('total nav item count is 20', () => {
+  it('total nav item count is 21', () => {
     const total = NAV_GROUPS.reduce((sum, g) => sum + g.items.length, 0)
-    expect(total).toBe(20)
+    expect(total).toBe(21)
   })
 })

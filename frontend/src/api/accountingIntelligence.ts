@@ -172,6 +172,7 @@ export async function upsertThreshold(params: {
 
 export type IssueRiskLevel = 'low' | 'moderate' | 'high' | 'critical'
 export type IssueType = 'financial_analytics' | 'balance_sheet' | 'audit' | 'qoe' | 'sba' | 'fraud' | 'disclosure' | 'presentation'
+export type ExecutionStatus = 'executable' | 'manual_review_only'
 
 export interface IssueTemplate {
   id: number
@@ -184,6 +185,8 @@ export interface IssueTemplate {
   risk_level: IssueRiskLevel
   materiality_note: string | null
   detection_logic: string | null
+  detection_logic_json: Record<string, unknown> | null
+  execution_status: ExecutionStatus
   potential_causes: string[]
   suggested_procedures: string[]
   suggested_ajes: string[]

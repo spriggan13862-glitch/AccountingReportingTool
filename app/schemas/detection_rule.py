@@ -1,5 +1,5 @@
 """
-Structured Detection Rule schema — Sprint 3.14
+Structured Detection Rule schema — Sprint 3.14 / 3.13C
 
 Every IssueTemplate carries two detection logic representations:
   detection_logic      → human-readable text (existing field)
@@ -22,11 +22,18 @@ compound    AND/OR of DetectionCondition list
 Operators
 ---------
 gt gte lt lte              — absolute comparison
+eq neq                     — equality check (exact match within float epsilon)
+between                    — value <= metric <= value2 (requires value2)
 pct_change_gt pct_change_lt — period-over-period % change vs prior period
 spread_gt spread_lt        — pct_change(metric) − pct_change(comparison_metric)
 ratio_gt ratio_lt          — metric / comparison_metric vs value
 exists absent              — qualitative existence check (no value required)
-declining increasing       — trend over N periods (value = N periods)
+declining increasing       — trend direction check
+
+Period comparison operators
+---------------------------
+yoy_gt yoy_lt  — year-over-year % change (alias for pct_change_gt/lt,
+                  semantic annotation for annual comparisons)
 
 Units
 -----
@@ -45,7 +52,10 @@ RULE_TYPES = frozenset({
 
 OPERATORS = frozenset({
     "gt", "lt", "gte", "lte",
+    "eq", "neq",
+    "between",
     "pct_change_gt", "pct_change_lt",
+    "yoy_gt", "yoy_lt",
     "spread_gt", "spread_lt",
     "ratio_gt", "ratio_lt",
     "exists", "absent",
@@ -63,6 +73,7 @@ class DetectionCondition(BaseModel):
     metric: str
     operator: str
     value: float | None = None
+    value2: float | None = None        # upper bound for 'between' operator
     unit: str
     comparison_metric: str | None = None
     description: str | None = None
@@ -91,11 +102,13 @@ class DetectionRule(BaseModel):
     """
     version: Literal["1.0"] = "1.0"
     rule_type: str
+    enabled: bool = True               # set False to disable without deleting
 
     # ── simple rule fields ────────────────────────────────────────────────
     metric: str | None = None
     operator: str | None = None
     value: float | None = None
+    value2: float | None = None        # upper bound for 'between' operator
     unit: str | None = None
     comparison_metric: str | None = None   # spread / ratio second operand
 
@@ -141,6 +154,8 @@ class DetectionRule(BaseModel):
                 raise ValueError(f"rule_type '{self.rule_type}' requires value")
             if not self.unit:
                 raise ValueError(f"rule_type '{self.rule_type}' requires unit")
+            if self.operator == "between" and self.value2 is None:
+                raise ValueError("operator 'between' requires value2 (upper bound)")
         return self
 
     def to_dict(self) -> dict:

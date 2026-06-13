@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { QuarterlyReviewPage } from '@/pages/QuarterlyReviewPage'
 import { IssueRepositoryPage } from '@/pages/IssueRepositoryPage'
 import { FinancialDiagnosticsPage } from '@/pages/FinancialDiagnosticsPage'
+import { RuleHarnessPage } from '@/pages/RuleHarnessPage'
 
 vi.mock('@/components/ui/PageLayout', () => ({
   PageLayout: ({ children, title }: { children: React.ReactNode; title?: string }) => (
@@ -138,5 +139,41 @@ describe('FinancialDiagnosticsPage', () => {
   it('shows the diagnostics notice when no data loaded', () => {
     wrap(<FinancialDiagnosticsPage />)
     expect(screen.getByTestId('diagnostics-notice')).toBeInTheDocument()
+  })
+})
+
+// ── Rule Harness ─────────────────────────────────────────────────────────────
+
+describe('RuleHarnessPage', () => {
+  it('renders the page heading', () => {
+    wrap(<RuleHarnessPage />)
+    expect(screen.getByRole('heading', { name: 'Rule Execution Harness' })).toBeInTheDocument()
+  })
+
+  it('renders the main content area', () => {
+    wrap(<RuleHarnessPage />)
+    expect(screen.getByTestId('rule-harness-page')).toBeInTheDocument()
+  })
+
+  it('renders the metrics input textarea with example content', () => {
+    wrap(<RuleHarnessPage />)
+    const input = screen.getByTestId('metrics-input')
+    expect(input).toBeInTheDocument()
+    expect((input as HTMLTextAreaElement).value).toContain('current_ratio')
+  })
+
+  it('renders the Run Detection Rules button', () => {
+    wrap(<RuleHarnessPage />)
+    expect(screen.getByTestId('run-harness-btn')).toBeInTheDocument()
+  })
+
+  it('shows empty state before first run', () => {
+    wrap(<RuleHarnessPage />)
+    expect(screen.getByTestId('harness-empty')).toBeInTheDocument()
+  })
+
+  it('renders catalog toggle button', () => {
+    wrap(<RuleHarnessPage />)
+    expect(screen.getByTestId('catalog-toggle')).toBeInTheDocument()
   })
 })

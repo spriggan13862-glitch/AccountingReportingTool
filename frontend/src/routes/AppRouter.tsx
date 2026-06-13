@@ -54,6 +54,7 @@ import { ClientDataPage } from '@/pages/ClientDataPage'
 import { QuarterlyReviewPage } from '@/pages/QuarterlyReviewPage'
 import { IssueRepositoryPage } from '@/pages/IssueRepositoryPage'
 import { FinancialDiagnosticsPage } from '@/pages/FinancialDiagnosticsPage'
+import { RuleHarnessPage } from '@/pages/RuleHarnessPage'
 
 function AuthedShell() {
   return (
@@ -118,6 +119,7 @@ export function AppRouter() {
           <Route path="intelligence/quarterly-review" element={<QuarterlyReviewPage />} />
           <Route path="intelligence/issue-repository" element={<IssueRepositoryPage />} />
           <Route path="intelligence/financial-diagnostics" element={<FinancialDiagnosticsPage />} />
+          <Route path="intelligence/rule-harness" element={<RuleHarnessPage />} />
           <Route path="intelligence" element={<Navigate replace to="/intelligence/quarterly-review" />} />
 
           {/* ── FINANCIAL IMPACT ──────────────────────────────────────────── */}

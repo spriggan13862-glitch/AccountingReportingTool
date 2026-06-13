@@ -552,3 +552,149 @@ class TestEvaluateAllRulesIntegration:
         results = evaluate_all_rules({"ccc": 100.0})
         triggered = {r.code for r in results if r.triggered}
         assert "WC_007" in triggered
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.13C — new operators: eq, neq, between
+# ---------------------------------------------------------------------------
+
+class TestNewOperators:
+    def _cond(self, metric, op, value, value2=None, unit="ratio"):
+        c = {"metric": metric, "operator": op, "value": value, "unit": unit}
+        if value2 is not None:
+            c["value2"] = value2
+        return c
+
+    def test_eq_triggered(self):
+        r = evaluate_condition(self._cond("effective_tax_rate", "eq", 0.0, unit="percent"),
+                               {"effective_tax_rate": 0.0})
+        assert r.triggered is True
+
+    def test_eq_not_triggered(self):
+        r = evaluate_condition(self._cond("effective_tax_rate", "eq", 0.0, unit="percent"),
+                               {"effective_tax_rate": 25.0})
+        assert r.triggered is False
+
+    def test_neq_triggered(self):
+        r = evaluate_condition(self._cond("effective_tax_rate", "neq", 25.0, unit="percent"),
+                               {"effective_tax_rate": 0.0})
+        assert r.triggered is True
+        assert r.magnitude == pytest.approx(25.0)
+
+    def test_neq_not_triggered_when_equal(self):
+        r = evaluate_condition(self._cond("effective_tax_rate", "neq", 25.0, unit="percent"),
+                               {"effective_tax_rate": 25.0})
+        assert r.triggered is False
+
+    def test_between_triggered_inside_range(self):
+        r = evaluate_condition(self._cond("effective_tax_rate", "between", 0.0, value2=15.0, unit="percent"),
+                               {"effective_tax_rate": 8.0})
+        assert r.triggered is True
+        assert r.magnitude == pytest.approx(8.0)
+
+    def test_between_triggered_at_lower_bound(self):
+        r = evaluate_condition(self._cond("current_ratio", "between", 0.5, value2=1.0, unit="ratio"),
+                               {"current_ratio": 0.5})
+        assert r.triggered is True
+
+    def test_between_triggered_at_upper_bound(self):
+        r = evaluate_condition(self._cond("current_ratio", "between", 0.5, value2=1.0, unit="ratio"),
+                               {"current_ratio": 1.0})
+        assert r.triggered is True
+
+    def test_between_not_triggered_below_range(self):
+        r = evaluate_condition(self._cond("current_ratio", "between", 0.5, value2=1.0, unit="ratio"),
+                               {"current_ratio": 0.3})
+        assert r.triggered is False
+
+    def test_between_not_triggered_above_range(self):
+        r = evaluate_condition(self._cond("current_ratio", "between", 0.5, value2=1.0, unit="ratio"),
+                               {"current_ratio": 1.5})
+        assert r.triggered is False
+
+    def test_between_missing_value2_not_triggered(self):
+        r = evaluate_condition({"metric": "current_ratio", "operator": "between",
+                                "value": 0.5, "unit": "ratio"},
+                               {"current_ratio": 0.7})
+        assert r.triggered is False
+
+    def test_between_missing_metric_not_triggered(self):
+        r = evaluate_condition(self._cond("current_ratio", "between", 0.5, value2=1.0, unit="ratio"), {})
+        assert r.triggered is False
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.13C — enabled flag
+# ---------------------------------------------------------------------------
+
+class TestEnabledFlag:
+    def _template(self, code, rule):
+        return {"code": code, "name": code, "category": "test", "risk_level": "moderate",
+                "detection_logic_json": rule}
+
+    def test_enabled_true_is_evaluated(self):
+        rule = {"version": "1.0", "rule_type": "threshold", "metric": "current_ratio",
+                "operator": "lt", "value": 1.0, "unit": "ratio", "enabled": True}
+        results = evaluate_all_rules({"current_ratio": 0.8}, templates=[self._template("T1", rule)])
+        assert len(results) == 1
+        assert results[0].triggered is True
+
+    def test_enabled_false_is_skipped(self):
+        rule = {"version": "1.0", "rule_type": "threshold", "metric": "current_ratio",
+                "operator": "lt", "value": 1.0, "unit": "ratio", "enabled": False}
+        results = evaluate_all_rules({"current_ratio": 0.8}, templates=[self._template("T2", rule)])
+        assert len(results) == 0
+
+    def test_missing_enabled_defaults_to_evaluated(self):
+        rule = {"version": "1.0", "rule_type": "threshold", "metric": "current_ratio",
+                "operator": "lt", "value": 1.0, "unit": "ratio"}
+        results = evaluate_all_rules({"current_ratio": 0.8}, templates=[self._template("T3", rule)])
+        assert len(results) == 1
+
+    def test_enabled_false_mixed_with_true(self):
+        enabled_rule = {"version": "1.0", "rule_type": "threshold", "metric": "dso",
+                        "operator": "gt", "value": 45.0, "unit": "days", "enabled": True}
+        disabled_rule = {"version": "1.0", "rule_type": "threshold", "metric": "dso",
+                         "operator": "gt", "value": 30.0, "unit": "days", "enabled": False}
+        templates = [self._template("E1", enabled_rule), self._template("E2", disabled_rule)]
+        results = evaluate_all_rules({"dso": 50.0}, templates=templates)
+        assert len(results) == 1
+        assert results[0].code == "E1"
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.13C — execution_status derived field
+# ---------------------------------------------------------------------------
+
+class TestExecutionStatus:
+    def test_execution_status_present_in_schema(self):
+        from app.schemas.detection_rule import DetectionRule
+        rule = DetectionRule(
+            rule_type="threshold", metric="current_ratio",
+            operator="lt", value=1.0, unit="ratio",
+        )
+        assert rule.enabled is True
+
+    def test_detection_rule_schema_has_eq_neq_between(self):
+        from app.schemas.detection_rule import OPERATORS
+        assert "eq" in OPERATORS
+        assert "neq" in OPERATORS
+        assert "between" in OPERATORS
+
+    def test_detection_rule_between_requires_value2(self):
+        from app.schemas.detection_rule import DetectionRule
+        import pytest
+        with pytest.raises(Exception):
+            DetectionRule(
+                rule_type="threshold", metric="effective_tax_rate",
+                operator="between", value=0.0, unit="percent",
+                # value2 missing — should fail
+            )
+
+    def test_detection_rule_between_valid_with_value2(self):
+        from app.schemas.detection_rule import DetectionRule
+        rule = DetectionRule(
+            rule_type="threshold", metric="effective_tax_rate",
+            operator="between", value=0.0, value2=15.0, unit="percent",
+        )
+        assert rule.value2 == 15.0
