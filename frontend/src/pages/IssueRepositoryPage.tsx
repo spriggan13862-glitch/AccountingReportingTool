@@ -240,7 +240,7 @@ function TemplateDetail({ template }: { template: IssueTemplate }) {
   )
 }
 
-export default function IssueRepositoryPage() {
+export function IssueRepositoryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<IssueTemplate | null>(null)
   const [search, setSearch] = useState('')
