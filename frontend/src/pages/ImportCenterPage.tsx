@@ -659,6 +659,22 @@ export function ImportCenterPage() {
           </div>
         </div>
 
+        {/* QuickBooks Card */}
+        <div
+          onClick={() => navigate('/quickbooks/connect')}
+          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-green-600 hover:bg-green-50/10 transition-all duration-200"
+        >
+          <div className="mx-auto mb-3 rounded-lg bg-green-50 p-2.5 w-11 h-11 flex items-center justify-center text-green-700">
+            <ArrowRight className="w-5 h-5" />
+          </div>
+          <h3 className="text-xs font-semibold text-gray-800">QuickBooks</h3>
+          <p className="text-[10px] text-gray-400 mt-1">Online OAuth or Desktop IIF/Excel</p>
+          <div className="flex gap-1 justify-center mt-2">
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-green-50 text-green-700 uppercase border border-green-200">QBO</span>
+            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">IIF</span>
+          </div>
+        </div>
+
         {/* Generic Tabular Card */}
         <div
           onClick={() => navigate('/import/new')}

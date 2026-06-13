@@ -47,6 +47,7 @@ from app.api.routers import (
     shadow_close,
     comparative_reports,
     review,
+    quickbooks,
 )
 from app.services.period_governance_service import (
     PeriodLockedError,
@@ -328,6 +329,7 @@ app.include_router(adjustment_bridge.router, prefix=API_PREFIX)
 app.include_router(adjustment_workspace.router, prefix=API_PREFIX)
 app.include_router(advisory_analysis.router, prefix=API_PREFIX)
 app.include_router(deliverable_workspace.router, prefix=API_PREFIX)
+app.include_router(quickbooks.router, prefix=API_PREFIX)
 
 
 # ---------------------------------------------------------------------------
