@@ -350,3 +350,101 @@ export async function importRepository(
   const res = await api.post(`/accounting-intelligence/repository/import?${p}`, { templates })
   return res.data
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 3.14 — Quarterly Review Generator
+// ---------------------------------------------------------------------------
+
+export interface FinancialChangeRow {
+  metric: string
+  label: string
+  current_value: string
+  prior_value: string
+  change_amount: string
+  change_pct: string | null
+  direction: 'increase' | 'decrease' | 'unchanged'
+  significant: boolean
+}
+
+export interface ReviewIssue {
+  issue_code: string
+  category: string
+  severity: IssueSeverity
+  title: string
+  description: string
+  detection_trigger: string | null
+  supporting_metrics: Record<string, string>
+  management_questions: string[]
+  procedure_items: string[]
+  aje_items: string[]
+  status: IssueStatus
+}
+
+export interface ProcedureGroup {
+  issue_code: string
+  title: string
+  severity: IssueSeverity
+  items: string[]
+}
+
+export interface QuarterlyReviewReport {
+  metadata: {
+    entity_id: number
+    entity_name: string
+    current_period: { id: number; name: string; start: string; end: string }
+    comparison_period: { id: number; name: string; start: string; end: string }
+    generated_at: string
+    materiality_threshold: string
+  }
+  executive_summary: {
+    overall_risk: 'elevated' | 'moderate' | 'low'
+    total_issues: number
+    issues_by_severity: Record<string, number>
+    key_findings: string[]
+    narrative: string
+  }
+  key_financial_changes: FinancialChangeRow[]
+  significant_variances: FinancialChangeRow[]
+  triggered_issues: ReviewIssue[]
+  management_questions: string[]
+  suggested_procedures: ProcedureGroup[]
+  suggested_adjustments: ProcedureGroup[]
+  advisor_notes: string
+}
+
+export async function generateQuarterlyReview(params: {
+  entity_id: number
+  current_period_id: number
+  comparison_period_id: number
+  scenario_id?: number | null
+  materiality_threshold?: number
+}): Promise<QuarterlyReviewReport> {
+  const p = new URLSearchParams({
+    entity_id: String(params.entity_id),
+    current_period_id: String(params.current_period_id),
+    comparison_period_id: String(params.comparison_period_id),
+    materiality_threshold: String(params.materiality_threshold ?? 1000),
+  })
+  if (params.scenario_id != null) p.set('scenario_id', String(params.scenario_id))
+  const res = await api.post(`/accounting-intelligence/quarterly-review?${p}`)
+  return res.data
+}
+
+export function downloadQuarterlyReview(
+  format: 'markdown' | 'excel',
+  params: {
+    entity_id: number
+    current_period_id: number
+    comparison_period_id: number
+    materiality_threshold?: number
+  },
+): void {
+  const p = new URLSearchParams({
+    format,
+    entity_id: String(params.entity_id),
+    current_period_id: String(params.current_period_id),
+    comparison_period_id: String(params.comparison_period_id),
+    materiality_threshold: String(params.materiality_threshold ?? 1000),
+  })
+  window.open(`/api/accounting-intelligence/quarterly-review/export?${p}`)
+}

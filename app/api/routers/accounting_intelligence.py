@@ -1,15 +1,16 @@
-"""Accounting Intelligence Engine API — Sprint 3.12 / 3.13 / 3.13A"""
+"""Accounting Intelligence Engine API — Sprint 3.12 / 3.13 / 3.13A / 3.14"""
 
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import accounting_intelligence_service as svc
 from app.services import issue_template_service as tmpl_svc
 from app.services import rule_engine
+from app.services import quarterly_review_service as qr_svc
 
 router = APIRouter(prefix="/accounting-intelligence", tags=["accounting-intelligence"])
 
@@ -349,3 +350,82 @@ def import_repository(
     if not isinstance(templates, list):
         raise HTTPException(status_code=422, detail="body.templates must be a list")
     return tmpl_svc.import_templates(db, templates, organization_id=organization_id)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.14 — Quarterly Review Generator endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/quarterly-review")
+def generate_quarterly_review(
+    entity_id: int = Query(...),
+    current_period_id: int = Query(...),
+    comparison_period_id: int = Query(...),
+    scenario_id: int | None = Query(default=None),
+    materiality_threshold: float = Query(default=1000.0),
+    db: Session = Depends(get_db),
+):
+    """
+    Generate a complete 8-section quarterly review report.
+
+    Runs the detection engine, computes diagnostics for both periods,
+    enriches issues with repository template content, and assembles
+    the full structured report. No AI generation — deterministic templates.
+    """
+    try:
+        report = qr_svc.generate_review(
+            db,
+            entity_id=entity_id,
+            current_period_id=current_period_id,
+            comparison_period_id=comparison_period_id,
+            scenario_id=scenario_id,
+            materiality_threshold=Decimal(str(materiality_threshold)),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return report
+
+
+@router.get("/quarterly-review/export")
+def export_quarterly_review(
+    format: str = Query(..., description="markdown|excel"),
+    entity_id: int = Query(...),
+    current_period_id: int = Query(...),
+    comparison_period_id: int = Query(...),
+    scenario_id: int | None = Query(default=None),
+    materiality_threshold: float = Query(default=1000.0),
+    db: Session = Depends(get_db),
+):
+    """Download a quarterly review as Markdown or Excel."""
+    valid_formats = {"markdown", "excel"}
+    if format not in valid_formats:
+        raise HTTPException(status_code=422, detail=f"format must be one of {valid_formats}")
+    try:
+        report = qr_svc.generate_review(
+            db,
+            entity_id=entity_id,
+            current_period_id=current_period_id,
+            comparison_period_id=comparison_period_id,
+            scenario_id=scenario_id,
+            materiality_threshold=Decimal(str(materiality_threshold)),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    entity_slug = report["metadata"]["entity_name"].replace(" ", "_").lower()
+    period_slug = report["metadata"]["current_period"]["name"].replace(" ", "_").lower()
+
+    if format == "markdown":
+        md = qr_svc.export_markdown(report)
+        return Response(
+            content=md.encode("utf-8"),
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="qr_{entity_slug}_{period_slug}.md"'},
+        )
+
+    xlsx_bytes = qr_svc.export_excel(report)
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="qr_{entity_slug}_{period_slug}.xlsx"'},
+    )

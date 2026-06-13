@@ -100,6 +100,11 @@ describe('QuarterlyReviewPage', () => {
     wrap(<QuarterlyReviewPage />)
     expect(screen.getByTestId('configure-state')).toBeInTheDocument()
   })
+
+  it('renders the materiality threshold input', () => {
+    wrap(<QuarterlyReviewPage />)
+    expect(screen.getByTestId('materiality-input')).toBeInTheDocument()
+  })
 })
 
 // ── Issue Repository ────────────────────────────────────────────────────────
