@@ -773,9 +773,4 @@ Branch: `tier-2-pdf-quality-and-import-polish`
 | PDF-P7 | P7 | PDF Import / Entity Flow | No regression test verifying `entity_id` propagates from picker through upload call into backend. | Added `describe('Tier1.9: P7 — entity_id flows into upload')` — 2 tests confirm `pdfImportApi.upload` receives correct `entity_id` when entity is selected (or null when blank). | Resolved |
 | PDF-P8 | P8 | PDF Import / Conflict Column | Conflict badge shown for all lines with taxonomy_conflict=true, including already-resolved lines. | Badge now only renders when `taxonomy_conflict=true AND conflict_resolution=null`. Resolved conflicts show green "resolved" label (title shows resolution type). `data-testid="conflict-resolved-N"`. | Resolved |
 | PDF-P9 | P9 | PDF Import / Tab Help Text | "Extracted Lines" and "Audit Trail" tabs had no inline explanation of their purpose; users confused about what was editable. | Added help text below tab bar: "Extracted Lines — editable working copy…" and "Audit Trail — immutable record…". `data-testid="tab-lines-help"` and `data-testid="tab-audit-help"`. | Resolved |
-
-**Open (deferred):**
-
-| ID | Priority | Issue |
-|---|---|---|
-| PDF-P10 | P10 | Entity mismatch warning — deferred (no global workspace entity context exists) |
+| PDF-P10 | P10 | PDF Import / Entity Name Mismatch | No warning when the entity name extracted from the PDF (e.g. company header on page 1) differs from the entity selected in the UI. Mismatched uploads were applied silently. | `entityNamesSimilar()` fuzzy-match helper (normalizes legal suffixes, strips punctuation, checks substring or 2-word overlap). `useQuery(['entities-list'])` (cached) resolves selected entity name. Amber `entity-mismatch-warning` banner shown in preview header when `source_entity_name` is present and doesn't match the selected entity. 2 tests added to `tier1_10.test.tsx`. | Resolved |
