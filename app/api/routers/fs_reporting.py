@@ -45,22 +45,34 @@ def _issue_out(issue) -> ValidationIssueOut:
     )
 
 
+AS_REPORTED_SOURCES = ["tb_import", "pdf_import", "opening_balance"]
+
+
+def _source_filter_for(data_view: str) -> list[str] | None:
+    if data_view == "as_reported":
+        return AS_REPORTED_SOURCES
+    return None  # "adjusted" and "pro_forma" include all posted sources
+
+
 @router.get("/balance-sheet")
 def balance_sheet(
     entity_id: int,
     as_of_date: datetime.date,
     scenario_ids: list[int] = Query(default=[]),
     include_warnings: bool = False,
+    data_view: str = Query(default="adjusted"),
     db: Session = Depends(get_db),
 ):
     """
     Return balance sheet line items for an entity.
+    data_view: 'as_reported' | 'adjusted' (default) | 'pro_forma'
     Set include_warnings=true to receive unmapped-account warnings alongside the data.
     """
-    rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids, statement="BS")
+    sf = _source_filter_for(data_view)
+    rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids, statement="BS", source_filter=sf)
     response: dict = {"data": [_fs_out(r) for r in rows]}
     if include_warnings:
-        warn_result = validate_fs_mappings(db, entity_id, as_of_date, scenario_ids)
+        warn_result = validate_fs_mappings(db, entity_id, as_of_date, scenario_ids, source_filter=sf)
         response["warnings"] = [_issue_out(w) for w in warn_result.warnings]
     return response
 
@@ -71,16 +83,19 @@ def income_statement(
     as_of_date: datetime.date,
     scenario_ids: list[int] = Query(default=[]),
     include_warnings: bool = False,
+    data_view: str = Query(default="adjusted"),
     db: Session = Depends(get_db),
 ):
     """
     Return income statement line items for an entity.
+    data_view: 'as_reported' | 'adjusted' (default) | 'pro_forma'
     Set include_warnings=true to receive unmapped-account warnings alongside the data.
     """
-    rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids, statement="IS")
+    sf = _source_filter_for(data_view)
+    rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids, statement="IS", source_filter=sf)
     response: dict = {"data": [_fs_out(r) for r in rows]}
     if include_warnings:
-        warn_result = validate_fs_mappings(db, entity_id, as_of_date, scenario_ids)
+        warn_result = validate_fs_mappings(db, entity_id, as_of_date, scenario_ids, source_filter=sf)
         response["warnings"] = [_issue_out(w) for w in warn_result.warnings]
     return response
 
@@ -117,17 +132,19 @@ def taxonomy_balance_sheet(
     as_of_date: datetime.date,
     scenario_ids: list[int] = Query(default=[]),
     view_id: int | None = Query(default=None),
+    data_view: str = Query(default="adjusted"),
     db: Session = Depends(get_db),
 ):
     """Balance sheet using ReportingTaxonomyLine hierarchy (COA-import path).
     Optionally apply per-view account overrides when view_id is provided.
+    data_view: 'as_reported' | 'adjusted' (default) | 'pro_forma'
     Auto-seeds taxonomy if the table is empty (new installation or fresh test DB).
     """
     get_or_seed(db)
     overrides = _load_view_overrides(db, view_id) if view_id else None
     rows = get_taxonomy_fs_statement(
         db, entity_id, as_of_date, scenario_ids, statement_type="balance_sheet",
-        view_overrides=overrides,
+        view_overrides=overrides, source_filter=_source_filter_for(data_view),
     )
     return [_tax_fs_out(r) for r in rows]
 
@@ -138,17 +155,19 @@ def taxonomy_income_statement(
     as_of_date: datetime.date,
     scenario_ids: list[int] = Query(default=[]),
     view_id: int | None = Query(default=None),
+    data_view: str = Query(default="adjusted"),
     db: Session = Depends(get_db),
 ):
     """Income statement using ReportingTaxonomyLine hierarchy (COA-import path).
     Optionally apply per-view account overrides when view_id is provided.
+    data_view: 'as_reported' | 'adjusted' (default) | 'pro_forma'
     Auto-seeds taxonomy if the table is empty (new installation or fresh test DB).
     """
     get_or_seed(db)
     overrides = _load_view_overrides(db, view_id) if view_id else None
     rows = get_taxonomy_fs_statement(
         db, entity_id, as_of_date, scenario_ids, statement_type="income_statement",
-        view_overrides=overrides,
+        view_overrides=overrides, source_filter=_source_filter_for(data_view),
     )
     return [_tax_fs_out(r) for r in rows]
 

@@ -182,7 +182,19 @@ export function JournalEntryCreatePage() {
         {/* Line item grid */}
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Lines</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Lines</h2>
+              {!isBalanced && totalDebit + totalCredit > 0 && (
+                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700" data-testid="balance-chip">
+                  {(totalDebit - totalCredit).toFixed(2)} diff
+                </span>
+              )}
+              {isBalanced && totalDebit > 0 && (
+                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                  ✓ Balanced
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={addLine}

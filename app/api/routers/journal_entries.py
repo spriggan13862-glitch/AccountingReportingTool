@@ -143,6 +143,7 @@ def list_jes(
     status: str | None = None,
     start_date: datetime.date | None = None,
     end_date: datetime.date | None = None,
+    account_id: int | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -158,6 +159,11 @@ def list_jes(
         q = q.filter(JournalEntry.entry_date >= start_date)
     if end_date is not None:
         q = q.filter(JournalEntry.entry_date <= end_date)
+    if account_id is not None:
+        q = q.filter(JournalEntry.id.in_(
+            db.query(JournalEntryLine.journal_entry_id)
+            .filter(JournalEntryLine.account_id == account_id)
+        ))
     q = q.order_by(JournalEntry.entry_date.desc(), JournalEntry.id.desc())
     total = q.count()
     items = q.offset((page - 1) * page_size).limit(page_size).all()

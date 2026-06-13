@@ -62,6 +62,7 @@ def get_fs_statement(
     statement: str | None = None,
     re_account_id: int | None = None,
     fiscal_year_start: datetime.date | None = None,
+    source_filter: Sequence[str] | None = None,
 ) -> list[FsLineBalance]:
     """
     Returns FS line balances sorted by sort_order.
@@ -77,8 +78,11 @@ def get_fs_statement(
     fiscal_year_start
         Start of the current fiscal year for the YTD net-income calculation.
         Defaults to January 1 of as_of_date's year.
+    source_filter
+        When provided, restrict to JEs whose source is in the list.
+        e.g. ['tb_import','pdf_import','opening_balance'] for As Reported view.
     """
-    tb_rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids)
+    tb_rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids, source_filter=source_filter)
     return build_fs_from_tb_rows(
         db,
         tb_by_account_id={r.account_id: r for r in tb_rows},
@@ -163,6 +167,7 @@ def validate_fs_mappings(
     entity_id: int,
     as_of_date: datetime.date,
     scenario_ids: Sequence[int],
+    source_filter: Sequence[str] | None = None,
 ) -> ValidationResult:
     """
     Returns a ValidationResult with WARNING issues for every account that has
@@ -170,7 +175,7 @@ def validate_fs_mappings(
     These accounts are silently excluded from FS output and should be mapped.
     """
     result = ValidationResult()
-    for row in find_unmapped_accounts(db, entity_id, as_of_date, scenario_ids):
+    for row in find_unmapped_accounts(db, entity_id, as_of_date, scenario_ids, source_filter=source_filter):
         if row.net_debit != Decimal("0"):
             result.warning(
                 code="FS_UNMAPPED_BALANCE",
@@ -194,12 +199,13 @@ def find_unmapped_accounts(
     entity_id: int,
     as_of_date: datetime.date,
     scenario_ids: Sequence[int],
+    source_filter: Sequence[str] | None = None,
 ) -> list[TrialBalanceRow]:
     """
     Returns trial balance rows for accounts that have posted activity through
     as_of_date but carry no effective FS line mapping on that date.
     """
-    tb_rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids)
+    tb_rows = get_trial_balance(db, entity_id, as_of_date, scenario_ids, source_filter=source_filter)
     mapped_account_ids = set(_effective_mappings(db, entity_id, as_of_date).keys())
     return [r for r in tb_rows if r.account_id not in mapped_account_ids]
 

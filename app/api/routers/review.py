@@ -1,0 +1,168 @@
+import datetime
+from decimal import Decimal
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_db
+from app.api.schemas import FsLineOut
+from app.services.fs_reporting_service import (
+    FsLineBalance,
+    find_unmapped_accounts,
+    get_fs_statement,
+)
+
+router = APIRouter(prefix="/review", tags=["review"])
+
+AS_REPORTED_SOURCES = ["tb_import", "pdf_import", "opening_balance"]
+
+
+def _source_filter_for(data_view: str) -> list[str] | None:
+    if data_view == "as_reported":
+        return AS_REPORTED_SOURCES
+    return None
+
+
+def _fs_out(row: FsLineBalance) -> FsLineOut:
+    return FsLineOut(
+        line_id=row.line_id,
+        code=row.code,
+        name=row.name,
+        statement=row.statement,
+        section=row.section,
+        sort_order=row.sort_order,
+        parent_line_id=row.parent_line_id,
+        is_subtotal=row.is_subtotal,
+        sign_flip=row.sign_flip,
+        own_balance=row.own_balance,
+        total_balance=row.total_balance,
+        display_balance=row.display_balance,
+    )
+
+
+class VarianceRow(BaseModel):
+    code: str
+    name: str
+    statement: str
+    current_balance: float
+    prior_balance: float
+    amount_delta: float
+    pct_delta: float | None
+    flag: bool  # True when |pct_delta| > 5%
+
+
+class CheckResult(BaseModel):
+    name: str
+    passed: bool
+    detail: str
+
+
+class ReviewStatementsResponse(BaseModel):
+    current: list[FsLineOut]
+    prior: list[FsLineOut]
+    variance: list[VarianceRow]
+    checks: list[CheckResult]
+
+
+def _bs_balance_check(rows: list[FsLineBalance]) -> CheckResult:
+    """A = L + E: total assets net_debit equals total liabilities+equity net_debit."""
+    assets = Decimal("0")
+    liabilities_equity = Decimal("0")
+    for row in rows:
+        if row.statement != "BS" or row.parent_line_id is not None:
+            continue
+        # Top-level BS lines: assets vs liabilities/equity distinguished by sign_flip
+        # Assets have sign_flip=False (debit-normal); L+E have sign_flip=True
+        if not row.sign_flip:
+            assets += row.total_balance
+        else:
+            liabilities_equity += row.total_balance
+    diff = abs(assets + liabilities_equity)
+    passed = diff < Decimal("0.01")
+    return CheckResult(
+        name="Balance Sheet balances (A = L + E)",
+        passed=passed,
+        detail=f"Assets: {float(assets):.2f}, L+E: {float(-liabilities_equity):.2f}, diff: {float(diff):.2f}",
+    )
+
+
+def _tb_balance_check(rows: list[FsLineBalance]) -> CheckResult:
+    """Sum of all net_debits across all accounts should be near zero (Dr = Cr)."""
+    total = sum(r.own_balance for r in rows)
+    passed = abs(total) < Decimal("0.01")
+    return CheckResult(
+        name="Trial balance debits = credits",
+        passed=passed,
+        detail=f"Net imbalance: {float(total):.2f}",
+    )
+
+
+@router.get("/statements", response_model=ReviewStatementsResponse)
+def review_statements(
+    entity_id: int,
+    as_of_date: datetime.date,
+    prior_as_of_date: datetime.date | None = None,
+    scenario_ids: list[int] = Query(default=[]),
+    data_view: str = Query(default="adjusted"),
+    statement: str | None = None,
+    include_checks: bool = True,
+    db: Session = Depends(get_db),
+):
+    """
+    Returns current and prior period FS rows, variance analysis, and automated checks.
+
+    prior_as_of_date defaults to the same calendar date one year prior.
+    """
+    sf = _source_filter_for(data_view)
+
+    if prior_as_of_date is None:
+        prior_as_of_date = as_of_date.replace(year=as_of_date.year - 1)
+
+    current_rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids, statement=statement, source_filter=sf)
+    prior_rows = get_fs_statement(db, entity_id, prior_as_of_date, scenario_ids, statement=statement, source_filter=sf)
+
+    prior_by_code: dict[str, FsLineBalance] = {r.code: r for r in prior_rows}
+
+    variance: list[VarianceRow] = []
+    for row in current_rows:
+        prior = prior_by_code.get(row.code)
+        prior_bal = float(prior.display_balance) if prior else 0.0
+        curr_bal = float(row.display_balance)
+        delta = curr_bal - prior_bal
+        if prior_bal != 0.0:
+            pct = delta / abs(prior_bal) * 100.0
+        else:
+            pct = None
+        flag = pct is not None and abs(pct) > 5.0
+        variance.append(VarianceRow(
+            code=row.code,
+            name=row.name,
+            statement=row.statement,
+            current_balance=curr_bal,
+            prior_balance=prior_bal,
+            amount_delta=delta,
+            pct_delta=pct,
+            flag=flag,
+        ))
+
+    checks: list[CheckResult] = []
+    if include_checks:
+        checks.append(_bs_balance_check(current_rows))
+        checks.append(_tb_balance_check(current_rows))
+
+        unmapped = find_unmapped_accounts(db, entity_id, as_of_date, scenario_ids, source_filter=sf)
+        unmapped_with_balance = [r for r in unmapped if r.net_debit != Decimal("0")]
+        checks.append(CheckResult(
+            name="All accounts mapped",
+            passed=len(unmapped_with_balance) == 0,
+            detail=f"{len(unmapped_with_balance)} account(s) with balances have no FS mapping",
+        ))
+
+    return ReviewStatementsResponse(
+        current=[_fs_out(r) for r in current_rows],
+        prior=[_fs_out(r) for r in prior_rows],
+        variance=variance,
+        checks=checks,
+    )

@@ -20,6 +20,7 @@ import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
@@ -74,14 +75,17 @@ def _check_period_not_closed(
             AccountingPeriod.entity_id == entity_id,
             AccountingPeriod.start_date <= entry_date,
             AccountingPeriod.end_date >= entry_date,
-            AccountingPeriod.is_closed == True,
+            or_(
+                AccountingPeriod.is_closed == True,  # noqa: E712
+                AccountingPeriod.period_status.in_(["soft_closed", "hard_closed"]),
+            ),
         )
         .first()
     )
     if closed:
-        status_label = getattr(closed, "period_status", "closed").replace("_", "-")
+        status_label = closed.period_status.replace("_", "-") if closed.period_status else "closed"
         raise ClosedPeriodError(
-            f"Cannot post into closed period '{closed.period_name}' "
+            f"Cannot post into period '{closed.period_name}' "
             f"({closed.start_date} – {closed.end_date}) [{status_label}]"
         )
 

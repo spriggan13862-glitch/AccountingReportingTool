@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -394,9 +394,19 @@ export function FinancialStatementsPage() {
   const { org } = useOrg()
   const orgId = org?.id ?? 0
   const queryClient = useQueryClient()
-  const { activeEntity } = useWorkspace()
+  const { activeEntity, activePeriod, activeScenarioIds, dataView } = useWorkspace()
 
+  // Derived from workspace context; local overrides allow per-page adjustments
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
+  const [asOfDate, setAsOfDate] = useState(
+    activePeriod?.end_date ?? new Date().toISOString().slice(0, 10),
+  )
+  const [scenarioId, setScenarioId] = useState<number | ''>(activeScenarioIds[0] ?? '')
+
+  // Sync local state when workspace context changes
+  useEffect(() => {
+    if (activeEntity?.id) setEntityId(activeEntity.id)
+  }, [activeEntity?.id])
 
   // Mutation for Initialize Reporting Taxonomy setup flow
   const initializeTaxonomyMutation = useMutation({
@@ -405,15 +415,13 @@ export function FinancialStatementsPage() {
       return reportingApi.inheritTaxonomy(entityId as number)
     },
     onSuccess: () => {
-      // Invalidate queries to refresh the financial statements workspace
       queryClient.invalidateQueries({ queryKey: ['accounts'] })
       queryClient.invalidateQueries({ queryKey: ['overlay-calculate'] })
       queryClient.invalidateQueries({ queryKey: ['taxonomy-bs'] })
       queryClient.invalidateQueries({ queryKey: ['taxonomy-is'] })
     }
   })
-  const [asOfDate, setAsOfDate] = useState(new Date().toISOString().slice(0, 10))
-  const [scenarioId, setScenarioId] = useState<number | ''>('')
+
   const [tab, setTab] = useState<Tab>('BS')
   const [drilldownCode, setDrilldownCode] = useState<string | null>(null)
 
@@ -493,14 +501,14 @@ export function FinancialStatementsPage() {
 
   // Fetch official statements from backend
   const { data: bsRows = [], isLoading: bsLoading } = useQuery({
-    queryKey: ['taxonomy-bs', entityId, asOfDate, scenarioIds],
-    queryFn: () => reportingApi.taxonomyBalanceSheet(entityId as number, asOfDate, scenarioIds),
+    queryKey: ['taxonomy-bs', entityId, asOfDate, scenarioIds, dataView],
+    queryFn: () => reportingApi.taxonomyBalanceSheet(entityId as number, asOfDate, scenarioIds, undefined, dataView),
     enabled: ready && (tab === 'BS' || tab === 'official_tb' || tab === 'draft_tb'),
   })
 
   const { data: isRows = [], isLoading: isLoading_ } = useQuery({
-    queryKey: ['taxonomy-is', entityId, asOfDate, scenarioIds],
-    queryFn: () => reportingApi.taxonomyIncomeStatement(entityId as number, asOfDate, scenarioIds),
+    queryKey: ['taxonomy-is', entityId, asOfDate, scenarioIds, dataView],
+    queryFn: () => reportingApi.taxonomyIncomeStatement(entityId as number, asOfDate, scenarioIds, undefined, dataView),
     enabled: ready && (tab === 'IS' || tab === 'official_tb' || tab === 'draft_tb'),
   })
 
@@ -949,7 +957,7 @@ export function FinancialStatementsPage() {
               { label: 'Accounts mapped', value: (accounts?.length ?? 0) - unmappedAccountCount, total: accounts?.length ?? 0, ok: unmappedAccountCount === 0 },
               { label: 'Accounts unmapped', value: unmappedAccountCount, total: accounts?.length ?? 0, ok: unmappedAccountCount === 0, warn: true },
               { label: 'Taxonomy initialized', value: (taxonomyLines?.length ?? 0) > 0 ? 'Yes' : 'No', ok: (taxonomyLines?.length ?? 0) > 0 },
-              { label: 'JE balances', value: (journalEntries?.items?.length ?? 0) > 0 ? `${journalEntries?.items?.length ?? 0} entries` : 'None', ok: (journalEntries?.items?.length ?? 0) > 0 },
+              { label: 'JE balances', value: (journalEntries?.length ?? 0) > 0 ? `${journalEntries?.length ?? 0} entries` : 'None', ok: (journalEntries?.length ?? 0) > 0 },
               { label: 'As-of date', value: asOfDate, ok: !!asOfDate },
               { label: 'Scenario', value: scenarioId !== '' ? `#${scenarioId}` : 'All', ok: true },
             ].map((item) => (

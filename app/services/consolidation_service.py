@@ -110,6 +110,7 @@ def get_group_trial_balance(
     as_of_date: datetime.date,
     scenario_ids: Sequence[int],
     ownership_pcts: dict[int, Decimal] | None = None,
+    source_filter: Sequence[str] | None = None,
 ) -> list[TrialBalanceRow]:
     """
     Aggregates trial balance rows across a list of entities.
@@ -124,7 +125,7 @@ def get_group_trial_balance(
 
     for entity_id in entity_ids:
         scale = pcts.get(entity_id, Decimal("100")) / Decimal("100")
-        for row in get_trial_balance(db, entity_id, as_of_date, scenario_ids):
+        for row in get_trial_balance(db, entity_id, as_of_date, scenario_ids, source_filter=source_filter):
             aid = row.account_id
             debit_totals[aid]  = debit_totals.get(aid,  Decimal("0")) + row.total_debit  * scale
             credit_totals[aid] = credit_totals.get(aid, Decimal("0")) + row.total_credit * scale
@@ -140,6 +141,7 @@ def get_consolidated_trial_balance(
     as_of_date: datetime.date,
     operating_scenario_ids: Sequence[int],
     elim_scenario_ids: Sequence[int],
+    source_filter: Sequence[str] | None = None,
 ) -> list[TrialBalanceRow]:
     """
     Full consolidation via entity_group_members.
@@ -167,12 +169,12 @@ def get_consolidated_trial_balance(
     pcts = {eid: pct for eid, pct in members}
 
     operating_tb = get_group_trial_balance(
-        db, entity_ids, as_of_date, operating_scenario_ids, pcts
+        db, entity_ids, as_of_date, operating_scenario_ids, pcts, source_filter=source_filter
     )
 
     if elim_scenario_ids:
         elim_tb = get_group_trial_balance(
-            db, [consolidation_entity_id], as_of_date, elim_scenario_ids
+            db, [consolidation_entity_id], as_of_date, elim_scenario_ids, source_filter=source_filter
         )
         return _merge_tb_lists(operating_tb, elim_tb)
 

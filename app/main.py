@@ -46,6 +46,7 @@ from app.api.routers import (
     period_governance,
     shadow_close,
     comparative_reports,
+    review,
 )
 from app.services.period_governance_service import (
     PeriodLockedError,
@@ -315,6 +316,7 @@ app.include_router(close_management.router, prefix=API_PREFIX)
 app.include_router(period_governance.router, prefix=API_PREFIX)
 app.include_router(shadow_close.router, prefix=API_PREFIX)
 app.include_router(comparative_reports.router, prefix=API_PREFIX)
+app.include_router(review.router, prefix=API_PREFIX)
 app.include_router(scenarios.router, prefix=API_PREFIX)
 app.include_router(reporting_taxonomy.router, prefix=API_PREFIX)
 app.include_router(reporting_taxonomy.views_router, prefix=API_PREFIX)

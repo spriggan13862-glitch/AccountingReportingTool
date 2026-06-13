@@ -57,6 +57,8 @@ import { FinancialDiagnosticsPage } from '@/pages/FinancialDiagnosticsPage'
 import { RuleHarnessPage } from '@/pages/RuleHarnessPage'
 import { ScenarioManagerPage } from '@/pages/ScenarioManagerPage'
 import { AdvisoryAnalysisPage } from '@/pages/AdvisoryAnalysisPage'
+import { ReviewWorkspacePage } from '@/pages/ReviewWorkspacePage'
+import { OverviewPage } from '@/pages/OverviewPage'
 
 function AuthedShell() {
   return (
@@ -80,6 +82,9 @@ export function AppRouter() {
           {/* ── ROOT ──────────────────────────────────────────────────────── */}
           <Route index element={<Navigate replace to="/engagement/dashboard" />} />
           <Route path="dashboard" element={<Navigate replace to="/engagement/dashboard" />} />
+
+          {/* ── OVERVIEW ──────────────────────────────────────────────────── */}
+          <Route path="overview" element={<OverviewPage />} />
 
           {/* ── ENGAGEMENT OVERVIEW ───────────────────────────────────────── */}
           <Route path="engagement/dashboard" element={<DashboardPage />} />
@@ -118,6 +123,9 @@ export function AppRouter() {
           <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />
           <Route path="workbench/accruals" element={<PlaceholderPage title="Accruals" />} />
           <Route path="workbench" element={<Navigate replace to="/workbench/adjustment-workspace" />} />
+
+          {/* ── REVIEW WORKSPACE ──────────────────────────────────────────── */}
+          <Route path="review" element={<ReviewWorkspacePage />} />
 
           {/* ── ACCOUNTING INTELLIGENCE ──────────────────────────────────── */}
           <Route path="intelligence/quarterly-review" element={<QuarterlyReviewPage />} />

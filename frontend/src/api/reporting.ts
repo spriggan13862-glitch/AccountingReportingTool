@@ -24,18 +24,18 @@ export const reportingApi = {
       })
       .then((r) => r.data),
 
-  taxonomyBalanceSheet: (entityId: number, asOfDate: string, scenarioIds: number[] = [], viewId?: number) =>
+  taxonomyBalanceSheet: (entityId: number, asOfDate: string, scenarioIds: number[] = [], viewId?: number, dataView?: string) =>
     api
       .get<TaxonomyFsLine[]>('/financial-statements/taxonomy/balance-sheet', {
-        params: { entity_id: entityId, as_of_date: asOfDate, scenario_ids: scenarioIds, ...(viewId ? { view_id: viewId } : {}) },
+        params: { entity_id: entityId, as_of_date: asOfDate, scenario_ids: scenarioIds, ...(viewId ? { view_id: viewId } : {}), ...(dataView ? { data_view: dataView } : {}) },
         paramsSerializer: serializeArrayParams,
       })
       .then((r) => r.data),
 
-  taxonomyIncomeStatement: (entityId: number, asOfDate: string, scenarioIds: number[] = [], viewId?: number) =>
+  taxonomyIncomeStatement: (entityId: number, asOfDate: string, scenarioIds: number[] = [], viewId?: number, dataView?: string) =>
     api
       .get<TaxonomyFsLine[]>('/financial-statements/taxonomy/income-statement', {
-        params: { entity_id: entityId, as_of_date: asOfDate, scenario_ids: scenarioIds, ...(viewId ? { view_id: viewId } : {}) },
+        params: { entity_id: entityId, as_of_date: asOfDate, scenario_ids: scenarioIds, ...(viewId ? { view_id: viewId } : {}), ...(dataView ? { data_view: dataView } : {}) },
         paramsSerializer: serializeArrayParams,
       })
       .then((r) => r.data),

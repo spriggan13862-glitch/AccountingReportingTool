@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   CalendarCheck,
   FlaskConical,
+  Search,
 } from 'lucide-react'
 
 export type NavBadge = 'Setup' | 'Draft' | 'Beta' | 'Coming Soon' | 'Admin'
@@ -51,12 +52,22 @@ export interface NavGroupConfig {
 
 export const NAV_GROUPS: NavGroupConfig[] = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
+    id: 'overview',
+    label: 'Overview',
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
-      { id: 'dashboard', label: 'Dashboard', to: '/engagement/dashboard', icon: LayoutDashboard, end: true },
+      { id: 'overview', label: 'Overview', to: '/overview', icon: LayoutDashboard, end: true },
+      { id: 'dashboard', label: 'Dashboard (Legacy)', to: '/engagement/dashboard', icon: LayoutDashboard, end: true },
+    ],
+  },
+  {
+    id: 'review',
+    label: 'Review',
+    icon: Search,
+    defaultOpen: true,
+    items: [
+      { id: 'review', label: 'Review Workspace', to: '/review', icon: Search },
     ],
   },
   {

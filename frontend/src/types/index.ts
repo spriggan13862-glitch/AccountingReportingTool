@@ -671,6 +671,21 @@ export interface EquityStatementResult {
   total_closing: string
 }
 
+export interface FsLine {
+  line_id: number
+  code: string
+  name: string
+  statement: string
+  section: string | null
+  sort_order: number
+  parent_line_id: number | null
+  is_subtotal: boolean
+  sign_flip: boolean
+  own_balance: string
+  total_balance: string
+  display_balance: string
+}
+
 export interface FsValidationResult {
   is_balanced: boolean
   bs_difference: string

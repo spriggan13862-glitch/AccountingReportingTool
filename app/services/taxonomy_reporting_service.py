@@ -145,6 +145,7 @@ def get_taxonomy_fs_statement(
     scenario_ids: Sequence[int],
     statement_type: str,            # "balance_sheet" or "income_statement"
     view_overrides: dict[int, int] | None = None,  # account_id → taxonomy_line_id
+    source_filter: Sequence[str] | None = None,
 ) -> list[TaxonomyFsRow]:
     """
     Build FS output using ReportingTaxonomyLine + Account.reporting_taxonomy_line_id.
@@ -188,7 +189,7 @@ def get_taxonomy_fs_statement(
     accounts_by_id: dict[int, Account] = {a.id: a for a in entity_accounts}
 
     # Get trial balance
-    tb_rows = get_trial_balance(db, entity_id, as_of_date, list(scenario_ids))
+    tb_rows = get_trial_balance(db, entity_id, as_of_date, list(scenario_ids), source_filter=source_filter)
     tb_by_account_id = {r.account_id: r for r in tb_rows}
 
     # Accumulate own_balance per taxonomy line using inherited resolution

@@ -12,8 +12,19 @@ import {
   WorkspaceBody,
 } from '@/components/workspace'
 
+const defaultWorkspace = {
+  activeEntity: null,
+  setActiveEntity: vi.fn(),
+  activePeriod: null,
+  setActivePeriod: vi.fn(),
+  activeScenarioIds: [] as number[],
+  setActiveScenarioIds: vi.fn(),
+  dataView: 'adjusted' as const,
+  setDataView: vi.fn(),
+}
+
 vi.mock('@/providers/WorkspaceProvider', () => ({
-  useWorkspace: vi.fn(() => ({ activeEntity: null, setActiveEntity: vi.fn() })),
+  useWorkspace: vi.fn(() => defaultWorkspace),
 }))
 
 import { useWorkspace } from '@/providers/WorkspaceProvider'
@@ -83,15 +94,15 @@ describe('WorkspaceHeader', () => {
 
 describe('WorkspaceContextBar', () => {
   it('renders nothing when no context available', () => {
-    vi.mocked(useWorkspace).mockReturnValue({ activeEntity: null, setActiveEntity: vi.fn() })
+    vi.mocked(useWorkspace).mockReturnValue({ ...defaultWorkspace, activeEntity: null })
     const { container } = wrap(<WorkspaceContextBar />)
     expect(container.firstChild).toBeNull()
   })
 
   it('renders entity pill from useWorkspace', () => {
     vi.mocked(useWorkspace).mockReturnValue({
+      ...defaultWorkspace,
       activeEntity: { id: 1, code: 'ACME', name: 'Acme Corp' },
-      setActiveEntity: vi.fn(),
     })
     wrap(<WorkspaceContextBar />)
     expect(screen.getByTestId('workspace-context-bar')).toBeInTheDocument()
@@ -100,21 +111,21 @@ describe('WorkspaceContextBar', () => {
   })
 
   it('renders period pill when period prop provided', () => {
-    vi.mocked(useWorkspace).mockReturnValue({ activeEntity: null, setActiveEntity: vi.fn() })
+    vi.mocked(useWorkspace).mockReturnValue({ ...defaultWorkspace, activeEntity: null })
     wrap(<WorkspaceContextBar period="Dec 2024" />)
     expect(screen.getByTestId('ctx-period')).toBeInTheDocument()
     expect(screen.getByText('Dec 2024')).toBeInTheDocument()
   })
 
   it('renders scenario pill when scenario prop provided', () => {
-    vi.mocked(useWorkspace).mockReturnValue({ activeEntity: null, setActiveEntity: vi.fn() })
+    vi.mocked(useWorkspace).mockReturnValue({ ...defaultWorkspace, activeEntity: null })
     wrap(<WorkspaceContextBar scenario="Draft" />)
     expect(screen.getByTestId('ctx-scenario')).toBeInTheDocument()
     expect(screen.getByText('Draft')).toBeInTheDocument()
   })
 
   it('renders reporting view pill when reportingView prop provided', () => {
-    vi.mocked(useWorkspace).mockReturnValue({ activeEntity: null, setActiveEntity: vi.fn() })
+    vi.mocked(useWorkspace).mockReturnValue({ ...defaultWorkspace, activeEntity: null })
     wrap(<WorkspaceContextBar reportingView="GAAP" />)
     expect(screen.getByTestId('ctx-reporting-view')).toBeInTheDocument()
     expect(screen.getByText('GAAP')).toBeInTheDocument()
@@ -122,8 +133,8 @@ describe('WorkspaceContextBar', () => {
 
   it('renders all four pills when all props provided', () => {
     vi.mocked(useWorkspace).mockReturnValue({
+      ...defaultWorkspace,
       activeEntity: { id: 1, code: 'ACME', name: 'Acme Corp' },
-      setActiveEntity: vi.fn(),
     })
     wrap(<WorkspaceContextBar period="Q4 2024" scenario="Final" reportingView="GAAP" />)
     expect(screen.getByTestId('ctx-entity')).toBeInTheDocument()

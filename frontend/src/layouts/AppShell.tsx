@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopNav } from './TopNav'
 import { DemoBanner } from '@/components/ui/DemoBanner'
+import { ContextBar } from '@/components/ui/ContextBar'
 
 export function AppShell() {
   return (
@@ -10,6 +11,7 @@ export function AppShell() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <DemoBanner />
         <TopNav />
+        <ContextBar />
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>

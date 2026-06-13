@@ -161,26 +161,48 @@ export function JournalEntryDetailPage() {
 
         {/* Lines */}
         <Section title="Lines">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-xs text-gray-500">
-                <th className="pb-1 text-left">#</th>
-                <th className="pb-1 text-left">Account</th>
-                <th className="pb-1 text-right">Debit</th>
-                <th className="pb-1 text-right">Credit</th>
-              </tr>
-            </thead>
-            <tbody>
-              {je.lines.map((line) => (
-                <tr key={line.id} className="border-b border-gray-50">
-                  <td className="py-1 text-gray-400">{line.line_number}</td>
-                  <td className="py-1 font-mono">{line.account_id}</td>
-                  <td className="py-1 text-right tabular-nums">{Number(line.debit) !== 0 ? line.debit : ''}</td>
-                  <td className="py-1 text-right tabular-nums">{Number(line.credit) !== 0 ? line.credit : ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {(() => {
+            const totalDebit = je.lines.reduce((s, l) => s + parseFloat(l.debit || '0'), 0)
+            const totalCredit = je.lines.reduce((s, l) => s + parseFloat(l.credit || '0'), 0)
+            const diff = Math.abs(totalDebit - totalCredit)
+            const balanced = diff < 0.001
+            return (
+              <>
+                {!balanced && (
+                  <div className="mb-2 inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700" data-testid="balance-chip">
+                    Out of balance by {diff.toFixed(2)}
+                  </div>
+                )}
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs text-gray-500">
+                      <th className="pb-1 text-left">#</th>
+                      <th className="pb-1 text-left">Account</th>
+                      <th className="pb-1 text-right">Debit</th>
+                      <th className="pb-1 text-right">Credit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {je.lines.map((line) => (
+                      <tr key={line.id} className="border-b border-gray-50">
+                        <td className="py-1 text-gray-400">{line.line_number}</td>
+                        <td className="py-1 font-mono">{line.account_id}</td>
+                        <td className="py-1 text-right tabular-nums">{Number(line.debit) !== 0 ? line.debit : ''}</td>
+                        <td className="py-1 text-right tabular-nums">{Number(line.credit) !== 0 ? line.credit : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t text-xs text-gray-500">
+                    <tr>
+                      <td colSpan={2} className="pt-1.5 font-semibold">Totals</td>
+                      <td className="pt-1.5 text-right tabular-nums font-semibold">{totalDebit.toFixed(2)}</td>
+                      <td className="pt-1.5 text-right tabular-nums font-semibold">{totalCredit.toFixed(2)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </>
+            )
+          })()}
         </Section>
 
         {/* Warnings & Signoffs */}
