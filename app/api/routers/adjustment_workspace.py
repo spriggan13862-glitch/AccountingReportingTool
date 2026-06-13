@@ -2,15 +2,16 @@
 Adjustment Workspace API — unified adjustment management for advisors.
 
 Provides: adjustment listing with impact, materiality, packages, advisor notes,
-multi-select impact preview, and account-level rollforward.
+multi-select impact preview, account-level rollforward, and advisor scenarios.
 """
 from __future__ import annotations
 
 import datetime
 from decimal import Decimal
+from io import BytesIO
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,12 @@ from app.api.deps import get_db, get_current_user
 from app.api.schemas import (
     AdvisorNoteOut,
     AdvisorNoteUpdate,
+    AdvisorScenarioCreate,
+    AdvisorScenarioOut,
+    AdvisorScenarioPackageIn,
+    AdvisorScenarioPackageItem,
+    AdvisorScenarioUpdate,
+    ADVISOR_SCENARIO_TYPES,
     AdjustmentImpact,
     AdjustmentListItem,
     AdjustmentPackageCreate,
@@ -25,7 +32,11 @@ from app.api.schemas import (
     AdjustmentPackageUpdate,
     ImpactPreviewRequest,
     MaterialityUpdate,
+    PackageToggleIn,
+    PACKAGE_TYPES_EXTENDED,
     RollforwardRow,
+    ScenarioComparisonResult,
+    ScenarioImpactResult,
 )
 from app.models.account import Account
 from app.models.adjustment_workspace import (
@@ -33,6 +44,7 @@ from app.models.adjustment_workspace import (
     AdjustmentPackage,
     AdjustmentPackageMembership,
 )
+from app.models.advisor_scenario import AdvisorScenario, AdvisorScenarioPackage
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 
@@ -249,8 +261,7 @@ def create_package(
     user=Depends(get_current_user),
 ):
     org = _org_from_user(user)
-    valid_types = {"audit", "management", "tax", "qoe", "seller", "buyer"}
-    if body.package_type not in valid_types:
+    if body.package_type not in PACKAGE_TYPES_EXTENDED:
         raise HTTPException(status_code=422, detail="Invalid package_type")
     pkg = AdjustmentPackage(
         organization_id=org,
@@ -521,3 +532,348 @@ def rollforward(
             )
         )
     return rows
+
+# ---------------------------------------------------------------------------
+# Sprint 3.15 — Advisor Scenarios
+# ---------------------------------------------------------------------------
+
+def _scenario_to_out(db: Session, scen: AdvisorScenario) -> AdvisorScenarioOut:
+    items: list[AdvisorScenarioPackageItem] = []
+    for asp in scen.packages:
+        pkg = db.get(AdjustmentPackage, asp.package_id)
+        if pkg:
+            items.append(AdvisorScenarioPackageItem(
+                id=asp.id,
+                package_id=asp.package_id,
+                package_name=pkg.name,
+                package_type=pkg.package_type,
+                included=asp.included,
+                include_order=asp.include_order,
+            ))
+    return AdvisorScenarioOut(
+        id=scen.id,
+        organization_id=scen.organization_id,
+        name=scen.name,
+        scenario_type=scen.scenario_type,
+        description=scen.description,
+        created_at=scen.created_at,
+        updated_at=scen.updated_at,
+        packages=items,
+    )
+
+
+def _compute_impact_for_jes(db: Session, je_ids: list[int]) -> AdjustmentImpact:
+    if not je_ids:
+        return AdjustmentImpact()
+    ni = asset = liability = equity = Decimal("0")
+    lines = (
+        db.query(JournalEntryLine, Account)
+        .join(Account, JournalEntryLine.account_id == Account.id)
+        .filter(JournalEntryLine.journal_entry_id.in_(je_ids))
+        .all()
+    )
+    for line, acct in lines:
+        net = Decimal(str(line.debit)) - Decimal(str(line.credit))
+        t = acct.account_type
+        if t in _INCOME_TYPES:
+            ni -= net
+        elif t in _EXPENSE_TYPES:
+            ni += net
+        if t in _ASSET_TYPES:
+            asset += net
+        elif t in _LIABILITY_TYPES:
+            liability += net
+        elif t in _EQUITY_TYPES:
+            equity += net
+    return AdjustmentImpact(
+        ni_impact=ni,
+        ebitda_impact=ni,
+        asset_impact=asset,
+        liability_impact=liability,
+        equity_impact=equity,
+    )
+
+
+@router.get("/advisor-scenarios", response_model=list[AdvisorScenarioOut])
+def list_advisor_scenarios(
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    org = _org_from_user(user)
+    rows = (
+        db.query(AdvisorScenario)
+        .filter(AdvisorScenario.organization_id == org)
+        .order_by(AdvisorScenario.created_at.desc())
+        .all()
+    )
+    return [_scenario_to_out(db, s) for s in rows]
+
+
+@router.post("/advisor-scenarios", response_model=AdvisorScenarioOut, status_code=201)
+def create_advisor_scenario(
+    body: AdvisorScenarioCreate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    if body.scenario_type not in ADVISOR_SCENARIO_TYPES:
+        raise HTTPException(status_code=422, detail="Invalid scenario_type")
+    org = _org_from_user(user)
+    scen = AdvisorScenario(
+        organization_id=org,
+        name=body.name,
+        scenario_type=body.scenario_type,
+        description=body.description,
+        created_by_user_id=getattr(user, "id", None),
+    )
+    db.add(scen)
+    db.flush()
+    db.refresh(scen)
+    return _scenario_to_out(db, scen)
+
+
+# NOTE: /compare must be defined before /{scenario_id} to avoid path collision
+@router.get("/advisor-scenarios/compare", response_model=ScenarioComparisonResult)
+def compare_advisor_scenarios(
+    scenario_ids: list[int] = Query(...),
+    entity_id: int = Query(...),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    results: list[ScenarioImpactResult] = []
+    for scen_id in scenario_ids:
+        scen = db.get(AdvisorScenario, scen_id)
+        if scen is None:
+            continue
+        included_pkg_ids = [asp.package_id for asp in scen.packages if asp.included]
+        je_ids: list[int] = []
+        for pkg_id in included_pkg_ids:
+            members = (
+                db.query(AdjustmentPackageMembership.journal_entry_id)
+                .filter(AdjustmentPackageMembership.package_id == pkg_id)
+                .all()
+            )
+            je_ids.extend(m[0] for m in members)
+        if je_ids:
+            entity_je_ids = [
+                row[0] for row in (
+                    db.query(JournalEntry.id)
+                    .filter(JournalEntry.id.in_(je_ids), JournalEntry.entity_id == entity_id)
+                    .all()
+                )
+            ]
+        else:
+            entity_je_ids = []
+        impact = _compute_impact_for_jes(db, entity_je_ids)
+        pkg_names = [
+            db.get(AdjustmentPackage, asp.package_id).name
+            for asp in scen.packages
+            if asp.included and db.get(AdjustmentPackage, asp.package_id)
+        ]
+        results.append(ScenarioImpactResult(
+            scenario_id=scen.id,
+            scenario_name=scen.name,
+            packages=pkg_names,
+            impact=impact,
+        ))
+    return ScenarioComparisonResult(scenarios=results)
+
+
+@router.get("/advisor-scenarios/{scenario_id}", response_model=AdvisorScenarioOut)
+def get_advisor_scenario(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    scen = db.get(AdvisorScenario, scenario_id)
+    if scen is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    return _scenario_to_out(db, scen)
+
+
+@router.put("/advisor-scenarios/{scenario_id}", response_model=AdvisorScenarioOut)
+def update_advisor_scenario(
+    scenario_id: int,
+    body: AdvisorScenarioUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    scen = db.get(AdvisorScenario, scenario_id)
+    if scen is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    if body.name is not None:
+        scen.name = body.name
+    if body.scenario_type is not None:
+        if body.scenario_type not in ADVISOR_SCENARIO_TYPES:
+            raise HTTPException(status_code=422, detail="Invalid scenario_type")
+        scen.scenario_type = body.scenario_type
+    if body.description is not None:
+        scen.description = body.description
+    scen.updated_at = datetime.datetime.utcnow()
+    db.flush()
+    db.refresh(scen)
+    return _scenario_to_out(db, scen)
+
+
+@router.delete("/advisor-scenarios/{scenario_id}", status_code=204)
+def delete_advisor_scenario(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    scen = db.get(AdvisorScenario, scenario_id)
+    if scen is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    db.delete(scen)
+
+
+@router.post("/advisor-scenarios/{scenario_id}/packages", response_model=dict, status_code=201)
+def add_package_to_scenario(
+    scenario_id: int,
+    body: AdvisorScenarioPackageIn,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    scen = db.get(AdvisorScenario, scenario_id)
+    if scen is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    if db.get(AdjustmentPackage, body.package_id) is None:
+        raise HTTPException(status_code=404, detail="Package not found")
+    existing = (
+        db.query(AdvisorScenarioPackage)
+        .filter_by(scenario_id=scenario_id, package_id=body.package_id)
+        .first()
+    )
+    if existing:
+        existing.included = body.included
+        existing.include_order = body.include_order
+        db.flush()
+        return {"scenario_id": scenario_id, "package_id": body.package_id, "updated": True}
+    asp = AdvisorScenarioPackage(
+        scenario_id=scenario_id,
+        package_id=body.package_id,
+        included=body.included,
+        include_order=body.include_order,
+    )
+    db.add(asp)
+    db.flush()
+    return {"scenario_id": scenario_id, "package_id": body.package_id, "added": True}
+
+
+@router.delete("/advisor-scenarios/{scenario_id}/packages/{package_id}", status_code=204)
+def remove_package_from_scenario(
+    scenario_id: int,
+    package_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    asp = (
+        db.query(AdvisorScenarioPackage)
+        .filter_by(scenario_id=scenario_id, package_id=package_id)
+        .first()
+    )
+    if asp is None:
+        raise HTTPException(status_code=404, detail="Package not in scenario")
+    db.delete(asp)
+
+
+@router.patch(
+    "/advisor-scenarios/{scenario_id}/packages/{package_id}/toggle",
+    response_model=AdvisorScenarioOut,
+)
+def toggle_package_in_scenario(
+    scenario_id: int,
+    package_id: int,
+    body: PackageToggleIn,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    asp = (
+        db.query(AdvisorScenarioPackage)
+        .filter_by(scenario_id=scenario_id, package_id=package_id)
+        .first()
+    )
+    if asp is None:
+        raise HTTPException(status_code=404, detail="Package not in scenario")
+    asp.included = body.included
+    db.flush()
+    scen = db.get(AdvisorScenario, scenario_id)
+    db.refresh(scen)
+    return _scenario_to_out(db, scen)
+
+
+@router.get("/advisor-scenarios/{scenario_id}/export")
+def export_advisor_scenario(
+    scenario_id: int,
+    entity_id: int = Query(...),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    scen = db.get(AdvisorScenario, scenario_id)
+    if scen is None:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+
+    included_pkg_ids = [asp.package_id for asp in scen.packages if asp.included]
+    je_ids: list[int] = []
+    for pkg_id in included_pkg_ids:
+        members = (
+            db.query(AdjustmentPackageMembership.journal_entry_id)
+            .filter(AdjustmentPackageMembership.package_id == pkg_id)
+            .all()
+        )
+        je_ids.extend(m[0] for m in members)
+
+    entity_je_ids: list[int] = []
+    if je_ids:
+        entity_je_ids = [
+            row[0] for row in (
+                db.query(JournalEntry.id)
+                .filter(JournalEntry.id.in_(je_ids), JournalEntry.entity_id == entity_id)
+                .all()
+            )
+        ]
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Adjustments"
+
+    HEADER_FILL = PatternFill("solid", fgColor="1F3864")
+    WHITE_FONT = Font(bold=True, color="FFFFFF")
+
+    headers = ["JE Number", "Date", "Description", "Amount (Dr)",
+               "NI Impact", "Asset Impact", "Liability Impact", "Equity Impact",
+               "Materiality", "Status"]
+    col_widths = [16, 12, 50, 14, 14, 14, 16, 14, 14, 10]
+    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        c = ws.cell(1, ci, h)
+        c.font = WHITE_FONT
+        c.fill = HEADER_FILL
+        ws.column_dimensions[c.column_letter].width = w
+
+    for ri, je_id in enumerate(entity_je_ids, 2):
+        je = db.get(JournalEntry, je_id)
+        if je is None:
+            continue
+        impact = _compute_impact(db, je_id)
+        amount = _total_debit(db, je_id)
+        ws.cell(ri, 1, je.je_number)
+        ws.cell(ri, 2, str(je.entry_date))
+        ws.cell(ri, 3, je.description)
+        ws.cell(ri, 4, float(amount))
+        ws.cell(ri, 5, float(impact.ni_impact))
+        ws.cell(ri, 6, float(impact.asset_impact))
+        ws.cell(ri, 7, float(impact.liability_impact))
+        ws.cell(ri, 8, float(impact.equity_impact))
+        ws.cell(ri, 9, je.materiality or "")
+        ws.cell(ri, 10, je.status)
+
+    buf = BytesIO()
+    wb.save(buf)
+    slug = scen.name.replace(" ", "_").lower()
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="scenario_{slug}.xlsx"'},
+    )

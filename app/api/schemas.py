@@ -2312,3 +2312,73 @@ class ViewImpactResult(BaseModel):
     entity_id: int
     override_count: int
     accounts: list[ViewImpactAccount]
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.15 — Advisor Scenario + Package Engine schemas
+# ---------------------------------------------------------------------------
+
+ADVISOR_SCENARIO_TYPES = frozenset({
+    "as_reported", "management", "management_tax",
+    "management_tax_qoe", "sba", "custom",
+})
+
+PACKAGE_TYPES_EXTENDED = frozenset({
+    "audit", "management", "tax", "qoe",
+    "seller", "buyer", "sba", "client_posting",
+})
+
+
+class AdvisorScenarioCreate(BaseModel):
+    name: str
+    scenario_type: str = "custom"
+    description: str | None = None
+
+
+class AdvisorScenarioUpdate(BaseModel):
+    name: str | None = None
+    scenario_type: str | None = None
+    description: str | None = None
+
+
+class AdvisorScenarioPackageItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    package_id: int
+    package_name: str
+    package_type: str
+    included: bool
+    include_order: int
+
+
+class AdvisorScenarioOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: str
+    name: str
+    scenario_type: str
+    description: str | None = None
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+    packages: list[AdvisorScenarioPackageItem] = []
+
+
+class AdvisorScenarioPackageIn(BaseModel):
+    package_id: int
+    included: bool = True
+    include_order: int = 0
+
+
+class PackageToggleIn(BaseModel):
+    included: bool
+
+
+class ScenarioImpactResult(BaseModel):
+    scenario_id: int
+    scenario_name: str
+    packages: list[str]
+    impact: AdjustmentImpact
+
+
+class ScenarioComparisonResult(BaseModel):
+    scenarios: list[ScenarioImpactResult]

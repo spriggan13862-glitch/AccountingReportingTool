@@ -207,11 +207,11 @@ describe('Sidebar — Sprint 3.11', () => {
     expect(screen.getByTestId('nav-group-items-intelligence')).toBeInTheDocument()
   })
 
-  it('workbench group has 4 items', () => {
+  it('workbench group has 5 items', () => {
     const wb = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    expect(wb.items.length).toBe(4)
+    expect(wb.items.length).toBe(5)
     expect(wb.items[0].id).toBe('adjustment-workspace')
-    expect(wb.items[3].id).toBe('draft-preview')
+    expect(wb.items[4].id).toBe('scenarios')
   })
 
   it('intelligence group has 4 items', () => {
@@ -225,8 +225,8 @@ describe('Sidebar — Sprint 3.11', () => {
     expect(g.items[0].id).toBe('financial-impact')
   })
 
-  it('total nav item count is 21', () => {
+  it('total nav item count is 22', () => {
     const total = NAV_GROUPS.reduce((sum, g) => sum + g.items.length, 0)
-    expect(total).toBe(21)
+    expect(total).toBe(22)
   })
 })

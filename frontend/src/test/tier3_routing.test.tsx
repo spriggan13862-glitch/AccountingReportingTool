@@ -110,9 +110,13 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     expect(setupGroup.items.find((i) => i.id === 'accounts')).toBeDefined()
   })
 
-  it('workbench group has 4 items', () => {
+  it('workbench group has 5 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    expect(group.items.length).toBe(4)
+    expect(group.items.length).toBe(5)
+  })
+
+  it('scenarios points to /workbench/scenarios', () => {
+    expect(item('scenarios')?.to).toBe('/workbench/scenarios')
   })
 
   it('intelligence group has 4 items', () => {
