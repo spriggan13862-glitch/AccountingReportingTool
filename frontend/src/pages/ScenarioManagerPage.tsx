@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Layers, GitCompare, BarChart3, Plus, Trash2, Download,
-  ChevronDown, ChevronRight, Check, X, Loader, Toggle,
+  ChevronDown, ChevronRight, Check, X, Loader,
 } from 'lucide-react'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
