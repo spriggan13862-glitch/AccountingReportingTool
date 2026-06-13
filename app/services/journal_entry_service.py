@@ -563,6 +563,141 @@ def reverse_journal_entry(
 
 
 # ---------------------------------------------------------------------------
+# Approval workflow (draft → pending_approval → posted)
+# ---------------------------------------------------------------------------
+
+class ApprovalError(ValueError):
+    """Raised when an approval workflow rule is violated."""
+
+
+def _write_event(
+    db: Session,
+    je_id: int,
+    event_type: str,
+    actor_name: str | None = None,
+    actor_user_id: int | None = None,
+    note: str | None = None,
+) -> None:
+    from app.models.journal_entry_event import JournalEntryEvent
+    db.add(JournalEntryEvent(
+        je_id=je_id,
+        event_type=event_type,
+        actor_name=actor_name,
+        actor_user_id=actor_user_id,
+        note=note,
+    ))
+    db.flush()
+
+
+def submit_for_approval(
+    db: Session,
+    je_id: int,
+    submitted_by: str | None = None,
+    actor_user_id: int | None = None,
+) -> JournalEntry:
+    """Transition a draft journal entry to pending_approval status."""
+    je = get_journal_entry_or_raise(db, je_id)
+    if je.status != "draft":
+        raise ImmutableEntryError(
+            f"Only draft entries can be submitted; entry {je_id} has status='{je.status}'"
+        )
+    je.status = "pending_approval"
+    je.updated_at = datetime.datetime.now()
+    _write_event(db, je_id, "submitted", actor_name=submitted_by, actor_user_id=actor_user_id)
+    db.flush()
+    db.refresh(je)
+    return je
+
+
+def approve_journal_entry(
+    db: Session,
+    je_id: int,
+    approver_name: str | None = None,
+    actor_user_id: int | None = None,
+) -> tuple[JournalEntry, ValidationResult]:
+    """
+    Approve a pending_approval entry and immediately post it.
+    Approver must differ from the creator (actor_user_id != created_by_user_id).
+    """
+    je = get_journal_entry_or_raise(db, je_id)
+    if je.status != "pending_approval":
+        raise ImmutableEntryError(
+            f"Entry {je_id} is '{je.status}', not 'pending_approval'"
+        )
+    if actor_user_id is not None and actor_user_id == je.created_by_user_id:
+        raise ApprovalError("Approver cannot be the same user who created the entry")
+
+    from app.schemas.journal_entry import JournalEntryCreate, JournalEntryLineCreate
+    lines = db.query(JournalEntryLine).filter(JournalEntryLine.journal_entry_id == je_id).all()
+    data = JournalEntryCreate(
+        je_number=je.je_number,
+        entry_date=je.entry_date,
+        entity_id=je.entity_id,
+        scenario_id=je.scenario_id,
+        description=je.description,
+        lines=[
+            JournalEntryLineCreate(
+                line_number=l.line_number,
+                account_id=l.account_id,
+                entity_id=l.entity_id,
+                debit=l.debit,
+                credit=l.credit,
+            )
+            for l in lines
+        ],
+    )
+    result = validate_journal_entry(data)
+    if result.has_errors:
+        msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
+        raise JournalEntryValidationError(msg, result=result)
+
+    _check_period_not_closed(db, je.entity_id, je.entry_date)
+
+    now = datetime.datetime.now()
+    je.status = "posted"
+    je.posted_at = now
+    je.updated_at = now
+    if actor_user_id is not None:
+        je.posted_by_user_id = actor_user_id
+    _write_event(db, je_id, "approved", actor_name=approver_name, actor_user_id=actor_user_id)
+    _write_event(db, je_id, "posted", actor_name=approver_name, actor_user_id=actor_user_id)
+    db.flush()
+    db.refresh(je)
+    return je, result
+
+
+def reject_journal_entry(
+    db: Session,
+    je_id: int,
+    rejector_name: str | None = None,
+    actor_user_id: int | None = None,
+    note: str | None = None,
+) -> JournalEntry:
+    """Reject a pending_approval entry, returning it to draft status."""
+    je = get_journal_entry_or_raise(db, je_id)
+    if je.status != "pending_approval":
+        raise ImmutableEntryError(
+            f"Entry {je_id} is '{je.status}', not 'pending_approval'"
+        )
+    je.status = "draft"
+    je.updated_at = datetime.datetime.now()
+    _write_event(db, je_id, "rejected", actor_name=rejector_name, actor_user_id=actor_user_id, note=note)
+    db.flush()
+    db.refresh(je)
+    return je
+
+
+def list_journal_entry_events(db: Session, je_id: int) -> list:
+    from app.models.journal_entry_event import JournalEntryEvent
+    return (
+        db.query(JournalEntryEvent)
+        .filter(JournalEntryEvent.je_id == je_id)
+        .order_by(JournalEntryEvent.occurred_at)
+        .all()
+    )
+
+
+# ---------------------------------------------------------------------------
 # Lookup
 # ---------------------------------------------------------------------------
 

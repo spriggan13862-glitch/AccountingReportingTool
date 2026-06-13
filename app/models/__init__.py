@@ -45,6 +45,7 @@ from app.models.deliverable_workspace import DeliverablePackage, DeliverablePack
 from app.models.view_account_override import ViewAccountOverride
 from app.models.detected_issue import DetectedIssue, IssueDetectionThreshold
 from app.models.issue_template import IssueTemplate
+from app.models.journal_entry_event import JournalEntryEvent
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -65,6 +66,7 @@ __all__ = [
     "DeliverablePackage", "DeliverablePackageItem", "DeliverableMemo",
     "ViewAccountOverride",
     "DetectedIssue", "IssueDetectionThreshold", "IssueTemplate",
+    "JournalEntryEvent",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
 ]

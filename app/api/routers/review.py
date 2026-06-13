@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.api.schemas import FsLineOut
 from app.services.fs_reporting_service import (
+    AdjustmentBridgeRow,
     FsLineBalance,
     find_unmapped_accounts,
+    get_adjustment_bridge,
     get_fs_statement,
 )
 
@@ -166,3 +168,43 @@ def review_statements(
         variance=variance,
         checks=checks,
     )
+
+
+class BridgeRowOut(BaseModel):
+    code: str
+    name: str
+    statement: str
+    section: str | None
+    sort_order: int
+    as_reported: float
+    posted_ajes: float
+    net_adjusted: float
+    pro_forma_ajes: float
+    pro_forma: float
+
+
+@router.get("/bridge", response_model=list[BridgeRowOut])
+def adjustment_bridge(
+    entity_id: int,
+    as_of_date: datetime.date,
+    scenario_ids: list[int] = Query(default=[]),
+    statement: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Live adjustment bridge: As Reported → Posted AJEs → Adjusted → Draft AJEs → Pro Forma.
+    Derived from two get_trial_balance() calls — not the materialized AdjustmentBridgeRow table.
+    """
+    rows = get_adjustment_bridge(db, entity_id, as_of_date, scenario_ids, statement=statement)
+    return [BridgeRowOut(
+        code=r.code,
+        name=r.name,
+        statement=r.statement,
+        section=r.section,
+        sort_order=r.sort_order,
+        as_reported=float(r.as_reported),
+        posted_ajes=float(r.posted_ajes),
+        net_adjusted=float(r.net_adjusted),
+        pro_forma_ajes=float(r.pro_forma_ajes),
+        pro_forma=float(r.pro_forma),
+    ) for r in rows]

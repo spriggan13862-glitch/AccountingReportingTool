@@ -59,6 +59,7 @@ import { ScenarioManagerPage } from '@/pages/ScenarioManagerPage'
 import { AdvisoryAnalysisPage } from '@/pages/AdvisoryAnalysisPage'
 import { ReviewWorkspacePage } from '@/pages/ReviewWorkspacePage'
 import { OverviewPage } from '@/pages/OverviewPage'
+import { AdjustmentsPage } from '@/pages/AdjustmentsPage'
 
 function AuthedShell() {
   return (
@@ -126,6 +127,9 @@ export function AppRouter() {
 
           {/* ── REVIEW WORKSPACE ──────────────────────────────────────────── */}
           <Route path="review" element={<ReviewWorkspacePage />} />
+
+          {/* ── ADJUSTMENTS WORKSPACE ─────────────────────────────────────── */}
+          <Route path="adjustments" element={<AdjustmentsPage />} />
 
           {/* ── ACCOUNTING INTELLIGENCE ──────────────────────────────────── */}
           <Route path="intelligence/quarterly-review" element={<QuarterlyReviewPage />} />

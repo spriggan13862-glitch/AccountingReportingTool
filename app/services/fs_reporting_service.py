@@ -162,6 +162,107 @@ def build_fs_from_tb_rows(
     return result
 
 
+AS_REPORTED_SOURCES = ["tb_import", "pdf_import", "opening_balance"]
+
+
+@dataclass
+class AdjustmentBridgeRow:
+    code: str
+    name: str
+    statement: str
+    section: str | None
+    sort_order: int
+    as_reported: Decimal
+    posted_ajes: Decimal       # delta: adjusted - as_reported
+    net_adjusted: Decimal
+    pro_forma_ajes: Decimal    # delta from draft JEs not yet posted
+    pro_forma: Decimal
+
+
+def get_adjustment_bridge(
+    db: Session,
+    entity_id: int,
+    as_of_date: datetime.date,
+    scenario_ids: Sequence[int],
+    statement: str | None = None,
+) -> list[AdjustmentBridgeRow]:
+    """
+    Compute the live adjustment bridge without touching the materialized table.
+
+    as_reported  — TB import sources only (source_filter=AS_REPORTED_SOURCES)
+    adjusted     — all posted JEs (source_filter=None)
+    pro_forma    — adjusted + draft JEs (computed by adding draft deltas to FS lines)
+    """
+    from app.models.journal_entry import JournalEntry as JE
+    from app.models.journal_entry_line import JournalEntryLine
+
+    as_rep_rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids,
+                                   statement=statement, source_filter=AS_REPORTED_SOURCES)
+    adj_rows = get_fs_statement(db, entity_id, as_of_date, scenario_ids,
+                                statement=statement, source_filter=None)
+
+    # Compute draft JE net_debit delta per account
+    draft_q = (
+        db.query(JournalEntryLine.account_id, JournalEntryLine.debit, JournalEntryLine.credit)
+        .join(JE, JE.id == JournalEntryLine.journal_entry_id)
+        .filter(
+            JE.entity_id == entity_id,
+            JE.status == "draft",
+            JE.entry_date <= as_of_date,
+        )
+    )
+    if scenario_ids:
+        draft_q = draft_q.filter(JE.scenario_id.in_(scenario_ids))
+
+    draft_net_debit: dict[int, Decimal] = {}
+    for account_id, debit, credit in draft_q:
+        delta = Decimal(str(debit)) - Decimal(str(credit))
+        draft_net_debit[account_id] = draft_net_debit.get(account_id, Decimal("0")) + delta
+
+    # Map draft account deltas through FS line mappings
+    mappings = _effective_mappings(db, entity_id, as_of_date)
+    lines_by_id = _fetch_fs_lines(db, statement)
+
+    # draft_fs_delta[line_id] = sum of (draft_net_debit * sign_flip_factor) for mapped accounts
+    draft_fs_own: dict[int, Decimal] = {lid: Decimal("0") for lid in lines_by_id}
+    for account_id, delta in draft_net_debit.items():
+        line_id = mappings.get(account_id)
+        if line_id is not None and line_id in draft_fs_own:
+            draft_fs_own[line_id] += delta
+
+    # Roll up draft own balances through the hierarchy
+    draft_fs_total = _rollup(draft_fs_own, lines_by_id)
+
+    as_rep_by_code = {r.code: r for r in as_rep_rows}
+    line_by_code = {l.code: l for l in lines_by_id.values()}
+
+    result: list[AdjustmentBridgeRow] = []
+    for row in adj_rows:
+        as_rep = as_rep_by_code.get(row.code)
+        as_rep_bal = as_rep.display_balance if as_rep else Decimal("0")
+        adj_bal = row.display_balance
+        posted_delta = adj_bal - as_rep_bal
+
+        # Apply sign_flip to draft delta for display
+        line = line_by_code.get(row.code)
+        raw_draft = draft_fs_total.get(row.line_id, Decimal("0"))
+        pf_delta = -raw_draft if (line and line.sign_flip) else raw_draft
+
+        result.append(AdjustmentBridgeRow(
+            code=row.code,
+            name=row.name,
+            statement=row.statement,
+            section=row.section,
+            sort_order=row.sort_order,
+            as_reported=as_rep_bal,
+            posted_ajes=posted_delta,
+            net_adjusted=adj_bal,
+            pro_forma_ajes=pf_delta,
+            pro_forma=adj_bal + pf_delta,
+        ))
+    return result
+
+
 def validate_fs_mappings(
     db: Session,
     entity_id: int,

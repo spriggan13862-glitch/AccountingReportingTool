@@ -9,13 +9,18 @@ from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate
 from app.services.journal_entry_service import (
+    ApprovalError,
     JournalEntryNotFoundError,
+    approve_journal_entry,
     create_draft_journal_entry,
     delete_draft_journal_entry,
     get_journal_entry_or_raise,
+    list_journal_entry_events,
     post_draft_journal_entry,
     post_journal_entry,
+    reject_journal_entry,
     reverse_journal_entry,
+    submit_for_approval,
     update_draft_journal_entry,
     validate_journal_entry,
 )
@@ -130,6 +135,93 @@ def reverse_je(je_id: int, body: ReverseJERequest, db: Session = Depends(get_db)
         created_by=body.created_by,
     )
     return _je_out(db, rev)
+
+
+# ---------------------------------------------------------------------------
+# Approval workflow
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel as _BaseModel
+
+class _ApprovalBody(_BaseModel):
+    actor_name: str | None = None
+    actor_user_id: int | None = None
+    note: str | None = None
+
+
+@router.post("/{je_id}/submit", response_model=JEOut)
+def submit_je(je_id: int, body: _ApprovalBody = _ApprovalBody(), db: Session = Depends(get_db)):
+    """Submit a draft entry for approval (draft → pending_approval)."""
+    from app.services.journal_entry_service import ImmutableEntryError
+    try:
+        je = submit_for_approval(db, je_id, submitted_by=body.actor_name, actor_user_id=body.actor_user_id)
+        db.commit()
+        return _je_out(db, je)
+    except JournalEntryNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Journal entry {je_id} not found")
+    except ImmutableEntryError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/{je_id}/approve", response_model=JEOut)
+def approve_je(je_id: int, body: _ApprovalBody = _ApprovalBody(), db: Session = Depends(get_db)):
+    """Approve and post a pending_approval entry. Approver must differ from creator."""
+    from app.services.journal_entry_service import ImmutableEntryError
+    try:
+        je, result = approve_journal_entry(db, je_id, approver_name=body.actor_name, actor_user_id=body.actor_user_id)
+        db.commit()
+        return _je_out(db, je, warnings=result.warnings)
+    except JournalEntryNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Journal entry {je_id} not found")
+    except ApprovalError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except ImmutableEntryError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/{je_id}/reject", response_model=JEOut)
+def reject_je(je_id: int, body: _ApprovalBody = _ApprovalBody(), db: Session = Depends(get_db)):
+    """Reject a pending_approval entry, returning it to draft."""
+    from app.services.journal_entry_service import ImmutableEntryError
+    try:
+        je = reject_journal_entry(db, je_id, rejector_name=body.actor_name, actor_user_id=body.actor_user_id, note=body.note)
+        db.commit()
+        return _je_out(db, je)
+    except JournalEntryNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Journal entry {je_id} not found")
+    except ImmutableEntryError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+class _JEEventOut(_BaseModel):
+    id: int
+    je_id: int
+    event_type: str
+    actor_name: str | None
+    actor_user_id: int | None
+    occurred_at: str
+    note: str | None
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/{je_id}/events", response_model=list[_JEEventOut])
+def get_je_events(je_id: int, db: Session = Depends(get_db)):
+    """Return audit trail events for a journal entry in chronological order."""
+    try:
+        get_journal_entry_or_raise(db, je_id)
+    except JournalEntryNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Journal entry {je_id} not found")
+    events = list_journal_entry_events(db, je_id)
+    return [_JEEventOut(
+        id=e.id,
+        je_id=e.je_id,
+        event_type=e.event_type,
+        actor_name=e.actor_name,
+        actor_user_id=e.actor_user_id,
+        occurred_at=str(e.occurred_at),
+        note=e.note,
+    ) for e in events]
 
 
 # ---------------------------------------------------------------------------

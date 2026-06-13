@@ -68,6 +68,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     defaultOpen: true,
     items: [
       { id: 'review', label: 'Review Workspace', to: '/review', icon: Search },
+      { id: 'adjustments', label: 'Adjustments', to: '/adjustments', icon: SlidersHorizontal },
     ],
   },
   {

@@ -258,7 +258,8 @@ export interface JournalEntry {
   description: string
   source: string
   source_ref: string | null
-  status: 'draft' | 'posted' | 'reversed'
+  status: 'draft' | 'posted' | 'reversed' | 'pending_approval' | 'voided'
+  overlay_group: string | null
   reversal_of_id: number | null
   reversal_je_id: number | null
   created_by: string | null

@@ -1,9 +1,19 @@
 import api from './client'
 import type { JECreate, JournalEntry, PagedResponse, ReverseJERequest } from '@/types'
 
+export interface JEEvent {
+  id: number
+  je_id: number
+  event_type: string
+  actor_name: string | null
+  actor_user_id: number | null
+  occurred_at: string
+  note: string | null
+}
+
 export const journalEntriesApi = {
   // Queries
-  list: (params?: { entity_id?: number; status?: string; page?: number; page_size?: number }) =>
+  list: (params?: { entity_id?: number; status?: string; page?: number; page_size?: number; account_id?: number }) =>
     api
       .get<PagedResponse<JournalEntry>>('/journal-entries/', { params })
       .then((r) => r.data.items ?? []),
@@ -28,6 +38,18 @@ export const journalEntriesApi = {
 
   reverse: (id: number, data: ReverseJERequest) =>
     api.post<JournalEntry>(`/journal-entries/${id}/reverse`, data).then((r) => r.data),
+
+  submit: (id: number, actorName?: string) =>
+    api.post<JournalEntry>(`/journal-entries/${id}/submit`, { actor_name: actorName ?? null }).then((r) => r.data),
+
+  approve: (id: number, actorName?: string) =>
+    api.post<JournalEntry>(`/journal-entries/${id}/approve`, { actor_name: actorName ?? null }).then((r) => r.data),
+
+  reject: (id: number, note?: string, actorName?: string) =>
+    api.post<JournalEntry>(`/journal-entries/${id}/reject`, { actor_name: actorName ?? null, note: note ?? null }).then((r) => r.data),
+
+  getEvents: (id: number) =>
+    api.get<JEEvent[]>(`/journal-entries/${id}/events`).then((r) => r.data),
 
   importCsv: (entityId: number, file: File, scenarioId?: number, overlayGroup?: string, isReversing?: boolean) => {
     const form = new FormData()

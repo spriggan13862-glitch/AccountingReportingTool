@@ -25,6 +25,19 @@ export interface ReviewStatementsResponse {
   checks: CheckResult[]
 }
 
+export interface BridgeRow {
+  code: string
+  name: string
+  statement: string
+  section: string | null
+  sort_order: number
+  as_reported: number
+  posted_ajes: number
+  net_adjusted: number
+  pro_forma_ajes: number
+  pro_forma: number
+}
+
 export const reviewApi = {
   getStatements: (params: {
     entity_id: number
@@ -46,5 +59,22 @@ export const reviewApi = {
     return api
       .get<ReviewStatementsResponse>(`/review/statements?${searchParams}`)
       .then((r) => r.data)
+  },
+
+  getBridge: (params: {
+    entity_id: number
+    as_of_date: string
+    scenario_ids?: number[]
+    statement?: string
+  }) => {
+    const { scenario_ids, ...rest } = params
+    const searchParams = new URLSearchParams()
+    for (const [k, v] of Object.entries(rest)) {
+      if (v !== undefined) searchParams.append(k, String(v))
+    }
+    for (const id of scenario_ids ?? []) {
+      searchParams.append('scenario_ids', String(id))
+    }
+    return api.get<BridgeRow[]>(`/review/bridge?${searchParams}`).then((r) => r.data)
   },
 }

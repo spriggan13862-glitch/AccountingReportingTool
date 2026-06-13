@@ -11,7 +11,7 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft','posted','reversed','voided')",
+            "status IN ('draft','posted','reversed','voided','pending_approval')",
             name="ck_je_status",
         ),
         Index("idx_je_date", "entry_date"),
