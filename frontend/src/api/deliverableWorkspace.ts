@@ -1,4 +1,4 @@
-import { apiClient } from './client'
+import api from './client'
 
 export interface DeliverablePackage {
   id: number
@@ -79,43 +79,43 @@ const BASE = '/deliverable-workspace'
 
 export const deliverableWorkspaceApi = {
   getDashboard: (): Promise<DeliverableDashboard> =>
-    apiClient.get(`${BASE}/dashboard`).then((r) => r.data),
+    api.get(`${BASE}/dashboard`).then((r) => r.data),
 
   listPackages: (params?: { status?: string; package_type?: string }): Promise<DeliverablePackage[]> =>
-    apiClient.get(`${BASE}/packages`, { params }).then((r) => r.data),
+    api.get(`${BASE}/packages`, { params }).then((r) => r.data),
 
   createPackage: (body: DeliverablePackageCreate): Promise<DeliverablePackage> =>
-    apiClient.post(`${BASE}/packages`, body).then((r) => r.data),
+    api.post(`${BASE}/packages`, body).then((r) => r.data),
 
   updatePackage: (id: number, body: DeliverablePackageUpdate): Promise<DeliverablePackage> =>
-    apiClient.put(`${BASE}/packages/${id}`, body).then((r) => r.data),
+    api.put(`${BASE}/packages/${id}`, body).then((r) => r.data),
 
   deletePackage: (id: number): Promise<void> =>
-    apiClient.delete(`${BASE}/packages/${id}`).then(() => undefined),
+    api.delete(`${BASE}/packages/${id}`).then(() => undefined),
 
   clonePackage: (id: number): Promise<DeliverablePackage> =>
-    apiClient.post(`${BASE}/packages/${id}/clone`).then((r) => r.data),
+    api.post(`${BASE}/packages/${id}/clone`).then((r) => r.data),
 
   listItems: (packageId: number): Promise<DeliverablePackageItem[]> =>
-    apiClient.get(`${BASE}/packages/${packageId}/items`).then((r) => r.data),
+    api.get(`${BASE}/packages/${packageId}/items`).then((r) => r.data),
 
   addItem: (packageId: number, body: { item_type: string; item_ref: string; item_label?: string }): Promise<DeliverablePackageItem> =>
-    apiClient.post(`${BASE}/packages/${packageId}/items`, body).then((r) => r.data),
+    api.post(`${BASE}/packages/${packageId}/items`, body).then((r) => r.data),
 
   removeItem: (packageId: number, itemId: number): Promise<void> =>
-    apiClient.delete(`${BASE}/packages/${packageId}/items/${itemId}`).then(() => undefined),
+    api.delete(`${BASE}/packages/${packageId}/items/${itemId}`).then(() => undefined),
 
   listMemos: (packageId: number): Promise<DeliverableMemo[]> =>
-    apiClient.get(`${BASE}/packages/${packageId}/memos`).then((r) => r.data),
+    api.get(`${BASE}/packages/${packageId}/memos`).then((r) => r.data),
 
   createMemo: (packageId: number, body: DeliverableMemoCreate): Promise<DeliverableMemo> =>
-    apiClient.post(`${BASE}/packages/${packageId}/memos`, body).then((r) => r.data),
+    api.post(`${BASE}/packages/${packageId}/memos`, body).then((r) => r.data),
 
   updateMemo: (packageId: number, memoId: number, body: DeliverableMemoUpdate): Promise<DeliverableMemo> =>
-    apiClient.put(`${BASE}/packages/${packageId}/memos/${memoId}`, body).then((r) => r.data),
+    api.put(`${BASE}/packages/${packageId}/memos/${memoId}`, body).then((r) => r.data),
 
   deleteMemo: (packageId: number, memoId: number): Promise<void> =>
-    apiClient.delete(`${BASE}/packages/${packageId}/memos/${memoId}`).then(() => undefined),
+    api.delete(`${BASE}/packages/${packageId}/memos/${memoId}`).then(() => undefined),
 
   exportPackageExcel: (packageId: number): string =>
     `/api/v1/deliverable-workspace/packages/${packageId}/export/excel`,

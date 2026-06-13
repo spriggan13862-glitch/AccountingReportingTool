@@ -159,7 +159,6 @@ export function AppRouter() {
           <Route path="setup/settings" element={<ReportingSettingsPage />} />
           <Route path="setup/help" element={<HelpCenterPage />} />
           <Route path="setup/taxonomy-admin" element={<TaxonomyAdminPage />} />
-          <Route path="setup/reporting-views" element={<PlaceholderPage title="Reporting Views" />} />
           <Route path="setup" element={<Navigate replace to="/setup/settings" />} />
 
           {/* ── ADMIN (role-gated) ────────────────────────────────────────── */}

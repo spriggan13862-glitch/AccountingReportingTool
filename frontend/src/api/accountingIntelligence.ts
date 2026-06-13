@@ -446,5 +446,5 @@ export function downloadQuarterlyReview(
     comparison_period_id: String(params.comparison_period_id),
     materiality_threshold: String(params.materiality_threshold ?? 1000),
   })
-  window.open(`/api/accounting-intelligence/quarterly-review/export?${p}`)
+  window.open(`/api/v1/accounting-intelligence/quarterly-review/export?${p}`)
 }

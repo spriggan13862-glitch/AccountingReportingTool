@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import type { PDFImportPreview } from '@/types'
 
 import { PDFImportPage } from '@/pages/PDFImportPage'
 import { TaxonomyAdminPage } from '@/pages/TaxonomyAdminPage'
@@ -44,6 +45,7 @@ vi.mock('@/api/pdfImport', () => ({
       filename: 'source.pdf',
       lines: []
     }),
+    previewDiff: vi.fn().mockResolvedValue({ changed: 0, excluded: 0, lines: [] }),
   },
 }))
 
@@ -244,6 +246,75 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
     
     const { accountsApi } = await import('@/api/accounts')
     expect(accountsApi.update).toHaveBeenCalledWith(101, { reporting_taxonomy_line_id: 1 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 7. PDF-P10: Entity name mismatch warning
+// ---------------------------------------------------------------------------
+
+const BASE_PREVIEW: PDFImportPreview = {
+  batch_id: 99,
+  entity_id: 1,
+  filename: 'test.pdf',
+  source_entity_name: null,
+  statement_date: '2025-12-31',
+  basis_of_accounting: 'gaap',
+  import_type: 'financial_statements',
+  statement_scope: 'standalone',
+  page_count: 2,
+  line_count: 1,
+  subtotal_count: 0,
+  lines: [],
+  validation: { checks: [], passing: 0, failing: 0, total: 0 },
+  warnings: [],
+  balance_sheet_variance: '0.00',
+  balance_sheet_tied: true,
+  net_income_variance: null,
+  net_income_reconciled: true,
+  net_income_in_equity: null,
+  pnl_net_income: null,
+}
+
+describe('PDF-P10: entity name mismatch warning', () => {
+  let mockUploadFn: ReturnType<typeof vi.fn>
+
+  beforeEach(async () => {
+    const { pdfImportApi } = await import('@/api/pdfImport')
+    mockUploadFn = pdfImportApi.upload as ReturnType<typeof vi.fn>
+  })
+
+  afterEach(() => vi.clearAllMocks())
+
+  async function uploadAndPreview(sourceName: string | null) {
+    mockUploadFn.mockResolvedValue({ ...BASE_PREVIEW, source_entity_name: sourceName })
+
+    render(wrap(<PDFImportPage />))
+
+    // Wait for entity options to load (same pattern as other tier1_10 tests)
+    await waitFor(() => expect(screen.getByText('ENT1 — Entity 1')).toBeInTheDocument())
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    fireEvent.change(screen.getByTestId('basis-select'), { target: { value: 'gaap' } })
+    fireEvent.change(screen.getByTestId('scope-select'), { target: { value: 'standalone' } })
+
+    const input = screen.getByTestId('pdf-file-input')
+    fireEvent.change(input, { target: { files: [new File(['%PDF'], 'test.pdf', { type: 'application/pdf' })] } })
+
+    // Button should now be enabled — click to trigger upload mutation
+    await waitFor(() => expect(screen.getByTestId('parse-pdf-btn')).not.toBeDisabled())
+    fireEvent.click(screen.getByTestId('parse-pdf-btn'))
+    await waitFor(() => expect(screen.getByTestId('apply-pdf-btn')).toBeInTheDocument(), { timeout: 3000 })
+  }
+
+  it('shows mismatch warning when PDF entity name differs from selected entity', async () => {
+    await uploadAndPreview('Totally Different Company LLC')
+    expect(screen.getByTestId('entity-mismatch-warning')).toBeInTheDocument()
+    expect(screen.getByText(/entity name mismatch/i)).toBeInTheDocument()
+  })
+
+  it('does not show mismatch warning when PDF entity name matches selected entity', async () => {
+    await uploadAndPreview('Entity 1')
+    expect(screen.queryByTestId('entity-mismatch-warning')).not.toBeInTheDocument()
   })
 })
 
