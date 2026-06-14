@@ -635,7 +635,7 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="text-slate-300 text-center sm:text-left">
-            Phase 7 — Import dedup (TB · PDF · COA), delete non-posted imports, staging entity type, entity quick-create from context bar
+            Phase 7 — Delete button for all import types (TB · PDF · COA), import dedup with duplicate banner, staging entity type, entity quick-create from context bar
           </div>
         </div>
       </div>
