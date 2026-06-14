@@ -288,7 +288,7 @@ export function QuickBooksConnectPage() {
   })
 
   return (
-    <PageLayout title="QuickBooks" description="Connect to QuickBooks Online or import a Desktop export">
+    <PageLayout title="QuickBooks" subtitle="Connect to QuickBooks Online or import a Desktop export">
       <div className="max-w-2xl space-y-6">
 
         {!entityId && (

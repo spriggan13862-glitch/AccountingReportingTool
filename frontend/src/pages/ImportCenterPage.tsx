@@ -108,7 +108,7 @@ export function ImportCenterPage() {
   const entityCount = entityData?.length ?? 0
 
   const uploadMutation = useMutation({
-    mutationFn: (force = false) => {
+    mutationFn: (force: boolean) => {
       if (!file || !entityId || !asOfDate) throw new Error('All fields required')
       return tbImportApi.uploadBatch({
         entity_id: entityId as number,
