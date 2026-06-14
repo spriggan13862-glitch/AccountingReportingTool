@@ -186,6 +186,7 @@ def import_registry(
     entity_id: int | None = Query(default=None),
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     """Aggregate all upload events across PDF imports, TB imports, and COA imports.
 
@@ -200,8 +201,12 @@ def import_registry(
     from app.models.entity import Entity
     from app.models.document_link import DocumentLink
 
-    entities = db.query(Entity).all()
-    entity_map = {e.id: e.name for e in entities}
+    org_id = current_user.organization_id
+
+    # Scope to current org's entities
+    org_entities = db.query(Entity).filter(Entity.organization_id == org_id).all()
+    org_entity_ids = {e.id for e in org_entities}
+    entity_map = {e.id: e.name for e in org_entities}
 
     entries: list[dict[str, Any]] = []
 
@@ -212,8 +217,8 @@ def import_registry(
         ).first()
         return link.document_id if link else None
 
-    # PDF imports
-    pdf_q = db.query(PDFImportBatch)
+    # PDF imports — scoped to org via entity
+    pdf_q = db.query(PDFImportBatch).filter(PDFImportBatch.entity_id.in_(org_entity_ids))
     if entity_id is not None:
         pdf_q = pdf_q.filter(PDFImportBatch.entity_id == entity_id)
     for b in pdf_q.order_by(PDFImportBatch.id.desc()).limit(limit).all():
@@ -233,8 +238,8 @@ def import_registry(
             "document_id": get_linked_doc_id("pdf_import", b.id),
         })
 
-    # Trial balance imports
-    tb_q = db.query(ImportBatch)
+    # Trial balance imports — scoped to org
+    tb_q = db.query(ImportBatch).filter(ImportBatch.organization_id == org_id)
     if entity_id is not None:
         tb_q = tb_q.filter(ImportBatch.entity_id == entity_id)
     for b in tb_q.order_by(ImportBatch.id.desc()).limit(limit).all():
@@ -256,7 +261,7 @@ def import_registry(
 
     # COA imports
     try:
-        coa_q = db.query(COAImportBatch)
+        coa_q = db.query(COAImportBatch).filter(COAImportBatch.entity_id.in_(org_entity_ids))
         if entity_id is not None:
             coa_q = coa_q.filter(COAImportBatch.entity_id == entity_id)
         for b in coa_q.order_by(COAImportBatch.id.desc()).limit(limit).all():
