@@ -869,6 +869,8 @@ export interface SheetInfo {
   name: string
   row_count: number
   likely_tb_score: number
+  headers: string[]
+  preview_rows: Record<string, string>[]
 }
 
 export interface DetectResult {

@@ -1511,6 +1511,8 @@ class SheetInfo(BaseModel):
     name: str
     row_count: int
     likely_tb_score: int
+    headers: list[str] = []
+    preview_rows: list[dict] = []
 
 
 class DetectResult(BaseModel):

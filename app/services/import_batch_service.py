@@ -1330,29 +1330,41 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
 
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
-            row_count = 0
-            for _ in ws.iter_rows(values_only=True):
-                row_count += 1
             score = _score_sheet_name(sheet_name)
-            sheets.append({"name": sheet_name, "row_count": max(0, row_count - 1), "likely_tb_score": score})
+            # Read headers + first 8 preview rows per sheet
+            sh_headers: list[str] = []
+            sh_rows: list[dict[str, str]] = []
+            sh_row_count = 0
+            rows_iter = ws.iter_rows(values_only=True)
+            for row in rows_iter:
+                cells = [str(c).strip() if c is not None else "" for c in row]
+                if any(cells) and not sh_headers:
+                    sh_headers = cells
+                    continue
+                if sh_headers and any(cells):
+                    sh_rows.append(dict(zip(sh_headers, cells)))
+                    sh_row_count += 1
+                    if len(sh_rows) >= 8:
+                        # Count remaining rows for row_count
+                        for _ in rows_iter:
+                            sh_row_count += 1
+                        break
+            sheets.append({
+                "name": sheet_name,
+                "row_count": sh_row_count,
+                "likely_tb_score": score,
+                "headers": sh_headers,
+                "preview_rows": sh_rows,
+            })
             if score > best_score:
                 best_score = score
                 selected_sheet = sheet_name
 
         if selected_sheet:
-            ws = wb[selected_sheet]
-            rows_iter = ws.iter_rows(values_only=True)
-            for row in rows_iter:
-                cells = [str(c).strip() if c is not None else "" for c in row]
-                if any(cells):
-                    headers = cells
-                    break
-            for row in rows_iter:
-                cells = [str(c).strip() if c is not None else "" for c in row]
-                if any(cells):
-                    raw_rows.append(dict(zip(headers, cells)))
-                    if len(raw_rows) >= 5:
-                        break
+            sheet_data = next((s for s in sheets if s["name"] == selected_sheet), None)
+            if sheet_data:
+                headers = sheet_data["headers"]
+                raw_rows = sheet_data["preview_rows"]
         wb.close()
     else:
         headers, all_rows = _parse_csv_file(file_content)

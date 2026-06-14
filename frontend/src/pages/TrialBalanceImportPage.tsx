@@ -234,7 +234,7 @@ export function TrialBalanceImportPage() {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-sm text-gray-650">Drag &amp; drop file, or click to browse</p>
+                    <p className="text-sm text-gray-600">Drag &amp; drop file, or click to browse</p>
                     <p className="text-xs text-gray-400 mt-1.5">Supports standard accounting trial balance CSV or XLSX</p>
                   </div>
                 )}
@@ -253,7 +253,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 disabled={!file || !entityId || !asOfDate || detectMutation.isPending}
                 onClick={() => detectMutation.mutate()}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {detectMutation.isPending ? 'Processing…' : 'Proceed to Sheet & Mapping'}
                 <ChevronRight className="w-4 h-4" />
@@ -262,108 +262,228 @@ export function TrialBalanceImportPage() {
           </div>
         )}
 
-        {/* Step 1: Sheet Selection */}
+        {/* Step 1: Sheet Selection — tabbed preview */}
         {step === 1 && detected && (
-          <div className="space-y-6">
-            <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Worksheet Selection</h3>
-            <p className="text-xs text-gray-500">Multiple worksheets detected in this file. Select the sheet containing your trial balance.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Select Worksheet</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Click a tab to preview its data, then confirm your selection.</p>
+            </div>
+
+            {/* Tab bar */}
+            <div className="flex gap-0 border-b border-gray-200 overflow-x-auto">
               {detected.sheets.map((sheet: SheetInfo) => (
-                <div
+                <button
                   key={sheet.name}
+                  type="button"
                   onClick={() => setSelectedSheet(sheet.name)}
-                  className={`border p-4 rounded-lg cursor-pointer transition-all ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px shrink-0 transition-colors ${
                     selectedSheet === sheet.name
-                      ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 font-semibold ring-1 ring-indigo-600'
-                      : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                      ? 'border-indigo-600 text-indigo-700 bg-indigo-50/40'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <FileText className="w-5 h-5 mx-auto mb-2 text-indigo-500" />
-                  <p className="text-xs text-center font-medium truncate">{sheet.name}</p>
-                  <p className="text-[10px] text-center text-gray-400 mt-0.5">{sheet.row_count} rows</p>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="max-w-32 truncate">{sheet.name}</span>
+                  <span className="text-[10px] text-gray-400">{sheet.row_count} rows</span>
                   {sheet.likely_tb_score >= 5 && (
-                    <p className="text-[10px] text-center text-emerald-600 font-semibold mt-0.5">Likely TB</p>
+                    <span className="rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-[9px] font-bold">TB</span>
                   )}
-                </div>
+                </button>
               ))}
             </div>
 
-            <div className="flex justify-between border-t border-gray-100 pt-5">
+            {/* Data preview for active sheet */}
+            {(() => {
+              const active = detected.sheets.find((s: SheetInfo) => s.name === selectedSheet)
+              if (!active || active.headers.length === 0) return (
+                <p className="text-xs text-gray-400 italic py-6 text-center">No data preview available for this sheet.</p>
+              )
+              return (
+                <div className="rounded-lg border border-gray-200 overflow-auto max-h-72 text-xs">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                      <tr>
+                        {active.headers.map((h: string, i: number) => (
+                          <th key={i} className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200 whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {active.preview_rows.map((row: Record<string, string>, ri: number) => (
+                        <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                          {active.headers.map((h: string, ci: number) => (
+                            <td key={ci} className="px-3 py-1.5 text-gray-700 border-b border-gray-100 whitespace-nowrap tabular-nums">
+                              {row[h] ?? ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {active.preview_rows.length === 0 && (
+                        <tr><td colSpan={active.headers.length} className="px-3 py-4 text-center text-gray-400 italic">No data rows</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()}
+
+            <div className="flex justify-between border-t border-gray-100 pt-4">
               <button
                 type="button"
                 onClick={() => setStep(0)}
-                className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-650 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
+                className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" /> Back
               </button>
               <button
                 type="button"
                 disabled={!selectedSheet}
-                onClick={() => setStep(2)}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                onClick={() => {
+                  const active = detected.sheets.find((s: SheetInfo) => s.name === selectedSheet)
+                  if (active) {
+                    setColMapping(detected.detected_mapping)
+                  }
+                  setStep(2)
+                }}
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
-                Next Step
+                Use This Sheet
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 2: Column Mapping */}
-        {step === 2 && detected && (
-          <div className="space-y-6">
-            <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Confirm Column Mapping</h3>
-            <p className="text-xs text-gray-500">Ensure the import columns match standard ledger headers. Aliases are automatically resolved where possible.</p>
-            
-            <div className="space-y-3.5 max-w-xl">
-              {[
-                { key: 'account_number', label: 'Account Number', desc: 'Numeric or alphanumeric account code', required: true },
-                { key: 'account_name', label: 'Account Name', desc: 'Account description text', required: false },
-                { key: 'debit', label: 'Debit', desc: 'Debits list', required: false },
-                { key: 'credit', label: 'Credit', desc: 'Credits list', required: false },
-                { key: 'balance', label: 'Net Balance', desc: 'Signed balance (used if Debit/Credit not separated)', required: false },
-              ].map(({ key, label, desc, required }) => (
-                <div key={key} className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center border-b border-gray-50 pb-3">
-                  <div>
-                    <span className="text-xs font-bold text-gray-700 flex items-center gap-1">
-                      {label} {required && <span className="text-red-500">*</span>}
-                    </span>
-                    <p className="text-[10px] text-gray-400">{desc}</p>
-                  </div>
-                  <select
-                    value={colMapping[key] ?? ''}
-                    onChange={(e) => setColMapping(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="h-8.5 rounded border border-gray-300 px-3 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">— Select Source Column —</option>
-                    {detected.headers.map((h: string) => (
-                      <option key={h} value={h}>{h}</option>
+        {/* Step 2: Column Mapping — spreadsheet-style column picker */}
+        {step === 2 && detected && (() => {
+          const FIELD_OPTIONS = [
+            { value: '',               label: '— Ignore —' },
+            { value: 'account_number', label: 'Account Number ✱' },
+            { value: 'account_name',   label: 'Account Name' },
+            { value: 'debit',          label: 'Debit' },
+            { value: 'credit',         label: 'Credit' },
+            { value: 'balance',        label: 'Net Balance' },
+            { value: 'description',    label: 'Description' },
+          ]
+          const FIELD_COLORS: Record<string, string> = {
+            account_number: 'bg-indigo-50 border-indigo-300',
+            account_name:   'bg-blue-50 border-blue-300',
+            debit:          'bg-emerald-50 border-emerald-300',
+            credit:         'bg-rose-50 border-rose-300',
+            balance:        'bg-amber-50 border-amber-300',
+            description:    'bg-purple-50 border-purple-300',
+          }
+          // Invert mapping: column_header → field_key
+          const colToField: Record<string, string> = {}
+          for (const [field, col] of Object.entries(colMapping)) {
+            if (col) colToField[col] = field
+          }
+          function setColField(colHeader: string, fieldKey: string) {
+            setColMapping(prev => {
+              const next = { ...prev }
+              // Remove any existing mapping to this column
+              for (const [f, c] of Object.entries(next)) {
+                if (c === colHeader) delete next[f]
+              }
+              if (fieldKey) next[fieldKey] = colHeader
+              return next
+            })
+          }
+          const previewRows: Record<string, string>[] = detected.preview_rows ?? []
+          return (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Map Columns</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Use the dropdowns under each column header to assign what field each column represents.
+                  Columns auto-detected are pre-filled.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-gray-200 overflow-auto">
+                <table className="text-xs">
+                  <thead>
+                    {/* Row 1: original column header */}
+                    <tr className="bg-gray-100 border-b border-gray-200">
+                      {detected.headers.map((h: string) => (
+                        <th key={h} className={`px-3 py-2 text-left font-semibold border-r border-gray-200 whitespace-nowrap last:border-r-0 ${
+                          colToField[h] ? FIELD_COLORS[colToField[h]] ?? 'bg-gray-100' : 'text-gray-500'
+                        }`}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                    {/* Row 2: field assignment dropdowns */}
+                    <tr className="bg-white border-b-2 border-indigo-200">
+                      {detected.headers.map((h: string) => (
+                        <td key={h} className="px-2 py-1.5 border-r border-gray-100 last:border-r-0">
+                          <select
+                            value={colToField[h] ?? ''}
+                            onChange={(e) => setColField(h, e.target.value)}
+                            className={`w-full rounded border px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400 ${
+                              colToField[h]
+                                ? `${FIELD_COLORS[colToField[h]] ?? 'bg-white border-gray-300'} font-medium`
+                                : 'bg-white border-gray-200 text-gray-400'
+                            }`}
+                          >
+                            {FIELD_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                      ))}
+                    </tr>
+                  </thead>
+                  {/* Preview data rows */}
+                  <tbody>
+                    {previewRows.length === 0 && (
+                      <tr><td colSpan={detected.headers.length} className="px-3 py-4 text-center text-gray-400 italic">No preview data</td></tr>
+                    )}
+                    {previewRows.map((row: Record<string, string>, ri: number) => (
+                      <tr key={ri} className={`border-b border-gray-50 ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                        {detected.headers.map((h: string) => (
+                          <td key={h} className={`px-3 py-1.5 border-r border-gray-100 last:border-r-0 whitespace-nowrap tabular-nums ${
+                            colToField[h] ? 'text-gray-800' : 'text-gray-400'
+                          }`}>
+                            {row[h] ?? ''}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </select>
-                </div>
-              ))}
-            </div>
+                  </tbody>
+                </table>
+              </div>
 
-            <div className="flex justify-between border-t border-gray-100 pt-5">
-              <button
-                type="button"
-                onClick={() => setStep(detected.sheets.length > 0 ? 1 : 0)}
-                className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-650 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" /> Back
-              </button>
-              <button
-                type="button"
-                disabled={!colMapping['account_number'] || uploadMutation.isPending}
-                onClick={() => uploadMutation.mutate()}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                {uploadMutation.isPending ? 'Uploading…' : 'Process & Validate'}
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              {!colMapping['account_number'] && (
+                <p className="text-xs text-red-600">
+                  ✱ <span className="font-semibold">Account Number</span> must be mapped before proceeding.
+                </p>
+              )}
+
+              <div className="flex justify-between border-t border-gray-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setStep(detected.sheets.length > 0 ? 1 : 0)}
+                  className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Back
+                </button>
+                <button
+                  type="button"
+                  disabled={!colMapping['account_number'] || uploadMutation.isPending}
+                  onClick={() => uploadMutation.mutate()}
+                  className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {uploadMutation.isPending ? 'Uploading…' : 'Process & Validate'}
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Step 3: Verify & Validate */}
         {step === 3 && (
@@ -377,7 +497,7 @@ export function TrialBalanceImportPage() {
                   <CheckCircle className="w-5 h-5 text-emerald-500 shrink-0" />
                   <div>
                     <p className="text-xs font-bold text-emerald-800">All validations passed</p>
-                    <p className="text-[10px] text-emerald-650 mt-0.5">Debit/credit amounts balance. No mapping errors or duplications detected.</p>
+                    <p className="text-[10px] text-emerald-600 mt-0.5">Debit/credit amounts balance. No mapping errors or duplications detected.</p>
                   </div>
                 </div>
               ) : (
@@ -434,7 +554,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 onClick={() => setStep(4)}
                 disabled={validationIssues.some(i => i.severity === 'error')}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer animate-pulse-subtle"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer animate-pulse-subtle"
               >
                 Next: Post to Ledger
                 <ChevronRight className="w-4 h-4" />
@@ -486,7 +606,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 disabled={!jeNumber || postMutation.isPending}
                 onClick={() => postMutation.mutate()}
-                className="flex items-center gap-1 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-200 cursor-pointer"
+                className="flex items-center gap-1 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-200 cursor-pointer"
               >
                 {postMutation.isPending ? 'Posting…' : 'Post to Ledger'}
               </button>

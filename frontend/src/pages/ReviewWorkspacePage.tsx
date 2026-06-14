@@ -17,23 +17,34 @@ const TABS: { value: StatementTab; label: string }[] = [
   { value: 'Analysis', label: 'Analysis' },
 ]
 
-function CheckBadge({ check }: { check: CheckResult }) {
-  const [expanded, setExpanded] = useState(false)
+// Which tabs each check is relevant to. Checks not listed here show on all statement tabs.
+const CHECK_TAB_RELEVANCE: Record<string, Array<'BS' | 'IS' | 'CF'>> = {
+  'Balance Sheet balances (A = L + E)': ['BS'],
+}
+
+function CheckPill({ check }: { check: CheckResult }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div className={`rounded border px-2.5 py-1.5 ${check.passed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+    <div className="relative">
       <button
         type="button"
-        onClick={() => setExpanded((e) => !e)}
-        className="flex items-center gap-1.5 w-full text-left"
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+          check.passed
+            ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+            : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+        }`}
       >
         {check.passed
-          ? <CheckCircle className="h-3 w-3 text-green-600 shrink-0" />
-          : <XCircle className="h-3 w-3 text-red-600 shrink-0" />}
-        <p className={`text-[11px] font-medium flex-1 ${check.passed ? 'text-green-800' : 'text-red-800'}`}>{check.name}</p>
-        <ChevronDown className={`h-3 w-3 text-gray-400 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          ? <CheckCircle className="h-3 w-3 shrink-0" />
+          : <XCircle className="h-3 w-3 shrink-0" />}
+        <span>{check.name}</span>
       </button>
-      {expanded && (
-        <p className={`text-[10px] mt-1 pl-4 leading-snug ${check.passed ? 'text-green-600' : 'text-red-600'}`}>{check.detail}</p>
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 z-30 min-w-48 max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg text-xs text-gray-700">
+          {check.detail}
+        </div>
       )}
     </div>
   )
@@ -331,8 +342,13 @@ export function ReviewWorkspacePage() {
   const varianceRows = data?.variance.filter((r) => r.statement === tab) ?? []
   const currentRows = data?.current.filter((r) => r.statement === tab) ?? []
   const priorRows = data?.prior.filter((r) => r.statement === tab) ?? []
-  const checks = data?.checks ?? []
-  const failedChecks = checks.filter((c) => !c.passed).length
+  const allChecks = data?.checks ?? []
+  // Only show checks relevant to the current tab
+  const visibleChecks = isAnalysisTab ? [] : allChecks.filter((c) => {
+    const allowed = CHECK_TAB_RELEVANCE[c.name]
+    return allowed ? allowed.includes(tab as 'BS' | 'IS' | 'CF') : true
+  })
+  const failedChecks = allChecks.filter((c) => !c.passed).length
 
   function handleDrilldown(code: string) {
     if (!activeEntity) return
@@ -374,95 +390,80 @@ export function ReviewWorkspacePage() {
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-4 p-4 lg:p-6">
-      {/* Main panel */}
-      <div className="flex-1 min-w-0 flex flex-col gap-4">
+    <div className="flex flex-col h-full min-h-0 p-4 lg:p-6 gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold text-gray-900">Review</h1>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {activeEntity?.code} · {activePeriod?.period_name}
-            {failedChecks > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                <XCircle className="h-3 w-3" />{failedChecks} check{failedChecks !== 1 ? 's' : ''} failed
-              </span>
-            )}
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">{activeEntity?.code} · {activePeriod?.period_name}</p>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-gray-200">
-          {TABS.map(({ value, label }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTab(value)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                tab === value
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          {!isAnalysisTab && (
-            <div className="ml-auto flex items-center gap-1 pb-1">
-              {(['variance', 'current', 'prior'] as const).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className={`rounded px-2 py-0.5 text-xs font-medium capitalize transition-colors ${
-                    view === v ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  {v === 'variance' ? 'Comparison' : v === 'current' ? 'Current' : 'Prior'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="rounded-lg border border-gray-200 bg-white p-4 flex-1 overflow-auto">
-          {isAnalysisTab ? (
-            analysisLoading ? <LoadingState /> : <AnalysisPanel data={analysisData} />
-          ) : (
-            <>
-              {isLoading && <LoadingState />}
-              {isError && <ErrorState message={(error as Error).message} />}
-              {data && !isLoading && (
-                view === 'variance'
-                  ? <VarianceTable rows={varianceRows} onDrilldown={handleDrilldown} />
-                  : view === 'current'
-                    ? <StatementTable rows={currentRows} />
-                    : <StatementTable rows={priorRows} />
-              )}
-            </>
-          )}
-        </div>
+        {failedChecks > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
+            <XCircle className="h-3.5 w-3.5" />{failedChecks} check{failedChecks !== 1 ? 's' : ''} failed
+          </span>
+        )}
       </div>
 
-      {/* Right panel — Checks */}
-      <div className="w-52 shrink-0 flex flex-col gap-2">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Checks
-          {failedChecks > 0 && (
-            <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
-              {failedChecks}
-            </span>
-          )}
-        </h2>
-        <div className="flex flex-col gap-1.5">
-          {isLoading && <p className="text-[11px] text-gray-400">Loading…</p>}
-          {checks.length === 0 && !isLoading && (
-            <p className="text-[11px] text-gray-400 italic">No checks</p>
-          )}
-          {checks.map((check) => (
-            <CheckBadge key={check.name} check={check} />
+      {/* Tab bar + view toggle */}
+      <div className="flex items-center gap-1 border-b border-gray-200 shrink-0">
+        {TABS.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTab(value)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === value
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {!isAnalysisTab && (
+          <div className="ml-auto flex items-center gap-1 pb-1">
+            {(['variance', 'current', 'prior'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                className={`rounded px-2 py-0.5 text-xs font-medium capitalize transition-colors ${
+                  view === v ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {v === 'variance' ? 'Comparison' : v === 'current' ? 'Current' : 'Prior'}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Checks strip — contextual per tab, hidden on Analysis */}
+      {visibleChecks.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          {visibleChecks.map((check) => (
+            <CheckPill key={check.name} check={check} />
           ))}
         </div>
-        <p className="text-[10px] text-gray-400 mt-1">These are period-level structural checks — they apply regardless of which statement tab is open.</p>
+      )}
+
+      {/* Content — full width */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4 flex-1 overflow-auto min-h-0">
+        {isAnalysisTab ? (
+          analysisLoading ? <LoadingState /> : <AnalysisPanel data={analysisData} />
+        ) : (
+          <>
+            {isLoading && <LoadingState />}
+            {isError && <ErrorState message={(error as Error).message} />}
+            {data && !isLoading && (
+              view === 'variance'
+                ? <VarianceTable rows={varianceRows} onDrilldown={handleDrilldown} />
+                : view === 'current'
+                  ? <StatementTable rows={currentRows} />
+                  : <StatementTable rows={priorRows} />
+            )}
+          </>
+        )}
       </div>
     </div>
   )
