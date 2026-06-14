@@ -279,10 +279,25 @@ export function GeneralLedgerImportPage() {
               <PeriodSelect
                 entityId={entityId}
                 value={periodId}
-                onChange={setPeriodId}
-                label="Period"
-                required
+                onChange={(id) => setPeriodId(id)}
+                label="Period (auto-fills date below)"
+                required={false}
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                As of Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={asOfDate}
+                onChange={(e) => { setAsOfDate(e.target.value); setPeriodId('') }}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Select a period above to auto-fill, or enter any date directly. No pre-configured period required.
+              </p>
             </div>
 
             <div className="border-t border-gray-100 pt-5">

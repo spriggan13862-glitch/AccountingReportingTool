@@ -11,6 +11,7 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
+import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
@@ -41,6 +42,7 @@ export function TrialBalanceImportPage() {
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [periodId, setPeriodId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState<string>('')
+  const [scenarioId, setScenarioId] = useState<number>(1)
   
   const [detected, setDetected] = useState<any>(null)
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
@@ -102,7 +104,7 @@ export function TrialBalanceImportPage() {
         entity_id: entityId as number,
         organization_id: orgId,
         as_of_date: asOfDate,
-        scenario_id: 1, // Default scenario (Actual)
+        scenario_id: scenarioId || 1,
         sheet_name: selectedSheet ?? undefined,
         file,
       })
@@ -222,6 +224,13 @@ export function TrialBalanceImportPage() {
                 Select a period above to auto-fill, or enter any date directly (e.g. 12/31/2025, 3/31/2026). No pre-configured period required.
               </p>
             </div>
+
+            <ScenarioSelect
+              value={scenarioId}
+              onChange={(id) => setScenarioId(typeof id === 'number' ? id : 1)}
+              label="Scenario"
+              organizationId={orgId || undefined}
+            />
 
             <div className="border-t border-gray-100 pt-5">
               <div className="flex justify-between items-center mb-3">
