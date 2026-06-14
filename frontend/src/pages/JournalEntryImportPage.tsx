@@ -317,7 +317,7 @@ export function JournalEntryImportPage() {
                 id="isReversing"
                 checked={isReversing}
                 onChange={(e) => setIsReversing(e.target.checked)}
-                className="w-4 h-4 rounded text-indigo-650 focus:ring-indigo-500 border-gray-300 mt-0.5"
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 mt-0.5"
               />
               <div>
                 <label htmlFor="isReversing" className="block text-xs font-bold text-gray-700 cursor-pointer">
@@ -335,7 +335,7 @@ export function JournalEntryImportPage() {
                 <button
                   type="button"
                   onClick={downloadTemplate}
-                  className="flex items-center gap-1 text-xs text-indigo-655 font-bold hover:underline cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" /> Download Template
                 </button>
@@ -385,7 +385,7 @@ export function JournalEntryImportPage() {
                 type="button"
                 disabled={!file || !entityId || !periodId}
                 onClick={() => setStep(1)}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 Proceed to Mapping
                 <ChevronRight className="w-4 h-4" />
@@ -442,7 +442,7 @@ export function JournalEntryImportPage() {
                 type="button"
                 disabled={!colMapping['entry_date'] || !colMapping['account_number'] || !colMapping['debit'] || !colMapping['credit']}
                 onClick={processColumnsAndProceed}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 Group & Preview
                 <ChevronRight className="w-4 h-4" />
@@ -503,7 +503,7 @@ export function JournalEntryImportPage() {
                 type="button"
                 onClick={() => setStep(3)}
                 disabled={validationErrors.length > 0}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 Next: Finalize Import
                 <ChevronRight className="w-4 h-4" />
@@ -515,7 +515,7 @@ export function JournalEntryImportPage() {
         {/* Step 3: Finalize */}
         {step === 3 && (
           <div className="space-y-6 text-center py-6">
-            <div className="mx-auto w-12 h-12 bg-indigo-50 text-indigo-650 rounded-full flex items-center justify-center mb-4">
+            <div className="mx-auto w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
               <FileText className="w-6 h-6 animate-pulse" />
             </div>
             
@@ -550,7 +550,7 @@ export function JournalEntryImportPage() {
                 disabled={importMutation.isPending || scenarioId === ''}
                 title={scenarioId === '' ? 'Select a scenario before importing' : undefined}
                 onClick={() => importMutation.mutate()}
-                className="flex items-center gap-1 px-5 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-150 cursor-pointer"
+                className="flex items-center gap-1 px-5 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-150 cursor-pointer"
               >
                 {importMutation.isPending ? 'Processing…' : 'Import & Commit'}
               </button>

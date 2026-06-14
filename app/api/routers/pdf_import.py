@@ -70,23 +70,13 @@ async def upload_pdf(
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
 
-    # P1: reject missing required metadata before touching the PDF
-    missing: list[str] = []
     if entity_id is None:
-        missing.append("entity_id")
-    if not statement_date:
-        missing.append("statement_date")
-    if not basis_override:
-        missing.append("basis_override")
-    if not statement_scope:
-        missing.append("statement_scope")
-    if missing:
         raise HTTPException(
             status_code=422,
             detail={
                 "error": "missing_required_fields",
-                "message": f"Missing required fields: {', '.join(missing)}",
-                "missing_fields": missing,
+                "message": "Missing required field: entity_id",
+                "missing_fields": ["entity_id"],
             },
         )
 
@@ -530,9 +520,15 @@ def get_pdf_validation(batch_id: int, db: Session = Depends(get_db)):
     if batch is None:
         raise HTTPException(status_code=404, detail=f"PDF import batch {batch_id} not found")
 
-    validation = {}
-    if batch.validation_summary:
+    # Re-compute from raw lines so validation always reflects the current algorithm.
+    if batch.raw_preview:
+        from app.services.pdf_extraction_service import _build_validation
+        raw = json.loads(batch.raw_preview)
+        validation = _build_validation(raw.get("lines", []))
+    elif batch.validation_summary:
         validation = json.loads(batch.validation_summary)
+    else:
+        validation = {}
 
     checks = validation.get("checks", [])
     return PDFImportValidationReport(
@@ -1229,6 +1225,33 @@ def _compute_bs_validation(lines_data: list[dict], tolerance: float = 0.01) -> d
         if line.get("synthetic_presentation_line"):
             net_income_in_equity = amount
 
+    # Pass 1.5: when total_assets found but no combined L+E line, try summing section subtotals
+    if total_assets_from_subtotal is not None and total_le_from_subtotal is None:
+        _cur_liab: Decimal | None = None
+        _lt_liab: Decimal | None = None
+        _eq_sub: Decimal | None = None
+        for _line in lines_data:
+            if not _line.get("is_subtotal") or _line.get("synthetic_presentation_line"):
+                continue
+            if (_line.get("statement_type") or "").lower() != "balance_sheet":
+                continue
+            _nm = (_line.get("account_name") or "").lower()
+            _amt = safe_dec(_line.get("amount"))
+            if "total current liabilit" in _nm:
+                _cur_liab = _amt
+            elif "total long" in _nm and "liabilit" in _nm:
+                _lt_liab = _amt
+            elif (
+                "total stockholder" in _nm
+                or "total shareholder" in _nm
+                or (_nm.startswith("total") and "equity" in _nm and "liab" not in _nm)
+            ):
+                _eq_sub = _amt
+        if _cur_liab is not None and _lt_liab is not None and _eq_sub is not None:
+            computed_le = _cur_liab + _lt_liab + _eq_sub
+            if abs(float(total_assets_from_subtotal - computed_le)) <= tolerance:
+                total_le_from_subtotal = computed_le
+
     # Pass 2: if subtotals were found, use them directly
     if total_assets_from_subtotal is not None and total_le_from_subtotal is not None:
         variance = total_assets_from_subtotal - total_le_from_subtotal
@@ -1326,8 +1349,8 @@ def delete_pdf_batch(batch_id: int, db: Session = Depends(get_db), current_user=
     batch = db.get(PDFImportBatch, batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
-    if batch.status in ("finalized", "posted", "applied"):
-        raise HTTPException(status_code=409, detail="Cannot delete a finalized batch")
+    if batch.status in ("finalized", "posted"):
+        raise HTTPException(status_code=409, detail="Cannot delete a finalized or posted batch")
     db.query(PDFAccountMapping).filter(PDFAccountMapping.batch_id == batch_id).delete()
     db.query(PDFImportLine).filter(PDFImportLine.batch_id == batch_id).delete()
     db.delete(batch)

@@ -143,7 +143,7 @@ export function AppRouter() {
 
           {/* ── FINANCIAL IMPACT (legacy — redirect to /review) ───────────── */}
           <Route path="financial-impact/trial-balance" element={<TrialBalancesPage />} />
-          <Route path="financial-impact/statements" element={<Navigate replace to="/review" />} />
+          <Route path="financial-impact/statements" element={<FinancialStatementsPage />} />
           <Route path="financial-impact/builder" element={<FSBuilderPage />} />
           <Route path="financial-impact/comparatives" element={<ComparativeFinancialsPage />} />
           <Route path="financial-impact/variance" element={<Navigate replace to="/review" />} />
@@ -241,6 +241,7 @@ export function AppRouter() {
           <Route path="report-builder" element={<Navigate replace to="/deliverables/report-builder" />} />
           <Route path="reports/:id" element={<ReportDetailPage />} />
           <Route path="reports" element={<Navigate replace to="/deliverables/reports" />} />
+          <Route path="reporting-taxonomy" element={<Navigate replace to="/client-data/taxonomy-mapping" />} />
           <Route path="reporting-settings" element={<Navigate replace to="/setup/settings" />} />
           <Route path="help" element={<Navigate replace to="/setup/help" />} />
 

@@ -238,7 +238,7 @@ export function TrialBalanceImportPage() {
                 <button
                   type="button"
                   onClick={downloadTemplate}
-                  className="flex items-center gap-1 text-xs text-indigo-650 font-bold hover:underline cursor-pointer"
+                  className="flex items-center gap-1 text-xs text-indigo-600 font-bold hover:underline cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" /> Download Template
                 </button>
@@ -285,7 +285,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 disabled={!file || !entityId || !asOfDate || detectMutation.isPending}
                 onClick={() => detectMutation.mutate()}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {detectMutation.isPending ? 'Processing…' : 'Proceed to Sheet & Mapping'}
                 <ChevronRight className="w-4 h-4" />
@@ -328,7 +328,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 disabled={!selectedSheet}
                 onClick={() => setStep(2)}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 Next Step
                 <ChevronRight className="w-4 h-4" />
@@ -384,7 +384,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 disabled={!colMapping['account_number'] || uploadMutation.isPending}
                 onClick={() => uploadMutation.mutate()}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {uploadMutation.isPending ? 'Uploading…' : 'Process & Validate'}
                 <ChevronRight className="w-4 h-4" />
@@ -462,7 +462,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 onClick={() => setStep(4)}
                 disabled={validationIssues.some(i => i.severity === 'error')}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer animate-pulse-subtle"
+                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer animate-pulse-subtle"
               >
                 Next: Post to Ledger
                 <ChevronRight className="w-4 h-4" />
@@ -514,7 +514,7 @@ export function TrialBalanceImportPage() {
                 type="button"
                 disabled={!jeNumber || postMutation.isPending}
                 onClick={() => postMutation.mutate()}
-                className="flex items-center gap-1 px-5 py-2.5 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-200 cursor-pointer"
+                className="flex items-center gap-1 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors shadow shadow-indigo-200 cursor-pointer"
               >
                 {postMutation.isPending ? 'Posting…' : 'Post to Ledger'}
               </button>

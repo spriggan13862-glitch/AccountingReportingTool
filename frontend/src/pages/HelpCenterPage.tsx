@@ -311,7 +311,7 @@ export function HelpCenterPage() {
           <button
             type="button"
             onClick={() => navigate('/entities')}
-            className="mt-4 flex items-center gap-1.5 text-xs text-indigo-650 font-bold hover:text-indigo-800 transition-colors"
+            className="mt-4 flex items-center gap-1.5 text-xs text-indigo-600 font-bold hover:text-indigo-800 transition-colors"
           >
             Start with Entities <ArrowRight className="w-3.5 h-3.5" />
           </button>
@@ -333,7 +333,7 @@ export function HelpCenterPage() {
                   <button
                     type="button"
                     onClick={() => downloadCsv(tmpl)}
-                    className="mt-3 flex items-center gap-1 text-[11px] text-indigo-650 hover:text-indigo-850 font-bold transition-colors"
+                    className="mt-3 flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-bold transition-colors"
                   >
                     <Download className="w-3.5 h-3.5" /> Download {tmpl.filename}
                   </button>
@@ -376,7 +376,7 @@ export function HelpCenterPage() {
                       <ol className="mt-4 space-y-3">
                         {guide.steps.map((step, j) => (
                           <li key={j} className="flex gap-3 text-xs text-slate-650 font-medium leading-relaxed">
-                            <span className="flex-shrink-0 w-5 h-5 bg-indigo-50 text-indigo-650 rounded-full text-[10px] flex items-center justify-center font-bold border border-indigo-100">
+                            <span className="flex-shrink-0 w-5 h-5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] flex items-center justify-center font-bold border border-indigo-100">
                               {j + 1}
                             </span>
                             <span className="flex-1 pt-0.5">{step}</span>
@@ -387,7 +387,7 @@ export function HelpCenterPage() {
                         <button
                           type="button"
                           onClick={() => navigate(guide.route!)}
-                          className="mt-4 flex items-center gap-1.5 text-xs text-indigo-650 font-bold hover:text-indigo-850 transition-colors"
+                          className="mt-4 flex items-center gap-1.5 text-xs text-indigo-600 font-bold hover:text-indigo-800 transition-colors"
                         >
                           <ExternalLink className="w-3.5 h-3.5" /> Open {guide.title.split(' ').pop()}
                         </button>

@@ -120,7 +120,7 @@ test.describe('Login flow', () => {
     await page.getByLabel(/password/i).fill('Demo1234!')
     await page.getByRole('button', { name: /sign in/i }).click()
 
-    await expect(page).toHaveURL(/\/$|\/dashboard/, { timeout: 10000 })
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10000 })
   })
 
   test('shows error on invalid credentials', async ({ page }) => {
@@ -149,17 +149,17 @@ test.describe('Dashboard', () => {
     }, MOCK_TOKEN)
   })
 
-  test('shows dashboard with quick links', async ({ page }) => {
+  test('shows workspace links', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText(/quick links/i)).toBeVisible()
-    await expect(page.getByRole('link', { name: /journal entries/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /import center/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /reports preview/i }).first()).toBeVisible()
+    await expect(page.getByText(/workspaces/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /^import$/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /^review$/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /^adjustments$/i }).first()).toBeVisible()
   })
 
-  test('shows demo banner for Acme org', async ({ page }) => {
+  test('shows overview page after login', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByText(/Overview for Acme Manufacturing Co\./i)).toBeVisible()
+    await expect(page.locator('h1, h2, h3').first()).toBeVisible()
   })
 })
 

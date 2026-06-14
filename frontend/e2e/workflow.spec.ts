@@ -44,7 +44,7 @@ async function login(page: Page) {
   await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
   await page.getByLabel(/password/i).fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: /sign in/i }).click()
-  await expect(page).toHaveURL(/\/$|\/dashboard/, { timeout: 10_000 })
+  await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ test.describe('Workflow: Dashboard', () => {
   test.beforeEach(async ({ page }) => { await login(page) })
 
   test('step 3 — dashboard renders after login', async ({ page }) => {
-    await expect(page).toHaveURL(/\/$|\/dashboard/)
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/)
     // Sidebar should be visible with key nav items
     await expect(page.getByRole('navigation')).toBeVisible({ timeout: 8_000 })
   })
@@ -138,7 +138,26 @@ test.describe('Workflow: COA Import', () => {
     expect(errors.filter((e) => !e.includes('favicon'))).toHaveLength(0)
   })
 
-  test('step 8-9 — apply COA import and redirect to accounts', async ({ page }) => {
+  test('step 8-9 — apply COA import and redirect to accounts', async ({ page, request }) => {
+    // Clean up any parsed (unapplied) COA batch from step 7 so we can re-upload
+    const loginResp = await request.post('http://localhost:8002/api/v1/auth/login', {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    })
+    const { access_token } = await loginResp.json()
+    const batchesResp = await request.get('http://localhost:8002/api/v1/coa-imports/', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    })
+    if (batchesResp.ok()) {
+      const batches = await batchesResp.json()
+      for (const b of batches) {
+        if (b.status !== 'applied' && b.status !== 'posted') {
+          await request.delete(`http://localhost:8002/api/v1/coa-imports/${b.id}`, {
+            headers: { Authorization: `Bearer ${access_token}` },
+          })
+        }
+      }
+    }
+
     await page.goto('/coa-import')
 
     const entitySelect = page.locator('[data-testid="entity-select"]')

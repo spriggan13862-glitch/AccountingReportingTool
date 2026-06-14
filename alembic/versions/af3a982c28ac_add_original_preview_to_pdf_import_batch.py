@@ -19,7 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('pdf_import_batches', sa.Column('original_preview', sa.Text(), nullable=True))
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    cols = [c['name'] for c in inspect(conn).get_columns('pdf_import_batches')]
+    if 'original_preview' not in cols:
+        op.add_column('pdf_import_batches', sa.Column('original_preview', sa.Text(), nullable=True))
 
 
 def downgrade() -> None:

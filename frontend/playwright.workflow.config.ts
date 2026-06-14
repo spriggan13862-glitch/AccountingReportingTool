@@ -21,7 +21,6 @@ const E2E_DB_URL = `sqlite:///${E2E_DB.replace(/\\/g, '/')}`
 // Requires: ports 8002 and 5174 must be free.
 export default defineConfig({
   testDir: './e2e',
-  testMatch: ['**/workflow.spec.ts', '**/accounting.spec.ts', '**/pdf_import.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
@@ -37,17 +36,33 @@ export default defineConfig({
   },
   outputDir: './test-results',
   globalSetup: './e2e/global-setup.ts',
+  // Run files in dependency order: workflow first (COA import), then accounting (needs COA),
+  // then pdf_import. This prevents accounting.spec.ts's beforeAll from running before
+  // workflow's COA import tests and causing DUPLICATE_IMPORT errors.
   projects: [
     {
-      name: 'chromium',
+      name: 'workflow',
+      testMatch: '**/workflow.spec.ts',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'accounting',
+      testMatch: '**/accounting.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['workflow'],
+    },
+    {
+      name: 'pdf-import',
+      testMatch: '**/pdf_import.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['accounting'],
     },
   ],
   webServer: [
     {
       command: 'uvicorn app.main:app --host 0.0.0.0 --port 8002',
       url: 'http://localhost:8002/api/v1/setup/status',
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       cwd: ROOT,
       timeout: 30_000,
       env: {
@@ -61,7 +76,7 @@ export default defineConfig({
       // bypassing the proxy entirely for all api.* calls (belt-and-suspenders).
       command: 'npx vite --config vite.e2e.config.ts --port 5174',
       url: 'http://localhost:5174',
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       timeout: 30_000,
       env: {
         VITE_API_BASE_URL: 'http://localhost:8002/api/v1',

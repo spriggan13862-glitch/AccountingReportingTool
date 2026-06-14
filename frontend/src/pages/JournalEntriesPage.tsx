@@ -1022,7 +1022,7 @@ export function JournalEntriesPage() {
             <button
               type="button"
               onClick={handleOpenCreate}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-xs hover:shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold shadow-xs hover:shadow-sm cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" /> Create Journal Entry
             </button>
@@ -1044,7 +1044,7 @@ export function JournalEntriesPage() {
         {/* 1. Top KPI Summary Strip */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 mb-5">
           {[
-            { label: 'Draft', count: kpis.drafts, filter: 'draft', activeColor: 'border-indigo-500 bg-indigo-50/20 text-indigo-750' },
+            { label: 'Draft', count: kpis.drafts, filter: 'draft', activeColor: 'border-indigo-500 bg-indigo-50/20 text-indigo-700' },
             { label: 'Ready for Review', count: kpis.readyForReview, filter: 'ready_for_review', activeColor: 'border-amber-400 bg-amber-50/20 text-amber-700' },
             { label: 'Reviewed', count: kpis.reviewed, filter: 'reviewed', activeColor: 'border-teal-400 bg-teal-50/20 text-teal-750' },
             { label: 'Posted', count: kpis.posted, filter: 'posted', activeColor: 'border-emerald-500 bg-emerald-50/20 text-emerald-750' },
@@ -1085,7 +1085,7 @@ export function JournalEntriesPage() {
                   setReviewerFilter('')
                   setInclusionFilter('')
                 }}
-                className="text-[11px] text-indigo-650 hover:underline font-bold cursor-pointer"
+                className="text-[11px] text-indigo-600 hover:underline font-bold cursor-pointer"
               >
                 Clear all filters
               </button>
@@ -1383,7 +1383,7 @@ export function JournalEntriesPage() {
                       <button
                         type="button"
                         onClick={addLine}
-                        className="flex items-center gap-1 text-[11px] font-bold text-indigo-650 hover:underline cursor-pointer"
+                        className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" /> Add line item
                       </button>
@@ -1753,7 +1753,7 @@ export function JournalEntriesPage() {
                       postDraftMutation.isPending ||
                       (editingJeId !== null && substatusMap[editingJeId] !== 'reviewed' && substatusMap[editingJeId] !== 'draft') // require review if ready
                     }
-                    className="rounded-lg bg-indigo-650 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold disabled:opacity-50 cursor-pointer shadow-xs"
+                    className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-xs font-bold disabled:opacity-50 cursor-pointer shadow-xs"
                   >
                     {createAndPostMutation.isPending || postDraftMutation.isPending ? 'Posting…' : 'Post to Ledger'}
                   </button>
@@ -1845,7 +1845,7 @@ export function JournalEntriesPage() {
                 type="button"
                 disabled={!importEntityId || !importFile || importCsvMutation.isPending}
                 onClick={() => importCsvMutation.mutate()}
-                className="px-4 py-2 bg-indigo-650 hover:bg-indigo-705 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50"
               >
                 {importCsvMutation.isPending ? 'Importing…' : 'Import'}
               </button>

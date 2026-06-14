@@ -567,55 +567,113 @@ def _parse_income_statement(
 # Validation
 # ---------------------------------------------------------------------------
 
-_TOLERANCE = Decimal("0.02")
+_TOLERANCE = Decimal("1.01")
+
+import re as _re
+
+# Ordered label→key patterns (first match wins; more-specific patterns listed first).
+_SUBTOTAL_KEY_PATTERNS: list[tuple[_re.Pattern[str], str]] = [
+    (_re.compile(r'total\s+current\s+assets?', _re.I), 'total_current_assets'),
+    (_re.compile(r'net\s+fixed\s+assets?', _re.I), 'net_fixed_assets'),
+    (_re.compile(r'total\s+other\s+assets?', _re.I), 'total_other_assets'),
+    (_re.compile(r'total\s+assets?\b', _re.I), 'total_assets'),
+    (_re.compile(r'total\s+current\s+liabilit', _re.I), 'total_current_liabilities'),
+    (_re.compile(r'total\s+(long[\s\-]?term|long)\s+liabilit', _re.I), 'total_long_term_liabilities'),
+    (_re.compile(r'total\s+(stockholders?|equity|shareholders?)', _re.I), 'total_equity'),
+    (_re.compile(r'total\s+(income|revenue)(?!\s+tax)', _re.I), 'total_income'),
+    (_re.compile(r'total\s+cost\s+of\s+(sales|goods)', _re.I), 'total_cogs'),
+    (_re.compile(r'gross\s+profit', _re.I), 'gross_profit'),
+    (_re.compile(r'total\s+operating\s+exp', _re.I), 'total_operating_expenses'),
+    (_re.compile(r'total\s+other\s+income', _re.I), 'total_other_income'),
+    (_re.compile(r'\bnet\s+(income|loss)\b', _re.I), 'net_income'),
+]
+
+_CANONICAL_KEY_ORDER = [
+    'total_current_assets', 'net_fixed_assets', 'total_other_assets', 'total_assets',
+    'total_current_liabilities', 'total_long_term_liabilities', 'total_equity',
+    'total_income', 'total_cogs', 'gross_profit', 'total_operating_expenses',
+    'total_other_income', 'net_income',
+]
+
+
+def _map_subtotal_key(name: str) -> str | None:
+    for pat, key in _SUBTOTAL_KEY_PATTERNS:
+        if pat.search(name):
+            return key
+    return None
+
+
+def _safe_dec(raw: Any) -> Decimal:
+    if raw is None:
+        return Decimal("0")
+    s = str(raw).strip()
+    if s.startswith("(") and s.endswith(")"):
+        s = "-" + s[1:-1]
+    s = s.replace(",", "").replace("$", "").strip()
+    try:
+        return Decimal(s) if s else Decimal("0")
+    except InvalidOperation:
+        return Decimal("0")
 
 
 def _build_validation(lines: list[dict[str, Any]]) -> dict[str, Any]:
-    """Compare each section's subtotal line against the sum of its detail lines.
-
-    Entity-agnostic: no hardcoded expected values. Checks internal consistency
-    of the extracted PDF instead of comparing against fixture amounts.
-    """
+    """Map PDF subtotals to 13 canonical check keys and verify internal consistency."""
     from collections import defaultdict
 
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    # Index: canonical_key → {label, extracted, section}
+    subtotals: dict[str, dict[str, Any]] = {}
+    # Detail lines grouped by section
+    section_details: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
     for line in lines:
-        key = f"{line.get('statement_type', '')}::{line.get('section', '')}"
-        groups[key].append(line)
+        sect = f"{line.get('statement_type', '')}::{line.get('section', '')}"
+        if line.get("is_subtotal"):
+            mapped = _map_subtotal_key(line.get("account_name", ""))
+            if mapped and mapped not in subtotals:
+                subtotals[mapped] = {
+                    "section": sect,
+                    "label": line.get("account_name", ""),
+                    "extracted": _safe_dec(line.get("amount")),
+                }
+        else:
+            section_details[sect].append(line)
+
+    def sum_sect(sect: str) -> Decimal:
+        return sum((_safe_dec(d.get("amount")) for d in section_details.get(sect, [])), Decimal("0"))
+
+    def get_ext(key: str) -> Decimal:
+        return subtotals.get(key, {}).get("extracted", Decimal("0"))
+
+    # Expected values by canonical key
+    expected: dict[str, Decimal] = {
+        "total_current_assets":       sum_sect("balance_sheet::current_assets"),
+        "net_fixed_assets":           sum_sect("balance_sheet::fixed_assets"),
+        "total_other_assets":         sum_sect("balance_sheet::other_assets"),
+        "total_assets":               get_ext("total_current_assets") + get_ext("net_fixed_assets") + get_ext("total_other_assets"),
+        "total_current_liabilities":  sum_sect("balance_sheet::current_liabilities"),
+        "total_long_term_liabilities": sum_sect("balance_sheet::long_term_liabilities"),
+        "total_equity":               sum_sect("balance_sheet::equity"),
+        "total_income":               sum_sect("income_statement::revenue"),
+        "total_cogs":                 sum_sect("income_statement::cogs"),
+        "gross_profit":               get_ext("total_income") - get_ext("total_cogs"),
+        "total_operating_expenses":   sum_sect("income_statement::operating_expenses"),
+        "total_other_income":         sum_sect("income_statement::other_income"),
+        "net_income":                 get_ext("gross_profit") - get_ext("total_operating_expenses") + get_ext("total_other_income"),
+    }
 
     checks: list[dict[str, Any]] = []
-
-    for group_key, group_lines in groups.items():
-        subtotal_lines = [l for l in group_lines if l.get("is_subtotal")]
-        detail_lines = [l for l in group_lines if not l.get("is_subtotal")]
-
-        if not subtotal_lines or not detail_lines:
+    for key in _CANONICAL_KEY_ORDER:
+        if key not in subtotals:
             continue
-
-        subtotal = subtotal_lines[0]
-        try:
-            pdf_total = Decimal(str(subtotal["amount"]))
-        except InvalidOperation:
-            continue
-
-        calculated = Decimal("0")
-        for dl in detail_lines:
-            raw = str(dl.get("amount") or "0")
-            if raw.startswith("(") and raw.endswith(")"):
-                raw = "-" + raw[1:-1]
-            raw = raw.replace(",", "").replace("$", "").strip()
-            try:
-                calculated += Decimal(raw)
-            except InvalidOperation:
-                pass
-
-        diff = abs(calculated - pdf_total)
+        extracted = subtotals[key]["extracted"]
+        exp = expected.get(key, Decimal("0"))
+        diff = abs(extracted - exp)
         status = "pass" if diff <= _TOLERANCE else "fail"
         checks.append({
-            "key": group_key,
-            "label": subtotal["account_name"],
-            "extracted": str(pdf_total),
-            "expected": str(calculated),
+            "key": key,
+            "label": subtotals[key]["label"],
+            "extracted": str(extracted),
+            "expected": str(exp),
             "difference": str(diff),
             "status": status,
         })

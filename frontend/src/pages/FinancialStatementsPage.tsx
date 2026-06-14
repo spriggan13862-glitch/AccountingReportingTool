@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Download, ShieldAlert, X, Search } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, RefreshCw, Download, ShieldAlert, X, Search, Printer } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { reportingApi } from '@/api/reporting'
 import { financialStatementsApi } from '@/api/financialStatements'
@@ -123,7 +123,7 @@ export function TaxonomyTable({
               const rowClasses = [
                 isHeader ? 'bg-slate-50/60 border-t border-b font-bold text-slate-850' : '',
                 isSubtotal ? 'border-t font-bold bg-slate-50/30 text-slate-900' : '',
-                isClickable ? 'cursor-pointer hover:bg-slate-50 text-indigo-650' : '',
+                isClickable ? 'cursor-pointer hover:bg-slate-50 text-indigo-600' : '',
               ].filter(Boolean).join(' ')
 
               return (
@@ -203,7 +203,7 @@ export function TaxonomyTable({
               isHeader ? 'bg-gray-50 border-t border-b font-semibold' : '',
               isSubtotal ? 'border-t font-medium' : '',
               isEmpty && !isClickable ? 'text-gray-400' : '',
-              isClickable ? 'cursor-pointer hover:bg-blue-50/50 text-indigo-650 font-semibold' : '',
+              isClickable ? 'cursor-pointer hover:bg-blue-50/50 text-indigo-600 font-semibold' : '',
             ].filter(Boolean).join(' ')
 
             return (
@@ -1090,22 +1090,31 @@ export function FinancialStatementsPage() {
       {ready && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
           {/* Tabs */}
-          <div className="border-b border-slate-100 flex flex-wrap pt-1 bg-slate-50/50">
-            {tabs.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={cn(
-                  'px-5 py-3 text-xs font-bold border-b-2 transition-all focus:outline-none cursor-pointer',
-                  tab === key
-                    ? 'border-amber-500 text-amber-700 bg-white'
-                    : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-700'
-                )}
-                data-testid={`tab-${key}`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex flex-wrap pt-1">
+              {tabs.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    'px-5 py-3 text-xs font-bold border-b-2 transition-all focus:outline-none cursor-pointer',
+                    tab === key
+                      ? 'border-amber-500 text-amber-700 bg-white'
+                      : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-700'
+                  )}
+                  data-testid={`tab-${key}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 px-3 py-1.5 mr-3 text-xs font-medium border border-slate-200 bg-white rounded-md hover:bg-slate-50 text-slate-600 transition-colors"
+              title="Print current statement"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print
+            </button>
           </div>
 
           {/* Statements / TB contents */}

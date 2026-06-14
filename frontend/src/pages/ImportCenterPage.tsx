@@ -38,7 +38,7 @@ function getLifecycleBadge(status: string) {
     'Parsed': { label: 'Parsed', cls: 'bg-sky-50 border-sky-200 text-sky-700', icon: <Clock className="w-3 h-3 animate-pulse" /> },
     'Validation Errors': { label: 'Validation Errors', cls: 'bg-red-50 border-red-200 text-red-700', icon: <XCircle className="w-3 h-3" /> },
     'Awaiting Mapping': { label: 'Mapping Required', cls: 'bg-amber-50 border-amber-250 text-amber-800', icon: <AlertCircle className="w-3 h-3" /> },
-    'Ready for Review': { label: 'Ready for Review', cls: 'bg-indigo-50 border-indigo-250 text-indigo-850', icon: <CheckCircle className="w-3 h-3" /> },
+    'Ready for Review': { label: 'Ready for Review', cls: 'bg-indigo-50 border-indigo-250 text-indigo-800', icon: <CheckCircle className="w-3 h-3" /> },
     'Finalized': { label: 'Finalized', cls: 'bg-emerald-55 text-emerald-805 bg-emerald-50/40 border-emerald-250', icon: <CheckCircle className="w-3 h-3 text-emerald-600" /> },
   }
   const { label, cls, icon } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', icon: null }
@@ -522,7 +522,7 @@ export function ImportCenterPage() {
         <button
           type="button"
           onClick={() => navigate('/import/new')}
-          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-650 text-white text-sm font-semibold rounded hover:bg-indigo-755 transition-colors shadow-sm cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-sm font-semibold rounded hover:bg-indigo-755 transition-colors shadow-sm cursor-pointer"
         >
           <Upload className="w-4 h-4" /> Generic Tabular Import
         </button>
@@ -651,7 +651,7 @@ export function ImportCenterPage() {
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Awaiting Review</div>
-          <div className="text-2xl font-bold mt-1 text-indigo-650">{stats.awaitingReview}</div>
+          <div className="text-2xl font-bold mt-1 text-indigo-600">{stats.awaitingReview}</div>
           <p className="text-[10px] text-slate-400 mt-1">Staged but not yet posted</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm relative">
@@ -696,7 +696,7 @@ export function ImportCenterPage() {
         <button
           type="button"
           onClick={() => setShowFormatHelp(!showFormatHelp)}
-          className="text-xs font-bold text-indigo-650 hover:text-indigo-850 flex items-center gap-1 cursor-pointer select-none"
+          className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer select-none"
         >
           {showFormatHelp ? 'Hide accepted formats & templates' : 'Show accepted formats & download templates'}
         </button>

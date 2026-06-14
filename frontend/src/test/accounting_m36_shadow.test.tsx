@@ -366,9 +366,9 @@ describe('PDFImportPage — preview step (failing validation)', () => {
     expect(screen.getByText(/subtotal mismatch/i)).toBeInTheDocument()
   })
 
-  it('apply button is disabled when validation has failures', async () => {
+  it('apply button is still enabled when only subtotal validation fails (BS ties)', async () => {
     await uploadAndPreview()
-    expect(screen.getByTestId('apply-pdf-btn')).toBeDisabled()
+    expect(screen.getByTestId('apply-pdf-btn')).not.toBeDisabled()
   })
 })
 

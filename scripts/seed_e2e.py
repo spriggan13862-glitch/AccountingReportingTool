@@ -57,14 +57,22 @@ def delete_db() -> None:
 
 
 def run_migrations() -> None:
+    # Use a dedicated engine so we don't inherit any pooled connections from the
+    # app's global engine (which may point at a now-deleted file).
+    import sqlalchemy as _sa
+    from app.database import Base
+    fresh_engine = _sa.create_engine(E2E_DB_URL, connect_args={"check_same_thread": False})
+    import app.models  # ensure all ORM classes are registered with Base
+    Base.metadata.create_all(fresh_engine)
+    fresh_engine.dispose()
+
     from alembic.config import Config
     from alembic import command
-
     cfg = Config(str(ROOT / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", E2E_DB_URL)
     cfg.set_main_option("script_location", str(ROOT / "alembic"))
-    command.upgrade(cfg, "head")
-    print("[seed_e2e] Migrations applied.")
+    command.stamp(cfg, "head")
+    print("[seed_e2e] Schema created and stamped at head.")
 
 
 def verify_db_url() -> None:
@@ -88,7 +96,8 @@ def seed() -> None:
     from app.services.user_service import create_user, assign_role
     from app.services.accounting_period_service import create_period
     from app.services.reporting_taxonomy_service import seed_taxonomy, seed_views
-    from app.core.security import hash_password
+    # Use bcrypt directly to avoid importing jose/cryptography (broken native ext in this env)
+    import bcrypt as _bcrypt
 
     db = SessionLocal()
     try:
@@ -98,7 +107,7 @@ def seed() -> None:
         print(f"[seed_e2e] Org: {org.name} (id={org.id})")
 
         # Admin user
-        pw = hash_password("Test1234!")
+        pw = _bcrypt.hashpw("Test1234!".encode(), _bcrypt.gensalt()).decode()
         admin = create_user(
             db,
             organization_id=org.id,

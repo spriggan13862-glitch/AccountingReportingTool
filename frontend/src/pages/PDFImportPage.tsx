@@ -1469,11 +1469,13 @@ export function PDFImportPage() {
   const niVariance = preview?.net_income_variance ?? '0'
 
   // Should Apply button be disabled?
-  const canApply = failingCount === 0 && (!bsNotTied || importType !== 'financial_statements')
-  const applyTitle = failingCount > 0
-    ? 'Fix subtotal mismatches before applying'
-    : bsNotTied
+  // Only block on balance sheet not tying (matches backend gate). Subtotal mismatches
+  // show a warning but do not block — the backend allows apply when BS is balanced.
+  const canApply = !bsNotTied || importType !== 'financial_statements'
+  const applyTitle = bsNotTied
     ? 'Balance sheet does not tie — review imbalance below or use force-apply'
+    : failingCount > 0
+    ? `${failingCount} subtotal mismatch(es) — review warnings, then apply`
     : undefined
 
   // ---------------------------------------------------------------------------
