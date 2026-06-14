@@ -8,6 +8,6 @@ build/
 .env
 .claude/settings.local.json
 .claude/
-storage/live-marketing/
+storage/
 frontend/e2e/screen-audit*.spec.ts
 frontend/playwright.audit.config.ts
