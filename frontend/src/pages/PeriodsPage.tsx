@@ -222,7 +222,7 @@ export function PeriodsPage() {
       label: 'Close Period',
       icon: Lock,
       hidden: (p) => p.is_closed,
-      onClick: (p) => closeMutation.mutate(p.id),
+      onClick: (p) => navigate(`/client-data/periods/${p.id}`),
     },
     {
       key: 'reopen',
@@ -238,10 +238,9 @@ export function PeriodsPage() {
       key: 'batch-close',
       label: 'Close Selected',
       icon: Lock,
-      onClick: async (rows) => {
-        for (const p of rows.filter((r) => !r.is_closed)) {
-          await closeMutation.mutateAsync(p.id)
-        }
+      onClick: (rows) => {
+        const first = rows.find((r) => !r.is_closed)
+        if (first) navigate(`/client-data/periods/${first.id}`)
       },
     },
     {

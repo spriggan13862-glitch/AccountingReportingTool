@@ -1146,7 +1146,7 @@ def rollback_batch(
     reversal_je = reverse_journal_entry(
         db,
         je_id=batch.posted_je_id,
-        reversal_date=datetime.date.today(),
+        reversal_date=batch.as_of_date,
         je_number=reversal_je_number,
         description=f"Reversal of TB import batch {batch_id}: {batch.filename}",
         created_by=getattr(acting_user, "email", None),

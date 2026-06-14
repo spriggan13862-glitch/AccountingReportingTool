@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+import { useToast } from '@/providers/ToastProvider'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { journalEntriesApi } from '@/api/journalEntries'
@@ -8,7 +9,6 @@ import { PageLayout } from '@/components/ui/PageLayout'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
-import { ValidationAlert } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { ScenarioMultiSelect } from '@/components/ui/ScenarioMultiSelect'
 import { AccountSearch } from '@/components/ui/AccountSearch'
@@ -35,6 +35,7 @@ function parseDecimal(val: string): number {
 export function JournalEntryCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
 
   const [entityId, setEntityId] = useState<number | ''>('')
   const [scenarioIds, setScenarioIds] = useState<number[]>([])
@@ -47,7 +48,6 @@ export function JournalEntryCreatePage() {
   })
   const [lines, setLines] = useState<LineState[]>([EMPTY_LINE(), EMPTY_LINE()])
   const [apiError, setApiError] = useState<string | null>(null)
-  const [warnings, setWarnings] = useState<Array<{ code: string; severity: string; message: string; source_type: string; source_id: unknown }>>([])
 
   const totalDebit = lines.reduce((s, l) => s + parseDecimal(l.debit), 0)
   const totalCredit = lines.reduce((s, l) => s + parseDecimal(l.credit), 0)
@@ -86,8 +86,9 @@ export function JournalEntryCreatePage() {
   const postMutation = useMutation({
     mutationFn: (data: JECreate) => journalEntriesApi.createAndPost(data),
     onSuccess: (je) => {
-      setWarnings(je.warnings ?? [])
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
+      const warns = je.warnings ?? []
+      warns.forEach((w) => toast(w.message, 'warning', 8000))
       navigate(`/journal-entries/${je.id}`)
     },
     onError: (err: Error) => setApiError(err.message),
@@ -120,7 +121,6 @@ export function JournalEntryCreatePage() {
     <PageLayout title="New Journal Entry" subtitle="Create a draft or post directly">
       <div className="space-y-4 max-w-4xl">
         {apiError && <ErrorBanner message={apiError} />}
-        {warnings.length > 0 && <ValidationAlert issues={warnings as never} />}
 
         {/* Header fields */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
@@ -174,7 +174,10 @@ export function JournalEntryCreatePage() {
               onChange={(ids) => setScenarioIds(ids.slice(-1))}
             />
             {scenarioIds.length === 0 && (
-              <p className="text-xs text-amber-600 mt-1">A scenario is required before posting.</p>
+              <p className="text-xs text-amber-600 mt-1">
+                A scenario is required before posting.{' '}
+                <Link to="/workbench/scenarios" className="underline hover:text-amber-800">Create a scenario →</Link>
+              </p>
             )}
           </div>
         </div>

@@ -153,10 +153,32 @@ export function ReviewWorkspacePage() {
   if (!enabled) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="h-8 w-8 text-amber-400 mx-auto mb-2" />
-          <p className="text-sm font-medium text-gray-700">Select an entity and period in the context bar above</p>
-          <p className="text-xs text-gray-400 mt-1">Review requires both entity and period to be set</p>
+        <div className="text-center max-w-xs">
+          <AlertTriangle className="h-8 w-8 text-amber-400 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-gray-700 mb-1">
+            {!activeEntity ? 'No entity selected' : 'No period selected'}
+          </p>
+          <p className="text-xs text-gray-400 mb-4">
+            {!activeEntity
+              ? 'Use the entity selector in the context bar at the top of the page.'
+              : 'Select an accounting period from the context bar to load review data.'}
+          </p>
+          {!activeEntity && (
+            <button
+              onClick={() => navigate('/client-data/entities')}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              Manage Entities →
+            </button>
+          )}
+          {activeEntity && !activePeriod && (
+            <button
+              onClick={() => navigate('/client-data/periods')}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              Manage Periods →
+            </button>
+          )}
         </div>
       </div>
     )

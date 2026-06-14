@@ -7,7 +7,7 @@
  * Full cube with drag/drop grouping and saved views is Tier 2.
  * This skeleton provides: slicers, filterable table, compute trigger, saved view list.
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -352,6 +352,15 @@ export function AdjustmentBridgePage() {
       qc.invalidateQueries({ queryKey: ['ab-rows', entityId, periodEnd, accountType, scenarioId] })
     },
   })
+
+  const autoComputedKey = useRef('')
+  useEffect(() => {
+    const key = `${entityId}|${periodEnd}`
+    if (ready && key !== autoComputedKey.current && !computeMutation.isPending) {
+      autoComputedKey.current = key
+      computeMutation.mutate()
+    }
+  }, [ready, entityId, periodEnd])
 
   const saveViewMutation = useMutation({
     mutationFn: () =>

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
 from app.api.schemas import EntityCreate, EntityOut, Page
 from app.models.entity import Entity
 from app.models.account import Account
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/entities", tags=["entities"])
 
 
 @router.post("/", response_model=EntityOut, status_code=201)
-def create_entity(body: EntityCreate, db: Session = Depends(get_db)):
+def create_entity(body: EntityCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     entity = Entity(
         code=body.code,
         name=body.name,
@@ -48,6 +48,7 @@ def create_entity(body: EntityCreate, db: Session = Depends(get_db)):
         currency=body.currency,
         fiscal_year_end_month=body.fiscal_year_end_month,
         fiscal_year_convention=body.fiscal_year_convention,
+        organization_id=current_user.organization_id if current_user else None,
     )
     db.add(entity)
     db.flush()
@@ -62,8 +63,11 @@ def list_entities(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     q = db.query(Entity)
+    if current_user is not None:
+        q = q.filter(Entity.organization_id == current_user.organization_id)
     if entity_type is not None:
         q = q.filter(Entity.entity_type == entity_type)
     if active is not None:
