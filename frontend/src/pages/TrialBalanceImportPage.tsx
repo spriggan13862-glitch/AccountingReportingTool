@@ -283,7 +283,7 @@ export function TrialBalanceImportPage() {
             <div className="flex justify-end pt-2">
               <button
                 type="button"
-                disabled={!file || !entityId || !periodId || detectMutation.isPending}
+                disabled={!file || !entityId || !asOfDate || detectMutation.isPending}
                 onClick={() => detectMutation.mutate()}
                 className="flex items-center gap-1 px-4 py-2 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
               >

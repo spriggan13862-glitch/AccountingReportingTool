@@ -836,6 +836,282 @@ def _rule_expense_fluctuation(
     )]
 
 
+# ---------------------------------------------------------------------------
+# Single-period account-level detection (no prior period required)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AccountFinding:
+    issue_code: str
+    category: str
+    severity: str
+    title: str
+    description: str
+    detection_trigger: str
+    suggested_procedures: str
+    suggested_ajes: str
+    account_numbers: list[str] = field(default_factory=list)
+
+
+def run_single_period_detection(
+    db: Session,
+    entity_id: int,
+    period: AccountingPeriod,
+    scenario_id: int | None = None,
+) -> list[dict]:
+    """
+    Account-level analysis rules that require only ONE period.
+    Returns findings even when no comparison period exists.
+    """
+    balances = _get_account_balances(db, entity_id, period.start_date, period.end_date, scenario_id)
+    findings: list[AccountFinding] = []
+
+    # Aggregate by category
+    cash_accounts: list[tuple[str, Decimal]] = []
+    ar_accounts: list[tuple[str, Decimal]] = []
+    revenue_accounts: list[tuple[str, Decimal]] = []
+    expense_accounts: list[tuple[str, Decimal]] = []
+    equity_accounts: list[tuple[str, Decimal]] = []
+    suspense_accounts: list[tuple[str, Decimal]] = []
+    accum_dep_accounts: list[tuple[str, Decimal]] = []
+
+    total_revenue = Decimal(0)
+    total_ar = Decimal(0)
+    total_assets = Decimal(0)
+    total_liabilities = Decimal(0)
+    total_equity = Decimal(0)
+
+    for acct_id, (acct, signed) in balances.items():
+        n = _acct_num_int(acct.account_number)
+        name_lower = acct.account_name.lower()
+
+        if _is_cash(acct):
+            cash_accounts.append((acct.account_number, signed))
+        if _is_ar(acct):
+            ar_accounts.append((acct.account_number, signed))
+            total_ar += signed
+        if acct.account_type == "revenue":
+            revenue_accounts.append((acct.account_number, signed))
+            total_revenue += signed
+        if acct.account_type in ("expense", "cogs"):
+            expense_accounts.append((acct.account_number, signed))
+        if acct.account_type == "equity":
+            equity_accounts.append((acct.account_number, signed))
+            total_equity += signed
+        if acct.account_type == "asset":
+            total_assets += signed
+        if acct.account_type == "liability":
+            total_liabilities += signed
+        if any(kw in name_lower for kw in ("suspense", "clearing", "unallocated", "due to/from")):
+            suspense_accounts.append((acct.account_number, signed))
+        if any(kw in name_lower for kw in ("accumulated depreciation", "accum dep", "accum. dep")):
+            accum_dep_accounts.append((acct.account_number, signed))
+
+    # Rule: Negative cash balance
+    negative_cash = [(num, bal) for num, bal in cash_accounts if bal < 0]
+    if negative_cash:
+        acct_list = ", ".join(f"{num} (${abs(bal):,.0f})" for num, bal in negative_cash)
+        findings.append(AccountFinding(
+            issue_code="NEGATIVE_CASH_BALANCE",
+            category="cash",
+            severity="critical",
+            title="Negative Cash Balance",
+            description=f"Cash account(s) show a credit (negative) balance: {acct_list}. This may indicate unrecorded deposits, bank overdrafts, or a sign convention error.",
+            detection_trigger=f"{len(negative_cash)} cash account(s) have negative balances",
+            suggested_procedures=(
+                "1. Obtain bank statements and reconcile to the GL balance.\n"
+                "2. Identify any unrecorded deposits or outstanding checks.\n"
+                "3. Verify account sign conventions in the trial balance.\n"
+                "4. Check for bank overdraft facilities that may explain negative balances.\n"
+                "5. Review for any bank transfers in transit."
+            ),
+            suggested_ajes=(
+                "Consider: AJE to record undeposited funds or in-transit items.\n"
+                "Consider: AJE to reclassify overdraft to current liabilities if material."
+            ),
+            account_numbers=[num for num, _ in negative_cash],
+        ))
+
+    # Rule: Revenue accounts with debit (net) balance — sign error
+    revenue_debit = [(num, bal) for num, bal in revenue_accounts if bal < 0]
+    if revenue_debit:
+        acct_list = ", ".join(f"{num}" for num, _ in revenue_debit)
+        findings.append(AccountFinding(
+            issue_code="REVENUE_DEBIT_BALANCE",
+            category="revenue_recognition",
+            severity="critical",
+            title="Revenue Account Has Debit Balance",
+            description=f"Revenue account(s) {acct_list} show a net debit balance, which is opposite to normal. This typically indicates returns/refunds exceeding gross revenue, a sign convention error, or misclassified entries.",
+            detection_trigger=f"Revenue accounts with debit balance: {acct_list}",
+            suggested_procedures=(
+                "1. Review all credits and debits posted to these revenue accounts.\n"
+                "2. Check whether returns/refunds are properly separated from gross revenue.\n"
+                "3. Verify that the trial balance sign convention matches the import format.\n"
+                "4. Investigate any large debits posted to revenue — may be misclassified expenses.\n"
+                "5. Confirm revenue recognition policy and cutoff."
+            ),
+            suggested_ajes=(
+                "Consider: AJE to reclassify debit entries from revenue to expense if misclassified.\n"
+                "Consider: AJE to correct period cutoff if entries were recorded in the wrong period."
+            ),
+            account_numbers=[num for num, _ in revenue_debit],
+        ))
+
+    # Rule: Accounts receivable credit balance (net)
+    ar_credit = [(num, bal) for num, bal in ar_accounts if bal < 0]
+    if ar_credit:
+        acct_list = ", ".join(f"{num} (${abs(bal):,.0f} credit)" for num, _ in ar_credit)
+        findings.append(AccountFinding(
+            issue_code="NEGATIVE_ACCOUNTS_RECEIVABLE",
+            category="accounts_receivable",
+            severity="high",
+            title="Accounts Receivable Credit Balance",
+            description=f"AR account(s) {acct_list} have a net credit balance. This may indicate customer overpayments, duplicate credits, or a sign convention issue.",
+            detection_trigger=f"AR accounts with credit balance: {acct_list}",
+            suggested_procedures=(
+                "1. Obtain detailed AR aging and review each account with a credit balance.\n"
+                "2. Identify overpayments and determine whether refunds are owed.\n"
+                "3. Verify that credit memos are properly applied to invoices.\n"
+                "4. Check for duplicate payments or misapplied cash receipts."
+            ),
+            suggested_ajes=(
+                "Consider: AJE to reclassify credit AR balances to customer deposits (current liability).\n"
+                "Consider: AJE to write off small credit balances that will not be refunded."
+            ),
+            account_numbers=[num for num, _ in ar_credit],
+        ))
+
+    # Rule: AR exceeds annual revenue by 3x (implies >1 year DSO) — if revenue exists
+    if total_revenue > 0 and total_ar > 0:
+        dso_proxy = (total_ar / total_revenue) * 365
+        if dso_proxy > 180:
+            findings.append(AccountFinding(
+                issue_code="HIGH_AR_DSO",
+                category="accounts_receivable",
+                severity="high",
+                title=f"Extremely High Days Sales Outstanding (~{int(dso_proxy)} days)",
+                description=f"AR balance of ${total_ar:,.0f} against revenue of ${total_revenue:,.0f} implies approximately {int(dso_proxy)} days DSO. Normal DSO for most businesses is 30–90 days.",
+                detection_trigger=f"AR/Revenue ratio implies {int(dso_proxy)}-day DSO vs 180-day threshold",
+                suggested_procedures=(
+                    "1. Obtain AR aging schedule and identify overdue accounts.\n"
+                    "2. Assess collectibility of balances > 90 days and > 120 days.\n"
+                    "3. Review adequacy of the allowance for doubtful accounts.\n"
+                    "4. Inquire whether AR includes non-trade items (loans to officers, advances).\n"
+                    "5. Test subsequent cash receipts for largest balances."
+                ),
+                suggested_ajes=(
+                    "Consider: AJE to increase allowance for doubtful accounts based on aging analysis.\n"
+                    "Consider: AJE to reclassify non-trade receivables to loans receivable."
+                ),
+            ))
+
+    # Rule: Large suspense/clearing account balances
+    material_suspense = [(num, bal) for num, bal in suspense_accounts if abs(bal) > Decimal("1000")]
+    if material_suspense:
+        acct_list = ", ".join(f"{num} (${abs(bal):,.0f})" for num, bal in material_suspense)
+        findings.append(AccountFinding(
+            issue_code="MATERIAL_SUSPENSE_BALANCE",
+            category="completeness",
+            severity="high",
+            title="Material Suspense or Clearing Account Balance",
+            description=f"Suspense/clearing account(s) {acct_list} carry significant balances at period end. These should clear to zero as transactions are properly classified.",
+            detection_trigger=f"Suspense/clearing accounts with material balances: {acct_list}",
+            suggested_procedures=(
+                "1. Obtain detail of all items in the suspense/clearing accounts.\n"
+                "2. Determine the proper classification for each item.\n"
+                "3. Verify that all items are supported by documentation.\n"
+                "4. Determine why these items have not been cleared and resolved."
+            ),
+            suggested_ajes=(
+                "Consider: AJE to reclassify suspense items to their proper account classifications.\n"
+                "Consider: AJE to expense items that cannot be supported or properly classified."
+            ),
+            account_numbers=[num for num, _ in material_suspense],
+        ))
+
+    # Rule: Accumulated depreciation with debit balance
+    accum_dep_debit = [(num, bal) for num, bal in accum_dep_accounts if bal > 0]
+    if accum_dep_debit:
+        acct_list = ", ".join(f"{num}" for num, _ in accum_dep_debit)
+        findings.append(AccountFinding(
+            issue_code="ACCUMULATED_DEPRECIATION_SIGN_ERROR",
+            category="fixed_assets",
+            severity="high",
+            title="Accumulated Depreciation Has Debit Balance",
+            description=f"Accumulated depreciation account(s) {acct_list} show a debit balance. Accumulated depreciation is a contra-asset and should always be a credit balance.",
+            detection_trigger=f"Accum. dep. accounts with debit balance: {acct_list}",
+            suggested_procedures=(
+                "1. Review the depreciation schedule and reconcile to the GL.\n"
+                "2. Verify that the sign convention in the trial balance is consistent.\n"
+                "3. Check for any reversals or write-offs that may have produced incorrect balances."
+            ),
+            suggested_ajes=(
+                "Consider: AJE to correct the sign if a data entry or import error occurred.\n"
+                "Consider: AJE to record correct depreciation if the contra account was used in reverse."
+            ),
+            account_numbers=[num for num, _ in accum_dep_debit],
+        ))
+
+    # Rule: No revenue (on a period-end TB) — possible incompleteness
+    if total_revenue == 0 and total_assets > Decimal("10000"):
+        findings.append(AccountFinding(
+            issue_code="ZERO_REVENUE",
+            category="revenue_recognition",
+            severity="high",
+            title="No Revenue Recorded",
+            description=f"No revenue balances are present on this trial balance despite total assets of ${total_assets:,.0f}. Revenue may not be recorded, may be misclassified, or the chart of accounts may be incomplete.",
+            detection_trigger="Revenue = $0 with total assets > $10,000",
+            suggested_procedures=(
+                "1. Verify that revenue accounts are properly mapped in the chart of accounts.\n"
+                "2. Confirm that the trial balance covers the full period (not just a stub period).\n"
+                "3. Review any deferred revenue or customer deposit accounts.\n"
+                "4. Inquire whether the entity has commenced operations."
+            ),
+            suggested_ajes=(
+                "Consider: AJE to record earned but unbilled revenue (accrual basis).\n"
+                "Consider: AJE to reclassify items incorrectly recorded in equity or liability accounts."
+            ),
+        ))
+
+    # Rule: Large equity deficit — potential going concern
+    if total_equity < Decimal("-50000") and total_assets > 0:
+        if abs(total_equity) > total_assets * Decimal("0.5"):
+            findings.append(AccountFinding(
+                issue_code="EQUITY_DEFICIT_GOING_CONCERN",
+                category="equity",
+                severity="critical",
+                title="Significant Equity Deficit — Potential Going Concern",
+                description=f"Total equity is ${total_equity:,.0f} (deficit). The deficit represents {abs(total_equity) / total_assets * 100:.0f}% of total assets, which may raise going concern questions.",
+                detection_trigger=f"Equity deficit ${abs(total_equity):,.0f} exceeds 50% of total assets ${total_assets:,.0f}",
+                suggested_procedures=(
+                    "1. Obtain management's business plan and cash flow projections.\n"
+                    "2. Review subsequent financing events (equity raises, new debt facilities).\n"
+                    "3. Assess whether liabilities can be satisfied from current and projected cash flows.\n"
+                    "4. Consider whether going concern disclosure or modification is required.\n"
+                    "5. Verify retained earnings reconciliation from prior year."
+                ),
+                suggested_ajes=(
+                    "Consider: AJE to correct any overstatement of retained earnings deficit.\n"
+                    "Consider: AJE for any debt that may need to be reclassified as current (covenant violations)."
+                ),
+            ))
+
+    return [
+        {
+            "issue_code": f.issue_code,
+            "category": f.category,
+            "severity": f.severity,
+            "title": f.title,
+            "description": f.description,
+            "detection_trigger": f.detection_trigger,
+            "suggested_procedures": f.suggested_procedures,
+            "suggested_ajes": f.suggested_ajes,
+            "supporting_metrics": {"account_numbers": ", ".join(f.account_numbers)},
+        }
+        for f in findings
+    ]
+
+
 # All detection rules in priority order
 _ALL_RULES = [
     _rule_ar_growth_exceeds_revenue,

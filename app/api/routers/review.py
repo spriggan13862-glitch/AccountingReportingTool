@@ -302,34 +302,50 @@ def review_analysis(
     result = compute_ratio_analysis(db, entity_id, as_of_date, list(scenario_ids), source_filter=sf)
 
     intelligence_findings: list[IntelligenceFindingOut] = []
+    scenario_id = scenario_ids[0] if scenario_ids else None
     current_period = _find_period_for_date(db, entity_id, as_of_date)
+
+    def _append_findings(raw: list[dict]) -> None:
+        for f in raw:
+            intelligence_findings.append(IntelligenceFindingOut(
+                issue_code=f["issue_code"],
+                category=f["category"],
+                severity=f["severity"],
+                title=f["title"],
+                description=f["description"],
+                detection_trigger=f["detection_trigger"],
+                suggested_procedures=f.get("suggested_procedures", ""),
+                suggested_ajes=f.get("suggested_ajes", ""),
+                supporting_metrics=f.get("supporting_metrics", {}),
+            ))
+
     if current_period:
+        # Always run single-period account-level checks
+        try:
+            _append_findings(intel_svc.run_single_period_detection(
+                db, entity_id, current_period, scenario_id=scenario_id,
+            ))
+        except Exception:
+            pass
+
+        # Run period-comparison rules when a prior period exists
         prior_period = _find_prior_period(db, entity_id, current_period)
         if prior_period:
-            scenario_id = scenario_ids[0] if scenario_ids else None
             try:
-                raw = intel_svc.run_detection(
+                _append_findings(intel_svc.run_detection(
                     db,
                     entity_id,
                     current_period.id,
                     prior_period.id,
                     scenario_id=scenario_id,
                     persist=False,
-                )
-                for f in raw:
-                    intelligence_findings.append(IntelligenceFindingOut(
-                        issue_code=f["issue_code"],
-                        category=f["category"],
-                        severity=f["severity"],
-                        title=f["title"],
-                        description=f["description"],
-                        detection_trigger=f["detection_trigger"],
-                        suggested_procedures=f.get("suggested_procedures", ""),
-                        suggested_ajes=f.get("suggested_ajes", ""),
-                        supporting_metrics=f.get("supporting_metrics", {}),
-                    ))
+                ))
             except Exception:
                 pass
+
+    # Sort: critical first, then high, then others
+    _sev_rank = {"critical": 0, "high": 1, "moderate": 2, "low": 3}
+    intelligence_findings.sort(key=lambda f: _sev_rank.get(f.severity, 9))
 
     return RatioAnalysisOut(
         as_of_date=result.as_of_date,

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from pydantic import BaseModel
 
 from app.api.deps import get_db, get_current_user
@@ -67,7 +67,13 @@ def list_entities(
 ):
     q = db.query(Entity)
     if current_user is not None:
-        q = q.filter(Entity.organization_id == current_user.organization_id)
+        # Include entities belonging to this org AND legacy entities with no org (shared/demo data)
+        q = q.filter(
+            or_(
+                Entity.organization_id == current_user.organization_id,
+                Entity.organization_id.is_(None),
+            )
+        )
     if entity_type is not None:
         q = q.filter(Entity.entity_type == entity_type)
     if active is not None:
