@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { workflowApi } from '@/api/workflow'
@@ -9,12 +10,13 @@ import api from '@/api/client'
 import { useOrg } from '@/providers/OrgProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToast } from '@/providers/ToastProvider'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SetupWizardPage } from '@/pages/SetupWizardPage'
-import { AlertCircle, Clock, CheckCircle, ChevronRight, FileText, Trash2 } from 'lucide-react'
+import { AlertCircle, Clock, CheckCircle, ChevronRight, FileText, Trash2, FlaskConical, Download, Database, Zap, ChevronDown } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 const PDF_INCOMPLETE_STATUSES = new Set(['uploaded', 'parsed', 'validation_failed', 'failed', 'error', 'awaiting mapping', 'mapping_required'])
@@ -165,15 +167,82 @@ export function DashboardPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
 
+  const { activeEntity } = useWorkspace()
+
   const resetMutation = useMutation({
     mutationFn: () => api.delete(`/dev/reset?org_id=${orgId}`).then((r) => r.data),
     onSuccess: (data: { deleted: Record<string, number> }) => {
       queryClient.invalidateQueries()
       const total = Object.values(data.deleted).reduce((s, n) => s + n, 0)
-      toast(`Reset complete — ${total} records deleted. Fresh start ready.`, 'success')
+      toast(`Reset complete — ${total} records deleted.`, 'success')
     },
     onError: (err: Error) => toast(`Reset failed: ${err.message}`, 'error'),
   })
+
+  const seedMutation = useMutation({
+    mutationFn: () => api.post(`/dev/seed?org_id=${orgId}`).then((r) => r.data),
+    onSuccess: (data: { entity_code: string; periods_created: number; accounts_created: number }) => {
+      queryClient.invalidateQueries()
+      toast(`Seeded ${data.entity_code} — ${data.periods_created} periods, ${data.accounts_created} accounts created.`, 'success')
+    },
+    onError: (err: Error) => toast(`Seed failed: ${err.message}`, 'error'),
+  })
+
+  const postAllMutation = useMutation({
+    mutationFn: () => {
+      if (!activeEntity?.id) throw new Error('Select an entity in the context bar first')
+      return api.post(`/dev/post-all-ready?entity_id=${activeEntity.id}`).then((r) => r.data)
+    },
+    onSuccess: (data: { posted: number[]; errors: Array<{ batch_id: number; error: string }> }) => {
+      queryClient.invalidateQueries()
+      if (data.errors.length > 0) {
+        toast(`Posted ${data.posted.length} batches, ${data.errors.length} errors`, 'error')
+      } else {
+        toast(`Posted ${data.posted.length} batch${data.posted.length !== 1 ? 'es' : ''} successfully`, 'success')
+      }
+    },
+    onError: (err: Error) => toast(err.message, 'error'),
+  })
+
+  function downloadSampleTB() {
+    const rows = [
+      'account_number,account_name,debit,credit',
+      '1000,Cash and Cash Equivalents,125000.00,',
+      '1100,Accounts Receivable,87500.00,',
+      '1200,Inventory,43200.00,',
+      '1300,Prepaid Expenses,6800.00,',
+      '1500,Property Plant & Equipment,350000.00,',
+      '1600,Accumulated Depreciation,,42000.00',
+      '2000,Accounts Payable,,52000.00',
+      '2100,Accrued Liabilities,,18500.00',
+      '2200,Short-Term Debt,,30000.00',
+      '2500,Long-Term Debt,,200000.00',
+      '3000,Common Stock,,100000.00',
+      '3100,Retained Earnings,,120000.00',
+      '4000,Revenue,,280000.00',
+      '4100,Service Revenue,,45000.00',
+      '5000,Cost of Goods Sold,98000.00,',
+      '6000,Salaries and Wages,72000.00,',
+      '6100,Rent Expense,24000.00,',
+      '6200,Utilities Expense,8400.00,',
+      '6300,Depreciation Expense,14000.00,',
+      '6400,Interest Expense,9600.00,',
+      '6900,Other Operating Expenses,49000.00,',
+    ].join('\n')
+    const blob = new Blob([rows], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'sample_trial_balance.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function downloadSnapshot() {
+    window.open(`/api/v1/dev/snapshot?org_id=${orgId}`, '_blank')
+  }
+
+  const [showDevTools, setShowDevTools] = useState(false)
 
   const status = useQuery({
     queryKey: ['onboarding-status', orgId],
@@ -637,27 +706,113 @@ export function DashboardPage() {
           <QuickLinks />
         </div>
 
-        {/* Dev Reset */}
-        <div className="mt-2 rounded-xl border border-red-200 bg-red-50/40 p-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <p className="text-xs font-bold text-red-700">Developer Reset</p>
-              <p className="text-[11px] text-red-500 mt-0.5">Wipes all entities, imports, journal entries, accounts and periods for this org. Cannot be undone.</p>
+        {/* Developer Tools Panel */}
+        <div className="rounded-xl border border-violet-200 bg-violet-50/30 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowDevTools((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-violet-50/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <FlaskConical className="w-4 h-4 text-violet-600" />
+              <span className="text-xs font-bold text-violet-700">Developer Tools</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide bg-violet-100 text-violet-500 px-1.5 py-0.5 rounded">dev only</span>
             </div>
-            <button
-              type="button"
-              disabled={resetMutation.isPending || !orgId}
-              onClick={() => {
-                if (window.confirm('This will delete ALL data for this org (entities, imports, accounts, journal entries, periods). Are you sure?')) {
-                  resetMutation.mutate()
-                }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {resetMutation.isPending ? 'Resetting…' : 'Reset All Data'}
-            </button>
-          </div>
+            <ChevronDown className={cn("w-4 h-4 text-violet-400 transition-transform", showDevTools && "rotate-180")} />
+          </button>
+
+          {showDevTools && (
+            <div className="border-t border-violet-100 px-4 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+              {/* 1 — Seed demo data */}
+              <div className="rounded-lg border border-violet-200 bg-white p-3 flex flex-col gap-2">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Seed Demo Data</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Creates "Demo Corp" entity with 12 monthly periods and 21-account chart of accounts — ready to import into immediately.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={seedMutation.isPending || !orgId}
+                  onClick={() => seedMutation.mutate()}
+                  className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  {seedMutation.isPending ? 'Seeding…' : 'Seed Demo Data'}
+                </button>
+              </div>
+
+              {/* 2 — Sample TB CSV */}
+              <div className="rounded-lg border border-violet-200 bg-white p-3 flex flex-col gap-2">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Download Sample Trial Balance</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">21-account Format A CSV with balanced debits and credits (∑Dr = ∑Cr = $887,500). Import directly into the Trial Balance importer.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadSampleTB}
+                  className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download CSV
+                </button>
+              </div>
+
+              {/* 3 — Export snapshot */}
+              <div className="rounded-lg border border-violet-200 bg-white p-3 flex flex-col gap-2">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Export Data Snapshot</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Downloads a JSON snapshot of all entities, accounts, periods, import batches and journal entries for this org. Use as a backup before testing destructive operations.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={downloadSnapshot}
+                  className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800 transition-colors"
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  Export JSON
+                </button>
+              </div>
+
+              {/* 4 — Quick-post all ready */}
+              <div className="rounded-lg border border-violet-200 bg-white p-3 flex flex-col gap-2">
+                <div>
+                  <p className="text-xs font-bold text-gray-800">Post All Ready Imports</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Posts every <code className="bg-gray-100 px-0.5 rounded text-[10px]">ready_to_post</code> trial balance batch for the entity selected in the context bar. Skips batches with errors.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={postAllMutation.isPending || !activeEntity}
+                  onClick={() => postAllMutation.mutate()}
+                  className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  {postAllMutation.isPending ? 'Posting…' : `Post All Ready${activeEntity ? ` (${activeEntity.code})` : ''}`}
+                </button>
+              </div>
+
+              {/* 5 — Reset all data */}
+              <div className="rounded-lg border border-red-200 bg-white p-3 flex flex-col gap-2">
+                <div>
+                  <p className="text-xs font-bold text-red-700">Reset All Data</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Wipes all entities, accounts, periods, import batches (TB/PDF/COA) and journal entries for this org. <strong>Cannot be undone</strong> — export a snapshot first.</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={resetMutation.isPending || !orgId}
+                  onClick={() => {
+                    if (window.confirm('DELETE ALL data for this org? This cannot be undone. Export a snapshot first if needed.')) {
+                      resetMutation.mutate()
+                    }
+                  }}
+                  className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {resetMutation.isPending ? 'Resetting…' : 'Reset All Data'}
+                </button>
+              </div>
+
+            </div>
+          )}
         </div>
 
         {/* What's New */}
