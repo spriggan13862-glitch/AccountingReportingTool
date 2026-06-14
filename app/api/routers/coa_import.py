@@ -204,3 +204,14 @@ def get_coa_preview(batch_id: int, db: Session = Depends(get_db)):
         row_count=parsed["row_count"],
         warnings=parsed["warnings"],
     )
+
+
+@router.delete("/{batch_id}", status_code=204)
+def delete_coa_batch(batch_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    batch = db.get(COAImportBatch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status in ("finalized", "posted", "applied"):
+        raise HTTPException(status_code=409, detail="Cannot delete an applied batch")
+    db.delete(batch)
+    db.commit()

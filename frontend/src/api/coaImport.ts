@@ -26,4 +26,7 @@ export const coaImportApi = {
 
   preview: (batchId: number): Promise<COAImportPreview> =>
     api.get<COAImportPreview>(`/coa-imports/${batchId}/preview`).then((r) => r.data),
+
+  deleteBatch: (batchId: number): Promise<void> =>
+    api.delete(`/coa-imports/${batchId}`).then(() => undefined),
 }

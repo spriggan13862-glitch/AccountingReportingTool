@@ -150,6 +150,33 @@ export function ImportCenterPage() {
     onError: (err: Error) => toast(`Remove failed: ${err.message}`, 'error'),
   })
 
+  const pdfDeleteMutation = useMutation({
+    mutationFn: (batchId: number) => pdfImportApi.deleteBatch(batchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pdf-batches'] })
+      queryClient.invalidateQueries({ queryKey: ['import-registry'] })
+      toast('Import removed', 'success')
+    },
+    onError: (err: Error) => toast(`Remove failed: ${err.message}`, 'error'),
+  })
+
+  const coaDeleteMutation = useMutation({
+    mutationFn: (batchId: number) => coaImportApi.deleteBatch(batchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coa-batches'] })
+      queryClient.invalidateQueries({ queryKey: ['import-registry'] })
+      toast('Import removed', 'success')
+    },
+    onError: (err: Error) => toast(`Remove failed: ${err.message}`, 'error'),
+  })
+
+  function handleDeleteImport(b: { source_module: string; source_id: number }) {
+    if (!window.confirm('Remove this import? This cannot be undone.')) return
+    if (b.source_module === 'pdf_import') pdfDeleteMutation.mutate(b.source_id)
+    else if (b.source_module === 'coa_import') coaDeleteMutation.mutate(b.source_id)
+    else deleteBatchMutation.mutate(b.source_id)
+  }
+
   const rollbackMutation = useMutation({
     mutationFn: (batchId: number) => tbImportApi.rollbackBatch(batchId),
     onSuccess: () => {
@@ -473,14 +500,12 @@ export function ImportCenterPage() {
                 <Download className="w-3.5 h-3.5" />
               </button>
             )}
-            {b.source_module === 'tb_import' && b.status !== 'posted' && (
+            {b.status !== 'posted' && b.status !== 'finalized' && b.status !== 'applied' && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (window.confirm('Remove this import? This cannot be undone.')) {
-                    deleteBatchMutation.mutate(b.source_id)
-                  }
+                  handleDeleteImport(b)
                 }}
                 title="Remove import"
                 className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors hover:bg-red-50"
@@ -876,12 +901,8 @@ export function ImportCenterPage() {
                   label: 'Remove Import',
                   icon: Trash2,
                   variant: 'danger',
-                  hidden: (b) => b.source_module !== 'tb_import' || b.status === 'posted',
-                  onClick: (b) => {
-                    if (window.confirm('Remove this import? This cannot be undone.')) {
-                      deleteBatchMutation.mutate(b.source_id)
-                    }
-                  },
+                  hidden: (b) => b.status === 'posted' || b.status === 'finalized' || b.status === 'applied',
+                  onClick: (b) => handleDeleteImport(b),
                 },
               ]}
               exportFilename={`financial_cleanup_${activeTabSection}_queue`}

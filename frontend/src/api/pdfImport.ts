@@ -117,4 +117,7 @@ export const pdfImportApi = {
     }>
   }> =>
     api.get(`/pdf-imports/${batchId}/preview-diff`).then((r) => r.data),
+
+  deleteBatch: (batchId: number): Promise<void> =>
+    api.delete(`/pdf-imports/${batchId}`).then(() => undefined),
 }

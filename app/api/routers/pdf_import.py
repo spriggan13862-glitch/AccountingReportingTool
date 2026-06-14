@@ -1319,3 +1319,14 @@ def _line_to_schema(line_data: dict, proposed_numbers: dict[str, str] | None = N
         "system_managed": line_data.get("system_managed", False),
         "locked": line_data.get("locked", False),
     }
+
+
+@router.delete("/{batch_id}", status_code=204)
+def delete_pdf_batch(batch_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    batch = db.get(PDFImportBatch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status in ("finalized", "posted"):
+        raise HTTPException(status_code=409, detail="Cannot delete a finalized batch")
+    db.delete(batch)
+    db.commit()
