@@ -599,6 +599,14 @@ def map_line_to_account(
     if account is None:
         raise ImportBatchError(f"Account {account_id} not found")
 
+    # Guard: account must belong to the batch entity or be global (entity_id=None)
+    if account.entity_id is not None and account.entity_id != batch.entity_id:
+        raise ImportBatchError(
+            f"Account '{account.account_number}' (id={account_id}) belongs to entity "
+            f"{account.entity_id}, not the import entity {batch.entity_id}. "
+            "Select an account that belongs to this entity or use a global account."
+        )
+
     was_unmapped = line.mapping_status == "unmapped"
 
     # If line had raw_balance, convert using the resolved account's normal_balance
@@ -1056,6 +1064,12 @@ def post_batch(
         raise ImportBatchStateError(
             f"Cannot post a batch with status '{batch.status}'. "
             "Run validation first and resolve all errors."
+        )
+
+    if (batch.unmapped_row_count or 0) > 0:
+        raise ImportBatchStateError(
+            f"Cannot post: {batch.unmapped_row_count} line(s) are still unmapped. "
+            "Map or skip all lines before posting."
         )
 
     lines = (

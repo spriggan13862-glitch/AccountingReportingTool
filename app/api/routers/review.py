@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.api.schemas import FsLineOut
+from app.services.financial_analysis_service import compute_ratio_analysis
 from app.services.fs_reporting_service import (
     AdjustmentBridgeRow,
     FsLineBalance,
@@ -208,3 +209,63 @@ def adjustment_bridge(
         pro_forma_ajes=float(r.pro_forma_ajes),
         pro_forma=float(r.pro_forma),
     ) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Financial ratio analysis
+# ---------------------------------------------------------------------------
+
+class RatioMetricOut(BaseModel):
+    name: str
+    value: float | None
+    unit: str
+    status: str
+    description: str
+    interpretation: str
+    benchmark_low: float | None
+    benchmark_ok: float | None
+
+
+class AnalysisFlagOut(BaseModel):
+    code: str
+    severity: str
+    title: str
+    detail: str
+    suggested_procedures: str
+
+
+class RatioAnalysisOut(BaseModel):
+    as_of_date: str
+    entity_id: int
+    liquidity: list[RatioMetricOut]
+    leverage: list[RatioMetricOut]
+    profitability: list[RatioMetricOut]
+    flags: list[AnalysisFlagOut]
+    summary: str
+    has_data: bool
+
+
+@router.get("/analysis", response_model=RatioAnalysisOut)
+def review_analysis(
+    entity_id: int,
+    as_of_date: datetime.date,
+    scenario_ids: list[int] = Query(default=[]),
+    data_view: str = Query(default="adjusted"),
+    db: Session = Depends(get_db),
+):
+    """
+    Financial ratio analysis: liquidity, leverage, profitability ratios + advisory flags.
+    Derived live from the trial balance — no separate computation step needed.
+    """
+    sf = _source_filter_for(data_view)
+    result = compute_ratio_analysis(db, entity_id, as_of_date, list(scenario_ids), source_filter=sf)
+    return RatioAnalysisOut(
+        as_of_date=result.as_of_date,
+        entity_id=result.entity_id,
+        liquidity=[RatioMetricOut(**vars(m)) for m in result.liquidity],
+        leverage=[RatioMetricOut(**vars(m)) for m in result.leverage],
+        profitability=[RatioMetricOut(**vars(m)) for m in result.profitability],
+        flags=[AnalysisFlagOut(**vars(f)) for f in result.flags],
+        summary=result.summary,
+        has_data=result.has_data,
+    )

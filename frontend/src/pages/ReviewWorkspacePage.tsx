@@ -2,18 +2,19 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle, XCircle, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { reviewApi, type CheckResult, type VarianceRow } from '@/api/review'
+import { reviewApi, type CheckResult, type VarianceRow, type RatioMetric, type RatioAnalysisResponse, type AnalysisFlag } from '@/api/review'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import type { FsLine } from '@/types'
 
-type StatementTab = 'BS' | 'IS' | 'CF'
+type StatementTab = 'BS' | 'IS' | 'CF' | 'Analysis'
 
 const TABS: { value: StatementTab; label: string }[] = [
   { value: 'BS', label: 'Balance Sheet' },
   { value: 'IS', label: 'Income Statement' },
   { value: 'CF', label: 'Cash Flow' },
+  { value: 'Analysis', label: 'Analysis' },
 ]
 
 function CheckBadge({ check }: { check: CheckResult }) {
@@ -116,6 +117,92 @@ function StatementTable({ rows }: { rows: FsLine[] }) {
   )
 }
 
+const STATUS_COLORS = {
+  good: 'border-green-200 bg-green-50',
+  warning: 'border-amber-200 bg-amber-50',
+  critical: 'border-red-200 bg-red-50',
+  na: 'border-gray-200 bg-gray-50',
+}
+
+const STATUS_VALUE_COLORS = {
+  good: 'text-green-800',
+  warning: 'text-amber-800',
+  critical: 'text-red-800',
+  na: 'text-gray-400',
+}
+
+function RatioCard({ m }: { m: RatioMetric }) {
+  const formatted = m.value === null ? '—'
+    : m.unit === '%' ? `${m.value.toFixed(1)}%`
+    : m.unit === '$' ? `$${m.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    : `${m.value.toFixed(2)}x`
+  return (
+    <div className={`rounded-lg border p-3 ${STATUS_COLORS[m.status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.na}`}>
+      <p className="text-xs text-gray-500 mb-1">{m.name}</p>
+      <p className={`text-xl font-bold tabular-nums ${STATUS_VALUE_COLORS[m.status as keyof typeof STATUS_VALUE_COLORS] ?? 'text-gray-400'}`}>
+        {formatted}
+      </p>
+      <p className="text-[10px] text-gray-500 mt-1 leading-tight">{m.interpretation}</p>
+    </div>
+  )
+}
+
+function FlagCard({ flag }: { flag: AnalysisFlag }) {
+  const colors = flag.severity === 'critical'
+    ? 'border-red-200 bg-red-50 text-red-800'
+    : flag.severity === 'warning'
+    ? 'border-amber-200 bg-amber-50 text-amber-800'
+    : 'border-blue-200 bg-blue-50 text-blue-800'
+  return (
+    <div className={`rounded-lg border p-3 ${colors}`}>
+      <p className="text-xs font-semibold mb-0.5">{flag.title}</p>
+      <p className="text-xs text-gray-700">{flag.detail}</p>
+      {flag.suggested_procedures && (
+        <p className="text-[10px] text-gray-500 mt-1 italic">{flag.suggested_procedures}</p>
+      )}
+    </div>
+  )
+}
+
+function AnalysisPanel({ data }: { data: RatioAnalysisResponse | undefined }) {
+  if (!data) return <LoadingState />
+  if (!data.has_data) return (
+    <div className="p-8 text-center">
+      <p className="text-sm text-gray-500">No posted data found. Import and post a trial balance to see ratio analysis.</p>
+    </div>
+  )
+  const summaryColor = data.flags.some(f => f.severity === 'critical')
+    ? 'bg-red-50 text-red-800 border-red-200'
+    : data.flags.some(f => f.severity === 'warning')
+    ? 'bg-amber-50 text-amber-800 border-amber-200'
+    : 'bg-green-50 text-green-800 border-green-200'
+  return (
+    <div className="space-y-5 overflow-auto">
+      <div className={`rounded-lg border px-4 py-3 text-sm font-medium ${summaryColor}`}>
+        {data.summary}
+      </div>
+      {data.flags.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Advisory Flags</h3>
+          <div className="space-y-2">{data.flags.map(f => <FlagCard key={f.code} flag={f} />)}</div>
+        </div>
+      )}
+      {([
+        { label: 'Liquidity', metrics: data.liquidity },
+        { label: 'Leverage & Solvency', metrics: data.leverage },
+        { label: 'Profitability', metrics: data.profitability },
+      ] as const).map(({ label, metrics }) => metrics.length > 0 && (
+        <div key={label}>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</h3>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {metrics.map(m => <RatioCard key={m.name} m={m} />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ReviewWorkspacePage() {
   const navigate = useNavigate()
   const { activeEntity, activePeriod, activeScenarioIds, dataView } = useWorkspace()
@@ -123,6 +210,9 @@ export function ReviewWorkspacePage() {
   const [view, setView] = useState<'variance' | 'current' | 'prior'>('variance')
 
   const enabled = !!activeEntity && !!activePeriod
+
+  const isAnalysisTab = tab === 'Analysis'
+  const stmtEnabled = enabled && !isAnalysisTab
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['review-statements', activeEntity?.id, activePeriod?.end_date, activeScenarioIds, dataView, tab],
@@ -134,6 +224,19 @@ export function ReviewWorkspacePage() {
         data_view: dataView,
         statement: tab,
         include_checks: true,
+      }),
+    enabled: stmtEnabled,
+    staleTime: 30_000,
+  })
+
+  const { data: analysisData, isLoading: analysisLoading } = useQuery({
+    queryKey: ['review-analysis', activeEntity?.id, activePeriod?.end_date, activeScenarioIds, dataView],
+    queryFn: () =>
+      reviewApi.getAnalysis({
+        entity_id: activeEntity!.id,
+        as_of_date: activePeriod!.end_date,
+        scenario_ids: activeScenarioIds,
+        data_view: dataView,
       }),
     enabled,
     staleTime: 30_000,
@@ -216,32 +319,40 @@ export function ReviewWorkspacePage() {
               {label}
             </button>
           ))}
-          <div className="ml-auto flex items-center gap-1 pb-1">
-            {(['variance', 'current', 'prior'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setView(v)}
-                className={`rounded px-2 py-0.5 text-xs font-medium capitalize transition-colors ${
-                  view === v ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                {v === 'variance' ? 'Comparison' : v === 'current' ? 'Current' : 'Prior'}
-              </button>
-            ))}
-          </div>
+          {!isAnalysisTab && (
+            <div className="ml-auto flex items-center gap-1 pb-1">
+              {(['variance', 'current', 'prior'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={`rounded px-2 py-0.5 text-xs font-medium capitalize transition-colors ${
+                    view === v ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {v === 'variance' ? 'Comparison' : v === 'current' ? 'Current' : 'Prior'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Table */}
+        {/* Content */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 flex-1 overflow-auto">
-          {isLoading && <LoadingState />}
-          {isError && <ErrorState message={(error as Error).message} />}
-          {data && !isLoading && (
-            view === 'variance'
-              ? <VarianceTable rows={varianceRows} onDrilldown={handleDrilldown} />
-              : view === 'current'
-                ? <StatementTable rows={currentRows} />
-                : <StatementTable rows={priorRows} />
+          {isAnalysisTab ? (
+            analysisLoading ? <LoadingState /> : <AnalysisPanel data={analysisData} />
+          ) : (
+            <>
+              {isLoading && <LoadingState />}
+              {isError && <ErrorState message={(error as Error).message} />}
+              {data && !isLoading && (
+                view === 'variance'
+                  ? <VarianceTable rows={varianceRows} onDrilldown={handleDrilldown} />
+                  : view === 'current'
+                    ? <StatementTable rows={currentRows} />
+                    : <StatementTable rows={priorRows} />
+              )}
+            </>
           )}
         </div>
       </div>

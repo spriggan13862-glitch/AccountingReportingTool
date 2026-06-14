@@ -1,6 +1,36 @@
 import api from './client'
 import type { FsLine } from '@/types'
 
+export interface RatioMetric {
+  name: string
+  value: number | null
+  unit: string
+  status: 'good' | 'warning' | 'critical' | 'na'
+  description: string
+  interpretation: string
+  benchmark_low: number | null
+  benchmark_ok: number | null
+}
+
+export interface AnalysisFlag {
+  code: string
+  severity: 'critical' | 'warning' | 'info'
+  title: string
+  detail: string
+  suggested_procedures: string
+}
+
+export interface RatioAnalysisResponse {
+  as_of_date: string
+  entity_id: number
+  liquidity: RatioMetric[]
+  leverage: RatioMetric[]
+  profitability: RatioMetric[]
+  flags: AnalysisFlag[]
+  summary: string
+  has_data: boolean
+}
+
 export interface VarianceRow {
   code: string
   name: string
@@ -76,5 +106,22 @@ export const reviewApi = {
       searchParams.append('scenario_ids', String(id))
     }
     return api.get<BridgeRow[]>(`/review/bridge?${searchParams}`).then((r) => r.data)
+  },
+
+  getAnalysis: (params: {
+    entity_id: number
+    as_of_date: string
+    scenario_ids?: number[]
+    data_view?: string
+  }) => {
+    const { scenario_ids, ...rest } = params
+    const searchParams = new URLSearchParams()
+    for (const [k, v] of Object.entries(rest)) {
+      if (v !== undefined) searchParams.append(k, String(v))
+    }
+    for (const id of scenario_ids ?? []) {
+      searchParams.append('scenario_ids', String(id))
+    }
+    return api.get<RatioAnalysisResponse>(`/review/analysis?${searchParams}`).then((r) => r.data)
   },
 }

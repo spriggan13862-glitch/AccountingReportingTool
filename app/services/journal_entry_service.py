@@ -117,6 +117,35 @@ def _check_accounts_postable(db: Session, data: JournalEntryCreate) -> None:
         msg = "; ".join(f"[{e.code}] {e.message}" for e in result.errors)
         raise JournalEntryValidationError(msg, result=result)
 
+    # Warn if any account belongs to a different entity than the JE header
+    cross_entity = (
+        db.query(Account.id, Account.account_number, Account.entity_id)
+        .filter(
+            Account.id.in_(account_ids),
+            Account.entity_id.isnot(None),
+            Account.entity_id != data.entity_id,
+        )
+        .all()
+    )
+    if cross_entity:
+        details = ", ".join(f"{r.account_number} (entity {r.entity_id})" for r in cross_entity)
+        result = ValidationResult()
+        result.error(
+            code="JE_CROSS_ENTITY_ACCOUNT",
+            message=(
+                f"Account(s) {details} belong to a different entity than this journal entry "
+                f"(entity {data.entity_id}). Use accounts belonging to entity {data.entity_id} "
+                "or global accounts (no entity)."
+            ),
+            source_type="journal_entry",
+            source_id=data.je_number,
+            suggested_resolution="Select accounts that belong to this entity or use global chart of accounts.",
+        )
+        raise JournalEntryValidationError(
+            "; ".join(f"[{e.code}] {e.message}" for e in result.errors),
+            result=result,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Pure validation (no DB)
