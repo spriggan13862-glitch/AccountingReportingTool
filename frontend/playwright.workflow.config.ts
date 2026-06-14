@@ -57,6 +57,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['accounting'],
     },
+    {
+      name: 'ux-coverage',
+      testMatch: '**/ux_coverage.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['workflow'],
+    },
   ],
   webServer: [
     {
