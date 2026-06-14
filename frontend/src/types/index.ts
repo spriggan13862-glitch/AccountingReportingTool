@@ -871,6 +871,9 @@ export interface SheetInfo {
   likely_tb_score: number
   headers: string[]
   preview_rows: Record<string, string>[]
+  detected_mapping: Record<string, string>
+  raw_rows: string[][]
+  auto_header_row_idx: number
 }
 
 export interface DetectResult {

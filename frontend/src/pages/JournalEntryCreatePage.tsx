@@ -12,6 +12,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { ScenarioMultiSelect } from '@/components/ui/ScenarioMultiSelect'
 import { AccountSearch } from '@/components/ui/AccountSearch'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 
 interface LineState extends JELineCreate {
   _selectedAccount: Account | null
@@ -36,8 +37,9 @@ export function JournalEntryCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { activeEntity } = useWorkspace()
 
-  const [entityId, setEntityId] = useState<number | ''>('')
+  const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [scenarioIds, setScenarioIds] = useState<number[]>([])
   const [form, setForm] = useState({
     je_number: '',

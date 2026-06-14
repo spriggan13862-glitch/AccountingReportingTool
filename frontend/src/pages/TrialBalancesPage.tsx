@@ -203,27 +203,34 @@ export function TrialBalancesPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Parameters</h2>
             {/* TB Mode toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => { setTbMode('cumulative'); setSubmitted(false) }}
-                className={cn(
-                  'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
-                  tbMode === 'cumulative' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
-                )}
-              >
-                Cumulative
-              </button>
-              <button
-                type="button"
-                onClick={() => { setTbMode('period'); setSubmitted(false) }}
-                className={cn(
-                  'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
-                  tbMode === 'period' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
-                )}
-              >
-                Period
-              </button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => { setTbMode('cumulative'); setSubmitted(false) }}
+                  className={cn(
+                    'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
+                    tbMode === 'cumulative' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  Cumulative (YTD)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setTbMode('period'); setSubmitted(false) }}
+                  className={cn(
+                    'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
+                    tbMode === 'period' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700',
+                  )}
+                >
+                  Period Activity
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1 text-right max-w-xs">
+                {isPeriodMode
+                  ? 'Period Activity: shows debits/credits posted between From Date and To Date only.'
+                  : 'Cumulative (YTD): running balance as of the as-of date. Use for standard trial balances.'}
+              </p>
             </div>
           </div>
           <div className={cn('grid gap-3 items-end', isPeriodMode ? 'grid-cols-1 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3')}>
@@ -319,6 +326,13 @@ export function TrialBalancesPage() {
         )}
 
         {/* Results Grid */}
+        {rows && (
+          <div className="text-xs text-gray-500 px-1 pb-1">
+            {isPeriodMode
+              ? <>Showing <strong>period activity</strong> from {fromDate} to {asOfDate} — columns show debits and credits posted within this range, plus beginning and ending balance.</>
+              : <>Showing <strong>cumulative YTD balances</strong> as of {asOfDate} — Debits and Credits are the running totals since the account was opened; Balance is the net signed amount.</>}
+          </div>
+        )}
         {rows && (
           <AccountingDataGrid
             data-testid="trial-balance-table"

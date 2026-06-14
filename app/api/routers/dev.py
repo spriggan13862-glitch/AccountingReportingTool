@@ -101,6 +101,16 @@ def dev_reset(
 
     deleted["import_batches_org"] = _del_org("import_batches")
     deleted["scenarios"] = _del_org("scenarios")
+
+    # After entity deletion, clean up any batches whose entity no longer exists in DB
+    # (catches orphaned records from partial resets or migration issues)
+    deleted["coa_import_batches_orphan"] = db.execute(
+        text("DELETE FROM coa_import_batches WHERE entity_id NOT IN (SELECT id FROM entities)"),
+    ).rowcount
+    deleted["pdf_import_batches_orphan"] = db.execute(
+        text("DELETE FROM pdf_import_batches WHERE entity_id NOT IN (SELECT id FROM entities) AND entity_id IS NOT NULL"),
+    ).rowcount
+
     db.commit()
     return {"status": "reset", "org_id": org_id, "deleted": deleted}
 

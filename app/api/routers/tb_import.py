@@ -190,6 +190,7 @@ async def upload_batch(
     period_id: int | None = Form(None),
     template_id: int | None = Form(None),
     sheet_name: str | None = Form(None),
+    header_row_index: int | None = Form(None),
     force: bool = Query(False),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -254,6 +255,7 @@ async def upload_batch(
             uploaded_by_user_id=getattr(current_user, "id", None),
             template_id=template_id,
             sheet_name=sheet_name,
+            header_row_index=header_row_index,
         )
         attach_document(
             db=db,

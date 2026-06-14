@@ -36,6 +36,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v10 · Workflow Stabilization',
+    date: '2026-06-14',
+    items: [
+      'React Hooks violation in ContextBar fixed — no more "rendered more hooks" crash when switching screens',
+      'Default scenarios (As Reported, Adjusted, Pro Forma) now seeded automatically via Seed Demo Data',
+      'New "Seed Default Scenarios" dev tool — creates ACT/ADJ/PF scenarios without a full data reset',
+      'Reset All Data now requires typing "RESET" in a confirmation modal (replaces browser confirm dialog)',
+      'Import wizard: period picker toggle auto-fills as-of date from accounting period end date',
+      'Import duplicate detection: warning banner with "View Existing" / "Import Anyway" options',
+      'Single-sheet XLSX now auto-skips the sheet selection step',
+      'Tooltips added for Scenario selector and Data View toggle explaining each option',
+    ],
+  },
+  {
     version: 'v9 · Accounting Intelligence',
     date: '2026-06-14',
     items: [
@@ -147,11 +161,13 @@ export function OverviewPage() {
     onSuccess: (data: { deleted: Record<string, number> }) => {
       setActiveEntity(null)
       setActivePeriod(null)
-      queryClient.clear()
       setShowResetModal(false)
       setResetConfirmText('')
       const total = Object.values(data.deleted).reduce((s, n) => s + n, 0)
       toast(`Reset complete — ${total} records deleted.`, 'success')
+      // Force a full page reload so all cached query data is cleared and
+      // any in-memory import history is gone from every mounted component.
+      setTimeout(() => window.location.reload(), 1000)
     },
     onError: (err: Error) => toast(`Reset failed: ${err.message}`, 'error'),
   })
@@ -247,7 +263,7 @@ export function OverviewPage() {
           <p className="text-sm text-gray-500 mt-0.5">Active engagement context and status</p>
         </div>
         <span className="shrink-0 text-[10px] font-mono text-gray-400 bg-gray-100 border border-gray-200 rounded px-2 py-1 mt-1">
-          v8 · {import.meta.env.VITE_APP_GIT_HASH?.slice(0, 7) ?? 'dev'}
+          v10 · {import.meta.env.VITE_APP_GIT_HASH?.slice(0, 7) ?? 'dev'}
         </span>
       </div>
 

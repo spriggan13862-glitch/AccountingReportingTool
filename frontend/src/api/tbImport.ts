@@ -35,6 +35,7 @@ export interface UploadBatchParams {
   period_id?: number
   template_id?: number
   sheet_name?: string
+  header_row_index?: number
   force?: boolean
   file: File
 }
@@ -111,6 +112,7 @@ export const tbImportApi = {
       period_id: params.period_id,
       template_id: params.template_id,
       sheet_name: params.sheet_name,
+      header_row_index: params.header_row_index,
       file: params.file,
     })
     const url = params.force ? '/tb-imports/batches/upload?force=true' : '/tb-imports/batches/upload'

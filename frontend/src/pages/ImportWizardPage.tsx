@@ -36,6 +36,99 @@ const STANDARD_FIELDS = [
 
 // Shared StepIndicator is imported from components
 
+function colLetter(idx: number): string {
+  let result = ''
+  let n = idx + 1
+  while (n > 0) {
+    result = String.fromCharCode(65 + ((n - 1) % 26)) + result
+    n = Math.floor((n - 1) / 26)
+  }
+  return result
+}
+
+const COLUMN_ALIASES: Record<string, string[]> = {
+  account_number: ['account_number','account #','account no','account no.','account number','acct #','acct no','acct','num','gl account','gl #','code','account code','account id','ledger account','chart of accounts'],
+  account_name: ['account_name','account name','account description','gl account name','name','title','account title','ledger name'],
+  debit: ['debit','debit amount','dr','dr amount','debit balance','debit (dr)','ending debit','total debit'],
+  credit: ['credit','credit amount','cr','cr amount','credit balance','credit (cr)','ending credit','total credit'],
+  balance: ['balance','net balance','net amount','net change','ending balance','amount','total','period net','net activity','net','balance amount'],
+  description: ['description','memo','notes','narration','detail','transaction description','account description'],
+}
+
+function autoDetectMapping(headers: string[]): Record<string, string> {
+  const mapping: Record<string, string> = {}
+  for (const header of headers) {
+    const normalized = header.trim().toLowerCase().replace(/[-_]/g, ' ')
+    for (const [field, aliases] of Object.entries(COLUMN_ALIASES)) {
+      if (!(field in mapping) && aliases.some(a => a.replace(/[-_]/g, ' ') === normalized)) {
+        mapping[field] = header
+        break
+      }
+    }
+  }
+  return mapping
+}
+
+function RawSheetGrid({
+  rawRows, headerRowIdx, onSelectRow,
+}: {
+  rawRows: string[][]
+  headerRowIdx: number | null
+  onSelectRow: (idx: number) => void
+}) {
+  if (!rawRows.length) return null
+  const numCols = rawRows.reduce((max, row) => Math.max(max, row.length), 0)
+  const colIndices = Array.from({ length: numCols }, (_, i) => i)
+  return (
+    <div className="overflow-auto border border-gray-200 rounded-lg max-h-80 text-[11px] font-mono">
+      <table className="border-collapse w-max">
+        <thead className="sticky top-0 z-10 bg-gray-100">
+          <tr>
+            <th className="px-2 py-1 border border-gray-300 text-gray-400 text-right min-w-[3rem] select-none">#</th>
+            {colIndices.map(i => (
+              <th key={i} className="px-2 py-1 border border-gray-300 text-gray-600 min-w-[8rem] text-center font-semibold">
+                {colLetter(i)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rawRows.map((row, rowIdx) => {
+            const isHeader = rowIdx === headerRowIdx
+            return (
+              <tr
+                key={rowIdx}
+                onClick={() => onSelectRow(rowIdx)}
+                className={`cursor-pointer transition-colors ${
+                  isHeader ? 'bg-indigo-100 font-semibold' : 'even:bg-gray-50 hover:bg-indigo-50'
+                }`}
+              >
+                <td className={`px-2 py-1 border border-gray-200 text-right select-none ${isHeader ? 'text-indigo-700 font-bold' : 'text-gray-400'}`}>
+                  {rowIdx + 1}{isHeader ? ' ★' : ''}
+                </td>
+                {colIndices.map(colIdx => {
+                  const val = row[colIdx] ?? ''
+                  return (
+                    <td
+                      key={colIdx}
+                      className={`px-2 py-1 border border-gray-200 whitespace-nowrap max-w-[12rem] overflow-hidden text-ellipsis ${
+                        val ? (isHeader ? 'text-indigo-800' : 'text-gray-800') : 'text-gray-300'
+                      }`}
+                      title={val}
+                    >
+                      {val || ''}
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function ConfidenceMeter({ score }: { score: number }) {
   const color = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-400' : 'bg-red-400'
   const label = score >= 80 ? 'High confidence' : score >= 50 ? 'Partial detection' : 'Low confidence'
@@ -66,6 +159,7 @@ export function ImportWizardPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState('')
   const [detected, setDetected] = useState<DetectResult | null>(null)
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
+  const [headerRowIdx, setHeaderRowIdx] = useState<number | null>(null)
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
   const [apiError, setApiError] = useState<string | null>(null)
   const [duplicateWarning, setDuplicateWarning] = useState<{ existingBatchId: number; existingStatus: string } | null>(null)
@@ -121,6 +215,9 @@ export function ImportWizardPage() {
       setSelectedSheet(result.selected_sheet)
       setColMapping(result.detected_mapping)
       setApiError(null)
+      // Find auto_header_row_idx for the selected sheet
+      const selectedSheetData = result.sheets.find(s => s.name === result.selected_sheet)
+      setHeaderRowIdx(selectedSheetData?.auto_header_row_idx ?? 0)
       // Skip sheet step for CSV or single-sheet XLSX
       setStep(result.sheets.length > 1 ? 1 : 2)
     },
@@ -135,6 +232,7 @@ export function ImportWizardPage() {
         organization_id: orgId,
         as_of_date: asOfDate,
         sheet_name: selectedSheet ?? undefined,
+        header_row_index: headerRowIdx ?? undefined,
         force,
         file,
       })
@@ -427,7 +525,21 @@ export function ImportWizardPage() {
                   type="radio"
                   name="sheet"
                   checked={selectedSheet === sheet.name}
-                  onChange={() => setSelectedSheet(sheet.name)}
+                  onChange={() => {
+                    const hdr = sheet.auto_header_row_idx ?? 0
+                    setSelectedSheet(sheet.name)
+                    setHeaderRowIdx(hdr)
+                    const headers = sheet.raw_rows?.[hdr] ?? sheet.headers
+                    const mapping = autoDetectMapping(headers)
+                    setDetected((prev) => prev ? {
+                      ...prev,
+                      headers,
+                      preview_rows: sheet.preview_rows,
+                      detected_mapping: mapping,
+                      unmapped_headers: headers.filter(h => !Object.values(mapping).includes(h)),
+                    } : prev)
+                    setColMapping(mapping)
+                  }}
                   className="text-indigo-600"
                 />
                 <Layers className="w-4 h-4 text-gray-400 shrink-0" />
@@ -465,6 +577,40 @@ export function ImportWizardPage() {
               </p>
             </div>
           )}
+
+          {selectedSheet && (() => {
+            const sheetData = detected.sheets.find((s) => s.name === selectedSheet)
+            if (!sheetData?.raw_rows?.length) return null
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-600">
+                    Worksheet preview — click a row to set as header
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Header: Row {(headerRowIdx ?? 0) + 1}
+                    {' · '}{detected.headers.filter(Boolean).length} columns
+                  </p>
+                </div>
+                <RawSheetGrid
+                  rawRows={sheetData.raw_rows}
+                  headerRowIdx={headerRowIdx}
+                  onSelectRow={(rowIdx) => {
+                    setHeaderRowIdx(rowIdx)
+                    const newHeaders = sheetData.raw_rows[rowIdx] ?? []
+                    const newMapping = autoDetectMapping(newHeaders)
+                    setDetected((prev) => prev ? {
+                      ...prev,
+                      headers: newHeaders,
+                      detected_mapping: newMapping,
+                      unmapped_headers: newHeaders.filter(h => !Object.values(newMapping).includes(h)),
+                    } : prev)
+                    setColMapping(newMapping)
+                  }}
+                />
+              </div>
+            )
+          })()}
 
           <div className="flex justify-between">
             <button type="button" onClick={() => setStep(0)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
@@ -559,9 +705,17 @@ export function ImportWizardPage() {
                   }`}
                 >
                   <option value="">(not mapped)</option>
-                  {detected.headers.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
+                  {detected.headers.map((h, colIdx) => {
+                    const sheetData = detected.sheets.find(s => s.name === selectedSheet)
+                    const dataRow = sheetData?.raw_rows?.[(headerRowIdx ?? 0) + 1]
+                    const sample = dataRow?.[colIdx]
+                    const letter = colLetter(colIdx)
+                    return (
+                      <option key={h} value={h}>
+                        {letter} — {h || '(blank)'}{sample ? ` — e.g. ${sample.slice(0, 25)}` : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
             ))}

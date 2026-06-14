@@ -66,7 +66,7 @@ export function AccountSearch({ entityId, value, onChange, placeholder, disabled
           )}
           {!isFetching && accounts.length === 0 && (
             <p className="px-3 py-2 text-xs text-gray-400 italic">
-              {query ? 'No accounts match' : 'No accounts — import a Chart of Accounts first'}
+              {query ? `No accounts match "${query}"` : 'No accounts for this entity. Import COA first or create accounts manually.'}
             </p>
           )}
           {accounts.map((acct) => (

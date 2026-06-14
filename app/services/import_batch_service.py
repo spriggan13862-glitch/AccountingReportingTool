@@ -205,7 +205,7 @@ def _parse_csv_file(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
     return headers, rows
 
 
-def _parse_xlsx_file(content: bytes, sheet_name: str | None = None) -> tuple[list[str], list[dict[str, str]]]:
+def _parse_xlsx_file(content: bytes, sheet_name: str | None = None, header_row_index: int | None = None) -> tuple[list[str], list[dict[str, str]]]:
     """Parse XLSX bytes using openpyxl, returning (headers, rows)."""
     try:
         import openpyxl
@@ -217,34 +217,42 @@ def _parse_xlsx_file(content: bytes, sheet_name: str | None = None) -> tuple[lis
         ws = wb[sheet_name]
     else:
         ws = wb.active
-    rows_iter = ws.iter_rows(values_only=True)
 
-    # Find first non-empty row as header
-    headers: list[str] = []
-    for row in rows_iter:
+    all_rows: list[list[str]] = []
+    for row in ws.iter_rows(values_only=True):
         cells = [str(c).strip() if c is not None else "" for c in row]
-        if any(cells):
-            headers = [c for c in cells]
-            break
+        all_rows.append(cells)
 
-    if not headers:
+    if header_row_index is not None:
+        hdr_idx = header_row_index
+    else:
+        hdr_idx = 0
+        for i, cells in enumerate(all_rows):
+            if any(cells):
+                hdr_idx = i
+                break
+
+    if not all_rows or hdr_idx >= len(all_rows):
+        raise ImportBatchError("XLSX file is empty or has no header row")
+
+    headers = all_rows[hdr_idx]
+    if not any(headers):
         raise ImportBatchError("XLSX file is empty or has no header row")
 
     data_rows: list[dict[str, str]] = []
-    for row in rows_iter:
-        cells = [str(c).strip() if c is not None else "" for c in row]
-        if not any(cells):
+    for row in all_rows[hdr_idx + 1:]:
+        if not any(row):
             continue  # skip blank rows
-        data_rows.append(dict(zip(headers, cells)))
+        data_rows.append(dict(zip(headers, row)))
 
     wb.close()
     return headers, data_rows
 
 
-def _parse_file(content: bytes, filename: str, sheet_name: str | None = None) -> tuple[list[str], list[dict[str, str]]]:
+def _parse_file(content: bytes, filename: str, sheet_name: str | None = None, header_row_index: int | None = None) -> tuple[list[str], list[dict[str, str]]]:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "csv"
     if ext in ("xlsx", "xls"):
-        return _parse_xlsx_file(content, sheet_name=sheet_name)
+        return _parse_xlsx_file(content, sheet_name=sheet_name, header_row_index=header_row_index)
     return _parse_csv_file(content)
 
 
@@ -385,6 +393,7 @@ def upload_import_batch(
     uploaded_by_user_id: int | None = None,
     template_id: int | None = None,
     sheet_name: str | None = None,
+    header_row_index: int | None = None,
 ) -> ImportBatch:
     """
     Upload a TB/GL file and create an ImportBatch with parsed ImportLines.
@@ -404,7 +413,7 @@ def upload_import_batch(
         raise ImportBatchError("File exceeds 20 MB limit")
 
     content_hash = _sha256(file_content)
-    headers, raw_rows = _parse_file(file_content, filename, sheet_name=sheet_name)
+    headers, raw_rows = _parse_file(file_content, filename, sheet_name=sheet_name, header_row_index=header_row_index)
 
     if len(raw_rows) == 0:
         raise ImportBatchError(f"{filename}: no data rows found")
@@ -1331,23 +1340,30 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
             score = _score_sheet_name(sheet_name)
-            # Read headers + first 8 preview rows per sheet
-            sh_headers: list[str] = []
-            sh_rows: list[dict[str, str]] = []
+            sh_raw_rows: list[list[str]] = []
             sh_row_count = 0
-            rows_iter = ws.iter_rows(values_only=True)
-            for row in rows_iter:
+            for row in ws.iter_rows(values_only=True):
                 cells = [str(c).strip() if c is not None else "" for c in row]
-                if any(cells) and not sh_headers:
-                    sh_headers = cells
-                    continue
-                if sh_headers and any(cells):
-                    sh_rows.append(dict(zip(sh_headers, cells)))
-                    sh_row_count += 1
-                    if len(sh_rows) >= 8:
-                        # Count remaining rows for row_count
-                        for _ in rows_iter:
-                            sh_row_count += 1
+                sh_row_count += 1
+                if len(sh_raw_rows) < 50:
+                    sh_raw_rows.append(cells)
+            # Normalize all rows to same width, preserve blank cols
+            max_cols = max((len(r) for r in sh_raw_rows), default=0)
+            sh_raw_rows = [r + [""] * max(0, max_cols - len(r)) for r in sh_raw_rows]
+            # Auto-detect header row (first non-empty)
+            auto_header_row_idx = 0
+            sh_headers: list[str] = []
+            for i, cells in enumerate(sh_raw_rows):
+                if any(cells):
+                    auto_header_row_idx = i
+                    sh_headers = list(cells)
+                    break
+            # Build preview rows (dict) from rows after header
+            sh_rows: list[dict[str, str]] = []
+            for cells in sh_raw_rows[auto_header_row_idx + 1:]:
+                if any(cells):
+                    sh_rows.append(dict(zip(sh_headers, cells[:len(sh_headers)])))
+                    if len(sh_rows) >= 5:
                         break
             sheets.append({
                 "name": sheet_name,
@@ -1355,6 +1371,9 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
                 "likely_tb_score": score,
                 "headers": sh_headers,
                 "preview_rows": sh_rows,
+                "detected_mapping": auto_detect_column_mapping(sh_headers),
+                "raw_rows": sh_raw_rows,
+                "auto_header_row_idx": auto_header_row_idx,
             })
             if score > best_score:
                 best_score = score
