@@ -1326,7 +1326,9 @@ def delete_pdf_batch(batch_id: int, db: Session = Depends(get_db), current_user=
     batch = db.get(PDFImportBatch, batch_id)
     if not batch:
         raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
-    if batch.status in ("finalized", "posted"):
+    if batch.status in ("finalized", "posted", "applied"):
         raise HTTPException(status_code=409, detail="Cannot delete a finalized batch")
+    db.query(PDFAccountMapping).filter(PDFAccountMapping.batch_id == batch_id).delete()
+    db.query(PDFImportLine).filter(PDFImportLine.batch_id == batch_id).delete()
     db.delete(batch)
     db.commit()
