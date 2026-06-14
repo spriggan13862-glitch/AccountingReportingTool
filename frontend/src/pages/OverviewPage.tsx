@@ -85,7 +85,7 @@ function JeCountCard({ label, count, color, to }: { label: string; count: number
 }
 
 export function OverviewPage() {
-  const { activeEntity, activePeriod, activeScenarioIds, dataView } = useWorkspace()
+  const { activeEntity, setActiveEntity, activePeriod, setActivePeriod, activeScenarioIds, dataView } = useWorkspace()
   const { org } = useOrg()
   const orgId = org?.id ?? 0
   const toast = useToast()
@@ -128,7 +128,11 @@ export function OverviewPage() {
   const resetMutation = useMutation({
     mutationFn: () => api.delete(`/dev/reset?org_id=${orgId}`).then((r) => r.data),
     onSuccess: (data: { deleted: Record<string, number> }) => {
-      queryClient.invalidateQueries()
+      // Clear workspace context — entities no longer exist after reset
+      setActiveEntity(null)
+      setActivePeriod(null)
+      // Wipe entire query cache so no stale data shows anywhere
+      queryClient.clear()
       const total = Object.values(data.deleted).reduce((s, n) => s + n, 0)
       toast(`Reset complete — ${total} records deleted.`, 'success')
     },
