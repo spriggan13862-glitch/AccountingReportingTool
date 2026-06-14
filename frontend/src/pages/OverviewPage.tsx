@@ -35,6 +35,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v9 · Accounting Intelligence',
+    date: '2026-06-14',
+    items: [
+      'Review → Analysis tab now powered by the full 10-rule Accounting Intelligence Engine',
+      'Detected Issues: AR growth vs revenue, revenue spikes, inventory build-up, cash/earnings divergence, payroll vs revenue, debt increase, working capital deterioration, gross margin compression, equity surprises, expense fluctuation',
+      'Each detected issue shows description, detection trigger, suggested procedures, and suggested AJEs (expandable)',
+      'Critical data fixes: entity list scoped to org, rollback reversal now uses batch as-of-date (not today)',
+      'Import post blocked when unmapped lines remain; cross-entity account validation on JE post',
+      'JE post warnings surfaced as 8-second toasts (no longer lost on navigation)',
+      'Adjustment Bridge auto-computes on first load; no manual "Compute" click required',
+      'Review empty state shows actionable "Manage Entities" / "Manage Periods" buttons',
+    ],
+  },
+  {
     version: 'v8 · Phase 8',
     date: '2026-06-14',
     items: [

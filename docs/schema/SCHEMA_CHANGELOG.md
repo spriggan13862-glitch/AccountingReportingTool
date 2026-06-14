@@ -6,6 +6,15 @@ All schema-level changes — model additions, column additions/removals, migrati
 
 | Date | Change | Affected Files | Migration |
 |------|--------|---------------|-----------|
+| 2026-06-14 | Wired `accounting_intelligence_service.run_detection()` (10-rule engine) into `GET /review/analysis`; added `intelligence_findings` to response | `app/api/routers/review.py`, `app/services/financial_analysis_service.py` | — |
+| 2026-06-14 | Added `IntelligenceFindingOut` Pydantic model to review router; period lookup helpers `_find_period_for_date`, `_find_prior_period` | `app/api/routers/review.py` | — |
+| 2026-06-14 | Added `IntelligenceFinding` TS interface + `intelligence_findings` field to `RatioAnalysisResponse` | `frontend/src/api/review.ts` | — |
+| 2026-06-14 | `IntelligenceFindingCard` component in ReviewWorkspacePage with expandable procedures/AJEs section | `frontend/src/pages/ReviewWorkspacePage.tsx` | — |
+| 2026-06-14 | Critical fix: `rollback_batch()` reversal date now uses `batch.as_of_date` instead of `datetime.date.today()` | `app/services/import_batch_service.py` | — |
+| 2026-06-14 | Security fix: `list_entities` and `create_entity` scoped to caller's `organization_id` | `app/api/routers/entities.py` | — |
+| 2026-06-14 | Import `post_batch()` blocked when `unmapped_row_count > 0` | `app/services/import_batch_service.py` | — |
+| 2026-06-14 | Cross-entity account validation in `_check_accounts_postable()` — JE accounts must belong to JE entity or be global | `app/services/journal_entry_service.py` | — |
+| 2026-06-14 | `financial_analysis_service.py` — new single-period ratio computation service (liquidity, leverage, profitability) | `app/services/financial_analysis_service.py` (new) | — |
 | 2026-05-27 | Initial schema audit and Phase 0 bootstrap | `docs/schema/` (new) | — |
 | 2026-05-27 | Added `ACCOUNTING_SCHEMA.md`, `ASSUMPTIONS.md`, `AUDIT_REPORT.md`, `CLAUDE.md` | `docs/schema/`, project root | — |
 | 2026-05-27 | Added `is_header`, `is_postable` to `accounts` model | `app/models/account.py` | 013 |

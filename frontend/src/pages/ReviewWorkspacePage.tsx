@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle, XCircle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, CheckCircle, XCircle, ChevronRight, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { reviewApi, type CheckResult, type VarianceRow, type RatioMetric, type RatioAnalysisResponse, type AnalysisFlag } from '@/api/review'
+import { reviewApi, type CheckResult, type VarianceRow, type RatioMetric, type RatioAnalysisResponse, type AnalysisFlag, type IntelligenceFinding } from '@/api/review'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -164,6 +164,56 @@ function FlagCard({ flag }: { flag: AnalysisFlag }) {
   )
 }
 
+const SEVERITY_COLORS: Record<string, string> = {
+  high: 'border-red-200 bg-red-50',
+  moderate: 'border-amber-200 bg-amber-50',
+  low: 'border-blue-200 bg-blue-50',
+}
+
+function IntelligenceFindingCard({ finding }: { finding: IntelligenceFinding }) {
+  const [expanded, setExpanded] = useState(false)
+  const borderBg = SEVERITY_COLORS[finding.severity] ?? 'border-gray-200 bg-gray-50'
+  return (
+    <div className={`rounded-lg border p-3 ${borderBg}`}>
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-mono text-gray-400 uppercase tracking-wide">{finding.category.replace(/_/g, ' ')}</p>
+          <p className="text-xs font-semibold text-gray-800 mt-0.5">{finding.title}</p>
+          <p className="text-xs text-gray-600 mt-0.5 leading-snug">{finding.description}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="shrink-0 text-gray-400 hover:text-gray-600 mt-0.5"
+          aria-label={expanded ? 'Collapse' : 'Expand'}
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+          <div>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Trigger</p>
+            <p className="text-xs text-gray-600 italic mt-0.5">{finding.detection_trigger}</p>
+          </div>
+          {finding.suggested_procedures && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Suggested Procedures</p>
+              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans mt-0.5 leading-snug">{finding.suggested_procedures}</pre>
+            </div>
+          )}
+          {finding.suggested_ajes && (
+            <div>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Suggested AJEs</p>
+              <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans mt-0.5 leading-snug">{finding.suggested_ajes}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AnalysisPanel({ data }: { data: RatioAnalysisResponse | undefined }) {
   if (!data) return <LoadingState />
   if (!data.has_data) return (
@@ -181,9 +231,21 @@ function AnalysisPanel({ data }: { data: RatioAnalysisResponse | undefined }) {
       <div className={`rounded-lg border px-4 py-3 text-sm font-medium ${summaryColor}`}>
         {data.summary}
       </div>
+      {data.intelligence_findings && data.intelligence_findings.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Detected Issues — Accounting Rules Engine ({data.intelligence_findings.length})
+          </h3>
+          <div className="space-y-2">
+            {data.intelligence_findings.map((f) => (
+              <IntelligenceFindingCard key={f.issue_code} finding={f} />
+            ))}
+          </div>
+        </div>
+      )}
       {data.flags.length > 0 && (
         <div>
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Advisory Flags</h3>
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ratio Flags</h3>
           <div className="space-y-2">{data.flags.map(f => <FlagCard key={f.code} flag={f} />)}</div>
         </div>
       )}

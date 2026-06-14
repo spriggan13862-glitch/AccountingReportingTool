@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.api.schemas import FsLineOut
+from app.models.accounting_period import AccountingPeriod
+from app.services import accounting_intelligence_service as intel_svc
 from app.services.financial_analysis_service import compute_ratio_analysis
 from app.services.fs_reporting_service import (
     AdjustmentBridgeRow,
@@ -212,8 +214,34 @@ def adjustment_bridge(
 
 
 # ---------------------------------------------------------------------------
-# Financial ratio analysis
+# Financial ratio analysis + accounting intelligence engine
 # ---------------------------------------------------------------------------
+
+def _find_period_for_date(db: Session, entity_id: int, as_of_date: datetime.date) -> AccountingPeriod | None:
+    return (
+        db.query(AccountingPeriod)
+        .filter(
+            AccountingPeriod.entity_id == entity_id,
+            AccountingPeriod.start_date <= as_of_date,
+            AccountingPeriod.end_date >= as_of_date,
+        )
+        .order_by(AccountingPeriod.end_date.desc())
+        .first()
+    )
+
+
+def _find_prior_period(db: Session, entity_id: int, current_period: AccountingPeriod) -> AccountingPeriod | None:
+    return (
+        db.query(AccountingPeriod)
+        .filter(
+            AccountingPeriod.entity_id == entity_id,
+            AccountingPeriod.period_type == current_period.period_type,
+            AccountingPeriod.end_date < current_period.start_date,
+        )
+        .order_by(AccountingPeriod.end_date.desc())
+        .first()
+    )
+
 
 class RatioMetricOut(BaseModel):
     name: str
@@ -234,6 +262,18 @@ class AnalysisFlagOut(BaseModel):
     suggested_procedures: str
 
 
+class IntelligenceFindingOut(BaseModel):
+    issue_code: str
+    category: str
+    severity: str
+    title: str
+    description: str
+    detection_trigger: str
+    suggested_procedures: str
+    suggested_ajes: str
+    supporting_metrics: dict
+
+
 class RatioAnalysisOut(BaseModel):
     as_of_date: str
     entity_id: int
@@ -241,6 +281,7 @@ class RatioAnalysisOut(BaseModel):
     leverage: list[RatioMetricOut]
     profitability: list[RatioMetricOut]
     flags: list[AnalysisFlagOut]
+    intelligence_findings: list[IntelligenceFindingOut]
     summary: str
     has_data: bool
 
@@ -254,11 +295,42 @@ def review_analysis(
     db: Session = Depends(get_db),
 ):
     """
-    Financial ratio analysis: liquidity, leverage, profitability ratios + advisory flags.
-    Derived live from the trial balance — no separate computation step needed.
+    Financial ratio analysis + accounting intelligence engine (10 detection rules).
+    Ratios computed from trial balance; intelligence findings compared against prior period.
     """
     sf = _source_filter_for(data_view)
     result = compute_ratio_analysis(db, entity_id, as_of_date, list(scenario_ids), source_filter=sf)
+
+    intelligence_findings: list[IntelligenceFindingOut] = []
+    current_period = _find_period_for_date(db, entity_id, as_of_date)
+    if current_period:
+        prior_period = _find_prior_period(db, entity_id, current_period)
+        if prior_period:
+            scenario_id = scenario_ids[0] if scenario_ids else None
+            try:
+                raw = intel_svc.run_detection(
+                    db,
+                    entity_id,
+                    current_period.id,
+                    prior_period.id,
+                    scenario_id=scenario_id,
+                    persist=False,
+                )
+                for f in raw:
+                    intelligence_findings.append(IntelligenceFindingOut(
+                        issue_code=f["issue_code"],
+                        category=f["category"],
+                        severity=f["severity"],
+                        title=f["title"],
+                        description=f["description"],
+                        detection_trigger=f["detection_trigger"],
+                        suggested_procedures=f.get("suggested_procedures", ""),
+                        suggested_ajes=f.get("suggested_ajes", ""),
+                        supporting_metrics=f.get("supporting_metrics", {}),
+                    ))
+            except Exception:
+                pass
+
     return RatioAnalysisOut(
         as_of_date=result.as_of_date,
         entity_id=result.entity_id,
@@ -266,6 +338,7 @@ def review_analysis(
         leverage=[RatioMetricOut(**vars(m)) for m in result.leverage],
         profitability=[RatioMetricOut(**vars(m)) for m in result.profitability],
         flags=[AnalysisFlagOut(**vars(f)) for f in result.flags],
+        intelligence_findings=intelligence_findings,
         summary=result.summary,
         has_data=result.has_data,
     )

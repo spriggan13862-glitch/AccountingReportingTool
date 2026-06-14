@@ -20,6 +20,18 @@ export interface AnalysisFlag {
   suggested_procedures: string
 }
 
+export interface IntelligenceFinding {
+  issue_code: string
+  category: string
+  severity: string
+  title: string
+  description: string
+  detection_trigger: string
+  suggested_procedures: string
+  suggested_ajes: string
+  supporting_metrics: Record<string, string>
+}
+
 export interface RatioAnalysisResponse {
   as_of_date: string
   entity_id: number
@@ -27,6 +39,7 @@ export interface RatioAnalysisResponse {
   leverage: RatioMetric[]
   profitability: RatioMetric[]
   flags: AnalysisFlag[]
+  intelligence_findings: IntelligenceFinding[]
   summary: string
   has_data: boolean
 }
