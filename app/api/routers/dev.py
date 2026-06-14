@@ -392,3 +392,64 @@ def dev_advance_import(
     batch.status = next_status
     db.commit()
     return {"batch_id": batch_id, "previous_status": current, "new_status": next_status}
+
+
+# ---------------------------------------------------------------------------
+# 7. Clear all import queues for an org
+# ---------------------------------------------------------------------------
+
+@router.delete("/clear-imports", summary="Delete all import batches for an org")
+def dev_clear_imports(
+    org_id: int,
+    db: Session = Depends(get_db),
+    _user=Depends(get_current_user),
+):
+    _guard_non_production()
+
+    entity_rows = db.execute(
+        text("SELECT id FROM entities WHERE organization_id = :org_id"),
+        {"org_id": org_id},
+    ).fetchall()
+    entity_ids = [r[0] for r in entity_rows]
+
+    deleted: dict[str, int] = {}
+
+    if entity_ids:
+        id_list = ",".join(str(i) for i in entity_ids)
+
+        tb_rows = db.execute(
+            text(f"SELECT id FROM import_batches WHERE entity_id IN ({id_list})")
+        ).fetchall()
+        tb_ids = [r[0] for r in tb_rows]
+        if tb_ids:
+            id_str = ",".join(str(i) for i in tb_ids)
+            db.execute(text(f"DELETE FROM import_lines WHERE batch_id IN ({id_str})"))
+            db.execute(text(f"DELETE FROM import_validation_issues WHERE batch_id IN ({id_str})"))
+        deleted["import_batches"] = db.execute(
+            text(f"DELETE FROM import_batches WHERE entity_id IN ({id_list})")
+        ).rowcount
+
+        pdf_rows = db.execute(
+            text(f"SELECT id FROM pdf_import_batches WHERE entity_id IN ({id_list}) OR entity_id IS NULL")
+        ).fetchall()
+        pdf_ids = [r[0] for r in pdf_rows]
+        if pdf_ids:
+            id_str = ",".join(str(i) for i in pdf_ids)
+            db.execute(text(f"DELETE FROM pdf_import_lines WHERE batch_id IN ({id_str})"))
+            db.execute(text(f"DELETE FROM pdf_account_mappings WHERE batch_id IN ({id_str})"))
+        deleted["pdf_import_batches"] = db.execute(
+            text(f"DELETE FROM pdf_import_batches WHERE entity_id IN ({id_list}) OR entity_id IS NULL")
+        ).rowcount
+
+        deleted["coa_import_batches"] = db.execute(
+            text(f"DELETE FROM coa_import_batches WHERE entity_id IN ({id_list})")
+        ).rowcount
+
+    deleted["import_batches_org"] = db.execute(
+        text("DELETE FROM import_batches WHERE organization_id = :org_id"),
+        {"org_id": org_id},
+    ).rowcount
+
+    db.commit()
+    total = sum(deleted.values())
+    return {"status": "cleared", "org_id": org_id, "deleted": deleted, "total": total}

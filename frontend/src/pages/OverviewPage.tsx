@@ -148,6 +148,15 @@ export function OverviewPage() {
     onError: (err: Error) => toast(`Seed failed: ${err.message}`, 'error'),
   })
 
+  const clearImportsMutation = useMutation({
+    mutationFn: () => api.delete(`/dev/clear-imports?org_id=${orgId}`).then((r) => r.data),
+    onSuccess: (data: { total: number }) => {
+      queryClient.clear()
+      toast(`Import queue cleared — ${data.total} records deleted.`, 'success')
+    },
+    onError: (err: Error) => toast(`Clear failed: ${err.message}`, 'error'),
+  })
+
   const postAllMutation = useMutation({
     mutationFn: () => {
       if (!activeEntity?.id) throw new Error('Select an entity in the context bar first')
@@ -378,6 +387,26 @@ export function OverviewPage() {
               >
                 <CheckCircle className="w-3.5 h-3.5" />
                 {postAllMutation.isPending ? 'Posting…' : `Post All Ready${activeEntity ? ` (${activeEntity.code})` : ''}`}
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-orange-200 bg-white p-3 flex flex-col gap-2">
+              <div>
+                <p className="text-xs font-bold text-orange-700">Clear Import Queue</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Deletes all TB, PDF, and COA import batches for this org. Keeps entities, accounts, periods, and JEs intact.</p>
+              </div>
+              <button
+                type="button"
+                disabled={clearImportsMutation.isPending || !orgId}
+                onClick={() => {
+                  if (window.confirm('Delete all import batches for this org?')) {
+                    clearImportsMutation.mutate()
+                  }
+                }}
+                className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {clearImportsMutation.isPending ? 'Clearing…' : 'Clear Import Queue'}
               </button>
             </div>
 
