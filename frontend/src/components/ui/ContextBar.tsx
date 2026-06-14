@@ -136,7 +136,17 @@ const DATA_VIEWS: { value: DataView; label: string }[] = [
   { value: 'pro_forma', label: 'Pro Forma' },
 ]
 
-const IMPORT_PATHS = ['/client-data/imports', '/pdf-import', '/coa-import', '/tb-import', '/setup']
+// Import wizard sub-pages have their own entity/period form fields — hide full context bar
+const WIZARD_PATHS = [
+  '/client-data/imports/trial-balance',
+  '/client-data/imports/general-ledger',
+  '/client-data/imports/journal-entries',
+  '/pdf-import',
+  '/coa-import',
+  '/tb-import',
+]
+// Import list + setup pages: hide only the View toggle
+const VIEW_HIDDEN_PATHS = ['/client-data/imports', '/setup']
 
 export function ContextBar() {
   const navigate = useNavigate()
@@ -148,7 +158,10 @@ export function ContextBar() {
     dataView, setDataView,
   } = useWorkspace()
 
-  const hideViewToggle = IMPORT_PATHS.some((p) => pathname.startsWith(p))
+  const hideAll = WIZARD_PATHS.some((p) => pathname.startsWith(p))
+  const hideViewToggle = hideAll || VIEW_HIDDEN_PATHS.some((p) => pathname.startsWith(p))
+
+  if (hideAll) return null
 
   const { data: entities = [] } = useQuery({
     queryKey: ['entities-list'],
