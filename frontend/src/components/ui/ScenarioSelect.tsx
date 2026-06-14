@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { scenariosApi } from '@/api/scenarios'
 
 const TYPE_LABELS: Record<string, string> = {
-  actual: 'Actual',
+  actual: 'Actuals',
   topside: 'Topside',
   pro_forma: 'Pro Forma',
-  elimination: 'Elim',
+  elimination: 'Eliminations',
   carveout: 'Carveout',
   budget: 'Budget',
   forecast: 'Forecast',
@@ -56,7 +56,7 @@ export function ScenarioSelect({
         <option value="">{isLoading ? 'Loading…' : placeholder}</option>
         {scenarios.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.name} ({TYPE_LABELS[s.scenario_type] ?? s.scenario_type})
+            {TYPE_LABELS[s.scenario_type] ?? s.scenario_type}{s.code && s.code !== s.name ? ` — ${s.code}` : ''}
           </option>
         ))}
       </select>

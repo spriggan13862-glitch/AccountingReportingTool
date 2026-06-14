@@ -17,11 +17,12 @@ export function AccountSearch({ entityId, value, onChange, placeholder, disabled
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const { data: results } = useQuery({
+  const { data: results, isFetching } = useQuery({
     queryKey: ['acct-search', entityId, query],
     queryFn: () => accountsApi.list(entityId as number, query || undefined),
-    enabled: open && query.length >= 1 && !!entityId,
+    enabled: open && !!entityId,
     placeholderData: (prev) => prev,
+    staleTime: 10_000,
   })
 
   const accounts: Account[] = Array.isArray(results) ? results : (results as any)?.items ?? []
@@ -58,8 +59,16 @@ export function AccountSearch({ entityId, value, onChange, placeholder, disabled
           </button>
         )}
       </div>
-      {open && accounts.length > 0 && (
+      {open && !!entityId && (
         <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {isFetching && accounts.length === 0 && (
+            <p className="px-3 py-2 text-xs text-gray-400">Searching…</p>
+          )}
+          {!isFetching && accounts.length === 0 && (
+            <p className="px-3 py-2 text-xs text-gray-400 italic">
+              {query ? 'No accounts match' : 'No accounts — import a Chart of Accounts first'}
+            </p>
+          )}
           {accounts.map((acct) => (
             <button
               key={acct.id}

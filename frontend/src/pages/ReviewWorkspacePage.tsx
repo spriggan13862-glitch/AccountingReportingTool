@@ -18,15 +18,23 @@ const TABS: { value: StatementTab; label: string }[] = [
 ]
 
 function CheckBadge({ check }: { check: CheckResult }) {
+  const [expanded, setExpanded] = useState(false)
   return (
-    <div className={`flex items-start gap-2 rounded-md border p-3 ${check.passed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-      {check.passed
-        ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
-        : <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />}
-      <div>
-        <p className={`text-xs font-medium ${check.passed ? 'text-green-800' : 'text-red-800'}`}>{check.name}</p>
-        <p className={`text-xs mt-0.5 ${check.passed ? 'text-green-600' : 'text-red-600'}`}>{check.detail}</p>
-      </div>
+    <div className={`rounded border px-2.5 py-1.5 ${check.passed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="flex items-center gap-1.5 w-full text-left"
+      >
+        {check.passed
+          ? <CheckCircle className="h-3 w-3 text-green-600 shrink-0" />
+          : <XCircle className="h-3 w-3 text-red-600 shrink-0" />}
+        <p className={`text-[11px] font-medium flex-1 ${check.passed ? 'text-green-800' : 'text-red-800'}`}>{check.name}</p>
+        <ChevronDown className={`h-3 w-3 text-gray-400 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+      {expanded && (
+        <p className={`text-[10px] mt-1 pl-4 leading-snug ${check.passed ? 'text-green-600' : 'text-red-600'}`}>{check.detail}</p>
+      )}
     </div>
   )
 }
@@ -58,13 +66,12 @@ function VarianceTable({
               key={row.code}
               className={`border-b border-gray-50 hover:bg-gray-50 ${row.flag ? 'bg-amber-50' : ''}`}
             >
-              <td className="py-1.5">
+              <td className="py-1.5 pl-1">
                 <button
                   type="button"
-                  className="flex items-center gap-1 text-left hover:text-blue-600 group"
+                  className={`flex items-center gap-1 text-left hover:text-blue-600 group ${row.is_subtotal ? 'font-semibold' : ''}`}
                   onClick={() => onDrilldown?.(row.code)}
                 >
-                  <span className="font-mono text-gray-400 w-16 shrink-0">{row.code}</span>
                   <span className="text-gray-700 group-hover:text-blue-600">{row.name}</span>
                   <ChevronRight className="h-3 w-3 text-gray-300 group-hover:text-blue-400 shrink-0" />
                 </button>
@@ -88,8 +95,23 @@ function VarianceTable({
   )
 }
 
+function buildDepthMap(rows: FsLine[]): Map<number, number> {
+  const depthMap = new Map<number, number>()
+  const rowById = new Map(rows.map((r) => [r.line_id, r]))
+  function depth(id: number): number {
+    if (depthMap.has(id)) return depthMap.get(id)!
+    const row = rowById.get(id)
+    const d = row?.parent_line_id ? 1 + depth(row.parent_line_id) : 0
+    depthMap.set(id, d)
+    return d
+  }
+  rows.forEach((r) => depth(r.line_id))
+  return depthMap
+}
+
 function StatementTable({ rows }: { rows: FsLine[] }) {
   if (rows.length === 0) return <p className="text-xs text-gray-400 italic py-4 text-center">No data</p>
+  const depths = buildDepthMap(rows)
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
@@ -100,17 +122,19 @@ function StatementTable({ rows }: { rows: FsLine[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.line_id} className={`border-b border-gray-50 ${row.is_subtotal ? 'bg-gray-50 font-semibold' : ''}`}>
-              <td className={`py-1.5 ${row.parent_line_id ? 'pl-4' : ''}`}>
-                <span className="font-mono text-gray-400 w-16 inline-block shrink-0">{row.code}</span>
-                <span className="text-gray-700">{row.name}</span>
-              </td>
-              <td className="py-1.5 text-right tabular-nums text-gray-800">
-                {Number(row.display_balance).toFixed(2)}
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const d = depths.get(row.line_id) ?? 0
+            return (
+              <tr key={row.line_id} className={`border-b border-gray-50 ${row.is_subtotal ? 'bg-gray-50' : ''}`}>
+                <td className="py-1.5" style={{ paddingLeft: `${d * 16 + 4}px` }}>
+                  <span className={`text-gray-700 ${row.is_subtotal ? 'font-semibold' : ''}`}>{row.name}</span>
+                </td>
+                <td className={`py-1.5 pr-1 text-right tabular-nums ${row.is_subtotal ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                  {Number(row.display_balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -420,20 +444,25 @@ export function ReviewWorkspacePage() {
       </div>
 
       {/* Right panel — Checks */}
-      <div className="w-72 shrink-0 flex flex-col gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-700">Automated Checks</h2>
-          <p className="text-xs text-gray-400">Run against current period</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          {isLoading && <p className="text-xs text-gray-400">Loading checks…</p>}
+      <div className="w-52 shrink-0 flex flex-col gap-2">
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Checks
+          {failedChecks > 0 && (
+            <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+              {failedChecks}
+            </span>
+          )}
+        </h2>
+        <div className="flex flex-col gap-1.5">
+          {isLoading && <p className="text-[11px] text-gray-400">Loading…</p>}
           {checks.length === 0 && !isLoading && (
-            <p className="text-xs text-gray-400 italic">No checks available</p>
+            <p className="text-[11px] text-gray-400 italic">No checks</p>
           )}
           {checks.map((check) => (
             <CheckBadge key={check.name} check={check} />
           ))}
         </div>
+        <p className="text-[10px] text-gray-400 mt-1">These are period-level structural checks — they apply regardless of which statement tab is open.</p>
       </div>
     </div>
   )

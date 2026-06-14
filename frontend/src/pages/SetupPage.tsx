@@ -1,16 +1,18 @@
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Calendar, GitBranch, List, BarChart3, Settings } from 'lucide-react'
+import { Building2, Calendar, GitBranch, List, BarChart3, Settings, Layers } from 'lucide-react'
 import { EntitiesPage } from './EntitiesPage'
 import { PeriodsPage } from './PeriodsPage'
 import { ChartOfAccountsPage } from './ChartOfAccountsPage'
 import { TaxonomyAdminPage } from './TaxonomyAdminPage'
 import { ReportingViewWorkspacePage } from './ReportingViewWorkspacePage'
 import { ReportingSettingsPage } from './ReportingSettingsPage'
+import { ScenarioManagerPage } from './ScenarioManagerPage'
 import { cn } from '@/utils/cn'
 
 const TABS = [
   { id: 'entities',       label: 'Entities',          icon: Building2,  },
   { id: 'periods',        label: 'Periods',            icon: Calendar,   },
+  { id: 'scenarios',      label: 'Scenarios',          icon: Layers,     },
   { id: 'coa',            label: 'Chart of Accounts',  icon: List,       },
   { id: 'taxonomy',       label: 'Taxonomy Admin',     icon: GitBranch,  },
   { id: 'reporting-views',label: 'Reporting Views',    icon: BarChart3,  },
@@ -52,6 +54,7 @@ export function SetupPage() {
       <div className="flex-1 overflow-y-auto">
         {tab === 'entities' && <EntitiesPage />}
         {tab === 'periods' && <PeriodsPage />}
+        {tab === 'scenarios' && <ScenarioManagerPage />}
         {tab === 'coa' && <ChartOfAccountsPage />}
         {tab === 'taxonomy' && <TaxonomyAdminPage />}
         {tab === 'reporting-views' && <ReportingViewWorkspacePage />}

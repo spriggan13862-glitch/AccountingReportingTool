@@ -176,7 +176,7 @@ export function JournalEntryCreatePage() {
             {scenarioIds.length === 0 && (
               <p className="text-xs text-amber-600 mt-1">
                 A scenario is required before posting.{' '}
-                <Link to="/workbench/scenarios" className="underline hover:text-amber-800">Create a scenario →</Link>
+                <Link to="/setup?tab=scenarios" className="underline hover:text-amber-800">Manage scenarios in Setup →</Link>
               </p>
             )}
           </div>

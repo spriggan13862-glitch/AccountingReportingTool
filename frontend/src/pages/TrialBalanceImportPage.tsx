@@ -1,16 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
   FileText, Download, Sparkles, RefreshCw
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
-import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
-import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
@@ -18,6 +16,7 @@ import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard/types'
+import type { SheetInfo } from '@/types'
 
 const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
@@ -40,7 +39,6 @@ export function TrialBalanceImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
-  const [periodId, setPeriodId] = useState<number | ''>('')
   const [asOfDate, setAsOfDate] = useState<string>('')
   const [scenarioId, setScenarioId] = useState<number>(1)
   
@@ -55,21 +53,6 @@ export function TrialBalanceImportPage() {
   const [jeNumber, setJeNumber] = useState('')
   const [notes, setNotes] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
-
-  // Fetch periods to derive as_of_date from the selected period's end_date
-  const { data: periods = [] } = useQuery({
-    queryKey: ['periods-list', entityId],
-    queryFn: () => periodsApi.list(entityId as number),
-    enabled: !!entityId,
-    staleTime: 30_000,
-  })
-
-  useEffect(() => {
-    if (periodId) {
-      const p = periods.find((p) => p.id === periodId)
-      if (p) setAsOfDate(p.end_date)
-    }
-  }, [periodId, periods])
 
   const WIZARD_STEPS: WizardStep[] = STEPS.map((s, i) => {
     let status: 'pending' | 'active' | 'complete' | 'error' = 'pending'
@@ -193,42 +176,27 @@ export function TrialBalanceImportPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <EntitySelect
                 value={entityId}
-                onChange={(id) => { setEntityId(id); setPeriodId('') }}
+                onChange={(id) => setEntityId(id)}
                 label="Entity"
                 required
               />
-              <PeriodSelect
-                entityId={entityId}
-                value={periodId}
-                onChange={(id) => setPeriodId(id)}
-                label="Period (auto-fills date below)"
-                required={false}
-              />
-            </div>
-
-            {/* As-of date — the actual required value, period auto-fills this */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                As of Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={asOfDate}
-                onChange={(e) => {
-                  setAsOfDate(e.target.value)
-                  setPeriodId('')
-                }}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="mt-1 text-[11px] text-gray-400">
-                Select a period above to auto-fill, or enter any date directly (e.g. 12/31/2025, 3/31/2026). No pre-configured period required.
-              </p>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  As of Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={asOfDate}
+                  onChange={(e) => setAsOfDate(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
 
             <ScenarioSelect
               value={scenarioId}
               onChange={(id) => setScenarioId(typeof id === 'number' ? id : 1)}
-              label="Scenario"
+              label="Data Category"
               organizationId={orgId || undefined}
             />
 
@@ -300,18 +268,22 @@ export function TrialBalanceImportPage() {
             <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Worksheet Selection</h3>
             <p className="text-xs text-gray-500">Multiple worksheets detected in this file. Select the sheet containing your trial balance.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {detected.sheets.map((sheetName: string) => (
+              {detected.sheets.map((sheet: SheetInfo) => (
                 <div
-                  key={sheetName}
-                  onClick={() => setSelectedSheet(sheetName)}
+                  key={sheet.name}
+                  onClick={() => setSelectedSheet(sheet.name)}
                   className={`border p-4 rounded-lg cursor-pointer transition-all ${
-                    selectedSheet === sheetName
+                    selectedSheet === sheet.name
                       ? 'border-indigo-600 bg-indigo-50/50 text-indigo-900 font-semibold ring-1 ring-indigo-600'
                       : 'border-gray-200 hover:bg-gray-50 text-gray-700'
                   }`}
                 >
                   <FileText className="w-5 h-5 mx-auto mb-2 text-indigo-500" />
-                  <p className="text-xs text-center truncate">{sheetName}</p>
+                  <p className="text-xs text-center font-medium truncate">{sheet.name}</p>
+                  <p className="text-[10px] text-center text-gray-400 mt-0.5">{sheet.row_count} rows</p>
+                  {sheet.likely_tb_score >= 5 && (
+                    <p className="text-[10px] text-center text-emerald-600 font-semibold mt-0.5">Likely TB</p>
+                  )}
                 </div>
               ))}
             </div>

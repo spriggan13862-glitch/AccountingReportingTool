@@ -121,7 +121,7 @@ export function AppRouter() {
           <Route path="workbench/journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="workbench/journal-entries" element={<JournalEntriesPage />} />
           <Route path="workbench/draft-preview" element={<Navigate replace to="/adjustments" />} />
-          <Route path="workbench/scenarios" element={<Navigate replace to="/adjustments" />} />
+          <Route path="workbench/scenarios" element={<Navigate replace to="/setup?tab=scenarios" />} />
           <Route path="workbench/advisory-analysis" element={<Navigate replace to="/adjustments" />} />
           <Route path="workbench/eliminations" element={<ConsolidationsPage />} />
           <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />

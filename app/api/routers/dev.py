@@ -99,6 +99,7 @@ def dev_reset(
         deleted["entities"] = _del("entities", "organization_id", [org_id])
 
     deleted["import_batches_org"] = _del_org("import_batches")
+    deleted["scenarios"] = _del_org("scenarios")
     db.commit()
     return {"status": "reset", "org_id": org_id, "deleted": deleted}
 
