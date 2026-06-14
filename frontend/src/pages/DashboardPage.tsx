@@ -623,19 +623,73 @@ export function DashboardPage() {
           <QuickLinks />
         </div>
 
+        {/* What's New */}
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">What's New</h2>
+          <div className="space-y-3">
+            {[
+              {
+                version: 'v8 · Phase 8',
+                date: '2026-06-14',
+                items: [
+                  'Removed duplicate entity/period selectors from top nav — use the context bar below it exclusively',
+                  'Import center now syncs entity filter automatically from the context bar (no separate entity picker)',
+                  'PDF import "View" now navigates directly to the specific batch, not the upload screen',
+                  'Import cards redesigned — compact single-line layout, 7-column grid, no text wrapping',
+                  'Downloadable CSV templates added for Format A, B, C, D in the format help section',
+                ],
+              },
+              {
+                version: 'v7 · Phase 7',
+                date: '2026-06-13',
+                items: [
+                  'Delete button on all import types (TB, PDF, COA) — not just trial balance',
+                  'Duplicate file detection: re-uploading the same file shows a banner with "Import anyway" option',
+                  'Staging entity type added; entity quick-create link in context bar dropdown',
+                  'TypeScript build errors resolved — clean npm run build across all 38 files',
+                ],
+              },
+              {
+                version: 'v6 · QuickBooks',
+                date: '2026-06-12',
+                items: [
+                  'QuickBooks Online OAuth connect & token management',
+                  'Pull Chart of Accounts, Trial Balance, P&L, Balance Sheet per month-end',
+                  'QuickBooks Desktop IIF/Excel file upload',
+                  'Auto-taxonomy mapping from QB AccountType → fs_statement / fs_section',
+                ],
+              },
+            ].map(({ version, date, items }) => (
+              <div key={version} className="flex gap-3">
+                <div className="shrink-0 text-right w-28">
+                  <span className="text-[10px] font-bold text-slate-700">{version}</span>
+                  <p className="text-[9px] text-slate-400 mt-0.5">{date}</p>
+                </div>
+                <div className="border-l border-slate-200 pl-3 flex-1">
+                  <ul className="space-y-0.5">
+                    {items.map((item, i) => (
+                      <li key={i} className="text-[11px] text-slate-600 flex gap-1.5 items-baseline">
+                        <span className="text-slate-300 shrink-0">·</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Version Indicator */}
-        <div className="mt-8 pt-4 border-t border-slate-100 text-[10px] text-slate-400 font-medium space-y-1">
-          <div className="flex flex-col sm:flex-row items-center justify-between">
+        <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-400 font-medium">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-1">
             <div>
-              Version: {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}
+              <span className="font-bold text-slate-500">v8</span> · {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}
             </div>
-            <div className="flex gap-4 mt-1 sm:mt-0">
+            <div className="flex gap-4">
               <div>Built: {import.meta.env.VITE_APP_BUILD_TIME || 'unknown'}</div>
               <div>Env: local</div>
             </div>
-          </div>
-          <div className="text-slate-300 text-center sm:text-left">
-            Phase 7 — Delete button for all import types (TB · PDF · COA), import dedup with duplicate banner, staging entity type, entity quick-create from context bar
           </div>
         </div>
       </div>

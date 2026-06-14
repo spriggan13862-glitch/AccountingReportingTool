@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -26,7 +26,6 @@ import { coaImportApi } from '@/api/coaImport'
 import { documentsApi } from '@/api/documents'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
-import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
@@ -61,11 +60,7 @@ export function ImportCenterPage() {
   const [showFormatHelp, setShowFormatHelp] = useState(false)
   const { activeEntity } = useWorkspace()
 
-  const [entityId, setEntityId] = useState<number | ''>('')
-
-  useEffect(() => {
-    if (activeEntity?.id) setEntityId(activeEntity.id)
-  }, [activeEntity?.id])
+  const entityId: number | '' = activeEntity?.id ?? ''
   const [asOfDate, setAsOfDate] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -290,13 +285,13 @@ export function ImportCenterPage() {
           
           if (pdf.status !== 'applied' && pdf.status !== 'failed') {
             reviewActionText = 'Review & Apply'
-            reviewActionPath = `/pdf-import`
+            reviewActionPath = `/pdf-import?batch=${entry.source_id}`
           } else {
             reviewActionText = 'View'
-            reviewActionPath = `/pdf-import`
+            reviewActionPath = `/pdf-import?batch=${entry.source_id}`
           }
         } else {
-          reviewActionPath = '/pdf-import'
+          reviewActionPath = `/pdf-import?batch=${entry.source_id}`
         }
       } else if (entry.source_module === 'coa_import') {
         importTypeLabel = 'COA Import'
@@ -612,18 +607,6 @@ export function ImportCenterPage() {
         </div>
       )}
 
-      {/* Workspace Filters Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between flex-wrap gap-4 mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Filter workspace by entity:</span>
-          <EntitySelect
-            value={entityId}
-            onChange={(val) => setEntityId(val)}
-            className="w-56"
-          />
-        </div>
-      </div>
-
       {/* 4-Step Import Pipeline */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden" data-testid="import-pipeline">
         <div className="grid grid-cols-4 divide-x divide-slate-100">
@@ -678,117 +661,34 @@ export function ImportCenterPage() {
         </div>
       </div>
 
-      {/* Modern dashed Upload Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Trial Balance Card */}
-        <div
-          onClick={() => navigate('/imports/trial-balance')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-indigo-650 hover:bg-indigo-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-indigo-50 p-2.5 w-11 h-11 flex items-center justify-center text-indigo-600">
-            <FileText className="w-5 h-5" />
+      {/* Upload Type Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        {[
+          { label: 'Trial Balance', desc: 'Guided TB import', color: 'indigo', Icon: FileText, formats: ['CSV','XLSX'], path: '/imports/trial-balance' },
+          { label: 'General Ledger', desc: 'Transaction journals', color: 'emerald', Icon: FileText, formats: ['CSV','XLSX'], path: '/imports/general-ledger' },
+          { label: 'Journal Entries', desc: 'AJEs & overlays', color: 'amber', Icon: FileText, formats: ['CSV'], path: '/imports/journal-entries' },
+          { label: 'Chart of Accounts', desc: 'QB or CSV mapping', color: 'blue', Icon: FileText, formats: ['QB','CSV'], path: '/coa-import' },
+          { label: 'PDF Import', desc: 'AI statement parser', color: 'orange', Icon: Sparkles, formats: ['PDF'], path: '/pdf-import' },
+          { label: 'QuickBooks', desc: 'Online or Desktop', color: 'green', Icon: ArrowRight, formats: ['QBO','IIF'], path: '/quickbooks/connect' },
+          { label: 'Generic Import', desc: 'Custom schema', color: 'purple', Icon: Upload, formats: ['XLSX','CSV'], path: '/import/new' },
+        ].map(({ label, desc, color, Icon, formats, path }) => (
+          <div
+            key={label}
+            onClick={() => navigate(path)}
+            className={`border border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-${color}-400 hover:bg-${color}-50/10 transition-all duration-200`}
+          >
+            <div className={`mx-auto mb-2 rounded-lg bg-${color}-50 p-2 w-9 h-9 flex items-center justify-center text-${color}-600`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <h3 className="text-[11px] font-semibold text-gray-800 leading-tight">{label}</h3>
+            <p className="text-[9px] text-gray-400 mt-0.5 leading-tight">{desc}</p>
+            <div className="flex gap-1 justify-center mt-1.5 flex-wrap">
+              {formats.map(f => (
+                <span key={f} className="px-1 py-0.5 rounded text-[7px] font-semibold bg-gray-100 text-gray-600 uppercase border border-gray-200">{f}</span>
+              ))}
+            </div>
           </div>
-          <h3 className="text-xs font-semibold text-gray-800">Trial Balance</h3>
-          <p className="text-[10px] text-gray-400 mt-1">Guided step-by-step import & validation</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">CSV</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">XLSX</span>
-          </div>
-        </div>
-
-        {/* General Ledger Card */}
-        <div
-          onClick={() => navigate('/imports/general-ledger')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-emerald-650 hover:bg-emerald-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-emerald-50 p-2.5 w-11 h-11 flex items-center justify-center text-emerald-600">
-            <FileText className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-gray-800">General Ledger</h3>
-          <p className="text-[10px] text-gray-400 mt-1">Transaction journals import & check</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">CSV</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">XLSX</span>
-          </div>
-        </div>
-
-        {/* Journal Entries Card */}
-        <div
-          onClick={() => navigate('/imports/journal-entries')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-amber-650 hover:bg-amber-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-amber-50 p-2.5 w-11 h-11 flex items-center justify-center text-amber-600">
-            <FileText className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-gray-800">Journal Entries</h3>
-          <p className="text-[10px] text-gray-400 mt-1">Reversing entries & overlay scenarios</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">CSV</span>
-          </div>
-        </div>
-
-        {/* Chart of Accounts Card */}
-        <div
-          onClick={() => navigate('/coa-import')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-blue-600 hover:bg-blue-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-blue-50 p-2.5 w-11 h-11 flex items-center justify-center text-blue-600">
-            <FileText className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-gray-800">Chart of Accounts</h3>
-          <p className="text-[10px] text-gray-400 mt-1">QuickBooks, CSV structure mapping</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">QB</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">CSV</span>
-          </div>
-        </div>
-
-        {/* PDF Card */}
-        <div
-          onClick={() => navigate('/pdf-import')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-orange-655 hover:bg-orange-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-orange-50 p-2.5 w-11 h-11 flex items-center justify-center text-orange-600">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-gray-800">PDF Import</h3>
-          <p className="text-[10px] text-gray-400 mt-1">AI-Powered Statement Parser</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">PDF</span>
-          </div>
-        </div>
-
-        {/* QuickBooks Card */}
-        <div
-          onClick={() => navigate('/quickbooks/connect')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-green-600 hover:bg-green-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-green-50 p-2.5 w-11 h-11 flex items-center justify-center text-green-700">
-            <ArrowRight className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-gray-800">QuickBooks</h3>
-          <p className="text-[10px] text-gray-400 mt-1">Online OAuth or Desktop IIF/Excel</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-green-50 text-green-700 uppercase border border-green-200">QBO</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">IIF</span>
-          </div>
-        </div>
-
-        {/* Generic Tabular Card */}
-        <div
-          onClick={() => navigate('/import/new')}
-          className="border border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-purple-600 hover:bg-purple-50/10 transition-all duration-200"
-        >
-          <div className="mx-auto mb-3 rounded-lg bg-purple-50 p-2.5 w-11 h-11 flex items-center justify-center text-purple-600">
-            <Upload className="w-5 h-5" />
-          </div>
-          <h3 className="text-xs font-semibold text-gray-800">Generic Tabular Import</h3>
-          <p className="text-[10px] text-gray-400 mt-1">Custom excel sheets & schema builder</p>
-          <div className="flex gap-1 justify-center mt-2">
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-650 uppercase border border-gray-200">XLSX</span>
-            <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-gray-100 text-gray-655 uppercase border border-gray-200">CSV</span>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Format Help Collapse Section */}
@@ -798,26 +698,59 @@ export function ImportCenterPage() {
           onClick={() => setShowFormatHelp(!showFormatHelp)}
           className="text-xs font-bold text-indigo-650 hover:text-indigo-850 flex items-center gap-1 cursor-pointer select-none"
         >
-          {showFormatHelp ? 'Hide accepted formats' : 'Show accepted formats'}
+          {showFormatHelp ? 'Hide accepted formats & templates' : 'Show accepted formats & download templates'}
         </button>
         {showFormatHelp && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs animate-in slide-in-from-top-2 duration-150 border-t border-slate-100 pt-3">
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
-              <h4 className="font-bold text-slate-800 mb-1">Format A: Standard trial balance</h4>
-              <p className="text-slate-500 leading-relaxed">Required columns: account_number, account_name, debit, credit.</p>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
-              <h4 className="font-bold text-slate-800 mb-1">Format B: Multi-period trial balance</h4>
-              <p className="text-slate-500 leading-relaxed">Columns: account, debit_Q1, credit_Q1, debit_Q2, credit_Q2...</p>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
-              <h4 className="font-bold text-slate-800 mb-1">Format C: Transactions detail ledger</h4>
-              <p className="text-slate-500 leading-relaxed">Columns: date, journal_id, description, account, amount...</p>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60">
-              <h4 className="font-bold text-slate-800 mb-1">Format D: Chart of accounts structure</h4>
-              <p className="text-slate-500 leading-relaxed">Columns: account_code, name, type, detail_type, parent_code...</p>
-            </div>
+            {[
+              {
+                label: 'Format A: Standard Trial Balance',
+                desc: 'Required: account_number, account_name, debit, credit',
+                filename: 'template_format_a_trial_balance.csv',
+                csv: 'account_number,account_name,debit,credit\n1000,Cash,50000.00,\n1100,Accounts Receivable,30000.00,\n2000,Accounts Payable,,20000.00\n3000,Common Stock,,60000.00\n',
+              },
+              {
+                label: 'Format B: Multi-Period Trial Balance',
+                desc: 'Columns: account, debit_Q1, credit_Q1, debit_Q2, credit_Q2…',
+                filename: 'template_format_b_multiperiod.csv',
+                csv: 'account_number,account_name,debit_Q1,credit_Q1,debit_Q2,credit_Q2\n1000,Cash,50000.00,,55000.00,\n2000,Accounts Payable,,20000.00,,22000.00\n',
+              },
+              {
+                label: 'Format C: Transaction Detail Ledger',
+                desc: 'Columns: date, journal_id, description, account, debit, credit',
+                filename: 'template_format_c_ledger.csv',
+                csv: 'date,journal_id,description,account_number,account_name,debit,credit\n2024-12-31,JE-001,Cash receipt,1000,Cash,5000.00,\n2024-12-31,JE-001,Cash receipt,4000,Revenue,,5000.00\n',
+              },
+              {
+                label: 'Format D: Chart of Accounts',
+                desc: 'Columns: account_code, name, type, detail_type, parent_code',
+                filename: 'template_format_d_coa.csv',
+                csv: 'account_code,name,type,detail_type,parent_code\n1000,Cash,asset,Bank,\n1100,Accounts Receivable,asset,AccountsReceivable,\n2000,Accounts Payable,liability,AccountsPayable,\n',
+              },
+            ].map(({ label, desc, filename, csv }) => (
+              <div key={label} className="bg-slate-50 p-3 rounded-lg border border-slate-200/60 flex flex-col gap-2">
+                <div>
+                  <h4 className="font-bold text-slate-800 mb-1">{label}</h4>
+                  <p className="text-slate-500 leading-relaxed">{desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const blob = new Blob([csv], { type: 'text/csv' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = filename
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  }}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 mt-auto"
+                >
+                  <Download className="w-3 h-3" />
+                  Download template
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
