@@ -1,7 +1,7 @@
 import { Building2, Calendar, ChevronDown, GitBranch, Plus, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
 import { scenariosApi } from '@/api/scenarios'
@@ -136,14 +136,19 @@ const DATA_VIEWS: { value: DataView; label: string }[] = [
   { value: 'pro_forma', label: 'Pro Forma' },
 ]
 
+const IMPORT_PATHS = ['/client-data/imports', '/pdf-import', '/coa-import', '/tb-import', '/setup']
+
 export function ContextBar() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const {
     activeEntity, setActiveEntity,
     activePeriod, setActivePeriod,
     activeScenarioIds, setActiveScenarioIds,
     dataView, setDataView,
   } = useWorkspace()
+
+  const hideViewToggle = IMPORT_PATHS.some((p) => pathname.startsWith(p))
 
   const { data: entities = [] } = useQuery({
     queryKey: ['entities-list'],
@@ -215,27 +220,31 @@ export function ContextBar() {
         onClear={() => setActiveScenarioIds([])}
       />
 
-      <span className="text-gray-300">|</span>
+      {!hideViewToggle && (
+        <>
+          <span className="text-gray-300">|</span>
 
-      {/* Data View toggle */}
-      <div className="flex items-center gap-1.5 text-[11px]">
-        <span className="text-gray-400 font-medium">View:</span>
-        {DATA_VIEWS.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setDataView(value)}
-            className={`rounded px-2 py-0.5 font-medium transition-colors ${
-              dataView === value
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-500 hover:bg-gray-200'
-            }`}
-            data-testid={`data-view-${value}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          {/* Data View toggle — hidden on import/setup pages */}
+          <div className="flex items-center gap-1.5 text-[11px]">
+            <span className="text-gray-400 font-medium">View:</span>
+            {DATA_VIEWS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setDataView(value)}
+                className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                  dataView === value
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-500 hover:bg-gray-200'
+                }`}
+                data-testid={`data-view-${value}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

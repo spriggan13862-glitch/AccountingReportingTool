@@ -36,13 +36,8 @@ export function TopNav() {
   return (
     <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4">
       <div className="flex items-center gap-4 flex-wrap">
-        {/* Client (Organization) — read-only display */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Client</span>
-          <div className="flex h-8 items-center rounded-md border border-gray-300 bg-gray-50 px-3 text-xs font-medium text-gray-700 min-w-[140px]" data-testid="topbar-client">
-            {org?.name ?? 'Select Client'}
-          </div>
-        </div>
+        {/* Org name — compact read-only */}
+        <span className="text-sm font-semibold text-gray-700">{org?.name ?? ''}</span>
 
         {/* Draft AJE count badge */}
         {draftCount > 0 && (

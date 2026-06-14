@@ -75,13 +75,17 @@ def dev_reset(
         deleted["import_validation_issues"] = _del("import_validation_issues", "batch_id", tb_ids)
         deleted["import_batches"] = _del("import_batches", "entity_id", entity_ids)
 
+        # PDF batches: delete by entity_id AND orphaned (entity_id IS NULL — no org FK on this table)
         pdf_rows = db.execute(
-            text(f"SELECT id FROM pdf_import_batches WHERE entity_id IN ({','.join(str(i) for i in entity_ids)})")
+            text(f"SELECT id FROM pdf_import_batches WHERE entity_id IN ({','.join(str(i) for i in entity_ids)}) OR entity_id IS NULL")
         ).fetchall()
         pdf_ids = [r[0] for r in pdf_rows]
         deleted["pdf_import_lines"] = _del("pdf_import_lines", "batch_id", pdf_ids)
         deleted["pdf_account_mappings"] = _del("pdf_account_mappings", "batch_id", pdf_ids)
-        deleted["pdf_import_batches"] = _del("pdf_import_batches", "entity_id", entity_ids)
+        result = db.execute(
+            text(f"DELETE FROM pdf_import_batches WHERE entity_id IN ({','.join(str(i) for i in entity_ids)}) OR entity_id IS NULL")
+        )
+        deleted["pdf_import_batches"] = result.rowcount
 
         deleted["coa_import_batches"] = _del("coa_import_batches", "entity_id", entity_ids)
 
