@@ -352,7 +352,7 @@ export function ReviewWorkspacePage() {
 
   function handleDrilldown(code: string) {
     if (!activeEntity) return
-    navigate(`/workbench/journal-entries?entity_id=${activeEntity.id}`)
+    navigate(`/adjustments/journal-entries?entity_id=${activeEntity.id}`)
   }
 
   if (!enabled) {

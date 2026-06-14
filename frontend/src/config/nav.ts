@@ -1,11 +1,18 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BarChart2,
+  BookOpen,
+  CheckSquare,
+  FileText,
+  FolderOpen,
   LayoutDashboard,
+  Layers,
+  Link2,
   Package,
   Search,
   Settings2,
   SlidersHorizontal,
+  TrendingUp,
   Upload,
 } from 'lucide-react'
 
@@ -55,7 +62,10 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: Search,
     defaultOpen: true,
     items: [
-      { id: 'review', label: 'Review Workspace', to: '/review', icon: Search, end: true },
+      { id: 'review', label: 'Statements', to: '/review', icon: BarChart2, end: true },
+      { id: 'review-tb', label: 'Trial Balance', to: '/review/trial-balance', icon: FileText },
+      { id: 'review-comparatives', label: 'Comparatives', to: '/review/comparatives', icon: TrendingUp },
+      { id: 'review-issues', label: 'Issue Library', to: '/review/issues', icon: BookOpen },
     ],
   },
   {
@@ -64,16 +74,22 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: SlidersHorizontal,
     defaultOpen: true,
     items: [
-      { id: 'adjustments', label: 'Adjustments', to: '/adjustments', icon: SlidersHorizontal, end: true, badgeKey: 'draft-je' },
+      { id: 'adjustments', label: 'Bridge & AJEs', to: '/adjustments', icon: SlidersHorizontal, end: true, badgeKey: 'draft-je' },
+      { id: 'journal-entries', label: 'Journal Entries', to: '/adjustments/journal-entries', icon: FileText },
+      { id: 'consolidations', label: 'Consolidations', to: '/adjustments/consolidations', icon: Layers },
     ],
   },
   {
     id: 'deliverables',
     label: 'Deliverables',
     icon: Package,
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
-      { id: 'deliverables-workspace', label: 'Deliverables Workspace', to: '/deliverables/workspace', icon: Package, end: true },
+      { id: 'deliverables-workspace', label: 'Packages', to: '/deliverables/workspace', icon: Package, end: true },
+      { id: 'deliverables-workpapers', label: 'Workpapers', to: '/deliverables/workpapers', icon: FolderOpen },
+      { id: 'deliverables-reconciliations', label: 'Reconciliations', to: '/deliverables/reconciliations', icon: Link2 },
+      { id: 'deliverables-close', label: 'Close Package', to: '/deliverables/close-package', icon: CheckSquare },
+      { id: 'deliverables-reports', label: 'Reports', to: '/deliverables/reports', icon: BarChart2 },
     ],
   },
   {

@@ -614,7 +614,7 @@ export function ImportCenterPage() {
             { step: 1, label: 'Import Data', sub: `${mappedEntries.length} imports`, href: null, active: true },
             { step: 2, label: 'Map & Classify', sub: `${stats.awaitingMapping} awaiting`, href: '/client-data/chart-of-accounts', active: stats.awaitingMapping === 0 },
             { step: 3, label: 'Validate', sub: stats.validationIssues > 0 || stats.outOfBalance > 0 ? `${stats.validationIssues + stats.outOfBalance} issues` : 'No issues', href: null, active: stats.validationIssues === 0 && stats.outOfBalance === 0 },
-            { step: 4, label: 'Ready for Workbench', sub: `${stats.recentlyFinalized} finalized`, href: '/workbench/adjustment-bridge', active: stats.recentlyFinalized > 0 },
+            { step: 4, label: 'Ready for Review', sub: `${stats.recentlyFinalized} finalized`, href: '/adjustments', active: stats.recentlyFinalized > 0 },
           ].map(({ step, label, sub, href, active }) => (
             <button
               key={step}

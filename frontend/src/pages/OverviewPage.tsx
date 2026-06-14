@@ -29,8 +29,8 @@ import { LoadingState } from '@/components/ui/LoadingState'
 const WORKSPACES = [
   { label: 'Import', description: 'Upload and map trial balances', to: '/client-data/imports', icon: Upload },
   { label: 'Review', description: 'Comparative statements and checks', to: '/review', icon: Search },
-  { label: 'Adjustments', description: 'Draft and post journal entries', to: '/workbench/journal-entries', icon: SlidersHorizontal },
-  { label: 'Financial Statements', description: 'View finalized output', to: '/financial-impact/statements', icon: FileBarChart },
+  { label: 'Adjustments', description: 'Draft and post journal entries', to: '/adjustments', icon: SlidersHorizontal },
+  { label: 'Deliverables', description: 'Packages, workpapers, reports', to: '/deliverables/workspace', icon: FileBarChart },
 ]
 
 const WHATS_NEW = [
@@ -248,10 +248,10 @@ export function OverviewPage() {
         <div>
           <h2 className="text-sm font-semibold text-gray-600 mb-2">Journal Entries</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <JeCountCard label="Draft" count={draftJes ?? 0} color="border-amber-200" to="/workbench/journal-entries?status=draft" />
-            <JeCountCard label="Posted" count={postedJes ?? 0} color="border-green-200" to="/workbench/journal-entries?status=posted" />
+            <JeCountCard label="Draft" count={draftJes ?? 0} color="border-amber-200" to="/adjustments/journal-entries?status=draft" />
+            <JeCountCard label="Posted" count={postedJes ?? 0} color="border-green-200" to="/adjustments/journal-entries?status=posted" />
             <Link
-              to="/workbench/journal-entries/new"
+              to="/adjustments/journal-entries/new"
               className="rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 py-3 flex items-center gap-2 hover:bg-blue-100 transition-colors"
             >
               <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />

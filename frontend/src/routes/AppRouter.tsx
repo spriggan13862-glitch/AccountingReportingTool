@@ -114,38 +114,45 @@ export function AppRouter() {
           <Route path="client-data/periods" element={<PeriodsPage />} />
           <Route path="client-data" element={<ClientDataPage />} />
 
-          {/* ── ADJUSTMENT WORKBENCH (legacy — redirect to /adjustments) ─────── */}
+          {/* ── LEGACY WORKBENCH REDIRECTS ────────────────────────────────── */}
           <Route path="workbench/adjustment-bridge" element={<Navigate replace to="/adjustments" />} />
           <Route path="workbench/adjustment-workspace" element={<Navigate replace to="/adjustments" />} />
-          <Route path="workbench/journal-entries/new" element={<JournalEntryCreatePage />} />
-          <Route path="workbench/journal-entries/:id" element={<JournalEntryDetailPage />} />
-          <Route path="workbench/journal-entries" element={<JournalEntriesPage />} />
+          <Route path="workbench/journal-entries/new" element={<Navigate replace to="/adjustments/journal-entries/new" />} />
+          <Route path="workbench/journal-entries/:id" element={<Navigate replace to="/adjustments/journal-entries" />} />
+          <Route path="workbench/journal-entries" element={<Navigate replace to="/adjustments/journal-entries" />} />
           <Route path="workbench/draft-preview" element={<Navigate replace to="/adjustments" />} />
           <Route path="workbench/scenarios" element={<Navigate replace to="/setup?tab=scenarios" />} />
           <Route path="workbench/advisory-analysis" element={<Navigate replace to="/adjustments" />} />
-          <Route path="workbench/eliminations" element={<ConsolidationsPage />} />
-          <Route path="workbench/reclasses" element={<PlaceholderPage title="Reclasses" />} />
-          <Route path="workbench/accruals" element={<PlaceholderPage title="Accruals" />} />
+          <Route path="workbench/eliminations" element={<Navigate replace to="/adjustments/consolidations" />} />
+          <Route path="workbench/reclasses" element={<Navigate replace to="/adjustments" />} />
+          <Route path="workbench/accruals" element={<Navigate replace to="/adjustments" />} />
           <Route path="workbench" element={<Navigate replace to="/adjustments" />} />
 
           {/* ── REVIEW WORKSPACE ──────────────────────────────────────────── */}
           <Route path="review" element={<ReviewWorkspacePage />} />
+          <Route path="review/trial-balance" element={<TrialBalancesPage />} />
+          <Route path="review/comparatives" element={<ComparativeFinancialsPage />} />
+          <Route path="review/issues" element={<IssueRepositoryPage />} />
 
           {/* ── ADJUSTMENTS WORKSPACE ─────────────────────────────────────── */}
           <Route path="adjustments" element={<AdjustmentsPage />} />
+          <Route path="adjustments/journal-entries/new" element={<JournalEntryCreatePage />} />
+          <Route path="adjustments/journal-entries/:id" element={<JournalEntryDetailPage />} />
+          <Route path="adjustments/journal-entries" element={<JournalEntriesPage />} />
+          <Route path="adjustments/consolidations" element={<ConsolidationsPage />} />
 
-          {/* ── ACCOUNTING INTELLIGENCE (legacy — redirect to /review) ──────── */}
+          {/* ── LEGACY INTELLIGENCE REDIRECTS ─────────────────────────────── */}
           <Route path="intelligence/quarterly-review" element={<Navigate replace to="/review" />} />
-          <Route path="intelligence/issue-repository" element={<IssueRepositoryPage />} />
+          <Route path="intelligence/issue-repository" element={<Navigate replace to="/review/issues" />} />
           <Route path="intelligence/financial-diagnostics" element={<Navigate replace to="/review" />} />
-          <Route path="intelligence/rule-harness" element={<RuleHarnessPage />} />
+          <Route path="intelligence/rule-harness" element={<Navigate replace to="/review" />} />
           <Route path="intelligence" element={<Navigate replace to="/review" />} />
 
-          {/* ── FINANCIAL IMPACT (legacy — redirect to /review) ───────────── */}
-          <Route path="financial-impact/trial-balance" element={<TrialBalancesPage />} />
-          <Route path="financial-impact/statements" element={<FinancialStatementsPage />} />
-          <Route path="financial-impact/builder" element={<FSBuilderPage />} />
-          <Route path="financial-impact/comparatives" element={<ComparativeFinancialsPage />} />
+          {/* ── LEGACY FINANCIAL-IMPACT REDIRECTS ─────────────────────────── */}
+          <Route path="financial-impact/trial-balance" element={<Navigate replace to="/review/trial-balance" />} />
+          <Route path="financial-impact/statements" element={<Navigate replace to="/review" />} />
+          <Route path="financial-impact/builder" element={<Navigate replace to="/setup" />} />
+          <Route path="financial-impact/comparatives" element={<Navigate replace to="/review/comparatives" />} />
           <Route path="financial-impact/variance" element={<Navigate replace to="/review" />} />
           <Route path="financial-impact/balance-sheet" element={<PlaceholderPage title="Balance Sheet" />} />
           <Route path="financial-impact/income-statement" element={<PlaceholderPage title="Income Statement" />} />

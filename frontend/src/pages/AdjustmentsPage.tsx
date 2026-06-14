@@ -165,7 +165,7 @@ export function AdjustmentsPage() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <h1 className="text-sm font-semibold text-gray-800">Adjustments</h1>
             <Link
-              to="/workbench/journal-entries/new"
+              to="/adjustments/journal-entries/new"
               className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
               <Plus className="h-3.5 w-3.5" /> New AJE
@@ -263,7 +263,7 @@ export function AdjustmentsPage() {
               {/* Actions */}
               <div className="space-y-2 pt-2 border-t border-gray-100">
                 <Link
-                  to={`/workbench/journal-entries/${selectedJe.id}`}
+                  to={`/adjustments/journal-entries/${selectedJe.id}`}
                   className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                 >
                   View Full Detail

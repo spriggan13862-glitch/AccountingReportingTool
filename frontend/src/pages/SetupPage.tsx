@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Calendar, GitBranch, List, BarChart3, Settings, Layers } from 'lucide-react'
+import { Building2, Calendar, GitBranch, List, BarChart3, Settings, Layers, FolderOpen } from 'lucide-react'
 import { EntitiesPage } from './EntitiesPage'
 import { PeriodsPage } from './PeriodsPage'
 import { ChartOfAccountsPage } from './ChartOfAccountsPage'
@@ -7,6 +7,7 @@ import { TaxonomyAdminPage } from './TaxonomyAdminPage'
 import { ReportingViewWorkspacePage } from './ReportingViewWorkspacePage'
 import { ReportingSettingsPage } from './ReportingSettingsPage'
 import { ScenarioManagerPage } from './ScenarioManagerPage'
+import { DocumentsPage } from './DocumentsPage'
 import { cn } from '@/utils/cn'
 
 const TABS = [
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'coa',            label: 'Chart of Accounts',  icon: List,       },
   { id: 'taxonomy',       label: 'Taxonomy Admin',     icon: GitBranch,  },
   { id: 'reporting-views',label: 'Reporting Views',    icon: BarChart3,  },
+  { id: 'documents',      label: 'Documents',          icon: FolderOpen, },
   { id: 'settings',       label: 'Settings',           icon: Settings,   },
 ] as const
 
@@ -58,6 +60,7 @@ export function SetupPage() {
         {tab === 'coa' && <ChartOfAccountsPage />}
         {tab === 'taxonomy' && <TaxonomyAdminPage />}
         {tab === 'reporting-views' && <ReportingViewWorkspacePage />}
+        {tab === 'documents' && <DocumentsPage />}
         {tab === 'settings' && <ReportingSettingsPage />}
       </div>
     </div>
