@@ -28,8 +28,8 @@ function wrap(ui: React.ReactElement) {
 // ---------------------------------------------------------------------------
 
 const mockPackages: AdjustmentPackage[] = [
-  { id: 10, organization_id: 'default-org', name: 'Audit Pkg', package_type: 'audit', created_at: '2026-01-01', items: [] },
-  { id: 11, organization_id: 'default-org', name: 'Management Pkg', package_type: 'management', created_at: '2026-01-02', items: [] },
+  { id: 10, organization_id: 'default-org', name: 'Audit Pkg', package_type: 'audit', created_at: '2026-01-01', items: [] } as unknown as AdjustmentPackage,
+  { id: 11, organization_id: 'default-org', name: 'Management Pkg', package_type: 'management', created_at: '2026-01-02', items: [] } as unknown as AdjustmentPackage,
 ]
 
 const mockScenarios: AdvisorScenario[] = [

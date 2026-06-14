@@ -205,11 +205,11 @@ export function ConsolidationsPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Operating Scenarios</label>
-            <ScenarioMultiSelect value={opScenarioIds} onChange={setOpScenarioIds} placeholder="All scenarios" />
+            <ScenarioMultiSelect value={opScenarioIds} onChange={setOpScenarioIds} />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Elimination Scenarios</label>
-            <ScenarioMultiSelect value={elimScenarioIds} onChange={setElimScenarioIds} placeholder="None" />
+            <ScenarioMultiSelect value={elimScenarioIds} onChange={setElimScenarioIds} />
           </div>
         </div>
         <div className="flex justify-end">

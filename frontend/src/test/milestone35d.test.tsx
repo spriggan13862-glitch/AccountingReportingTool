@@ -43,7 +43,7 @@ vi.mock('@/api/accounts', () => ({
         tax_line: null, source_system: null, reporting_taxonomy_line_id: null,
         children: [],
       },
-    ] as AccountNode[]),
+    ] as unknown as AccountNode[]),
     list: vi.fn().mockResolvedValue([
       { id: 10, entity_id: 1, account_number: '2100', account_name: 'Lines of Credit', account_type: 'liability', normal_balance: 'credit', parent_account_id: null, active: true, detail_type: null, account_status: 'active', description: null, tax_line: null, source_system: null, reporting_taxonomy_line_id: null },
       { id: 11, entity_id: 1, account_number: '2101', account_name: 'LOC - Aegis', account_type: 'liability', normal_balance: 'credit', parent_account_id: null, active: true, detail_type: null, account_status: 'active', description: null, tax_line: null, source_system: null, reporting_taxonomy_line_id: null },

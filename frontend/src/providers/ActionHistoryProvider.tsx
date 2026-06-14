@@ -1,4 +1,5 @@
-import { createContext, useContext, useCallback, useState, ReactNode } from 'react'
+import { createContext, useContext, useCallback, useState } from 'react'
+import type { ReactNode } from 'react'
 
 export type ActionCategory =
   | 'account_edit'

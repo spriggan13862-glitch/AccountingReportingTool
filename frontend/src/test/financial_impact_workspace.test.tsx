@@ -166,7 +166,7 @@ describe('FinancialImpactWorkspacePage — structure', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     const { useOrg } = await import('@/providers/OrgProvider')
-    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as ReturnType<typeof useOrg>)
+    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as unknown as ReturnType<typeof useOrg>)
     const { reportingApi } = await import('@/api/reporting')
     vi.mocked(reportingApi.trialBalance).mockResolvedValue(mockTbRows as never)
     vi.mocked(reportingApi.taxonomyBalanceSheet).mockResolvedValue(mockTaxonomyRows as never)
@@ -239,7 +239,7 @@ describe('FinancialImpactWorkspacePage — entity selection activates content', 
   beforeEach(async () => {
     vi.clearAllMocks()
     const { useOrg } = await import('@/providers/OrgProvider')
-    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as ReturnType<typeof useOrg>)
+    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as unknown as ReturnType<typeof useOrg>)
     const { reportingApi } = await import('@/api/reporting')
     vi.mocked(reportingApi.trialBalance).mockResolvedValue(mockTbRows as never)
     vi.mocked(reportingApi.taxonomyBalanceSheet).mockResolvedValue(mockTaxonomyRows as never)
@@ -330,7 +330,7 @@ describe('FinancialImpactWorkspacePage — scenario mode toggle', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     const { useOrg } = await import('@/providers/OrgProvider')
-    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as ReturnType<typeof useOrg>)
+    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as unknown as ReturnType<typeof useOrg>)
     const { reportingApi } = await import('@/api/reporting')
     vi.mocked(reportingApi.trialBalance).mockResolvedValue(mockTbRows as never)
     vi.mocked(reportingApi.taxonomyBalanceSheet).mockResolvedValue(mockTaxonomyRows as never)
@@ -370,7 +370,7 @@ describe('FinancialImpactWorkspacePage — KPI computation', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     const { useOrg } = await import('@/providers/OrgProvider')
-    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as ReturnType<typeof useOrg>)
+    vi.mocked(useOrg).mockReturnValue({ org: { id: 'acme', name: 'Acme' } } as unknown as ReturnType<typeof useOrg>)
     const { reportingApi } = await import('@/api/reporting')
     vi.mocked(reportingApi.trialBalance).mockResolvedValue(mockTbRows as never)
     vi.mocked(reportingApi.taxonomyBalanceSheet).mockResolvedValue(mockTaxonomyRows as never)

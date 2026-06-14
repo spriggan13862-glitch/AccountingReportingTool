@@ -87,7 +87,7 @@ export function SidebarGroup({ group, sidebarCollapsed, isAdmin, badgeCounts }: 
     return (
       <div data-testid={`nav-group-${group.id}`}>
         <NavLink
-          to={item.to}
+          to={item.to!}
           end={item.end}
           data-testid={`nav-item-${item.id}`}
           className={({ isActive }) =>

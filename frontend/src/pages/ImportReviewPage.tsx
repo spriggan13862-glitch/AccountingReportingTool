@@ -443,12 +443,7 @@ export function ImportReviewPage() {
                     const field = Object.entries(rawPreview.column_mapping).find(([, v]) => v === h)?.[0]
                     return {
                       key: `header_${h}`,
-                      header: (
-                        <div>
-                          {h}
-                          {field && <span className="block text-indigo-400 font-normal">→ {field}</span>}
-                        </div>
-                      ),
+                      header: field ? `${h} → ${field}` : h,
                       headerClassName: isMapped ? 'text-indigo-700 bg-indigo-50 font-semibold' : 'text-gray-500 font-semibold',
                       sortable: true,
                       sortValue: (row: any) => {

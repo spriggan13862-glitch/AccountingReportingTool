@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { StepIndicator } from './StepIndicator'
 import type { WizardStep } from './types'
 

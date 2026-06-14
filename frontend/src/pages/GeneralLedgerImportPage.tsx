@@ -443,6 +443,7 @@ export function GeneralLedgerImportPage() {
                   { key: 'total_credits', header: 'Total Credits', render: (r) => `$${r.total_credits.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
                   { key: 'status', header: 'Audit Status', render: (r) => r.is_unbalanced ? <span className="text-rose-600 font-semibold">Unbalanced</span> : <span className="text-emerald-600 font-semibold">Balanced</span> },
                 ]}
+                rowKey={(r) => r.je_number}
                 data={groupedTransactions}
                 emptyMessage="No grouped transactions found."
               />

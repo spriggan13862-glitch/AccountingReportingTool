@@ -655,7 +655,7 @@ export function AdjustmentBridgePage() {
                       <tr key={row.groupName} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-2 font-bold text-slate-750 capitalize">{row.groupName}</td>
                         {MEASURE_OPTIONS.filter(m => visibleMeasures.includes(m.key)).map(m => {
-                          const val = row[m.key] as number || 0
+                          const val = (row as unknown as Record<string, number>)[m.key] || 0
                           return (
                             <td key={m.key} className={`px-4 py-2 text-right font-mono ${val < 0 ? 'text-red-650 font-semibold' : 'text-slate-650 font-semibold'}`}>
                               {fmt(val.toString())}

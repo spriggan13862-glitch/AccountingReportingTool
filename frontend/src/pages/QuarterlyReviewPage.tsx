@@ -330,7 +330,7 @@ export function QuarterlyReviewPage() {
             <div>
               <label className="block text-xs text-slate-500 mb-1">Current Period</label>
               <PeriodSelect
-                entityId={entityId || undefined}
+                entityId={entityId}
                 value={currentPeriodId}
                 onChange={(v) => setCurrentPeriodId(v ?? '')}
               />
@@ -338,7 +338,7 @@ export function QuarterlyReviewPage() {
             <div>
               <label className="block text-xs text-slate-500 mb-1">Comparison Period</label>
               <PeriodSelect
-                entityId={entityId || undefined}
+                entityId={entityId}
                 value={comparisonPeriodId}
                 onChange={(v) => setComparisonPeriodId(v ?? '')}
               />

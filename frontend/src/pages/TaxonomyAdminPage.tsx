@@ -1241,9 +1241,10 @@ export function TaxonomyAdminPage() {
 
   // Mutation to map single/bulk accounts to a taxonomy line
   const mapAccountsMutation = useMutation({
-    mutationFn: ({ accountIds, taxonomyLineId }: { accountIds: number[]; taxonomyLineId: number | null }) => {
+    mutationFn: async ({ accountIds, taxonomyLineId }: { accountIds: number[]; taxonomyLineId: number | null }): Promise<Account[]> => {
       if (accountIds.length === 1) {
-        return accountsApi.update(accountIds[0], { reporting_taxonomy_line_id: taxonomyLineId })
+        const result = await accountsApi.update(accountIds[0], { reporting_taxonomy_line_id: taxonomyLineId })
+        return [result]
       }
       return accountsApi.bulkUpdate(accountIds, { reporting_taxonomy_line_id: taxonomyLineId })
     },

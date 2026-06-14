@@ -380,7 +380,7 @@ function AccountPreviewSidebar({
     let curr: ReportingTaxonomyLine | undefined = resolvedTaxonomyLine
     while (curr) {
       pathParts.unshift(curr.name)
-      const nextParentId = curr.parent_id
+      const nextParentId: number | null | undefined = curr.parent_id
       curr = nextParentId ? taxonomyLines.find((t) => t.id === nextParentId) : undefined
     }
     const stmtTypeLabel = resolvedTaxonomyLine.statement_type === 'balance_sheet' ? 'Balance Sheet' :
@@ -2130,8 +2130,8 @@ export function ChartOfAccountsPage() {
         av = flagsA.some((f) => f.code === 'conflict') ? '1' : '0'
         bv = flagsB.some((f) => f.code === 'conflict') ? '1' : '0'
       } else {
-        av = String((a as Record<string, unknown>)[sortKey] ?? '')
-        bv = String((b as Record<string, unknown>)[sortKey] ?? '')
+        av = String((a as unknown as Record<string, unknown>)[sortKey] ?? '')
+        bv = String((b as unknown as Record<string, unknown>)[sortKey] ?? '')
       }
       const cmp = av.localeCompare(bv, undefined, { numeric: true })
       return sortDir === 'asc' ? cmp : -cmp

@@ -40,7 +40,7 @@ vi.mock('@/api/accounts', () => ({
         active: true, detail_type: null, account_status: 'active', description: null,
         tax_line: null, source_system: null, reporting_taxonomy_line_id: null, children: [],
       },
-    ] as AccountNode[]),
+    ] as unknown as AccountNode[]),
     list: vi.fn().mockResolvedValue([
       {
         id: 10, entity_id: 1, account_number: '2100', account_name: 'Lines of Credit',
@@ -242,7 +242,7 @@ describe('ChartOfAccountsPage — hierarchy actions', () => {
         active: true, detail_type: null, account_status: 'active', description: null,
         tax_line: null, source_system: null, reporting_taxonomy_line_id: null, children: [],
       },
-    ] as import('@/types').AccountNode[])
+    ] as unknown as import('@/types').AccountNode[])
     reparentMock.mockResolvedValue(
       makeReparentResult(11, '2101', 'LOC - Aegis', null, null, null, 10, '2100', 'Lines of Credit')
     )

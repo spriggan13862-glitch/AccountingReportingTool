@@ -120,7 +120,7 @@ export function TrialBalanceImportPage() {
   const validateMutation = useMutation({
     mutationFn: (id: number) => tbImportApi.validateBatch(id),
     onSuccess: (res, id) => {
-      setValidationIssues(res.issues || [])
+      setValidationIssues([...(res.errors || []), ...(res.warnings || [])])
       // Load raw preview rows
       tbImportApi.getRawPreview(id, 100).then(preview => {
         setPreviewRows(preview.rows || [])
@@ -418,6 +418,7 @@ export function TrialBalanceImportPage() {
                   { key: 'debit', header: 'Debit', render: (r) => r.debit ? `$${parseFloat(r.debit).toLocaleString(undefined, {minimumFractionDigits:2})}` : '—' },
                   { key: 'credit', header: 'Credit', render: (r) => r.credit ? `$${parseFloat(r.credit).toLocaleString(undefined, {minimumFractionDigits:2})}` : '—' },
                 ]}
+                rowKey={(r) => r.account_number ?? String(Math.random())}
                 data={previewRows}
                 emptyMessage="No rows found in this preview."
               />

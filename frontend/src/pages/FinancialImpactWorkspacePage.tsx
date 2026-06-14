@@ -505,7 +505,7 @@ function ComparativesTab({ entityId, scenarioId }: { entityId: number; scenarioI
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {report.lines.map((line: ComparativeLine, i) => {
+              {(report as any).lines.map((line: any, i: number) => {
                 const varNum = parseFloat(line.amount_variance)
                 const pctNum = line.percent_change ? parseFloat(line.percent_change) : null
                 return (

@@ -144,6 +144,10 @@ const TIED_PREVIEW: PDFImportPreview = {
   warnings: [],
   balance_sheet_variance: '0.00',
   balance_sheet_tied: true,
+  net_income_variance: null,
+  net_income_reconciled: true,
+  net_income_in_equity: null,
+  pnl_net_income: null,
 }
 
 const UNTIED_PREVIEW: PDFImportPreview = {

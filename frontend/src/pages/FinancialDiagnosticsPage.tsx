@@ -281,7 +281,7 @@ export function FinancialDiagnosticsPage() {
             <div>
               <label className="block text-xs text-slate-500 mb-1">Period</label>
               <PeriodSelect
-                entityId={entityId || undefined}
+                entityId={entityId}
                 value={periodId}
                 onChange={(v) => setPeriodId(v ?? '')}
               />

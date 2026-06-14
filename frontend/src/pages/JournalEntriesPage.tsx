@@ -212,7 +212,7 @@ export function JournalEntriesPage() {
   const [jeNumber, setJeNumber] = useState('')
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10))
   const [entityId, setEntityId] = useState<number | ''>('')
-  const [scenarioId, setScenarioId] = useState<number | ''>('1') // default to scenario 1
+  const [scenarioId, setScenarioId] = useState<number | ''>(1) // default to scenario 1
   const [description, setDescription] = useState('')
   const [overlayGroup, setOverlayGroup] = useState('accrual')
   const [sourceRef, setSourceRef] = useState('')
@@ -432,7 +432,7 @@ export function JournalEntriesPage() {
       const isExcluded = !!excludedMap[je.id]
       const substatus = substatusMap[je.id] ?? 'draft'
       
-      let finalStatus = je.status // posted, reversed
+      let finalStatus: string = je.status // posted, reversed
       if (je.status === 'draft') {
         if (isExcluded) finalStatus = 'excluded'
         else finalStatus = substatus
@@ -1140,7 +1140,7 @@ export function JournalEntriesPage() {
               <select
                 value={entityFilter}
                 onChange={(e) => {
-                  setEntityFilter(e.target.value)
+                  setEntityFilter(e.target.value === '' ? '' : Number(e.target.value))
                   setPeriodFilter('')
                 }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
@@ -1155,7 +1155,7 @@ export function JournalEntriesPage() {
               <label className="text-[10px] font-bold text-slate-400 uppercase">Period</label>
               <select
                 value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
+                onChange={(e) => setPeriodFilter(e.target.value === '' ? '' : Number(e.target.value))}
                 disabled={!entityFilter}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white disabled:opacity-50"
               >
@@ -1500,7 +1500,7 @@ export function JournalEntriesPage() {
                       <div className="flex items-center gap-2">
                         <select
                           value={selectedReviewerId}
-                          onChange={(e) => setSelectedReviewerId(e.target.value)}
+                          onChange={(e) => setSelectedReviewerId(e.target.value === '' ? '' : Number(e.target.value))}
                           className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-1.5 bg-white"
                         >
                           <option value="">Choose reviewer…</option>

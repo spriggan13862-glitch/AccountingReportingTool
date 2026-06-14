@@ -359,7 +359,7 @@ export function DraftPreviewPage() {
           const ent = entities?.find((e) => e.id === result?.entity_id)
           key = ent ? ent.name : `Entity #${result?.entity_id}`
         } else if (groupBy === 'period') {
-          const per = periods?.find((p) => p.end_date === result?.as_of_date || (result?.as_of_date >= p.start_date && result?.as_of_date <= p.end_date))
+          const per = periods?.find((p) => p.end_date === result?.as_of_date || (result?.as_of_date != null && result.as_of_date >= p.start_date && result.as_of_date <= p.end_date))
           key = per ? per.period_name : `As of ${result?.as_of_date}`
         } else if (groupBy === 'adjustment_type') {
           const hasPosted = Math.abs(item.postedAdjustments) > 0.005

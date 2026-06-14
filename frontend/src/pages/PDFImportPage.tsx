@@ -691,7 +691,7 @@ function AppliedLinesTable({
                   </span>
                 )}
                 {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
-                {l.locked && <Lock className="w-3 h-3 text-amber-500 flex-shrink-0" title="Locked — system-managed" />}
+                {l.locked && <span title="Locked — system-managed"><Lock className="w-3 h-3 text-amber-500 flex-shrink-0" /></span>}
               </div>
             )
           },
@@ -922,7 +922,7 @@ function AuditTrailPanel({ lines }: { lines: Record<string, unknown>[] }) {
               return (
                 <span>
                   {String(mapping.taxonomy_code ?? '—')}
-                  {mapping.taxonomy_locked && (
+                  {!!mapping.taxonomy_locked && (
                     <Lock className="w-3 h-3 text-amber-500 inline ml-1" />
                   )}
                 </span>
@@ -1243,7 +1243,7 @@ export function PDFImportPage() {
   })
 
   const applyMutation = useMutation({
-    mutationFn: (forceApply = false) => {
+    mutationFn: (forceApply: boolean) => {
       if (!preview) throw new Error('No preview')
       return pdfImportApi.apply(preview.batch_id, forceApply)
     },
@@ -2067,7 +2067,7 @@ export function PDFImportPage() {
                           synthetic
                         </span>
                       )}
-                      {l.locked && <Lock className="w-3 h-3 text-amber-500" title="Locked" />}
+                      {l.locked && <span title="Locked"><Lock className="w-3 h-3 text-amber-500" /></span>}
                       {l.is_contra && <span className="text-orange-500 font-semibold text-[10px] uppercase">(contra)</span>}
                     </div>
                   )
@@ -2492,7 +2492,7 @@ export function PDFImportPage() {
           {auditLoading ? (
             <div className="text-sm text-gray-400 py-8 text-center">Loading audit trail…</div>
           ) : auditTrail ? (
-            <AuditTrailPanel lines={auditTrail.lines as Record<string, unknown>[]} />
+            <AuditTrailPanel lines={auditTrail.lines as unknown as Record<string, unknown>[]} />
           ) : (
             <div className="text-sm text-gray-400 py-8 text-center">No audit data</div>
           )}

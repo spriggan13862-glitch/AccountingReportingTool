@@ -265,7 +265,7 @@ export function IssueRepositoryPage() {
   const totalCount = categories.reduce((s, c) => s + c.count, 0)
 
   return (
-    <PageLayout>
+    <PageLayout title="Issue Repository">
       <div className="p-4 pb-2">
         <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Issue Repository' }]} />
         <div className="flex items-center justify-between mt-2">
@@ -276,7 +276,7 @@ export function IssueRepositoryPage() {
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">{totalCount} issue templates across {categories.length} categories</p>
           </div>
-          <WorkspaceCrossLinks current="repository" />
+          <WorkspaceCrossLinks current="intelligence" />
         </div>
       </div>
 

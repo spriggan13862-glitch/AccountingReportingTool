@@ -75,7 +75,7 @@ export function TopNav() {
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Period</span>
           {isImportOrWizard ? (
             <div className="flex h-8 items-center rounded-md border border-gray-300 bg-gray-50 px-3 text-xs font-medium text-gray-700 min-w-[120px]" data-testid="topbar-period-read-only">
-              {periods[0] ? `${periods[0].fiscal_year}-${String(periods[0].period_number).padStart(2, '0')}` : 'Dec 2024'}
+              {periods[0] ? `${periods[0].fiscal_year}-${String(periods[0].period_name).padStart(2, '0')}` : 'Dec 2024'}
             </div>
           ) : (
             <select
@@ -86,7 +86,7 @@ export function TopNav() {
               {periods.length > 0 ? (
                 periods.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.fiscal_year}-{String(p.period_number).padStart(2, '0')}
+                    {p.fiscal_year}-{String(p.period_name).padStart(2, '0')}
                   </option>
                 ))
               ) : (

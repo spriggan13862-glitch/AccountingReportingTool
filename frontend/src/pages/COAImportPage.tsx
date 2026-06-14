@@ -111,7 +111,7 @@ export function COAImportPage() {
         `COA imported: ${batch.accounts_created} created, ${batch.accounts_updated} updated`,
         'success',
       )
-      setImportResult({ created: batch.accounts_created, updated: batch.accounts_updated })
+      setImportResult({ created: batch.accounts_created ?? 0, updated: batch.accounts_updated ?? 0 })
       setWizardStep(2)
     },
     onError: (err: Error) => { setApiError(err.message) },

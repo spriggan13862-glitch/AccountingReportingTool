@@ -205,9 +205,9 @@ describe('Tier 1.8 Frontend Regression Tests', () => {
   // 5. ChartOfAccountsPage inheritance path and badges
   it('renders COA Preview slide-over with hierarchy path, sibling accounts, and inherited badges', async () => {
     const mockAccounts: Account[] = [
-      { id: 10, entity_id: 1, account_number: '1000', account_name: 'Cash Parent', account_type: 'asset', account_status: 'active', normal_balance: 'debit', reporting_taxonomy_line_id: 2, parent_account_id: null, created_at: '', updated_at: '' },
-      { id: 11, entity_id: 1, account_number: '1010', account_name: 'Cash Child', account_type: 'asset', account_status: 'active', normal_balance: 'debit', reporting_taxonomy_line_id: null, parent_account_id: 10, created_at: '', updated_at: '' },
-      { id: 12, entity_id: 1, account_number: '1020', account_name: 'Cash Child 2', account_type: 'asset', account_status: 'active', normal_balance: 'debit', reporting_taxonomy_line_id: null, parent_account_id: 10, created_at: '', updated_at: '' },
+      { id: 10, entity_id: 1, account_number: '1000', account_name: 'Cash Parent', account_type: 'asset', account_status: 'active', normal_balance: 'debit', reporting_taxonomy_line_id: 2, parent_account_id: null, created_at: '', updated_at: '' } as unknown as Account,
+      { id: 11, entity_id: 1, account_number: '1010', account_name: 'Cash Child', account_type: 'asset', account_status: 'active', normal_balance: 'debit', reporting_taxonomy_line_id: null, parent_account_id: 10, created_at: '', updated_at: '' } as unknown as Account,
+      { id: 12, entity_id: 1, account_number: '1020', account_name: 'Cash Child 2', account_type: 'asset', account_status: 'active', normal_balance: 'debit', reporting_taxonomy_line_id: null, parent_account_id: 10, created_at: '', updated_at: '' } as unknown as Account,
     ]
 
     const mockTree = [

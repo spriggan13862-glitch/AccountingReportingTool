@@ -5,7 +5,7 @@ import { StatementViewer } from '@/components/reports/StatementViewer'
 import { DrilldownPanel } from '@/components/reports/DrilldownPanel'
 import { ReportParameterModal } from '@/components/reports/ReportParameterModal'
 import { TaxonomyTable } from '@/pages/FinancialStatementsPage'
-import type { Variance, ReportLineDrilldown } from '@/types'
+import type { Variance, ReportLineDrilldown, DrilldownJournalEntry } from '@/types'
 
 // ---- fixtures ----------------------------------------------------------------
 
@@ -37,7 +37,7 @@ const drilldownData: ReportLineDrilldown = {
           entry_date: '2024-03-15',
           description: 'March deposit',
           net_debit: '100000',
-        },
+        } as unknown as DrilldownJournalEntry,
       ],
     },
   ],
@@ -140,7 +140,7 @@ describe('Milestone 20: Financial Statement Engine', () => {
       },
     ]
 
-    render(<TaxonomyTable rows={rows} isLoading={false} entityId={1} onDrilldown={onDrilldown} />)
+    render(<TaxonomyTable rows={rows as any} isLoading={false} entityId={1} onDrilldown={onDrilldown} />)
 
     // Click Cash (account_count > 0, not header, not subtotal)
     fireEvent.click(screen.getByText(/Cash/))
@@ -166,9 +166,9 @@ describe('Milestone 20: Financial Statement Engine', () => {
 
   it('DrilldownPanel renders breadcrumbs when taxonomyLines are provided', () => {
     const taxonomyLines = [
-      { id: 10, code: 'ROOT', name: 'Assets', parent_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 1, hierarchy_depth: 0, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null },
-      { id: 11, code: 'CHILD', name: 'Current Assets', parent_id: 10, section: 'asset', statement_type: 'balance_sheet', sort_order: 2, hierarchy_depth: 1, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null },
-      { id: 12, code: 'CASH', name: 'Cash and Equivalents', parent_id: 11, section: 'asset', statement_type: 'balance_sheet', sort_order: 3, hierarchy_depth: 2, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null },
+      { id: 10, code: 'ROOT', name: 'Assets', parent_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 1, hierarchy_depth: 0, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
+      { id: 11, code: 'CHILD', name: 'Current Assets', parent_id: 10, section: 'asset', statement_type: 'balance_sheet', sort_order: 2, hierarchy_depth: 1, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
+      { id: 12, code: 'CASH', name: 'Cash and Equivalents', parent_id: 11, section: 'asset', statement_type: 'balance_sheet', sort_order: 3, hierarchy_depth: 2, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
     ]
     render(
       <DrilldownPanel

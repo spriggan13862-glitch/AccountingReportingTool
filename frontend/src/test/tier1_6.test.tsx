@@ -85,6 +85,10 @@ const mockPreviewForMock: PDFImportPreview = {
   balance_sheet_tied: true,
   import_type: 'financial_statements',
   statement_scope: 'standalone',
+  net_income_variance: null,
+  net_income_reconciled: true,
+  net_income_in_equity: null,
+  pnl_net_income: null,
 }
 
 vi.mock('@/api/pdfImport', () => ({

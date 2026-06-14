@@ -638,7 +638,7 @@ export function ScenarioManagerPage() {
           { label: 'Scenario Manager' },
         ]} />
       }
-      actions={<WorkspaceCrossLinks current="workbench" />}
+      actions={<WorkspaceCrossLinks current="adjustment" />}
     >
       <div className="space-y-5" data-testid="scenario-manager-page">
 

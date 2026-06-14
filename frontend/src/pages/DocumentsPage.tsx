@@ -417,7 +417,6 @@ export function DocumentsPage() {
             <EntitySelect
               value={entityId}
               onChange={setEntityId}
-              placeholder="All entities"
               className="min-w-[180px] text-sm"
             />
           }

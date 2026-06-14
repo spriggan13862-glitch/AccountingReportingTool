@@ -1,4 +1,5 @@
-import { useRef, DragEvent, ChangeEvent, useState } from 'react'
+import { useRef, useState } from 'react'
+import type { DragEvent, ChangeEvent } from 'react'
 import { Upload, FileText, AlertCircle } from 'lucide-react'
 
 interface Props {

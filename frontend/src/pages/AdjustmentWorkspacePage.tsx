@@ -113,7 +113,7 @@ function ImpactDrawer({ item, packages, onClose, onMaterialityChange }: ImpactDr
     queryFn: () => adjustmentWorkspaceApi.getNotes(item.id),
   })
   const qc = useQueryClient()
-  const { toast } = useToast()
+  const toast = useToast()
   const [issueVal, setIssueVal] = useState(note?.issue ?? '')
   const [recVal, setRecVal] = useState(note?.recommendation ?? '')
   const [clientVal, setClientVal] = useState(note?.client_response ?? '')
@@ -130,7 +130,7 @@ function ImpactDrawer({ item, packages, onClose, onMaterialityChange }: ImpactDr
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['adj-notes', item.id] })
       qc.invalidateQueries({ queryKey: ['adj-workspace'] })
-      toast({ message: 'Notes saved', type: 'success' })
+      toast('Notes saved', 'success')
     },
   })
 
@@ -389,7 +389,7 @@ function MultiImpactBar({ selectedIds }: { selectedIds: number[] }) {
 export function AdjustmentWorkspacePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { toast } = useToast()
+  const toast = useToast()
 
   // Filters
   const [search, setSearch] = useState('')
@@ -439,7 +439,7 @@ export function AdjustmentWorkspacePage() {
       adjustmentWorkspaceApi.createPackage({ name, package_type: type }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['adj-packages'] })
-      toast({ message: 'Package created', type: 'success' })
+      toast('Package created', 'success')
     },
   })
 
@@ -447,7 +447,7 @@ export function AdjustmentWorkspacePage() {
     mutationFn: (id: number) => adjustmentWorkspaceApi.deletePackage(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['adj-packages'] })
-      toast({ message: 'Package deleted', type: 'success' })
+      toast('Package deleted', 'success')
     },
   })
 
@@ -494,7 +494,7 @@ export function AdjustmentWorkspacePage() {
         subtitle="Unified view of all adjustments, their financial impact, packages, and advisor notes"
         breadcrumb={
           <Breadcrumb items={[
-            { label: 'Workbench', to: '/workbench/adjustment-bridge' },
+            { label: 'Workbench', href: '/workbench/adjustment-bridge' },
             { label: 'Adjustment Workspace' },
           ]} />
         }

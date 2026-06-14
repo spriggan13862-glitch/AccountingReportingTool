@@ -207,7 +207,7 @@ export function ImportCenterPage() {
             source_id: tb.id,
             filename: tb.filename,
             entity_id: tb.entity_id || null,
-            source_entity_name: tb.entity_name || null,
+            source_entity_name: (tb as any).entity_name || null,
             status: tb.status,
             line_count: tb.row_count || 0,
             description: `Trial Balance Import: ${tb.filename}`,
@@ -221,11 +221,11 @@ export function ImportCenterPage() {
             source_id: pdf.id,
             filename: pdf.filename,
             entity_id: pdf.entity_id || null,
-            source_entity_name: pdf.entity_name || null,
+            source_entity_name: (pdf as any).entity_name || null,
             status: pdf.status,
             line_count: null,
             description: `PDF Import: ${pdf.filename}`,
-            created_at: pdf.uploaded_at || null,
+            created_at: (pdf as any).uploaded_at || pdf.created_at || null,
             basis_of_accounting: null,
             statement_date: null,
           })),
@@ -235,11 +235,11 @@ export function ImportCenterPage() {
             source_id: coa.id,
             filename: coa.filename,
             entity_id: coa.entity_id || null,
-            source_entity_name: coa.entity_name || null,
+            source_entity_name: (coa as any).entity_name || null,
             status: coa.status,
             line_count: null,
             description: `COA Import: ${coa.filename}`,
-            created_at: coa.uploaded_at || null,
+            created_at: (coa as any).uploaded_at || null,
             basis_of_accounting: null,
             statement_date: null,
           })),
@@ -372,7 +372,7 @@ export function ImportCenterPage() {
       case 'validation':
         return mappedEntries.filter(e => e.lifecycleStatus === 'Validation Errors' || e.errorMsg || e.isOutOfBalance)
       case 'documents':
-        return mappedEntries.filter(e => e.document_id)
+        return mappedEntries.filter(e => (e as any).document_id)
       case 'recent':
       default:
         return mappedEntries
@@ -842,7 +842,7 @@ export function ImportCenterPage() {
                     recent: mappedEntries.length,
                     mapping: mappedEntries.filter(e => e.lifecycleStatus === 'Awaiting Mapping').length,
                     validation: mappedEntries.filter(e => e.lifecycleStatus === 'Validation Errors' || e.errorMsg || e.isOutOfBalance).length,
-                    documents: mappedEntries.filter(e => e.document_id).length,
+                    documents: mappedEntries.filter(e => (e as any).document_id).length,
                   }[tab]
                   return (
                     <button
@@ -878,8 +878,8 @@ export function ImportCenterPage() {
                   key: 'download',
                   label: 'Download Source File',
                   icon: Download,
-                  hidden: (b) => !b.document_id,
-                  onClick: (b) => { if (b.document_id) documentsApi.download(b.document_id) },
+                  hidden: (b) => !(b as any).document_id,
+                  onClick: (b) => { if ((b as any).document_id) documentsApi.download((b as any).document_id) },
                 },
                 {
                   key: 'rollback',

@@ -13,7 +13,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { periodsApi } from '@/api/periods'
-import type { AccountingPeriod, PeriodCreate } from '@/types'
+import type { AccountingPeriod, PeriodCreate, ClosePeriodRequest } from '@/types'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { GridColumn, RowAction, BatchAction } from '@/components/data-grid'
@@ -126,7 +126,7 @@ export function PeriodsPage() {
   })
 
   const closeMutation = useMutation({
-    mutationFn: (id: number) => periodsApi.close(id, { closed_by: 'user' }),
+    mutationFn: (id: number) => periodsApi.close(id, { closed_by: 'user' } as ClosePeriodRequest),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['periods', entityId] }),
     onError: (err: Error) => setApiError(err.message),
   })
@@ -220,14 +220,14 @@ export function PeriodsPage() {
     {
       key: 'close',
       label: 'Close Period',
-      icon: <Lock className="w-3.5 h-3.5" />,
+      icon: Lock,
       hidden: (p) => p.is_closed,
       onClick: (p) => closeMutation.mutate(p.id),
     },
     {
       key: 'reopen',
       label: 'Reopen Period',
-      icon: <LockOpen className="w-3.5 h-3.5" />,
+      icon: LockOpen,
       hidden: (p) => !p.is_closed,
       onClick: (p) => reopenMutation.mutate(p.id),
     },
@@ -237,7 +237,7 @@ export function PeriodsPage() {
     {
       key: 'batch-close',
       label: 'Close Selected',
-      icon: <Lock className="w-3.5 h-3.5" />,
+      icon: Lock,
       onClick: async (rows) => {
         for (const p of rows.filter((r) => !r.is_closed)) {
           await closeMutation.mutateAsync(p.id)
@@ -247,7 +247,7 @@ export function PeriodsPage() {
     {
       key: 'batch-reopen',
       label: 'Reopen Selected',
-      icon: <LockOpen className="w-3.5 h-3.5" />,
+      icon: LockOpen,
       onClick: async (rows) => {
         for (const p of rows.filter((r) => r.is_closed)) {
           await reopenMutation.mutateAsync(p.id)

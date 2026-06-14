@@ -317,7 +317,7 @@ function DSCRTab({
 
 export function AdvisoryAnalysisPage() {
   const [activeTab, setActiveTab] = useState<TabId>('ebitda')
-  const [entityId, setEntityId] = useState<number | null>(null)
+  const [entityId, setEntityId] = useState<number | ''>('')
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<number[]>([])
   const [baseEbitda, setBaseEbitda] = useState(0)
   const [annualDebtService, setAnnualDebtService] = useState(0)
@@ -327,19 +327,19 @@ export function AdvisoryAnalysisPage() {
     queryFn: listAdvisorScenarios,
   })
 
-  const canRun = entityId !== null
+  const canRun = entityId !== ''
 
   const ebitdaMut = useMutation({
-    mutationFn: () => getEBITDABridge(entityId!, selectedScenarioIds, baseEbitda),
+    mutationFn: () => getEBITDABridge(entityId as number, selectedScenarioIds, baseEbitda),
   })
   const qoeMut = useMutation({
-    mutationFn: () => getQoESchedule(entityId!, selectedScenarioIds),
+    mutationFn: () => getQoESchedule(entityId as number, selectedScenarioIds),
   })
   const sbaMut = useMutation({
-    mutationFn: () => getSBAAddback(entityId!, selectedScenarioIds),
+    mutationFn: () => getSBAAddback(entityId as number, selectedScenarioIds),
   })
   const dscrMut = useMutation({
-    mutationFn: () => getDSCR(entityId!, selectedScenarioIds, baseEbitda, annualDebtService),
+    mutationFn: () => getDSCR(entityId as number, selectedScenarioIds, baseEbitda, annualDebtService),
   })
 
   function handleRun() {
@@ -354,14 +354,14 @@ export function AdvisoryAnalysisPage() {
   const hasResults = ebitdaMut.data !== undefined
 
   return (
-    <PageLayout>
+    <PageLayout title="Advisory Analysis">
       <Breadcrumb
         items={[
-          { label: 'Adjustment Workbench', to: '/workbench/adjustment-workspace' },
+          { label: 'Adjustment Workbench', href: '/workbench/adjustment-workspace' },
           { label: 'Advisory Analysis' },
         ]}
       />
-      <WorkspaceCrossLinks currentPage="advisory-analysis" />
+      <WorkspaceCrossLinks current="analysis" />
 
       <div data-testid="advisory-analysis-page" className="space-y-6">
         {/* Header */}
@@ -375,7 +375,7 @@ export function AdvisoryAnalysisPage() {
           {hasResults && (
             <button
               onClick={() =>
-                downloadAdvisoryExport(entityId!, selectedScenarioIds, baseEbitda, annualDebtService)
+                downloadAdvisoryExport(entityId as number, selectedScenarioIds, baseEbitda, annualDebtService)
               }
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-indigo-300 text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors"
               data-testid="export-btn"
@@ -398,7 +398,6 @@ export function AdvisoryAnalysisPage() {
               <EntitySelect
                 value={entityId}
                 onChange={setEntityId}
-                placeholder="Select entity…"
               />
             </div>
             <div className="space-y-1.5">

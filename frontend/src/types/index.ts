@@ -1344,3 +1344,11 @@ export interface PDFAuditTrail {
   line_count: number
   lines: PDFLineOut[]
 }
+
+export type WizardStepStatus = 'pending' | 'active' | 'complete' | 'error'
+
+export interface WizardStep {
+  key: string
+  label: string
+  status: WizardStepStatus
+}
