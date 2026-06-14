@@ -124,6 +124,17 @@ vi.mock('@/api/tbImport', () => ({ tbImportApi: { listBatches: vi.fn().mockResol
 vi.mock('@/api/accounts', () => ({
   accountsApi: { list: vi.fn().mockResolvedValue([]) },
 }))
+vi.mock('@/providers/ToastProvider', () => ({
+  useToast: () => vi.fn(),
+}))
+vi.mock('@/providers/WorkspaceProvider', () => ({
+  useWorkspace: () => ({
+    activeEntity: null, setActiveEntity: vi.fn(),
+    activePeriod: null, setActivePeriod: vi.fn(),
+    activeScenarioIds: [], setActiveScenarioIds: vi.fn(),
+    dataView: 'adjusted', setDataView: vi.fn(),
+  }),
+}))
 
 // ---------------------------------------------------------------------------
 // EntitySelect

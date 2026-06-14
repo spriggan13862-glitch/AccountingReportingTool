@@ -21,7 +21,7 @@ function renderRoute(from: string, routes: Array<{ path: string; element: React.
 
 // ── nav.ts route contract ───────────────────────────────────────────────────
 
-describe('nav.ts — Sprint 3.2 route values', () => {
+describe('nav.ts — Sprint 3.18 flat rail route values', () => {
   function item(id: string) {
     for (const g of NAV_GROUPS) {
       const found = g.items.find((i) => i.id === id)
@@ -30,124 +30,55 @@ describe('nav.ts — Sprint 3.2 route values', () => {
     return undefined
   }
 
-  it('dashboard points to /engagement/dashboard', () => {
-    expect(item('dashboard')?.to).toBe('/engagement/dashboard')
+  it('overview points to /overview', () => {
+    expect(item('overview')?.to).toBe('/overview')
+  })
+
+  it('overview has end:true', () => {
+    expect(item('overview')?.end).toBe(true)
   })
 
   it('import-center points to /client-data/imports', () => {
     expect(item('import-center')?.to).toBe('/client-data/imports')
   })
 
-  it('import-center has end:true to avoid matching sub-import routes', () => {
-    expect(item('import-center')?.end).toBe(true)
+  it('review points to /review', () => {
+    expect(item('review')?.to).toBe('/review')
   })
 
-  it('documents points to /client-data/documents', () => {
-    expect(item('documents')?.to).toBe('/client-data/documents')
+  it('review has end:true', () => {
+    expect(item('review')?.end).toBe(true)
   })
 
-  it('accounts points to /client-data/chart-of-accounts', () => {
-    expect(item('accounts')?.to).toBe('/client-data/chart-of-accounts')
+  it('review-tb points to /review/trial-balance', () => {
+    expect(item('review-tb')?.to).toBe('/review/trial-balance')
   })
 
-  it('adjustment-bridge points to /workbench/adjustment-bridge', () => {
-    expect(item('adjustment-bridge')?.to).toBe('/workbench/adjustment-bridge')
+  it('journal-entries points to /adjustments/journal-entries', () => {
+    expect(item('journal-entries')?.to).toBe('/adjustments/journal-entries')
   })
 
-  it('journal-entries points to /workbench/journal-entries', () => {
-    expect(item('journal-entries')?.to).toBe('/workbench/journal-entries')
+  it('adjustments group has 3 items', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'adjustments')!
+    expect(group.items.length).toBe(3)
   })
 
-  it('draft-preview points to /workbench/draft-preview', () => {
-    expect(item('draft-preview')?.to).toBe('/workbench/draft-preview')
-  })
-
-  it('financial-impact single entry points to /financial-impact/statements', () => {
-    expect(item('financial-impact')?.to).toBe('/financial-impact/statements')
-  })
-
-  it('financial-impact group has exactly 1 item', () => {
-    const group = NAV_GROUPS.find((g) => g.id === 'financial-impact')!
-    expect(group.items.length).toBe(1)
-  })
-
-  it('reporting-settings points to /setup/settings', () => {
-    expect(item('reporting-settings')?.to).toBe('/setup/settings')
-  })
-
-  it('reporting-settings label is Settings', () => {
-    expect(item('reporting-settings')?.label).toBe('Settings')
-  })
-
-  it('help points to /setup/help', () => {
-    expect(item('help')?.to).toBe('/setup/help')
-  })
-
-  it('entities is in setup group', () => {
-    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
-    expect(setupGroup.items.find((i) => i.id === 'entities')).toBeDefined()
-  })
-
-  it('periods is in setup group', () => {
-    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
-    expect(setupGroup.items.find((i) => i.id === 'periods')).toBeDefined()
-  })
-
-  it('taxonomy is in setup group with label Taxonomy Admin', () => {
-    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
-    const tax = setupGroup.items.find((i) => i.id === 'taxonomy')
-    expect(tax).toBeDefined()
-    expect(tax?.label).toBe('Taxonomy Admin')
-  })
-
-  it('client-books group has 2 items', () => {
-    const group = NAV_GROUPS.find((g) => g.id === 'client-books')!
-    expect(group.items.length).toBe(2)
-  })
-
-  it('accounts is in setup group', () => {
-    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
-    expect(setupGroup.items.find((i) => i.id === 'accounts')).toBeDefined()
-  })
-
-  it('workbench group has 6 items', () => {
-    const group = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    expect(group.items.length).toBe(6)
-  })
-
-  it('scenarios points to /workbench/scenarios', () => {
-    expect(item('scenarios')?.to).toBe('/workbench/scenarios')
-  })
-
-  it('advisory-analysis points to /workbench/advisory-analysis', () => {
-    expect(item('advisory-analysis')?.to).toBe('/workbench/advisory-analysis')
-  })
-
-  it('intelligence group has 4 items', () => {
-    const group = NAV_GROUPS.find((g) => g.id === 'intelligence')!
+  it('review group has 4 items', () => {
+    const group = NAV_GROUPS.find((g) => g.id === 'review')!
     expect(group.items.length).toBe(4)
   })
 
-  it('quarterly-review points to /intelligence/quarterly-review', () => {
-    expect(item('quarterly-review')?.to).toBe('/intelligence/quarterly-review')
+  it('deliverables-workspace points to /deliverables/workspace', () => {
+    expect(item('deliverables-workspace')?.to).toBe('/deliverables/workspace')
   })
 
-  it('issue-repository points to /intelligence/issue-repository', () => {
-    expect(item('issue-repository')?.to).toBe('/intelligence/issue-repository')
-  })
-
-  it('financial-diagnostics points to /intelligence/financial-diagnostics', () => {
-    expect(item('financial-diagnostics')?.to).toBe('/intelligence/financial-diagnostics')
-  })
-
-  it('rule-harness points to /intelligence/rule-harness', () => {
-    expect(item('rule-harness')?.to).toBe('/intelligence/rule-harness')
-  })
-
-  it('deliverables group has 1 item', () => {
+  it('deliverables group has 5 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'deliverables')!
-    expect(group.items.length).toBe(1)
-    expect(group.items[0].id).toBe('deliverables-workspace')
+    expect(group.items.length).toBe(5)
+  })
+
+  it('setup points to /setup', () => {
+    expect(item('setup')?.to).toBe('/setup')
   })
 })
 
@@ -220,10 +151,10 @@ describe('Routes with query strings kept as direct routes', () => {
 // ── sidebar active state with new nested routes ─────────────────────────────
 
 describe('Sidebar nav config — nested route active logic', () => {
-  it('client-books group should be active on /client-data/imports (import-center exact match)', () => {
-    const cbGroup = NAV_GROUPS.find((g) => g.id === 'client-books')!
+  it('import group should be active on /client-data/imports', () => {
+    const importGroup = NAV_GROUPS.find((g) => g.id === 'import')!
     const pathname = '/client-data/imports'
-    const active = cbGroup.items.some((item) => {
+    const active = importGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
       return pathname === item.to || pathname.startsWith(item.to + '/')
@@ -231,10 +162,10 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(active).toBe(true)
   })
 
-  it('setup group should be active on /client-data/chart-of-accounts', () => {
-    const setupGroup = NAV_GROUPS.find((g) => g.id === 'setup')!
-    const pathname = '/client-data/chart-of-accounts'
-    const active = setupGroup.items.some((item) => {
+  it('review group should be active on /review', () => {
+    const reviewGroup = NAV_GROUPS.find((g) => g.id === 'review')!
+    const pathname = '/review'
+    const active = reviewGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
       return pathname === item.to || pathname.startsWith(item.to + '/')
@@ -242,21 +173,10 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(active).toBe(true)
   })
 
-  it('financial-impact group should be active on /financial-impact/statements', () => {
-    const fiGroup = NAV_GROUPS.find((g) => g.id === 'financial-impact')!
-    const pathname = '/financial-impact/statements'
-    const active = fiGroup.items.some((item) => {
-      if (!item.to) return false
-      if (item.end) return pathname === item.to
-      return pathname === item.to || pathname.startsWith(item.to + '/')
-    })
-    expect(active).toBe(true)
-  })
-
-  it('workbench group should be active on /workbench/journal-entries/new', () => {
-    const wbGroup = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    const pathname = '/workbench/journal-entries/new'
-    const active = wbGroup.items.some((item) => {
+  it('adjustments group should be active on /adjustments/journal-entries/new', () => {
+    const adjGroup = NAV_GROUPS.find((g) => g.id === 'adjustments')!
+    const pathname = '/adjustments/journal-entries/new'
+    const active = adjGroup.items.some((item) => {
       if (!item.to) return false
       if (item.end) return pathname === item.to
       return pathname === item.to || pathname.startsWith(item.to + '/')
@@ -275,23 +195,12 @@ describe('Sidebar nav config — nested route active logic', () => {
     expect(active).toBe(true)
   })
 
-  it('import-center (end:true) should NOT be active at /client-data/imports/pdf', () => {
+  it('import-center item (no end:true) should match /client-data/imports/pdf prefix', () => {
     const importItem = NAV_GROUPS
-      .find((g) => g.id === 'client-books')!
+      .find((g) => g.id === 'import')!
       .items.find((i) => i.id === 'import-center')!
     const pathname = '/client-data/imports/pdf'
     const isActive = importItem.end ? pathname === importItem.to : pathname.startsWith(importItem.to! + '/')
-    expect(isActive).toBe(false)
-  })
-
-  it('deliverables-workspace should be active on /deliverables/workspace', () => {
-    const wsItem = NAV_GROUPS
-      .find((g) => g.id === 'deliverables')!
-      .items.find((i) => i.id === 'deliverables-workspace')!
-    const pathname = '/deliverables/workspace'
-    const isActive = wsItem.end
-      ? pathname === wsItem.to
-      : pathname === wsItem.to || pathname.startsWith(wsItem.to! + '/')
     expect(isActive).toBe(true)
   })
 })

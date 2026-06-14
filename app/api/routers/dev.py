@@ -14,6 +14,7 @@ from app.models.entity import Entity
 from app.models.accounting_period import AccountingPeriod
 from app.models.account import Account
 from app.models.import_batch import ImportBatch
+from app.models.scenario import Scenario
 from app.services import import_batch_service as svc
 
 router = APIRouter(prefix="/dev", tags=["dev"])
@@ -194,6 +195,19 @@ def dev_seed(
         db.add(acct)
         accounts_created += 1
 
+    # Create 3 default scenarios (idempotent — skip if code already exists)
+    _DEFAULT_SCENARIOS = [
+        ("ACT", "As Reported", "actual"),
+        ("ADJ", "Adjusted", "topside"),
+        ("PF",  "Pro Forma",  "pro_forma"),
+    ]
+    scenarios_created = 0
+    for code, name, stype in _DEFAULT_SCENARIOS:
+        exists = db.query(Scenario).filter_by(organization_id=org_id, code=code).first()
+        if not exists:
+            db.add(Scenario(organization_id=org_id, code=code, name=name, scenario_type=stype, active=True))
+            scenarios_created += 1
+
     db.commit()
     return {
         "status": "seeded",
@@ -201,6 +215,7 @@ def dev_seed(
         "entity_code": entity.code,
         "periods_created": periods_created,
         "accounts_created": accounts_created,
+        "scenarios_created": scenarios_created,
     }
 
 

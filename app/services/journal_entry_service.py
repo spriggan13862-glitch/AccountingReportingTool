@@ -83,9 +83,9 @@ def _check_period_not_closed(
         .first()
     )
     if closed:
-        status_label = closed.period_status.replace("_", "-") if closed.period_status else "closed"
+        status_label = closed.period_status.replace("_", "-") if closed.period_status in ("soft_closed", "hard_closed") else "closed"
         raise ClosedPeriodError(
-            f"Cannot post into period '{closed.period_name}' "
+            f"Cannot post into closed period '{closed.period_name}' "
             f"({closed.start_date} – {closed.end_date}) [{status_label}]"
         )
 

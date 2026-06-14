@@ -422,9 +422,9 @@ describe('DeliverablesWorkspacePage — nav config', () => {
     expect(wsItem?.to).toBe('/deliverables/workspace')
   })
 
-  it('deliverables group now has 1 item', async () => {
+  it('deliverables group has 5 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
     const delivGroup = NAV_GROUPS.find((g) => g.id === 'deliverables')!
-    expect(delivGroup.items.length).toBe(1)
+    expect(delivGroup.items.length).toBe(5)
   })
 })

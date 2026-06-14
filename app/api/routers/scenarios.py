@@ -64,6 +64,29 @@ def update_scenario(scenario_id: int, body: ScenarioUpdate, db: Session = Depend
     return scenario
 
 
+@router.post("/ensure-defaults", response_model=list[ScenarioOut], status_code=201)
+def ensure_default_scenarios(organization_id: int, db: Session = Depends(get_db)):
+    """Create the three baseline scenarios (ACT, ADJ, PF) if they don't already exist."""
+    defaults = [
+        ("ACT", "As Reported", "actual"),
+        ("ADJ", "Adjusted",    "topside"),
+        ("PF",  "Pro Forma",   "pro_forma"),
+    ]
+    created: list[Scenario] = []
+    for code, name, stype in defaults:
+        exists = db.query(Scenario).filter_by(organization_id=organization_id, code=code).first()
+        if not exists:
+            s = Scenario(organization_id=organization_id, code=code, name=name, scenario_type=stype, active=True)
+            db.add(s)
+            created.append(s)
+    if created:
+        db.flush()
+        db.commit()
+        for s in created:
+            db.refresh(s)
+    return created
+
+
 @router.delete("/{scenario_id}", status_code=204)
 def delete_scenario(scenario_id: int, db: Session = Depends(get_db)):
     scenario = db.get(Scenario, scenario_id)

@@ -7,13 +7,14 @@ import {
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
+import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import type { WizardStep } from '@/components/import-wizard/types'
-import type { DetectResult, Entity } from '@/types'
+import type { AccountingPeriod, DetectResult, Entity } from '@/types'
 
 const STEPS = [
   { label: 'Upload', desc: 'Select file and period' },
@@ -61,10 +62,13 @@ export function ImportWizardPage() {
   const [dragOver, setDragOver] = useState(false)
   const [entityId, setEntityId] = useState('')
   const [asOfDate, setAsOfDate] = useState('')
+  const [usePeriodPicker, setUsePeriodPicker] = useState(false)
+  const [selectedPeriodId, setSelectedPeriodId] = useState('')
   const [detected, setDetected] = useState<DetectResult | null>(null)
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
   const [apiError, setApiError] = useState<string | null>(null)
+  const [duplicateWarning, setDuplicateWarning] = useState<{ existingBatchId: number; existingStatus: string } | null>(null)
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -99,6 +103,14 @@ export function ImportWizardPage() {
   })
   const entities: Entity[] = entityData ?? []
 
+  const { data: periodsData = [] } = useQuery({
+    queryKey: ['wizard-periods', entityId],
+    queryFn: () => periodsApi.list(Number(entityId)),
+    enabled: !!entityId,
+    staleTime: 30_000,
+  })
+  const sortedPeriods = [...periodsData].sort((a, b) => b.end_date.localeCompare(a.end_date))
+
   const detectMutation = useMutation({
     mutationFn: () => {
       if (!file) throw new Error('No file selected')
@@ -109,20 +121,21 @@ export function ImportWizardPage() {
       setSelectedSheet(result.selected_sheet)
       setColMapping(result.detected_mapping)
       setApiError(null)
-      // Skip sheet step for CSV (no sheets)
-      setStep(result.sheets.length > 0 ? 1 : 2)
+      // Skip sheet step for CSV or single-sheet XLSX
+      setStep(result.sheets.length > 1 ? 1 : 2)
     },
     onError: (err: Error) => { setApiError(err.message) },
   })
 
   const uploadMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (force = false) => {
       if (!file || !entityId || !asOfDate) throw new Error('All fields required')
       return tbImportApi.uploadBatch({
         entity_id: Number(entityId),
         organization_id: orgId,
         as_of_date: asOfDate,
         sheet_name: selectedSheet ?? undefined,
+        force,
         file,
       })
     },
@@ -130,13 +143,22 @@ export function ImportWizardPage() {
       queryClient.invalidateQueries({ queryKey: ['import-batches', orgId] })
       toast(`Import started: ${batch.row_count ?? 0} rows parsed — ${batch.unmapped_row_count ?? 0} need mapping`, 'success')
       setApiError(null)
+      setDuplicateWarning(null)
       if ((batch.unmapped_row_count ?? 0) > 0) {
         navigate(`/import/${batch.id}/mapping`)
       } else {
         navigate(`/import/${batch.id}`)
       }
     },
-    onError: (err: Error) => { setApiError(err.message) },
+    onError: (err: unknown) => {
+      const detail = (err as { response?: { data?: { detail?: { code?: string; existing_batch_id?: number; existing_status?: string } } } })?.response?.data?.detail
+      if (detail?.code === 'DUPLICATE_IMPORT') {
+        setDuplicateWarning({ existingBatchId: detail.existing_batch_id!, existingStatus: detail.existing_status! })
+        setApiError(null)
+      } else {
+        setApiError((err as Error).message ?? 'Upload failed')
+      }
+    },
   })
 
   function handleDrop(e: React.DragEvent) {
@@ -195,6 +217,35 @@ export function ImportWizardPage() {
     >
       <StepIndicator steps={WIZARD_STEPS} currentStep={step} onStepClick={handleStepClick} />
       {apiError && <ErrorBanner message={apiError} />}
+      {duplicateWarning && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex items-start gap-3 mb-4">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">Duplicate file detected</p>
+            <p className="text-xs text-amber-700 mt-1">
+              This file was already imported (Batch #{duplicateWarning.existingBatchId}, status: {duplicateWarning.existingStatus}).
+              Import again to create a separate version, or view the existing batch.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/import/${duplicateWarning.existingBatchId}`)}
+                className="text-xs px-3 py-1.5 border border-amber-400 rounded text-amber-800 hover:bg-amber-100"
+              >
+                View Existing Batch
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDuplicateWarning(null); uploadMutation.mutate(true) }}
+                disabled={uploadMutation.isPending}
+                className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
+              >
+                Import Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Entity-first guard */}
       {entities.length === 0 && (
@@ -220,7 +271,13 @@ export function ImportWizardPage() {
       {/* Step 0: File + Entity + Date */}
       {step === 0 && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-800">Step 1 — Select file and reporting period</h2>
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-sm font-semibold text-gray-800">Step 1 — Select file and reporting period</h2>
+            <div className="flex items-start gap-1.5 text-[11px] text-gray-400 max-w-xs">
+              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>Import one trial balance per period. Each import creates a posted journal entry in the ledger tagged as "As Reported."</span>
+            </div>
+          </div>
 
           {/* File dropzone */}
           <div
@@ -260,7 +317,7 @@ export function ImportWizardPage() {
               <label className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
               <select
                 value={entityId}
-                onChange={(e) => setEntityId(e.target.value)}
+                onChange={(e) => { setEntityId(e.target.value); setSelectedPeriodId('') }}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               >
                 <option value="">Select entity…</option>
@@ -270,13 +327,52 @@ export function ImportWizardPage() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">As-of Date *</label>
-              <input
-                type="date"
-                value={asOfDate}
-                onChange={(e) => setAsOfDate(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-gray-600">
+                  {usePeriodPicker ? 'Accounting Period *' : 'As-of Date *'}
+                </label>
+                {entityId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsePeriodPicker((v) => !v)
+                      setSelectedPeriodId('')
+                      setAsOfDate('')
+                    }}
+                    className="text-[10px] text-indigo-600 hover:underline"
+                  >
+                    {usePeriodPicker ? 'Enter date manually' : 'Pick from accounting periods'}
+                  </button>
+                )}
+              </div>
+              {usePeriodPicker ? (
+                <select
+                  value={selectedPeriodId}
+                  onChange={(e) => {
+                    setSelectedPeriodId(e.target.value)
+                    const p = sortedPeriods.find((p: AccountingPeriod) => String(p.id) === e.target.value)
+                    if (p) setAsOfDate(p.end_date)
+                  }}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                >
+                  <option value="">Select period…</option>
+                  {sortedPeriods.map((p: AccountingPeriod) => (
+                    <option key={p.id} value={p.id}>
+                      {p.period_name} (ends {p.end_date})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="date"
+                  value={asOfDate}
+                  onChange={(e) => setAsOfDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                />
+              )}
+              {usePeriodPicker && asOfDate && (
+                <p className="text-[10px] text-gray-400 mt-0.5">As-of date: {asOfDate}</p>
+              )}
             </div>
           </div>
 
@@ -497,7 +593,7 @@ export function ImportWizardPage() {
           )}
 
           <div className="flex justify-between">
-            <button type="button" onClick={() => setStep(detected.sheets.length > 0 ? 1 : 0)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => setStep(detected.sheets.length > 1 ? 1 : 0)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
             <button
@@ -703,7 +799,7 @@ export function ImportWizardPage() {
             <button
               type="button"
               disabled={uploadMutation.isPending}
-              onClick={() => uploadMutation.mutate()}
+              onClick={() => uploadMutation.mutate(false)}
               className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded hover:bg-indigo-700 disabled:opacity-50"
             >
               {uploadMutation.isPending

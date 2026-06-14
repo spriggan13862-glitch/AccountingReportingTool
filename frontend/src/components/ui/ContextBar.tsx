@@ -1,4 +1,4 @@
-import { Building2, Calendar, ChevronDown, GitBranch, Plus, X } from 'lucide-react'
+import { Building2, Calendar, ChevronDown, GitBranch, HelpCircle, Plus, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -127,6 +127,24 @@ function isPeriod(x: unknown): x is AccountingPeriod { return typeof x === 'obje
 function isScenario(x: unknown): x is Scenario { return typeof x === 'object' && x !== null && 'scenario_type' in x }
 
 // ---------------------------------------------------------------------------
+// Tooltip
+// ---------------------------------------------------------------------------
+
+function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span className="relative flex items-center" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      {children}
+      {show && (
+        <span className="absolute left-5 top-0 z-50 w-56 rounded bg-gray-800 px-2.5 py-2 text-[11px] leading-relaxed text-white shadow-lg">
+          {text}
+        </span>
+      )}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // ContextBar
 // ---------------------------------------------------------------------------
 
@@ -161,8 +179,6 @@ export function ContextBar() {
   const hideAll = WIZARD_PATHS.some((p) => pathname.startsWith(p))
   const hideViewToggle = hideAll || VIEW_HIDDEN_PATHS.some((p) => pathname.startsWith(p))
 
-  if (hideAll) return null
-
   const { data: entities = [] } = useQuery({
     queryKey: ['entities-list'],
     queryFn: () => entitiesApi.list(),
@@ -184,6 +200,8 @@ export function ContextBar() {
 
   const sortedPeriods = [...periods].sort((a, b) => b.start_date.localeCompare(a.start_date))
   const activeScenario = scenarios.find((s) => activeScenarioIds[0] === s.id) ?? null
+
+  if (hideAll) return null
 
   return (
     <div className="flex h-9 items-center gap-3 border-b border-gray-100 bg-gray-50 px-4 text-xs text-gray-600 flex-wrap">
@@ -224,14 +242,31 @@ export function ContextBar() {
       <span className="text-gray-300">|</span>
 
       {/* Scenario */}
-      <ContextDropdown
-        icon={GitBranch}
-        label={activeScenario ? `${activeScenario.code} — ${activeScenario.name}` : null}
-        items={scenarios}
-        selected={activeScenario}
-        onSelect={(s: Scenario) => setActiveScenarioIds([s.id])}
-        onClear={() => setActiveScenarioIds([])}
-      />
+      <div className="flex items-center gap-1">
+        <ContextDropdown
+          icon={GitBranch}
+          label={activeScenario ? `${activeScenario.code} — ${activeScenario.name}` : null}
+          items={scenarios}
+          selected={activeScenario}
+          onSelect={(s: Scenario) => setActiveScenarioIds([s.id])}
+          onClear={() => setActiveScenarioIds([])}
+          footer={
+            scenarios.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => navigate('/setup?tab=scenarios')}
+                className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 rounded transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                No scenarios — go to Setup
+              </button>
+            ) : undefined
+          }
+        />
+        <Tooltip text="Scenarios segment journal entries by purpose. 'Actual' = as reported. 'Topside' = audit adjustments. 'Pro Forma' = what-if overlays. Use the context bar to filter statements to one scenario.">
+          <HelpCircle className="h-3 w-3 text-gray-300 hover:text-gray-500 cursor-help" />
+        </Tooltip>
+      </div>
 
       {!hideViewToggle && (
         <>
@@ -239,7 +274,9 @@ export function ContextBar() {
 
           {/* Data View toggle — hidden on import/setup pages */}
           <div className="flex items-center gap-1.5 text-[11px]">
-            <span className="text-gray-400 font-medium">View:</span>
+            <Tooltip text="As Reported: only TB import entries. Adjusted: all posted JEs. Pro Forma: includes draft overlay JEs for what-if analysis.">
+              <span className="text-gray-400 font-medium cursor-help">View:</span>
+            </Tooltip>
             {DATA_VIEWS.map(({ value, label }) => (
               <button
                 key={value}

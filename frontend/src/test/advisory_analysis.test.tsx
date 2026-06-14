@@ -170,18 +170,16 @@ describe('AdvisoryAnalysisPage — Sprint 3.16', () => {
 // ---------------------------------------------------------------------------
 
 describe('AdvisoryAnalysisPage — nav registration', () => {
-  it('advisory-analysis is in workbench group', async () => {
+  it('advisory-analysis is NOT in the main nav rail', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const wb = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    const item = wb.items.find((i) => i.id === 'advisory-analysis')
-    expect(item).toBeDefined()
-    expect(item?.to).toBe('/workbench/advisory-analysis')
-    expect(item?.label).toBe('Advisory Analysis')
+    for (const g of NAV_GROUPS) {
+      expect(g.items.find((i) => i.id === 'advisory-analysis')).toBeUndefined()
+    }
   })
 
-  it('workbench group has 6 items', async () => {
+  it('adjustments group has 3 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const wb = NAV_GROUPS.find((g) => g.id === 'workbench')!
-    expect(wb.items.length).toBe(6)
+    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')!
+    expect(g.items.length).toBe(3)
   })
 })

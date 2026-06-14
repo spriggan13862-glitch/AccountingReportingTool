@@ -40,7 +40,7 @@ export function TrialBalanceImportPage() {
   const [dragOver, setDragOver] = useState(false)
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [asOfDate, setAsOfDate] = useState<string>('')
-  const [scenarioId, setScenarioId] = useState<number>(1)
+  const [scenarioId, setScenarioId] = useState<number | ''>(activeEntity ? '' : '')
   
   const [detected, setDetected] = useState<any>(null)
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
@@ -87,7 +87,7 @@ export function TrialBalanceImportPage() {
         entity_id: entityId as number,
         organization_id: orgId,
         as_of_date: asOfDate,
-        scenario_id: scenarioId || 1,
+        scenario_id: scenarioId !== '' ? scenarioId : undefined,
         sheet_name: selectedSheet ?? undefined,
         file,
       })
@@ -195,7 +195,7 @@ export function TrialBalanceImportPage() {
 
             <ScenarioSelect
               value={scenarioId}
-              onChange={(id) => setScenarioId(typeof id === 'number' ? id : 1)}
+              onChange={(id) => setScenarioId(id)}
               label="Data Category"
               organizationId={orgId || undefined}
             />

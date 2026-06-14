@@ -348,23 +348,23 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
     expect(await screen.findByText('New Adjustment')).toBeInTheDocument()
   })
 
-  it('workbench group nav has adjustment-workspace item', async () => {
+  it('adjustments group nav has adjustments item', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const wb = NAV_GROUPS.find((g) => g.id === 'workbench')
-    expect(wb).toBeDefined()
-    expect(wb!.items.find((i) => i.id === 'adjustment-workspace')).toBeDefined()
+    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')
+    expect(g).toBeDefined()
+    expect(g!.items.find((i) => i.id === 'adjustments')).toBeDefined()
   })
 
-  it('adjustment-workspace nav item points to correct route', async () => {
+  it('adjustments nav item points to /adjustments', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const wb = NAV_GROUPS.find((g) => g.id === 'workbench')
-    const item = wb!.items.find((i) => i.id === 'adjustment-workspace')
-    expect(item!.to).toBe('/workbench/adjustment-workspace')
+    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')
+    const item = g!.items.find((i) => i.id === 'adjustments')
+    expect(item!.to).toBe('/adjustments')
   })
 
-  it('workbench group now has 6 items', async () => {
+  it('adjustments group has 3 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const wb = NAV_GROUPS.find((g) => g.id === 'workbench')
-    expect(wb!.items.length).toBe(6)
+    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')
+    expect(g!.items.length).toBe(3)
   })
 })

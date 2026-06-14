@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { reviewApi } from '@/api/review'
 import { journalEntriesApi } from '@/api/journalEntries'
+import { scenariosApi } from '@/api/scenarios'
 import api from '@/api/client'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useOrg } from '@/providers/OrgProvider'
@@ -106,6 +107,8 @@ export function OverviewPage() {
   const queryClient = useQueryClient()
   const [showDevTools, setShowDevTools] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
+  const [resetConfirmText, setResetConfirmText] = useState('')
+  const [showResetModal, setShowResetModal] = useState(false)
 
   const hasContext = !!activeEntity && !!activePeriod
 
@@ -142,11 +145,11 @@ export function OverviewPage() {
   const resetMutation = useMutation({
     mutationFn: () => api.delete(`/dev/reset?org_id=${orgId}`).then((r) => r.data),
     onSuccess: (data: { deleted: Record<string, number> }) => {
-      // Clear workspace context — entities no longer exist after reset
       setActiveEntity(null)
       setActivePeriod(null)
-      // Wipe entire query cache so no stale data shows anywhere
       queryClient.clear()
+      setShowResetModal(false)
+      setResetConfirmText('')
       const total = Object.values(data.deleted).reduce((s, n) => s + n, 0)
       toast(`Reset complete — ${total} records deleted.`, 'success')
     },
@@ -155,11 +158,24 @@ export function OverviewPage() {
 
   const seedMutation = useMutation({
     mutationFn: () => api.post(`/dev/seed?org_id=${orgId}`).then((r) => r.data),
-    onSuccess: (data: { entity_code: string; periods_created: number; accounts_created: number }) => {
+    onSuccess: (data: { entity_code: string; periods_created: number; accounts_created: number; scenarios_created: number }) => {
       queryClient.invalidateQueries()
-      toast(`Seeded ${data.entity_code} — ${data.periods_created} periods, ${data.accounts_created} accounts.`, 'success')
+      toast(`Seeded ${data.entity_code} — ${data.periods_created} periods, ${data.accounts_created} accounts, ${data.scenarios_created} scenarios.`, 'success')
     },
     onError: (err: Error) => toast(`Seed failed: ${err.message}`, 'error'),
+  })
+
+  const seedScenariosMutation = useMutation({
+    mutationFn: () => scenariosApi.ensureDefaults(orgId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['scenarios-list'] })
+      if (data.length === 0) {
+        toast('Default scenarios already exist.', 'success')
+      } else {
+        toast(`Created ${data.length} default scenario${data.length !== 1 ? 's' : ''}: ${data.map((s) => s.code).join(', ')}.`, 'success')
+      }
+    },
+    onError: (err: Error) => toast(`Scenario seed failed: ${err.message}`, 'error'),
   })
 
   const clearImportsMutation = useMutation({
@@ -404,6 +420,22 @@ export function OverviewPage() {
               </button>
             </div>
 
+            <div className="rounded-lg border border-violet-200 bg-white p-3 flex flex-col gap-2">
+              <div>
+                <p className="text-xs font-bold text-gray-800">Seed Default Scenarios</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Creates ACT (As Reported), ADJ (Adjusted), and PF (Pro Forma) scenarios for this org. Safe to run multiple times.</p>
+              </div>
+              <button
+                type="button"
+                disabled={seedScenariosMutation.isPending || !orgId}
+                onClick={() => seedScenariosMutation.mutate()}
+                className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-teal-600 text-white text-xs font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {seedScenariosMutation.isPending ? 'Creating…' : 'Seed Scenarios'}
+              </button>
+            </div>
+
             <div className="rounded-lg border border-orange-200 bg-white p-3 flex flex-col gap-2">
               <div>
                 <p className="text-xs font-bold text-orange-700">Clear Import Queue</p>
@@ -412,11 +444,7 @@ export function OverviewPage() {
               <button
                 type="button"
                 disabled={clearImportsMutation.isPending || !orgId}
-                onClick={() => {
-                  if (window.confirm('Delete all import batches for this org?')) {
-                    clearImportsMutation.mutate()
-                  }
-                }}
+                onClick={() => clearImportsMutation.mutate()}
                 className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -432,11 +460,7 @@ export function OverviewPage() {
               <button
                 type="button"
                 disabled={resetMutation.isPending || !orgId}
-                onClick={() => {
-                  if (window.confirm('DELETE ALL data for this org? Export a snapshot first if needed. Cannot be undone.')) {
-                    resetMutation.mutate()
-                  }
-                }}
+                onClick={() => { setResetConfirmText(''); setShowResetModal(true) }}
                 className="mt-auto flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -481,6 +505,51 @@ export function OverviewPage() {
           </div>
         )}
       </div>
+
+      {/* Reset confirmation modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl border border-red-200">
+            <h3 className="text-sm font-bold text-red-700 mb-1">Reset All Data</h3>
+            <p className="text-xs text-gray-600 mb-4">
+              This will permanently delete all entities, accounts, periods, import batches, and journal entries
+              for this org. Export a snapshot first if you need a backup.
+            </p>
+            <p className="text-xs font-semibold text-gray-700 mb-2">
+              Type <span className="font-mono bg-red-50 text-red-700 px-1 rounded">RESET</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={resetConfirmText}
+              onChange={(e) => setResetConfirmText(e.target.value)}
+              placeholder="RESET"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && resetConfirmText === 'RESET') resetMutation.mutate()
+                if (e.key === 'Escape') setShowResetModal(false)
+              }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resetConfirmText !== 'RESET' || resetMutation.isPending}
+                onClick={() => resetMutation.mutate()}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetMutation.isPending ? 'Resetting…' : 'Reset All Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

@@ -16,4 +16,7 @@ export const scenariosApi = {
 
   deactivate: (id: number) =>
     api.delete(`/scenarios/${id}`),
+
+  ensureDefaults: (organizationId: number) =>
+    api.post<Scenario[]>(`/scenarios/ensure-defaults?organization_id=${organizationId}`).then((r) => r.data),
 }

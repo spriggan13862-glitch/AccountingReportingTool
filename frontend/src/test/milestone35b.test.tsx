@@ -56,8 +56,8 @@ vi.mock('@/api/entities', () => ({
 vi.mock('@/api/scenarios', () => ({
   scenariosApi: {
     list: vi.fn().mockResolvedValue([
-      { id: 10, code: 'ACT', name: 'Actuals 2025', scenario_type: 'actual', description: null, active: true },
-      { id: 11, code: 'BUD', name: 'Budget 2025', scenario_type: 'budget', description: null, active: true },
+      { id: 10, code: 'ACT', name: 'Actuals', scenario_type: 'actual', description: null, active: true },
+      { id: 11, code: 'BUD', name: 'Budget', scenario_type: 'budget', description: null, active: true },
     ]),
     create: vi.fn(),
     update: vi.fn(),
@@ -125,9 +125,9 @@ describe('ScenarioSelect', () => {
     ))
     expect(screen.getByText(/loading|pick a scenario/i)).toBeTruthy()
     await waitFor(() => {
-      expect(screen.getByText(/Actuals 2025/)).toBeTruthy()
+      expect(screen.getByText(/Actuals/)).toBeTruthy()
     })
-    expect(screen.getByText(/Budget 2025/)).toBeTruthy()
+    expect(screen.getByText(/Budget/)).toBeTruthy()
   })
 
   it('shows type label in option text', async () => {
@@ -145,7 +145,7 @@ describe('ScenarioSelect', () => {
     render(wrap(
       <ScenarioSelect value="" onChange={onChange} />
     ))
-    await waitFor(() => screen.getByText(/Actuals 2025/))
+    await waitFor(() => screen.getByText(/Actuals/))
     fireEvent.change(screen.getByTestId('scenario-select'), { target: { value: '10' } })
     expect(onChange).toHaveBeenCalledWith(10)
   })
@@ -155,7 +155,7 @@ describe('ScenarioSelect', () => {
     render(wrap(
       <ScenarioSelect value={10} onChange={onChange} placeholder="All" />
     ))
-    await waitFor(() => screen.getByText(/Actuals 2025/))
+    await waitFor(() => screen.getByText(/Actuals/))
     fireEvent.change(screen.getByTestId('scenario-select'), { target: { value: '' } })
     expect(onChange).toHaveBeenCalledWith('')
   })
