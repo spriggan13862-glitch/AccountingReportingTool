@@ -1,18 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { workflowApi } from '@/api/workflow'
 import { reportsApi } from '@/api/reports'
 import { journalEntriesApi } from '@/api/journalEntries'
 import { tbImportApi } from '@/api/tbImport'
 import { importRegistryApi } from '@/api/importRegistry'
+import api from '@/api/client'
 import { useOrg } from '@/providers/OrgProvider'
 import { useAuth } from '@/providers/AuthProvider'
+import { useToast } from '@/providers/ToastProvider'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { SetupWizardPage } from '@/pages/SetupWizardPage'
-import { AlertCircle, Clock, CheckCircle, ChevronRight, FileText } from 'lucide-react'
+import { AlertCircle, Clock, CheckCircle, ChevronRight, FileText, Trash2 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
 const PDF_INCOMPLETE_STATUSES = new Set(['uploaded', 'parsed', 'validation_failed', 'failed', 'error', 'awaiting mapping', 'mapping_required'])
@@ -160,6 +162,18 @@ export function DashboardPage() {
   const { org } = useOrg()
   const { user } = useAuth()
   const orgId = org?.id ?? 0
+  const toast = useToast()
+  const queryClient = useQueryClient()
+
+  const resetMutation = useMutation({
+    mutationFn: () => api.delete(`/dev/reset?org_id=${orgId}`).then((r) => r.data),
+    onSuccess: (data: { deleted: Record<string, number> }) => {
+      queryClient.invalidateQueries()
+      const total = Object.values(data.deleted).reduce((s, n) => s + n, 0)
+      toast(`Reset complete — ${total} records deleted. Fresh start ready.`, 'success')
+    },
+    onError: (err: Error) => toast(`Reset failed: ${err.message}`, 'error'),
+  })
 
   const status = useQuery({
     queryKey: ['onboarding-status', orgId],
@@ -621,6 +635,29 @@ export function DashboardPage() {
         {/* Onboarding quick links (moved lower and made secondary) */}
         <div className="mt-6">
           <QuickLinks />
+        </div>
+
+        {/* Dev Reset */}
+        <div className="mt-2 rounded-xl border border-red-200 bg-red-50/40 p-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-xs font-bold text-red-700">Developer Reset</p>
+              <p className="text-[11px] text-red-500 mt-0.5">Wipes all entities, imports, journal entries, accounts and periods for this org. Cannot be undone.</p>
+            </div>
+            <button
+              type="button"
+              disabled={resetMutation.isPending || !orgId}
+              onClick={() => {
+                if (window.confirm('This will delete ALL data for this org (entities, imports, accounts, journal entries, periods). Are you sure?')) {
+                  resetMutation.mutate()
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {resetMutation.isPending ? 'Resetting…' : 'Reset All Data'}
+            </button>
+          </div>
         </div>
 
         {/* What's New */}
