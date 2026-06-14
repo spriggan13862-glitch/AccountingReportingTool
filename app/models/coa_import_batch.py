@@ -15,6 +15,7 @@ class COAImportBatch(Base):
     entity_id = Column(Integer, ForeignKey("entities.id"), nullable=False)
     filename = Column(String(255), nullable=False)
     source_system = Column(String(50), nullable=True)   # detected: quickbooks, netsuite, generic
+    content_hash = Column(String(64), nullable=True)
     row_count = Column(Integer, nullable=True)
     accounts_created = Column(Integer, nullable=True)
     accounts_updated = Column(Integer, nullable=True)

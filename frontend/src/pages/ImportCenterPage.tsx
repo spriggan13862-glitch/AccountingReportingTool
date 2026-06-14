@@ -15,7 +15,8 @@ import {
   Download,
   RotateCcw,
   ArrowUpRight,
-  Sparkles
+  Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
@@ -69,6 +70,7 @@ export function ImportCenterPage() {
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [duplicateInfo, setDuplicateInfo] = useState<{ batch_id: number; status: string } | null>(null)
 
   // Top level config tabs ('tb' or 'gl')
   const [activeTab, setActiveTab] = useState<'tb' | 'gl'>('tb')
@@ -106,13 +108,14 @@ export function ImportCenterPage() {
   const entityCount = entityData?.length ?? 0
 
   const uploadMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (force = false) => {
       if (!file || !entityId || !asOfDate) throw new Error('All fields required')
       return tbImportApi.uploadBatch({
         entity_id: entityId as number,
         organization_id: orgId,
         as_of_date: asOfDate,
         file,
+        force,
       })
     },
     onSuccess: (batch) => {
@@ -120,10 +123,31 @@ export function ImportCenterPage() {
       queryClient.invalidateQueries({ queryKey: ['import-registry'] })
       setFile(null)
       setApiError(null)
+      setDuplicateInfo(null)
       toast(`Import uploaded: ${file?.name ?? 'file'} — review and map accounts to continue`, 'success')
       navigate(`/import/${batch.id}`)
     },
-    onError: (err: Error) => { setApiError(err.message); toast(err.message, 'error') },
+    onError: (err: unknown) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (err as any)?.response?.data?.detail
+      if (detail?.code === 'DUPLICATE_IMPORT') {
+        setDuplicateInfo({ batch_id: detail.existing_batch_id, status: detail.existing_status })
+        return
+      }
+      const msg = (err as Error).message ?? 'Upload failed'
+      setApiError(msg)
+      toast(msg, 'error')
+    },
+  })
+
+  const deleteBatchMutation = useMutation({
+    mutationFn: (batchId: number) => tbImportApi.deleteBatch(batchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['import-batches', orgId] })
+      queryClient.invalidateQueries({ queryKey: ['import-registry'] })
+      toast('Import removed', 'success')
+    },
+    onError: (err: Error) => toast(`Remove failed: ${err.message}`, 'error'),
   })
 
   const rollbackMutation = useMutation({
@@ -449,6 +473,21 @@ export function ImportCenterPage() {
                 <Download className="w-3.5 h-3.5" />
               </button>
             )}
+            {b.source_module === 'tb_import' && b.status !== 'posted' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (window.confirm('Remove this import? This cannot be undone.')) {
+                    deleteBatchMutation.mutate(b.source_id)
+                  }
+                }}
+                title="Remove import"
+                className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors hover:bg-red-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         )
       }
@@ -470,6 +509,41 @@ export function ImportCenterPage() {
       }
     >
       {apiError && <ErrorBanner message={apiError} />}
+
+      {duplicateInfo && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">This file was already imported</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Batch #{duplicateInfo.batch_id} exists with status <span className="font-mono">{duplicateInfo.status}</span>.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => { setDuplicateInfo(null); navigate(`/import/${duplicateInfo.batch_id}`) }}
+                className="px-3 py-1 text-xs font-semibold bg-white border border-amber-300 text-amber-800 rounded hover:bg-amber-100 transition-colors flex items-center gap-1"
+              >
+                <ArrowUpRight className="w-3 h-3" /> View existing
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDuplicateInfo(null); uploadMutation.mutate(true) }}
+                className="px-3 py-1 text-xs font-semibold bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
+              >
+                Import anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateInfo(null)}
+                className="px-3 py-1 text-xs text-amber-700 hover:underline"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {totalUnmappedAccounts > 0 && (
         <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex items-start gap-3 shadow-sm" data-testid="unmapped-banner">
@@ -796,6 +870,18 @@ export function ImportCenterPage() {
                   icon: ChevronRight,
                   hidden: (b) => (b.source_module !== 'coa_import' && b.source_module !== 'pdf_import') || b.status !== 'applied',
                   onClick: (b) => navigate(b.entity_id ? `/accounts?entity=${b.entity_id}` : '/accounts'),
+                },
+                {
+                  key: 'delete',
+                  label: 'Remove Import',
+                  icon: Trash2,
+                  variant: 'danger',
+                  hidden: (b) => b.source_module !== 'tb_import' || b.status === 'posted',
+                  onClick: (b) => {
+                    if (window.confirm('Remove this import? This cannot be undone.')) {
+                      deleteBatchMutation.mutate(b.source_id)
+                    }
+                  },
                 },
               ]}
               exportFilename={`financial_cleanup_${activeTabSection}_queue`}

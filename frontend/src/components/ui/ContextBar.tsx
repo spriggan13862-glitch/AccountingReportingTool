@@ -1,6 +1,7 @@
-import { Building2, Calendar, ChevronDown, GitBranch, X } from 'lucide-react'
+import { Building2, Calendar, ChevronDown, GitBranch, Plus, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
 import { scenariosApi } from '@/api/scenarios'
@@ -19,6 +20,7 @@ function ContextDropdown<T>({
   onSelect,
   onClear,
   disabled,
+  footer,
 }: {
   icon: React.ElementType
   label: React.ReactNode
@@ -27,6 +29,7 @@ function ContextDropdown<T>({
   onSelect: (item: T) => void
   onClear?: () => void
   disabled?: boolean
+  footer?: React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -84,14 +87,36 @@ function ContextDropdown<T>({
               ))
             )}
           </ul>
+          {footer && (
+            <div className="border-t border-gray-100 px-1 py-1" onClick={() => setOpen(false)}>
+              {footer}
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
 
+const ENTITY_TYPE_CHIP: Record<string, string> = {
+  staging: 'bg-amber-50 text-amber-700 border-amber-200',
+  consolidation: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  elimination: 'bg-purple-50 text-purple-700 border-purple-200',
+  carveout: 'bg-sky-50 text-sky-700 border-sky-200',
+}
+
 function renderItem(item: unknown): React.ReactNode {
-  if (isEntity(item)) return <><span className="font-mono text-gray-500 w-12 shrink-0">{item.code}</span><span>{item.name}</span></>
+  if (isEntity(item)) return (
+    <>
+      <span className="font-mono text-gray-500 w-12 shrink-0">{item.code}</span>
+      <span className="flex-1">{item.name}</span>
+      {item.entity_type !== 'operating' && (
+        <span className={`text-[9px] font-semibold uppercase tracking-wide border rounded px-1 py-0.5 ml-auto shrink-0 ${ENTITY_TYPE_CHIP[item.entity_type] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+          {item.entity_type}
+        </span>
+      )}
+    </>
+  )
   if (isPeriod(item)) return <span>{item.period_name} <span className="text-gray-400">({item.start_date})</span></span>
   if (isScenario(item)) return <><span className="font-mono text-gray-500 w-12 shrink-0">{item.code}</span><span>{item.name}</span></>
   return null
@@ -112,6 +137,7 @@ const DATA_VIEWS: { value: DataView; label: string }[] = [
 ]
 
 export function ContextBar() {
+  const navigate = useNavigate()
   const {
     activeEntity, setActiveEntity,
     activePeriod, setActivePeriod,
@@ -152,6 +178,16 @@ export function ContextBar() {
         selected={activeEntity}
         onSelect={(e: Entity) => setActiveEntity({ id: e.id, code: e.code, name: e.name })}
         onClear={() => setActiveEntity(null)}
+        footer={
+          <button
+            type="button"
+            onClick={() => navigate('/setup?tab=entities&new=1')}
+            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            New Entity / Manage
+          </button>
+        }
       />
 
       <span className="text-gray-300">|</span>

@@ -8,7 +8,7 @@ class Entity(Base):
     __tablename__ = "entities"
     __table_args__ = (
         CheckConstraint(
-            "entity_type IN ('operating', 'consolidation', 'elimination', 'carveout')",
+            "entity_type IN ('operating', 'consolidation', 'elimination', 'carveout', 'staging')",
             name="ck_entities_type",
         ),
         Index("idx_entities_parent", "parent_id"),

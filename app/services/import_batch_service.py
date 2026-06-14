@@ -1240,6 +1240,17 @@ def create_template(
     return tmpl
 
 
+def delete_batch(db: Session, batch_id: int) -> None:
+    """Hard-delete a non-posted import batch and all its lines/issues."""
+    batch = db.get(ImportBatch, batch_id)
+    if not batch:
+        raise ImportBatchNotFoundError(f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise ImportBatchStateError("Cannot delete a posted batch — rollback first")
+    db.delete(batch)
+    db.flush()
+
+
 def delete_template(db: Session, template_id: int) -> None:
     tmpl = db.get(ImportTemplate, template_id)
     if tmpl:

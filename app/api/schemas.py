@@ -60,7 +60,7 @@ class Page(BaseModel, Generic[T]):
 class EntityCreate(BaseModel):
     code: str
     name: str
-    entity_type: str                     # operating/consolidation/elimination/carveout
+    entity_type: str                     # operating/consolidation/elimination/carveout/staging
     parent_id: int | None = None
     currency: str = "USD"
     fiscal_year_end_month: int           # 1=Jan … 12=Dec; required for period governance

@@ -30,10 +30,12 @@ router = APIRouter(prefix="/coa-imports", tags=["coa-imports"])
 async def upload_coa(
     entity_id: int = Form(...),
     file: UploadFile = File(...),
+    force: bool = Form(default=False),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
 ):
+    import hashlib as _hashlib
     content = await file.read()
     filename = file.filename or "upload.csv"
 
@@ -41,6 +43,27 @@ async def upload_coa(
     entity = db.get(Entity, entity_id)
     if not entity:
         raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
+
+    if not force:
+        content_hash = _hashlib.sha256(content).hexdigest()
+        existing = (
+            db.query(COAImportBatch)
+            .filter(
+                COAImportBatch.content_hash == content_hash,
+                COAImportBatch.entity_id == entity_id,
+                COAImportBatch.status.notin_(["rolled_back", "rejected", "failed"]),
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "DUPLICATE_IMPORT",
+                    "existing_batch_id": existing.id,
+                    "existing_status": existing.status,
+                },
+            )
 
     organization_id = entity.organization_id or 1
     try:
@@ -77,6 +100,7 @@ async def upload_coa(
         entity_id=entity_id,
         filename=filename,
         source_system=parsed["source_system"],
+        content_hash=_hashlib.sha256(content).hexdigest(),
         row_count=parsed["row_count"],
         status="parsed",
         raw_preview=json.dumps(parsed),

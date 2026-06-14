@@ -58,10 +58,12 @@ async def upload_pdf(
     statement_scope: str | None = Form(default=None),
     basis_override: str | None = Form(default=None),
     statement_date: str | None = Form(default=None),
+    force: bool = Form(default=False),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
 ):
+    import hashlib as _hashlib
     content = await file.read()
     filename = file.filename or "upload.pdf"
 
@@ -87,6 +89,27 @@ async def upload_pdf(
                 "missing_fields": missing,
             },
         )
+
+    if not force and entity_id is not None:
+        content_hash = _hashlib.sha256(content).hexdigest()
+        existing = (
+            db.query(PDFImportBatch)
+            .filter(
+                PDFImportBatch.content_hash == content_hash,
+                PDFImportBatch.entity_id == entity_id,
+                PDFImportBatch.status.notin_(["rolled_back", "rejected", "failed"]),
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "DUPLICATE_IMPORT",
+                    "existing_batch_id": existing.id,
+                    "existing_status": existing.status,
+                },
+            )
 
     organization_id = None
     if entity_id is not None:
@@ -158,6 +181,7 @@ async def upload_pdf(
         basis_of_accounting=effective_basis,
         import_type=import_type or "financial_statements",
         statement_scope=statement_scope or "unknown",
+        content_hash=_hashlib.sha256(content).hexdigest(),
         page_count=extracted.get("page_count"),
         line_count=len(detail_lines),
         status="parsed",

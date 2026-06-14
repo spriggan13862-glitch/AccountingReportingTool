@@ -56,6 +56,7 @@ from app.api.schemas import (
     ValidationIssueOut,
     ValidationOut,
 )
+from app.models.import_batch import ImportBatch
 from app.models.tb_import import TbImport
 from app.services import import_batch_service as svc
 from app.services.import_batch_service import (
@@ -189,13 +190,37 @@ async def upload_batch(
     period_id: int | None = Form(None),
     template_id: int | None = Form(None),
     sheet_name: str | None = Form(None),
+    force: bool = Query(False),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
 ):
     """Upload a TB/GL file and start the import pipeline. Pass sheet_name to select a specific XLSX sheet."""
+    import hashlib as _hashlib
     content = await file.read()
+
+    if not force:
+        content_hash = _hashlib.sha256(content).hexdigest()
+        existing = (
+            db.query(ImportBatch)
+            .filter(
+                ImportBatch.content_hash == content_hash,
+                ImportBatch.entity_id == entity_id,
+                ImportBatch.status.notin_(["rolled_back", "rejected"]),
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "DUPLICATE_IMPORT",
+                    "existing_batch_id": existing.id,
+                    "existing_status": existing.status,
+                },
+            )
+
     try:
         try:
             org = get_organization_or_raise(db, organization_id)
@@ -503,6 +528,21 @@ def rollback_batch(
     except (ImportBatchNotFoundError, ImportBatchStateError, ImportBatchError) as exc:
         db.rollback()
         raise _batch_error_to_http(exc)
+
+
+@router.delete("/batches/{batch_id}", status_code=204)
+def delete_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+):
+    try:
+        svc.delete_batch(db, batch_id)
+        db.commit()
+    except ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ImportBatchStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------

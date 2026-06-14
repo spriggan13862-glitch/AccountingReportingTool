@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -21,6 +21,7 @@ class PDFImportBatch(Base):
     # standalone | consolidated | combined | unknown
     statement_scope = Column(String(30), nullable=True, default="unknown")
 
+    content_hash = Column(String(64), nullable=True)
     page_count = Column(Integer, nullable=True)
     line_count = Column(Integer, nullable=True)
     accounts_created = Column(Integer, nullable=True)

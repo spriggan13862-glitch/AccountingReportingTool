@@ -35,6 +35,7 @@ export interface UploadBatchParams {
   period_id?: number
   template_id?: number
   sheet_name?: string
+  force?: boolean
   file: File
 }
 
@@ -112,8 +113,9 @@ export const tbImportApi = {
       sheet_name: params.sheet_name,
       file: params.file,
     })
+    const url = params.force ? '/tb-imports/batches/upload?force=true' : '/tb-imports/batches/upload'
     return api
-      .post<ImportBatch>('/tb-imports/batches/upload', fd, {
+      .post<ImportBatch>(url, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       .then((r) => r.data)
@@ -192,6 +194,9 @@ export const tbImportApi = {
         reversal_je_number: reversalJeNumber,
       })
       .then((r) => r.data),
+
+  deleteBatch: (batchId: number) =>
+    api.delete(`/tb-imports/batches/${batchId}`).then(() => undefined),
 
   listTemplates: (organizationId: number) =>
     api

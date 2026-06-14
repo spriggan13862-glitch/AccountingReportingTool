@@ -624,13 +624,18 @@ export function DashboardPage() {
         </div>
 
         {/* Version Indicator */}
-        <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 font-medium">
-          <div>
-            Version: {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}
+        <div className="mt-8 pt-4 border-t border-slate-100 text-[10px] text-slate-400 font-medium space-y-1">
+          <div className="flex flex-col sm:flex-row items-center justify-between">
+            <div>
+              Version: {import.meta.env.VITE_APP_GIT_TAG ? `${import.meta.env.VITE_APP_GIT_TAG} (${import.meta.env.VITE_APP_GIT_HASH})` : import.meta.env.VITE_APP_GIT_HASH || 'unknown'}
+            </div>
+            <div className="flex gap-4 mt-1 sm:mt-0">
+              <div>Built: {import.meta.env.VITE_APP_BUILD_TIME || 'unknown'}</div>
+              <div>Env: local</div>
+            </div>
           </div>
-          <div className="flex gap-4 mt-1 sm:mt-0">
-            <div>Built: {import.meta.env.VITE_APP_BUILD_TIME || 'unknown'}</div>
-            <div>Env: local</div>
+          <div className="text-slate-300 text-center sm:text-left">
+            Phase 7 — Import dedup (TB · PDF · COA), delete non-posted imports, staging entity type, entity quick-create from context bar
           </div>
         </div>
       </div>

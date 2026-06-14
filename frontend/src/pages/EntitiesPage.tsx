@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Building2, Pencil, Check, Trash2, PowerOff } from 'lucide-react'
 import { entitiesApi } from '@/api/entities'
@@ -12,7 +13,7 @@ import { useToast } from '@/providers/ToastProvider'
 import { useOrg } from '@/providers/OrgProvider'
 import type { Entity } from '@/types'
 
-const ENTITY_TYPES = ['operating', 'consolidation', 'elimination', 'carveout']
+const ENTITY_TYPES = ['operating', 'consolidation', 'elimination', 'carveout', 'staging']
 
 const CURRENCIES = [
   'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'HKD', 'SGD',
@@ -57,10 +58,15 @@ export function EntitiesPage() {
   const toast = useToast()
   const { org } = useOrg()
   const orgId = org?.id ?? 0
+  const [searchParams] = useSearchParams()
   const [apiError, setApiError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<EntityFormState>(emptyForm())
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setShowCreate(true)
+  }, [])
 
   // Delete confirm dialog state
   const [deleteTarget, setDeleteTarget] = useState<Entity | null>(null)
@@ -240,7 +246,11 @@ export function EntitiesPage() {
                   <tr key={entity.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-mono text-gray-600">{entity.code}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{entity.name}</td>
-                    <td className="px-4 py-3"><Badge>{entity.entity_type}</Badge></td>
+                    <td className="px-4 py-3">
+                      <Badge className={entity.entity_type === 'staging' ? 'bg-amber-50 text-amber-700 border border-amber-200' : undefined}>
+                        {entity.entity_type}
+                      </Badge>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{entity.currency}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {entity.fiscal_year_end_month
