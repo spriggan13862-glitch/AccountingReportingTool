@@ -219,7 +219,7 @@ def _parse_xlsx_file(content: bytes, sheet_name: str | None = None, header_row_i
         ws = wb.active
 
     all_rows: list[list[str]] = []
-    for row in ws.iter_rows(values_only=True):
+    for row in ws.iter_rows(min_col=1, values_only=True):
         cells = [str(c).strip() if c is not None else "" for c in row]
         all_rows.append(cells)
 
@@ -1342,7 +1342,7 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
             score = _score_sheet_name(sheet_name)
             sh_raw_rows: list[list[str]] = []
             sh_row_count = 0
-            for row in ws.iter_rows(values_only=True):
+            for row in ws.iter_rows(min_col=1, values_only=True):
                 cells = [str(c).strip() if c is not None else "" for c in row]
                 sh_row_count += 1
                 if len(sh_raw_rows) < 50:

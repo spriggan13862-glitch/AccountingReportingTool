@@ -220,6 +220,58 @@ def test_xlsx_parse(db, seeded):
     assert batch.mapped_row_count == 3
 
 
+def test_xlsx_detect_preserves_blank_leading_columns():
+    """raw_rows must include blank column A; column letters must not shift."""
+    import io
+    import openpyxl
+    from app.services.import_batch_service import detect_file
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    # Row 1: header — blank A, Account Name B, Debit C, blank D, Credit E
+    ws.cell(row=1, column=1, value=None)
+    ws.cell(row=1, column=2, value="Account Name")
+    ws.cell(row=1, column=3, value="Debit")
+    ws.cell(row=1, column=4, value=None)
+    ws.cell(row=1, column=5, value="Credit")
+    # Row 2: data
+    ws.cell(row=2, column=2, value="Cash")
+    ws.cell(row=2, column=3, value=50000)
+    ws.cell(row=2, column=5, value=0)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    result = detect_file(buf.getvalue(), "test_blank_cols.xlsx")
+
+    assert result["sheets"], "Expected at least one sheet in detect result"
+    sheet = result["sheets"][0]
+
+    # raw_rows must be present and non-empty
+    assert sheet["raw_rows"], "raw_rows must not be empty"
+
+    hdr_idx = sheet["auto_header_row_idx"]
+    header_row = sheet["raw_rows"][hdr_idx]
+
+    # Must have 5 columns (A through E), not 4 (B through E)
+    assert len(header_row) >= 5, f"Expected ≥5 cols, got {len(header_row)}: {header_row}"
+
+    # Column A (index 0) must be blank
+    assert header_row[0] == "", f"Column A should be blank, got {header_row[0]!r}"
+
+    # Column B (index 1) must be Account Name
+    assert header_row[1] == "Account Name", f"Column B should be 'Account Name', got {header_row[1]!r}"
+
+    # Column C (index 2) must be Debit
+    assert header_row[2] == "Debit", f"Column C should be 'Debit', got {header_row[2]!r}"
+
+    # Column D (index 3) must be blank
+    assert header_row[3] == "", f"Column D should be blank, got {header_row[3]!r}"
+
+    # Column E (index 4) must be Credit
+    assert header_row[4] == "Credit", f"Column E should be 'Credit', got {header_row[4]!r}"
+
+
 # ---------------------------------------------------------------------------
 # 4. Duplicate upload detection
 # ---------------------------------------------------------------------------

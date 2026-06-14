@@ -568,8 +568,8 @@ export function ImportWizardPage() {
                 Detected columns in <span className="font-semibold">{selectedSheet}</span>:
               </p>
               <div className="flex flex-wrap gap-1">
-                {detected.headers.map((h) => (
-                  <span key={h} className="text-xs bg-white border border-gray-300 px-2 py-0.5 rounded font-mono text-gray-700">{h}</span>
+                {detected.headers.map((h, i) => (
+                  <span key={i} className="text-xs bg-white border border-gray-300 px-2 py-0.5 rounded font-mono text-gray-700">{h || <span className="text-gray-300 italic">blank</span>}</span>
                 ))}
               </div>
               <p className="text-xs text-gray-400 mt-2">
@@ -705,17 +705,20 @@ export function ImportWizardPage() {
                   }`}
                 >
                   <option value="">(not mapped)</option>
-                  {detected.headers.map((h, colIdx) => {
+                  {(() => {
                     const sheetData = detected.sheets.find(s => s.name === selectedSheet)
                     const dataRow = sheetData?.raw_rows?.[(headerRowIdx ?? 0) + 1]
-                    const sample = dataRow?.[colIdx]
-                    const letter = colLetter(colIdx)
-                    return (
-                      <option key={h} value={h}>
-                        {letter} — {h || '(blank)'}{sample ? ` — e.g. ${sample.slice(0, 25)}` : ''}
-                      </option>
-                    )
-                  })}
+                    return detected.headers.map((h, colIdx) => {
+                      if (!h.trim()) return null
+                      const sample = dataRow?.[colIdx]
+                      const letter = colLetter(colIdx)
+                      return (
+                        <option key={colIdx} value={h}>
+                          {letter} — {h}{sample ? ` — e.g. ${sample.slice(0, 25)}` : ''}
+                        </option>
+                      )
+                    })
+                  })()}
                 </select>
               </div>
             ))}

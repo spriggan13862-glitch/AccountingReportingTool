@@ -1513,6 +1513,9 @@ class SheetInfo(BaseModel):
     likely_tb_score: int
     headers: list[str] = []
     preview_rows: list[dict] = []
+    raw_rows: list[list[str]] = []
+    auto_header_row_idx: int = 0
+    detected_mapping: dict[str, str] = {}
 
 
 class DetectResult(BaseModel):
