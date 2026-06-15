@@ -90,16 +90,16 @@ export interface DetectionThreshold {
 export async function runDetection(params: {
   entity_id: number
   current_period_id: number
-  comparison_period_id: number
+  comparison_period_id?: number | null
   scenario_id?: number | null
   materiality_threshold?: number
 }): Promise<DetectionRunResult> {
   const p = new URLSearchParams({
     entity_id: String(params.entity_id),
     current_period_id: String(params.current_period_id),
-    comparison_period_id: String(params.comparison_period_id),
     materiality_threshold: String(params.materiality_threshold ?? 1000),
   })
+  if (params.comparison_period_id != null) p.set('comparison_period_id', String(params.comparison_period_id))
   if (params.scenario_id != null) p.set('scenario_id', String(params.scenario_id))
   const res = await api.post(`/accounting-intelligence/run-detection?${p}`)
   return res.data

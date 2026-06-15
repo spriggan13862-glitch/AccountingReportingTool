@@ -1277,6 +1277,156 @@ def compute_diagnostics(
 
 
 # ---------------------------------------------------------------------------
+# Metrics dict bridge — PeriodMetrics → evaluate_all_rules() format
+# ---------------------------------------------------------------------------
+
+def _build_metrics_dict(cur: PeriodMetrics, pri: PeriodMetrics) -> dict:
+    """
+    Convert two PeriodMetrics objects into the flat metrics dict expected by
+    evaluate_all_rules().  The rule engine looks for:
+      {metric}             → current-period float value
+      {metric}_pct_change  → period-over-period % change
+      {metric}_trend       → "declining" | "increasing" | "stable"
+    Qualitative flags that require data not available in PeriodMetrics are
+    omitted; existence/absent rules for those flags will not fire.
+    """
+
+    def _f(v) -> float:
+        return float(v) if v is not None else 0.0
+
+    def _pct(cur_v, pri_v) -> float | None:
+        if pri_v == 0:
+            return None
+        return float(((cur_v - pri_v) / abs(pri_v)) * 100)
+
+    def _trend(pct: float | None) -> str:
+        if pct is None:
+            return "stable"
+        if pct < -2:
+            return "declining"
+        if pct > 2:
+            return "increasing"
+        return "stable"
+
+    d: dict = {}
+
+    # ── Quantitative metrics ──────────────────────────────────────────────────
+    quantitative_fields = [
+        "revenue", "cogs", "gross_profit", "gross_margin_pct",
+        "total_expenses", "payroll_expense", "net_income",
+        "cash", "accounts_receivable", "inventory",
+        "total_current_assets", "total_assets",
+        "total_current_liabilities", "total_liabilities",
+        "total_debt", "total_equity",
+        "current_ratio", "working_capital",
+    ]
+
+    for field in quantitative_fields:
+        cv = getattr(cur, field, None)
+        pv = getattr(pri, field, None)
+        cv_f = _f(cv)
+        pv_f = _f(pv)
+        d[field] = cv_f
+        pct = _pct(cv_f, pv_f) if pv_f != 0 else None
+        if pct is not None:
+            d[f"{field}_pct_change"] = pct
+            d[f"{field}_trend"] = _trend(pct)
+
+    # ── Derived ratios ────────────────────────────────────────────────────────
+    if d.get("total_assets", 0) > 0:
+        d["debt_to_equity"] = _f(cur.total_debt) / _f(cur.total_equity) if _f(cur.total_equity) > 0 else 999.0
+        d["roa"] = _f(cur.net_income) / _f(cur.total_assets) * 100
+
+    if d.get("total_liabilities", 0) > 0 and _f(cur.total_equity) > 0:
+        d["debt_to_equity"] = _f(cur.total_liabilities) / _f(cur.total_equity)
+
+    if _f(cur.revenue) > 0:
+        d["ar_days"] = (_f(cur.accounts_receivable) / _f(cur.revenue)) * 365
+        d["inventory_days"] = (_f(cur.inventory) / _f(cur.revenue)) * 365
+
+    # ── Qualitative flags derived from quantitative data ──────────────────────
+    if _f(cur.cash) < 0:
+        d["negative_cash_balance"] = True
+    if _f(cur.accounts_receivable) < 0:
+        d["negative_ar_balance"] = True
+    if _f(cur.inventory) < 0:
+        d["negative_inventory_balance"] = True
+    if _f(cur.total_equity) < 0:
+        d["negative_equity"] = True
+    if _f(cur.current_ratio) < 1.0 and _f(cur.current_ratio) > 0:
+        d["current_ratio_below_one"] = True
+    if _f(cur.net_income) < 0:
+        d["net_loss"] = True
+
+    # Cash declined while NI positive
+    cash_change = _f(cur.cash) - _f(pri.cash)
+    if cash_change < 0 and _f(cur.net_income) > 0:
+        d["cash_declining_with_positive_ni"] = True
+
+    # Revenue growing while cash declining
+    rev_pct = d.get("revenue_pct_change")
+    cash_pct = d.get("cash_pct_change")
+    if rev_pct is not None and cash_pct is not None and rev_pct > 5 and cash_pct < -5:
+        d["revenue_growing_cash_declining"] = True
+
+    # AR growing faster than revenue
+    ar_pct = d.get("accounts_receivable_pct_change")
+    if ar_pct is not None and rev_pct is not None and ar_pct - (rev_pct or 0) > 10:
+        d["ar_outpacing_revenue"] = True
+
+    return d
+
+
+def _repo_rule_to_detected_issue(
+    result,          # RuleResult from rule_engine
+    template: dict,
+    run_id: str,
+    entity_id: int,
+    current_period_id: int,
+    comparison_period_id: int,
+) -> DetectedIssue:
+    """Convert a triggered repository RuleResult into a DetectedIssue ORM row."""
+    risk_map = {
+        "critical": "critical",
+        "high": "high",
+        "moderate": "moderate",
+        "low": "low",
+        "informational": "informational",
+    }
+    severity = risk_map.get(result.risk_level, "moderate")
+
+    procs = template.get("suggested_procedures", [])
+    if isinstance(procs, list):
+        procs = "\n".join(f"• {p}" for p in procs)
+
+    ajes = template.get("suggested_ajes", [])
+    if isinstance(ajes, list):
+        ajes = "\n".join(f"• {a}" for a in ajes)
+
+    return DetectedIssue(
+        run_id=run_id,
+        entity_id=entity_id,
+        current_period_id=current_period_id,
+        comparison_period_id=comparison_period_id,
+        issue_code=result.code,
+        category=result.category,
+        severity=severity,
+        title=result.name,
+        description=template.get("description", result.explanation or result.name),
+        detection_trigger=result.explanation or f"{result.rule_type} rule triggered",
+        affected_accounts_json="[]",
+        supporting_metrics_json=json.dumps({"magnitude": result.magnitude, "score": result.score}),
+        suggested_procedures=procs or None,
+        suggested_ajes=ajes or None,
+        narrative_prompt=None,
+        narrative_output=None,
+        ai_explanation=None,
+        management_questions=None,
+        status="open",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main detection entry point
 # ---------------------------------------------------------------------------
 
@@ -1284,40 +1434,50 @@ def run_detection(
     db: Session,
     entity_id: int,
     current_period_id: int,
-    comparison_period_id: int,
+    comparison_period_id: int | None = None,
     scenario_id: int | None = None,
     materiality_threshold: Decimal = Decimal("1000"),
     persist: bool = True,
 ) -> list[dict]:
     """
-    Run all detection rules against the current/prior period pair.
+    Run all detection rules against the current period and optional comparison period.
+
+    When comparison_period_id is None, skips comparison-period rules and runs
+    single-period account checks + repository rules against current-period metrics.
 
     Returns list of serialized DetectedIssue dicts (not ORM objects).
     When persist=True, saves DetectedIssue rows to the database.
     """
     current_period = db.get(AccountingPeriod, current_period_id)
-    comparison_period = db.get(AccountingPeriod, comparison_period_id)
-
     if current_period is None:
         raise ValueError(f"Period {current_period_id} not found")
-    if comparison_period is None:
-        raise ValueError(f"Period {comparison_period_id} not found")
+
+    comparison_period = None
+    if comparison_period_id is not None:
+        comparison_period = db.get(AccountingPeriod, comparison_period_id)
+        if comparison_period is None:
+            raise ValueError(f"Period {comparison_period_id} not found")
 
     thresholds = _load_thresholds(db, entity_id)
 
     cur = _compute_metrics(db, entity_id, current_period, scenario_id)
-    pri = _compute_metrics(db, entity_id, comparison_period, scenario_id)
+    pri = _compute_metrics(db, entity_id, comparison_period, scenario_id) if comparison_period else cur
 
     run_id = str(uuid.uuid4())
-    results: list[DetectionResult] = []
-    for rule in _ALL_RULES:
-        try:
-            results.extend(rule(cur, pri, thresholds))
-        except Exception:
-            pass
 
-    issues: list[dict] = []
-    for r in results:
+    # ── Path 1: 10 hardcoded comparison-period rules (skip when no comparison) ─
+    hardcoded_results: list[DetectionResult] = []
+    if comparison_period is not None:
+        for rule in _ALL_RULES:
+            try:
+                hardcoded_results.extend(rule(cur, pri, thresholds))
+            except Exception:
+                pass
+
+    triggered_codes = {r.issue_code for r in hardcoded_results}
+
+    issue_rows: list[DetectedIssue] = []
+    for r in hardcoded_results:
         row = DetectedIssue(
             run_id=run_id,
             entity_id=entity_id,
@@ -1333,21 +1493,78 @@ def run_detection(
             supporting_metrics_json=json.dumps(r.supporting_metrics),
             suggested_procedures=r.suggested_procedures,
             suggested_ajes=r.suggested_ajes,
-            # AI fields: architecture reserved, not populated
             narrative_prompt=None,
             narrative_output=None,
             ai_explanation=None,
             management_questions=None,
             status="open",
         )
-        if persist:
+        issue_rows.append(row)
+
+    # ── Path 2: 200-rule repository evaluated against computed metrics dict ──
+    try:
+        from app.services.rule_engine import evaluate_all_rules
+        from app.data.issue_repository_data import ISSUE_REPOSITORY
+
+        metrics_dict = _build_metrics_dict(cur, pri)
+        repo_results = evaluate_all_rules(metrics_dict)
+        template_by_code = {t["code"]: t for t in ISSUE_REPOSITORY}
+
+        for rr in repo_results:
+            if not rr.triggered:
+                continue
+            if rr.code in triggered_codes:
+                continue  # already surfaced by hardcoded rule
+            tmpl = template_by_code.get(rr.code, {})
+            row = _repo_rule_to_detected_issue(
+                rr, tmpl, run_id, entity_id, current_period_id, comparison_period_id
+            )
+            issue_rows.append(row)
+            triggered_codes.add(rr.code)
+    except Exception:
+        pass  # repository rules are additive — never block core detection
+
+    # ── Path 3: Single-period account-level checks ────────────────────────────
+    try:
+        sp_findings = run_single_period_detection(db, entity_id, current_period, scenario_id)
+        for f in sp_findings:
+            if f["issue_code"] in triggered_codes:
+                continue
+            row = DetectedIssue(
+                run_id=run_id,
+                entity_id=entity_id,
+                current_period_id=current_period_id,
+                comparison_period_id=comparison_period_id,
+                issue_code=f["issue_code"],
+                category=f["category"],
+                severity=f["severity"],
+                title=f["title"],
+                description=f["description"],
+                detection_trigger=f["detection_trigger"],
+                affected_accounts_json=json.dumps(
+                    list(f.get("supporting_metrics", {}).get("account_numbers", "").split(", "))
+                    if f.get("supporting_metrics", {}).get("account_numbers") else []
+                ),
+                supporting_metrics_json=json.dumps(f.get("supporting_metrics", {})),
+                suggested_procedures=f.get("suggested_procedures"),
+                suggested_ajes=f.get("suggested_ajes"),
+                narrative_prompt=None,
+                narrative_output=None,
+                ai_explanation=None,
+                management_questions=None,
+                status="open",
+            )
+            issue_rows.append(row)
+            triggered_codes.add(f["issue_code"])
+    except Exception:
+        pass
+
+    # ── Persist ───────────────────────────────────────────────────────────────
+    if persist and issue_rows:
+        for row in issue_rows:
             db.add(row)
-
-    if persist and results:
         db.commit()
-        db.refresh(row) if results else None
 
-    # Re-query persisted rows if we committed
     if persist:
         rows = (
             db.query(DetectedIssue)
@@ -1356,7 +1573,7 @@ def run_detection(
         )
         return [_serialize_issue(r) for r in rows]
 
-    return [_serialize_result(r, run_id, entity_id, current_period_id, comparison_period_id) for r in results]
+    return [_serialize_result(r, run_id, entity_id, current_period_id, comparison_period_id) for r in hardcoded_results]
 
 
 def _serialize_result(

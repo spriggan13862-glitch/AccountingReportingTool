@@ -19,13 +19,14 @@ router = APIRouter(prefix="/accounting-intelligence", tags=["accounting-intellig
 def run_detection(
     entity_id: int = Query(...),
     current_period_id: int = Query(...),
-    comparison_period_id: int = Query(...),
+    comparison_period_id: int | None = Query(default=None),
     scenario_id: int | None = Query(default=None),
     materiality_threshold: float = Query(default=1000.0),
     db: Session = Depends(get_db),
 ):
     """
-    Run all detection rules against current vs. comparison period.
+    Run all detection rules against current period (and optionally a comparison period).
+    When comparison_period_id is omitted, runs single-period and repository rules only.
     Persists results as DetectedIssue rows and returns the detected issues.
     """
     try:

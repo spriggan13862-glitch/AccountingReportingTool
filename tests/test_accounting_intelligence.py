@@ -412,3 +412,203 @@ class TestIssueStatus:
         resolved = svc.update_issue_status(session, issue_id, "resolved")
         assert resolved["status"] == "resolved"
         assert resolved["resolved_at"] is not None
+
+
+# ---------------------------------------------------------------------------
+# _build_metrics_dict
+# ---------------------------------------------------------------------------
+
+class TestBuildMetricsDict:
+    def _make_metrics(self, **kwargs):
+        defaults = dict(
+            period_id=1, period_name="Current",
+            start_date=datetime.date(2024, 1, 1),
+            end_date=datetime.date(2024, 12, 31),
+        )
+        return svc.PeriodMetrics(**{**defaults, **kwargs})
+
+    def test_current_values_included(self):
+        cur = self._make_metrics(revenue=Decimal("1000000"), cash=Decimal("50000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior", revenue=Decimal("800000"))
+        d = svc._build_metrics_dict(cur, pri)
+        assert d["revenue"] == 1_000_000.0
+        assert d["cash"] == 50_000.0
+
+    def test_pct_change_computed(self):
+        cur = self._make_metrics(revenue=Decimal("1100000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior", revenue=Decimal("1000000"))
+        d = svc._build_metrics_dict(cur, pri)
+        assert "revenue_pct_change" in d
+        assert abs(d["revenue_pct_change"] - 10.0) < 0.1
+
+    def test_trend_labels(self):
+        cur = self._make_metrics(revenue=Decimal("1100000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior", revenue=Decimal("1000000"))
+        d = svc._build_metrics_dict(cur, pri)
+        assert d.get("revenue_trend") == "increasing"
+
+    def test_negative_cash_flag(self):
+        cur = self._make_metrics(cash=Decimal("-5000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior")
+        d = svc._build_metrics_dict(cur, pri)
+        assert d.get("negative_cash_balance") is True
+
+    def test_negative_equity_flag(self):
+        cur = self._make_metrics(total_equity=Decimal("-10000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior")
+        d = svc._build_metrics_dict(cur, pri)
+        assert d.get("negative_equity") is True
+
+    def test_cash_declining_with_positive_ni_flag(self):
+        cur = self._make_metrics(cash=Decimal("30000"), net_income=Decimal("20000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior", cash=Decimal("50000"))
+        d = svc._build_metrics_dict(cur, pri)
+        assert d.get("cash_declining_with_positive_ni") is True
+
+    def test_no_pct_change_when_prior_zero(self):
+        cur = self._make_metrics(inventory=Decimal("10000"))
+        pri = self._make_metrics(period_id=2, period_name="Prior", inventory=Decimal("0"))
+        d = svc._build_metrics_dict(cur, pri)
+        assert "inventory_pct_change" not in d
+
+
+# ---------------------------------------------------------------------------
+# run_detection() — single-period (no comparison)
+# ---------------------------------------------------------------------------
+
+class TestRunDetectionSinglePeriod:
+    def _je_unique(self, session, entity, scenario, date, lines):
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        je = JournalEntry(
+            je_number=f"SP-{date.isoformat()}-{suffix}",
+            entry_date=date,
+            entity_id=entity.id,
+            scenario_id=scenario.id,
+            description="SP Test JE",
+            source="test",
+            status="posted",
+        )
+        session.add(je)
+        session.flush()
+        for i, (acct, debit, credit) in enumerate(lines, 1):
+            session.add(JournalEntryLine(
+                journal_entry_id=je.id, line_number=i,
+                account_id=acct.id, entity_id=entity.id,
+                debit=Decimal(str(debit)), credit=Decimal(str(credit)),
+            ))
+        session.flush()
+        return je
+
+    def test_single_period_does_not_raise(self, session, entity, scenario, accounts):
+        a = accounts
+        period = _period(session, entity, "SP Q1 2024",
+                         datetime.date(2024, 1, 1), datetime.date(2024, 3, 31), 2024, 101)
+        self._je_unique(session, entity, scenario, datetime.date(2024, 1, 15), [
+            (a["ar"],      100_000, 0),
+            (a["revenue"], 0,       100_000),
+        ])
+        issues = svc.run_detection(
+            session, entity.id,
+            current_period_id=period.id,
+            comparison_period_id=None,
+            scenario_id=scenario.id,
+            persist=True,
+        )
+        assert isinstance(issues, list)
+
+    def test_single_period_negative_cash_detected(self, session, entity, scenario, accounts):
+        a = accounts
+        period = _period(session, entity, "SP NegCash",
+                         datetime.date(2024, 2, 1), datetime.date(2024, 2, 29), 2024, 102)
+        # Debit expense, credit cash below zero (net cash negative)
+        self._je_unique(session, entity, scenario, datetime.date(2024, 2, 15), [
+            (a["salaries"], 200_000, 0),
+            (a["cash"],     0,       200_000),
+        ])
+        issues = svc.run_detection(
+            session, entity.id,
+            current_period_id=period.id,
+            comparison_period_id=None,
+            scenario_id=scenario.id,
+            persist=True,
+        )
+        codes = [i["issue_code"] for i in issues]
+        assert "NEGATIVE_CASH_BALANCE" in codes or any("cash" in c.lower() for c in codes)
+
+
+# ---------------------------------------------------------------------------
+# run_detection() — repository rules integration
+# ---------------------------------------------------------------------------
+
+class TestRunDetectionRepositoryIntegration:
+    def test_repository_rules_fire_on_triggered_metrics(self, session, entity, scenario, accounts):
+        a = accounts
+        prior_p = _period(session, entity, "Repo Prior",
+                           datetime.date(2023, 1, 1), datetime.date(2023, 12, 31), 2023, 201)
+        current_p = _period(session, entity, "Repo Current",
+                              datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), 2024, 202)
+
+        # Prior: Revenue 1M, AR 100k (AR days ~37)
+        _je(session, entity, scenario, datetime.date(2023, 6, 15), [
+            (a["cash"],    900_000, 0),
+            (a["ar"],      100_000, 0),
+            (a["revenue"], 0,       1_000_000),
+        ])
+        _je(session, entity, scenario, datetime.date(2023, 6, 16), [
+            (a["cogs"],    600_000, 0),
+            (a["cash"],    0,       600_000),
+        ])
+
+        # Current: Revenue 1.1M (+10%), AR 500k (+400%) → AR buildup
+        _je(session, entity, scenario, datetime.date(2024, 6, 15), [
+            (a["cash"],    600_000, 0),
+            (a["ar"],      500_000, 0),
+            (a["revenue"], 0,       1_100_000),
+        ])
+        _je(session, entity, scenario, datetime.date(2024, 6, 16), [
+            (a["cogs"],    660_000, 0),
+            (a["cash"],    0,       660_000),
+        ])
+
+        issues = svc.run_detection(
+            session, entity.id,
+            current_period_id=current_p.id,
+            comparison_period_id=prior_p.id,
+            scenario_id=scenario.id,
+            persist=True,
+        )
+        assert len(issues) >= 1
+        codes = [i["issue_code"] for i in issues]
+        # Hardcoded rule fires for AR buildup
+        assert "AR_GROWTH_EXCEEDS_REVENUE" in codes
+
+    def test_run_detection_returns_all_fields(self, session, entity, scenario, accounts):
+        a = accounts
+        prior_p = _period(session, entity, "Fields Prior",
+                           datetime.date(2023, 3, 1), datetime.date(2023, 3, 31), 2023, 203)
+        current_p = _period(session, entity, "Fields Current",
+                              datetime.date(2024, 3, 1), datetime.date(2024, 3, 31), 2024, 204)
+
+        _je(session, entity, scenario, datetime.date(2023, 3, 1), [
+            (a["revenue"], 0, 100_000), (a["ar"], 100_000, 0),
+        ])
+        _je(session, entity, scenario, datetime.date(2024, 3, 1), [
+            (a["revenue"], 0, 200_000), (a["ar"], 200_000, 0),
+        ])
+
+        issues = svc.run_detection(
+            session, entity.id,
+            current_period_id=current_p.id,
+            comparison_period_id=prior_p.id,
+            scenario_id=scenario.id,
+            persist=True,
+        )
+        if issues:
+            issue = issues[0]
+            assert "issue_code" in issue
+            assert "severity" in issue
+            assert "title" in issue
+            assert "status" in issue
+            assert issue["status"] == "open"
