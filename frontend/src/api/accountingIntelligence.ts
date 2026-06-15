@@ -448,3 +448,158 @@ export function downloadQuarterlyReview(
   })
   window.open(`/api/v1/accounting-intelligence/quarterly-review/export?${p}`)
 }
+
+// ---------------------------------------------------------------------------
+// Phase 9 — Materiality, Trends, Adjustment Analysis, Review Package
+// ---------------------------------------------------------------------------
+
+export interface MaterialityProfile {
+  entity_id: number
+  period_id: number
+  overall: number
+  performance: number
+  trivial: number
+  basis_used: string
+  rationale: string
+  revenue_basis: number
+  asset_basis: number
+  equity_basis: number
+  ebitda_basis: number
+  ni_basis: number | null
+  thresholds: {
+    critical: number
+    high: number
+    moderate: number
+    low: number
+  }
+}
+
+export interface TrendPoint {
+  period_id: number
+  period_name: string
+  value: number
+}
+
+export interface TrendResult {
+  metric: string
+  label: string
+  unit: 'amount' | 'percent' | 'ratio'
+  direction: 'increasing' | 'decreasing' | 'stable' | 'volatile'
+  pct_change_yoy: number | null
+  pct_change_recent: number | null
+  is_concerning: boolean
+  concern_reason: string | null
+  points: TrendPoint[]
+}
+
+export interface TrendReport {
+  entity_id: number
+  periods_analyzed: number
+  period_names: string[]
+  has_sufficient_data: boolean
+  key_concerns: string[]
+  trends: TrendResult[]
+}
+
+export interface AjePattern {
+  code: string
+  title: string
+  severity: string
+  description: string
+  count: number
+  total_amount: number
+  affected_je_ids: number[]
+}
+
+export interface AjeSummary {
+  je_id: number
+  je_number: string
+  description: string
+  entry_date: string
+  status: string
+  amount: number
+}
+
+export interface AdjustmentAnalysisReport {
+  entity_id: number
+  as_of_date: string
+  summary: {
+    total_draft: number
+    total_posted: number
+    total_amount_draft: number
+    total_amount_posted: number
+  }
+  patterns: AjePattern[]
+  large_revenue_ajes: AjeSummary[]
+  large_ajes: AjeSummary[]
+  concentration_warning: string | null
+  materiality_notes: string[]
+}
+
+export interface ReviewPackage {
+  entity_id: number
+  period_id: number
+  period_name: string
+  generated_at: string
+  severity_summary: Record<string, number>
+  materiality: {
+    overall: number
+    performance: number
+    basis_used: string
+  }
+  adjustment_summary: {
+    total_draft: number
+    total_posted: number
+    patterns: Array<{ code: string; title: string; severity: string; description: string }>
+    concentration_warning: string | null
+  }
+  finding_count: number
+}
+
+export async function getMaterialityProfile(params: {
+  entity_id: number
+  period_id: number
+}): Promise<MaterialityProfile> {
+  const p = new URLSearchParams({ entity_id: String(params.entity_id), period_id: String(params.period_id) })
+  const res = await api.get(`/accounting-intelligence/materiality?${p}`)
+  return res.data
+}
+
+export async function getTrends(params: {
+  entity_id: number
+  period_ids: number[]
+}): Promise<TrendReport> {
+  const p = new URLSearchParams({
+    entity_id: String(params.entity_id),
+    period_ids: params.period_ids.join(','),
+  })
+  const res = await api.get(`/accounting-intelligence/trends?${p}`)
+  return res.data
+}
+
+export async function getAdjustmentAnalysis(params: {
+  entity_id: number
+  as_of_date: string
+  materiality?: number
+}): Promise<AdjustmentAnalysisReport> {
+  const p = new URLSearchParams({ entity_id: String(params.entity_id), as_of_date: params.as_of_date })
+  if (params.materiality) p.set('materiality', String(params.materiality))
+  const res = await api.get(`/accounting-intelligence/adjustment-analysis?${p}`)
+  return res.data
+}
+
+export async function getReviewPackage(params: {
+  entity_id: number
+  current_period_id: number
+  comparison_period_id?: number
+  materiality_threshold?: number
+}): Promise<ReviewPackage> {
+  const p = new URLSearchParams({
+    entity_id: String(params.entity_id),
+    current_period_id: String(params.current_period_id),
+  })
+  if (params.comparison_period_id) p.set('comparison_period_id', String(params.comparison_period_id))
+  if (params.materiality_threshold) p.set('materiality_threshold', String(params.materiality_threshold))
+  const res = await api.get(`/accounting-intelligence/review-package?${p}`)
+  return res.data
+}

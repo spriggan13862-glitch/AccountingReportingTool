@@ -99,9 +99,9 @@ describe('nav.ts — Sprint 4.0 navigation model route values', () => {
     expect(group.items.length).toBe(2)
   })
 
-  it('review-adjust group has 4 items', () => {
+  it('review-adjust group has 5 items', () => {
     const group = NAV_GROUPS.find((g) => g.id === 'review-adjust')!
-    expect(group.items.length).toBe(4)
+    expect(group.items.length).toBe(5)
   })
 
   it('deliverables group has 2 items', () => {

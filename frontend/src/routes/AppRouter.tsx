@@ -63,6 +63,7 @@ import { AdjustmentsPage } from '@/pages/AdjustmentsPage'
 import { SetupPage } from '@/pages/SetupPage'
 import { QuickBooksConnectPage } from '@/pages/QuickBooksConnectPage'
 import { QuickBooksCallbackPage } from '@/pages/QuickBooksCallbackPage'
+import { IntelligenceDashboardPage } from '@/pages/IntelligenceDashboardPage'
 
 function AuthedShell() {
   return (
@@ -154,12 +155,12 @@ export function AppRouter() {
           <Route path="adjustments/journal-entries" element={<JournalEntriesPage />} />
           <Route path="adjustments/consolidations" element={<ConsolidationsPage />} />
 
-          {/* ── LEGACY INTELLIGENCE REDIRECTS ─────────────────────────────── */}
-          <Route path="intelligence/quarterly-review" element={<Navigate replace to="/review" />} />
+          {/* ── INTELLIGENCE ──────────────────────────────────────────────── */}
+          <Route path="intelligence" element={<IntelligenceDashboardPage />} />
+          <Route path="intelligence/quarterly-review" element={<Navigate replace to="/intelligence" />} />
           <Route path="intelligence/issue-repository" element={<Navigate replace to="/review/issues" />} />
-          <Route path="intelligence/financial-diagnostics" element={<Navigate replace to="/review" />} />
-          <Route path="intelligence/rule-harness" element={<Navigate replace to="/review" />} />
-          <Route path="intelligence" element={<Navigate replace to="/review" />} />
+          <Route path="intelligence/financial-diagnostics" element={<Navigate replace to="/intelligence" />} />
+          <Route path="intelligence/rule-harness" element={<Navigate replace to="/intelligence" />} />
 
           {/* ── LEGACY FINANCIAL-IMPACT REDIRECTS ─────────────────────────── */}
           <Route path="financial-impact/trial-balance" element={<Navigate replace to="/review/trial-balance" />} />

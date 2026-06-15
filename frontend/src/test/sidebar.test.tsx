@@ -147,9 +147,9 @@ describe('Sidebar — Sprint 4.0 navigation model', () => {
     expect(g.items[1].id).toBe('mapping')
   })
 
-  it('review-adjust group has 4 items', () => {
+  it('review-adjust group has 5 items', () => {
     const g = NAV_GROUPS.find((g) => g.id === 'review-adjust')!
-    expect(g.items.length).toBe(4)
+    expect(g.items.length).toBe(5)
     expect(g.items[0].id).toBe('statements')
   })
 
@@ -164,9 +164,9 @@ describe('Sidebar — Sprint 4.0 navigation model', () => {
     expect(g.items.length).toBe(4)
   })
 
-  it('total nav item count is 13', () => {
+  it('total nav item count is 14', () => {
     const total = NAV_GROUPS.reduce((sum, g) => sum + g.items.length, 0)
-    expect(total).toBe(13)
+    expect(total).toBe(14)
   })
 
   it('review-adjust group auto-expands when navigating into it', () => {

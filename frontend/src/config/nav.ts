@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BarChart2,
+  Brain,
   Building2,
   Calendar,
   FileText,
@@ -66,6 +67,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { id: 'statements', label: 'Financial Statements', to: '/statements', icon: BarChart2, end: true },
       { id: 'bridge', label: 'Bridge', to: '/bridge', icon: TrendingUp },
       { id: 'adjustments', label: 'Adjustment Workbench', to: '/adjustments', icon: SlidersHorizontal, badgeKey: 'draft-je' },
+      { id: 'intelligence', label: 'Intelligence', to: '/intelligence', icon: Brain },
       { id: 'consolidation', label: 'Consolidation', to: '/consolidation', icon: Layers },
     ],
   },
