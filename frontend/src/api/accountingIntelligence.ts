@@ -19,6 +19,7 @@ export interface DetectedIssue {
   supporting_metrics: Record<string, string>
   suggested_procedures: string | null
   suggested_ajes: string | null
+  management_questions: string | null
   status: IssueStatus
   created_at: string | null
   acknowledged_at: string | null
@@ -28,9 +29,11 @@ export interface DetectedIssue {
 export interface DetectionRunResult {
   entity_id: number
   current_period_id: number
-  comparison_period_id: number
+  comparison_period_id: number | null
+  comparison_period_skipped: boolean
   total_issues: number
   issues: DetectedIssue[]
+  warnings: string[]
 }
 
 export interface IssueListResult {
@@ -465,7 +468,10 @@ export interface MaterialityProfile {
   asset_basis: number
   equity_basis: number
   ebitda_basis: number
+  ebitda_is_proxy: boolean
   ni_basis: number | null
+  data_available: boolean
+  floor_applied: boolean
   thresholds: {
     critical: number
     high: number

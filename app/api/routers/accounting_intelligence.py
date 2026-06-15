@@ -28,7 +28,9 @@ def run_detection(
     Run all detection rules against current period (and optionally a comparison period).
     When comparison_period_id is omitted, runs single-period and repository rules only.
     Persists results as DetectedIssue rows and returns the detected issues.
+    Any non-fatal detection path failures are surfaced in the 'warnings' field.
     """
+    warnings: list[str] = []
     try:
         issues = svc.run_detection(
             db,
@@ -38,16 +40,21 @@ def run_detection(
             scenario_id=scenario_id,
             materiality_threshold=Decimal(str(materiality_threshold)),
             persist=True,
+            _warnings=warnings,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
+    comparison_skipped = comparison_period_id is None
 
     return {
         "entity_id": entity_id,
         "current_period_id": current_period_id,
         "comparison_period_id": comparison_period_id,
+        "comparison_period_skipped": comparison_skipped,
         "total_issues": len(issues),
         "issues": issues,
+        "warnings": warnings,
     }
 
 
@@ -58,9 +65,15 @@ def list_issues(
     severity: str | None = Query(default=None),
     category: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    latest_only: bool = Query(default=True),
+    run_id: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    """List detected issues for an entity, with optional filters."""
+    """
+    List detected issues for an entity, with optional filters.
+    By default returns only the most recent detection run (latest_only=true).
+    Pass latest_only=false or run_id to access historical runs.
+    """
     issues = svc.list_detected_issues(
         db,
         entity_id=entity_id,
@@ -68,6 +81,8 @@ def list_issues(
         severity=severity,
         category=category,
         status=status,
+        latest_only=latest_only,
+        run_id=run_id,
     )
     return {"entity_id": entity_id, "total": len(issues), "issues": issues}
 
@@ -460,7 +475,13 @@ def get_materiality_profile(
     assets = float(metrics.total_assets) if metrics else 0.0
     eq = float(metrics.total_equity) if metrics else 0.0
     ni = float(metrics.net_income) if metrics else None
+
+    # EBITDA is always a proxy here — D&A is not separately tracked in the current schema.
+    # ebitda_is_proxy is always True until a D&A account classification exists.
     ebitda = max(rev * 0.10, ni or 0.0)
+    ebitda_is_proxy = True
+
+    data_available = rev > 0 or assets > 0 or (ni is not None and ni != 0)
 
     profile = MaterialityEngine.compute(
         revenue=rev,
@@ -469,6 +490,8 @@ def get_materiality_profile(
         ebitda=ebitda,
         net_income=ni,
     )
+
+    floor_applied = not data_available
 
     return {
         "entity_id": entity_id,
@@ -482,7 +505,10 @@ def get_materiality_profile(
         "asset_basis": round(profile.asset_basis, 2),
         "equity_basis": round(profile.equity_basis, 2),
         "ebitda_basis": round(profile.ebitda_basis, 2),
+        "ebitda_is_proxy": ebitda_is_proxy,
         "ni_basis": round(profile.ni_basis, 2) if profile.ni_basis else None,
+        "data_available": data_available,
+        "floor_applied": floor_applied,
         "thresholds": {
             "critical": round(profile.critical_threshold, 2),
             "high": round(profile.high_threshold, 2),

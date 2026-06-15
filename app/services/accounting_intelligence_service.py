@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
@@ -30,6 +31,8 @@ from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.models.account import Account
 from app.models.accounting_period import AccountingPeriod
@@ -1383,7 +1386,7 @@ def _repo_rule_to_detected_issue(
     run_id: str,
     entity_id: int,
     current_period_id: int,
-    comparison_period_id: int,
+    comparison_period_id: int | None,
 ) -> DetectedIssue:
     """Convert a triggered repository RuleResult into a DetectedIssue ORM row."""
     risk_map = {
@@ -1403,6 +1406,10 @@ def _repo_rule_to_detected_issue(
     if isinstance(ajes, list):
         ajes = "\n".join(f"• {a}" for a in ajes)
 
+    mqs = template.get("management_questions", [])
+    if isinstance(mqs, list):
+        mqs = "\n".join(f"• {q}" for q in mqs)
+
     return DetectedIssue(
         run_id=run_id,
         entity_id=entity_id,
@@ -1421,7 +1428,7 @@ def _repo_rule_to_detected_issue(
         narrative_prompt=None,
         narrative_output=None,
         ai_explanation=None,
-        management_questions=None,
+        management_questions=mqs or None,
         status="open",
     )
 
@@ -1438,6 +1445,7 @@ def run_detection(
     scenario_id: int | None = None,
     materiality_threshold: Decimal = Decimal("1000"),
     persist: bool = True,
+    _warnings: list[str] | None = None,
 ) -> list[dict]:
     """
     Run all detection rules against the current period and optional comparison period.
@@ -1447,7 +1455,9 @@ def run_detection(
 
     Returns list of serialized DetectedIssue dicts (not ORM objects).
     When persist=True, saves DetectedIssue rows to the database.
+    Pass a mutable list as _warnings to collect non-fatal detection path failures.
     """
+    warnings = _warnings if _warnings is not None else []
     current_period = db.get(AccountingPeriod, current_period_id)
     if current_period is None:
         raise ValueError(f"Period {current_period_id} not found")
@@ -1471,8 +1481,9 @@ def run_detection(
         for rule in _ALL_RULES:
             try:
                 hardcoded_results.extend(rule(cur, pri, thresholds))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Path 1 rule %s failed: %s", rule.__name__, e, exc_info=True)
+                warnings.append(f"Hardcoded rule '{rule.__name__}' skipped: {type(e).__name__}: {e}")
 
     triggered_codes = {r.issue_code for r in hardcoded_results}
 
@@ -1521,8 +1532,9 @@ def run_detection(
             )
             issue_rows.append(row)
             triggered_codes.add(rr.code)
-    except Exception:
-        pass  # repository rules are additive — never block core detection
+    except Exception as e:
+        logger.warning("Path 2 (repository rules) failed: %s", e, exc_info=True)
+        warnings.append(f"Repository rule evaluation skipped: {type(e).__name__}: {e}")
 
     # ── Path 3: Single-period account-level checks ────────────────────────────
     try:
@@ -1556,8 +1568,9 @@ def run_detection(
             )
             issue_rows.append(row)
             triggered_codes.add(f["issue_code"])
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Path 3 (single-period checks) failed: %s", e, exc_info=True)
+        warnings.append(f"Single-period account checks skipped: {type(e).__name__}: {e}")
 
     # ── Persist ───────────────────────────────────────────────────────────────
     if persist and issue_rows:
@@ -1581,7 +1594,7 @@ def _serialize_result(
     run_id: str,
     entity_id: int,
     current_period_id: int,
-    comparison_period_id: int,
+    comparison_period_id: int | None,
 ) -> dict:
     return {
         "run_id": run_id,
@@ -1598,6 +1611,7 @@ def _serialize_result(
         "supporting_metrics": r.supporting_metrics,
         "suggested_procedures": r.suggested_procedures,
         "suggested_ajes": r.suggested_ajes,
+        "management_questions": None,
         "status": "open",
     }
 
@@ -1619,6 +1633,7 @@ def _serialize_issue(row: DetectedIssue) -> dict:
         "supporting_metrics": json.loads(row.supporting_metrics_json or "{}"),
         "suggested_procedures": row.suggested_procedures,
         "suggested_ajes": row.suggested_ajes,
+        "management_questions": row.management_questions,
         "status": row.status,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "acknowledged_at": row.acknowledged_at.isoformat() if row.acknowledged_at else None,
@@ -1633,10 +1648,38 @@ def list_detected_issues(
     severity: str | None = None,
     category: str | None = None,
     status: str | None = None,
+    latest_only: bool = True,
+    run_id: str | None = None,
 ) -> list[dict]:
+    """
+    List detected issues for an entity/period.
+
+    By default (latest_only=True) returns only the most recent detection run for
+    the given entity/period, preventing rerun accumulation. Pass latest_only=False
+    or a specific run_id to access historical runs.
+    """
     q = db.query(DetectedIssue).filter(DetectedIssue.entity_id == entity_id)
     if current_period_id:
         q = q.filter(DetectedIssue.current_period_id == current_period_id)
+
+    if run_id:
+        q = q.filter(DetectedIssue.run_id == run_id)
+    elif latest_only:
+        # Subquery: find the most recent run_id for this entity/period combination
+        latest_subq = (
+            db.query(DetectedIssue.run_id)
+            .filter(DetectedIssue.entity_id == entity_id)
+        )
+        if current_period_id:
+            latest_subq = latest_subq.filter(DetectedIssue.current_period_id == current_period_id)
+        latest_subq = (
+            latest_subq
+            .order_by(DetectedIssue.created_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        q = q.filter(DetectedIssue.run_id == latest_subq)
+
     if severity:
         q = q.filter(DetectedIssue.severity == severity)
     if category:

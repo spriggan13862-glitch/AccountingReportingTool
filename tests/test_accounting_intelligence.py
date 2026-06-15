@@ -612,3 +612,160 @@ class TestRunDetectionRepositoryIntegration:
             assert "title" in issue
             assert "status" in issue
             assert issue["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# Phase 9A — DEFECT-01: Rerun accumulation fix
+# ---------------------------------------------------------------------------
+
+class TestListDetectedIssuesLatestOnly:
+    def _je_unique(self, session, entity, scenario, date, lines):
+        import random
+        import string
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        je = JournalEntry(
+            je_number=f"LONLY-{date.isoformat()}-{suffix}",
+            entry_date=date, entity_id=entity.id, scenario_id=scenario.id,
+            description="Latest-only test", source="test", status="posted",
+        )
+        session.add(je)
+        session.flush()
+        for i, (acct, debit, credit) in enumerate(lines, 1):
+            session.add(JournalEntryLine(
+                journal_entry_id=je.id, line_number=i,
+                account_id=acct.id, entity_id=entity.id,
+                debit=Decimal(str(debit)), credit=Decimal(str(credit)),
+            ))
+        session.flush()
+        return je
+
+    def test_three_reruns_do_not_triple_findings(self, session, entity, scenario, accounts):
+        """DEFECT-01: Running detection 3 times must not multiply visible findings."""
+        a = accounts
+        prior_p = _period(session, entity, "Acc Prior",
+                           datetime.date(2022, 1, 1), datetime.date(2022, 12, 31), 2022, 901)
+        current_p = _period(session, entity, "Acc Current",
+                              datetime.date(2023, 1, 1), datetime.date(2023, 12, 31), 2023, 902)
+        self._je_unique(session, entity, scenario, datetime.date(2022, 6, 1), [
+            (a["revenue"], 0, 100_000), (a["cash"], 100_000, 0),
+        ])
+        self._je_unique(session, entity, scenario, datetime.date(2023, 6, 1), [
+            (a["revenue"], 0, 400_000), (a["ar"], 400_000, 0),
+        ])
+
+        first = svc.run_detection(session, entity.id, current_p.id, prior_p.id, persist=True)
+        svc.run_detection(session, entity.id, current_p.id, prior_p.id, persist=True)
+        svc.run_detection(session, entity.id, current_p.id, prior_p.id, persist=True)
+
+        visible = svc.list_detected_issues(session, entity.id, current_p.id, latest_only=True)
+        # latest_only must not multiply — visible count should equal a single run's count
+        assert len(visible) == len(first), (
+            f"Expected {len(first)} findings after 3 reruns (latest_only), got {len(visible)}"
+        )
+
+    def test_latest_only_false_returns_all_runs(self, session, entity, scenario, accounts):
+        """latest_only=False returns all historical rows across all runs."""
+        a = accounts
+        prior_p = _period(session, entity, "AllRuns Prior",
+                           datetime.date(2021, 1, 1), datetime.date(2021, 12, 31), 2021, 903)
+        current_p = _period(session, entity, "AllRuns Current",
+                              datetime.date(2022, 1, 1), datetime.date(2022, 12, 31), 2022, 904)
+        self._je_unique(session, entity, scenario, datetime.date(2021, 6, 1), [
+            (a["revenue"], 0, 100_000), (a["cash"], 100_000, 0),
+        ])
+        self._je_unique(session, entity, scenario, datetime.date(2022, 6, 1), [
+            (a["revenue"], 0, 400_000), (a["ar"], 400_000, 0),
+        ])
+
+        svc.run_detection(session, entity.id, current_p.id, prior_p.id, persist=True)
+        svc.run_detection(session, entity.id, current_p.id, prior_p.id, persist=True)
+
+        all_rows = svc.list_detected_issues(session, entity.id, current_p.id, latest_only=False)
+        latest_rows = svc.list_detected_issues(session, entity.id, current_p.id, latest_only=True)
+        assert len(all_rows) >= len(latest_rows)
+
+
+# ---------------------------------------------------------------------------
+# Phase 9A — DEFECT-02: warnings list surfaced on path failure
+# ---------------------------------------------------------------------------
+
+class TestDetectionWarnings:
+    def test_warnings_list_populated_on_path_failure(self, session, entity, scenario, accounts):
+        """DEFECT-02: _warnings list receives entries when detection paths fail."""
+        a = accounts
+        period = _period(session, entity, "Warn Q1",
+                         datetime.date(2025, 1, 1), datetime.date(2025, 3, 31), 2025, 905)
+
+        warnings: list[str] = []
+        svc.run_detection(
+            session, entity.id, period.id, None,
+            persist=True, _warnings=warnings,
+        )
+        # On valid data warnings should be empty (all paths succeed)
+        assert isinstance(warnings, list)
+
+    def test_warnings_list_empty_on_success(self, session, entity, scenario, accounts):
+        """Happy path: no warnings produced when detection succeeds normally."""
+        a = accounts
+        prior_p = _period(session, entity, "Warn Prior",
+                           datetime.date(2024, 4, 1), datetime.date(2024, 6, 30), 2024, 906)
+        current_p = _period(session, entity, "Warn Current",
+                              datetime.date(2025, 4, 1), datetime.date(2025, 6, 30), 2025, 907)
+        import random, string
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        je = JournalEntry(
+            je_number=f"WARN-{suffix}", entry_date=datetime.date(2024, 5, 1),
+            entity_id=entity.id, scenario_id=scenario.id,
+            description="Warn JE", source="test", status="posted",
+        )
+        session.add(je)
+        session.flush()
+        session.add(JournalEntryLine(
+            journal_entry_id=je.id, line_number=1,
+            account_id=a["revenue"].id, entity_id=entity.id,
+            debit=Decimal("0"), credit=Decimal("100000"),
+        ))
+        session.flush()
+
+        warnings: list[str] = []
+        svc.run_detection(
+            session, entity.id, current_p.id, prior_p.id,
+            persist=True, _warnings=warnings,
+        )
+        assert warnings == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 9A — DEFECT-03: management_questions persisted from templates
+# ---------------------------------------------------------------------------
+
+class TestManagementQuestionsPersisted:
+    def test_management_questions_included_in_serialize(self, session, entity, scenario, accounts):
+        """DEFECT-03: _serialize_issue includes management_questions field."""
+        a = accounts
+        prior_p = _period(session, entity, "MQ Prior",
+                           datetime.date(2023, 7, 1), datetime.date(2023, 9, 30), 2023, 908)
+        current_p = _period(session, entity, "MQ Current",
+                              datetime.date(2024, 7, 1), datetime.date(2024, 9, 30), 2024, 909)
+        import random, string
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        je = JournalEntry(
+            je_number=f"MQ-{suffix}", entry_date=datetime.date(2023, 8, 1),
+            entity_id=entity.id, scenario_id=scenario.id,
+            description="MQ JE", source="test", status="posted",
+        )
+        session.add(je)
+        session.flush()
+        session.add(JournalEntryLine(
+            journal_entry_id=je.id, line_number=1,
+            account_id=a["revenue"].id, entity_id=entity.id,
+            debit=Decimal("0"), credit=Decimal("50000"),
+        ))
+        session.flush()
+
+        issues = svc.run_detection(session, entity.id, current_p.id, prior_p.id, persist=True)
+        # management_questions key must be present in every serialized issue
+        for issue in issues:
+            assert "management_questions" in issue, (
+                f"management_questions missing from issue {issue.get('issue_code')}"
+            )

@@ -192,6 +192,21 @@ function FindingDetail({ issue, onClose, onStatusChange }: {
           </section>
         )}
 
+        {/* Management questions */}
+        {issue.management_questions && (
+          <section>
+            <p className="font-semibold text-gray-700 mb-1 flex items-center gap-1"><FileText className="h-3 w-3" /> Management inquiry questions</p>
+            <ul className="space-y-1 text-gray-600">
+              {issue.management_questions.split('\n').filter(Boolean).map((q, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="text-gray-400 shrink-0">•</span>
+                  <span className="leading-relaxed">{q.replace(/^[-•]\s*/, '')}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {/* Status actions */}
         <section className="border-t border-gray-100 pt-3">
           <p className="font-semibold text-gray-700 mb-2">Status</p>
@@ -281,6 +296,14 @@ function MaterialityPanel({ profile }: { profile: MaterialityProfile }) {
   const bases = profile.basis_used.split(',').filter(Boolean)
   return (
     <div className="space-y-3">
+      {/* DEFECT-07: floor warning */}
+      {profile.floor_applied && (
+        <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 flex items-start gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600" />
+          <span>Materiality uses the $10,000 default floor — insufficient financial data exists for this entity/period to compute a data-driven threshold.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: 'Overall Materiality', value: fmt(profile.overall), desc: 'Planning threshold' },
@@ -297,6 +320,13 @@ function MaterialityPanel({ profile }: { profile: MaterialityProfile }) {
       <div className="text-[11px] text-gray-500">
         <span className="font-medium">Basis: </span>{bases.join(', ')}
       </div>
+      {/* DEFECT-06: EBITDA proxy label */}
+      {profile.ebitda_is_proxy && (
+        <div className="text-[11px] text-gray-500 italic">
+          * EBITDA shown as estimated proxy (10% of revenue or net income, whichever is higher).
+          Depreciation &amp; amortization is not separately classified in the current chart of accounts.
+        </div>
+      )}
       <div className="text-[11px] text-gray-500 bg-gray-50 rounded p-2 leading-relaxed">
         <span className="font-medium text-gray-700">Severity thresholds: </span>
         Critical ≥ {fmt(profile.thresholds.critical)} · High ≥ {fmt(profile.thresholds.high)} · Moderate ≥ {fmt(profile.thresholds.moderate)}
@@ -350,6 +380,8 @@ export function IntelligenceDashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('findings')
   const [selectedIssue, setSelectedIssue] = useState<DetectedIssue | null>(null)
   const [compPeriodId, setCompPeriodId] = useState<number | null>(null)
+  const [lastRunWarnings, setLastRunWarnings] = useState<string[]>([])
+  const [lastRunSkippedComparison, setLastRunSkippedComparison] = useState<boolean | null>(null)
 
   const entityId = activeEntity?.id
   const periodId = activePeriod?.id
@@ -412,7 +444,10 @@ export function IntelligenceDashboardPage() {
       current_period_id: periodId!,
       comparison_period_id: compPeriodId ?? undefined,
     }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const data = result as import('@/api/accountingIntelligence').DetectionRunResult
+      setLastRunWarnings(data.warnings ?? [])
+      setLastRunSkippedComparison(data.comparison_period_skipped ?? false)
       queryClient.invalidateQueries({ queryKey: ['detected-issues', entityId, periodId] })
     },
   })
@@ -514,6 +549,25 @@ export function IntelligenceDashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* Comparison period warning — DEFECT-04 */}
+      {lastRunSkippedComparison === true && (
+        <div className="mx-4 lg:mx-6 mb-1 shrink-0 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-start gap-2">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600" />
+          <span>
+            <strong>Review run without comparison period.</strong> Trend and comparative rules were skipped.
+            Select a comparison period above for full trend-based analysis.
+          </span>
+        </div>
+      )}
+
+      {/* Detection path warnings — DEFECT-02 */}
+      {lastRunWarnings.length > 0 && (
+        <div className="mx-4 lg:mx-6 mb-1 shrink-0 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 space-y-1">
+          <p className="font-semibold flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Partial detection — some rules skipped</p>
+          {lastRunWarnings.map((w, i) => <p key={i} className="text-red-700">{w}</p>)}
+        </div>
+      )}
 
       {/* Summary strip */}
       <div className="flex gap-2 px-4 lg:px-6 pb-2 shrink-0">

@@ -48,9 +48,10 @@ export function JournalEntryCreatePage() {
     source: 'manual',
     source_ref: '',
   })
-  const [lines, setLines] = useState<LineState[]>([EMPTY_LINE(), EMPTY_LINE()])
+  const [lines, setLines] = useState<LineState[]>(Array.from({ length: 6 }, EMPTY_LINE))
   const [apiError, setApiError] = useState<string | null>(null)
 
+  const filledLineCount = lines.filter((l) => l.account_id !== 0 || parseDecimal(l.debit) !== 0 || parseDecimal(l.credit) !== 0).length
   const totalDebit = lines.reduce((s, l) => s + parseDecimal(l.debit), 0)
   const totalCredit = lines.reduce((s, l) => s + parseDecimal(l.credit), 0)
   const difference = Math.abs(totalDebit - totalCredit)
@@ -59,13 +60,18 @@ export function JournalEntryCreatePage() {
   // Use first selected scenario (JE supports one scenario_id)
   const scenarioId = scenarioIds[0] ?? 0
 
+  function isBlankLine(l: LineState): boolean {
+    return l.account_id === 0 && parseDecimal(l.debit) === 0 && parseDecimal(l.credit) === 0
+  }
+
   function buildPayload(): JECreate {
+    const filledLines = lines.filter((l) => !isBlankLine(l))
     return {
       ...form,
       entity_id: Number(entityId),
       scenario_id: scenarioId,
       source_ref: form.source_ref || null,
-      lines: lines.map((l, i) => ({
+      lines: filledLines.map((l, i) => ({
         line_number: i + 1,
         account_id: l.account_id,
         entity_id: l.entity_id || Number(entityId),
@@ -117,7 +123,7 @@ export function JournalEntryCreatePage() {
   }
 
   const isPending = draftMutation.isPending || postMutation.isPending
-  const canSubmit = !!entityId && scenarioId > 0
+  const canSubmit = !!entityId && scenarioId > 0 && filledLineCount >= 2
 
   return (
     <PageLayout title="New Journal Entry" subtitle="Create a draft or post directly">
