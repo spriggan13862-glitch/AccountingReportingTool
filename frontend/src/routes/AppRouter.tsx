@@ -90,6 +90,19 @@ export function AppRouter() {
           {/* ── OVERVIEW ──────────────────────────────────────────────────── */}
           <Route path="overview" element={<OverviewPage />} />
 
+          {/* ── CANONICAL ROUTES (Phase 2 nav model) ──────────────────────── */}
+          <Route path="import" element={<ImportCenterPage />} />
+          <Route path="mapping" element={<TaxonomyAdminPage />} />
+          <Route path="statements" element={<ReviewWorkspacePage />} />
+          <Route path="bridge" element={<AdjustmentBridgePage />} />
+          <Route path="consolidation" element={<ConsolidationsPage />} />
+          <Route path="exports" element={<DeliverablesWorkspacePage />} />
+          <Route path="admin/entities" element={<EntitiesPage />} />
+          <Route path="admin/periods" element={<PeriodsPage />} />
+          <Route path="admin/periods/:id" element={<PeriodDetailPage />} />
+          <Route path="admin/documents" element={<DocumentsPage />} />
+          <Route path="admin/settings" element={<SetupPage />} />
+
           {/* ── ENGAGEMENT OVERVIEW ───────────────────────────────────────── */}
           <Route path="engagement/dashboard" element={<DashboardPage />} />
           <Route path="engagement/getting-started" element={<PlaceholderPage title="Getting Started" />} />
@@ -174,7 +187,7 @@ export function AppRouter() {
           <Route path="deliverables/je-export" element={<PlaceholderPage title="JE Export" />} />
           <Route path="deliverables/advisor-report" element={<PlaceholderPage title="Advisor Report" />} />
           <Route path="deliverables/audit-support" element={<PlaceholderPage title="Audit Support Package" />} />
-          <Route path="deliverables" element={<Navigate replace to="/deliverables/close-package" />} />
+          <Route path="deliverables" element={<DeliverablesWorkspacePage />} />
 
           {/* ── SETUP ─────────────────────────────────────────────────────── */}
           <Route path="setup" element={<SetupPage />} />

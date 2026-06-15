@@ -34,8 +34,8 @@ beforeEach(() => {
   })
 })
 
-describe('Sidebar — Sprint 3.18 flat rail', () => {
-  it('renders all 6 nav groups', () => {
+describe('Sidebar — Sprint 4.0 navigation model', () => {
+  it('renders all 5 nav groups', () => {
     renderSidebar()
     for (const group of NAV_GROUPS) {
       expect(screen.getByTestId(`nav-group-${group.id}`)).toBeInTheDocument()
@@ -45,11 +45,10 @@ describe('Sidebar — Sprint 3.18 flat rail', () => {
   it('shows correct group testids', () => {
     renderSidebar()
     expect(screen.getByTestId('nav-group-overview')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-group-import')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-group-review')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-group-adjustments')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-client-books')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-review-adjust')).toBeInTheDocument()
     expect(screen.getByTestId('nav-group-deliverables')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-group-setup')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-administration')).toBeInTheDocument()
   })
 
   it('renders the LA logo and brand name', () => {
@@ -71,29 +70,25 @@ describe('Sidebar — Sprint 3.18 flat rail', () => {
   it('single-item groups render as direct NavLinks (no toggle button)', () => {
     renderSidebar()
     expect(screen.queryByTestId('nav-group-toggle-overview')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('nav-group-toggle-import')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('nav-group-toggle-setup')).not.toBeInTheDocument()
   })
 
   it('multi-item groups have toggle buttons', () => {
     renderSidebar()
-    expect(screen.getByTestId('nav-group-toggle-review')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-group-toggle-adjustments')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-toggle-client-books')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-toggle-review-adjust')).toBeInTheDocument()
     expect(screen.getByTestId('nav-group-toggle-deliverables')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-toggle-administration')).toBeInTheDocument()
   })
 
   it('default-open groups show their items', () => {
     renderSidebar()
-    // overview group is defaultOpen (single item — direct NavLink)
     expect(screen.getByTestId('nav-item-overview')).toBeInTheDocument()
-    // import group is defaultOpen (single item — direct NavLink)
-    expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
-    // review group is defaultOpen
-    expect(screen.getByTestId('nav-item-review')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-review-tb')).toBeInTheDocument()
-    // adjustments group is defaultOpen
+    expect(screen.getByTestId('nav-item-import')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-mapping')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-statements')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-bridge')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-adjustments')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-journal-entries')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-consolidation')).toBeInTheDocument()
   })
 
   it('deliverables group is collapsed by default', () => {
@@ -101,18 +96,24 @@ describe('Sidebar — Sprint 3.18 flat rail', () => {
     expect(screen.queryByTestId('nav-group-items-deliverables')).not.toBeInTheDocument()
   })
 
+  it('administration group is collapsed by default', () => {
+    renderSidebar()
+    expect(screen.queryByTestId('nav-group-items-administration')).not.toBeInTheDocument()
+  })
+
   it('clicking a collapsed group header expands it', () => {
     renderSidebar()
     fireEvent.click(screen.getByTestId('nav-group-toggle-deliverables'))
     expect(screen.getByTestId('nav-group-items-deliverables')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-deliverables-workspace')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-deliverables')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-exports')).toBeInTheDocument()
   })
 
   it('clicking an expanded group header collapses it', () => {
     renderSidebar()
-    expect(screen.getByTestId('nav-group-items-review')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('nav-group-toggle-review'))
-    expect(screen.queryByTestId('nav-group-items-review')).not.toBeInTheDocument()
+    expect(screen.getByTestId('nav-group-items-review-adjust')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('nav-group-toggle-review-adjust'))
+    expect(screen.queryByTestId('nav-group-items-review-adjust')).not.toBeInTheDocument()
   })
 
   it('all nav item testids are present across open groups', () => {
@@ -125,46 +126,51 @@ describe('Sidebar — Sprint 3.18 flat rail', () => {
       }
     }
     expect(screen.getByTestId('nav-item-overview')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-import-center')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-review')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-review-tb')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-review-comparatives')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-review-issues')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-import')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-mapping')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-statements')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-bridge')).toBeInTheDocument()
     expect(screen.getByTestId('nav-item-adjustments')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-journal-entries')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-consolidations')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-deliverables-workspace')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-deliverables-workpapers')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-deliverables-reconciliations')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-deliverables-close')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-deliverables-reports')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-item-setup')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-consolidation')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-deliverables')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-exports')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-admin-entities')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-admin-periods')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-admin-documents')).toBeInTheDocument()
+    expect(screen.getByTestId('nav-item-admin-settings')).toBeInTheDocument()
   })
 
-  it('review group has 4 items', () => {
-    const g = NAV_GROUPS.find((g) => g.id === 'review')!
+  it('client-books group has 2 items', () => {
+    const g = NAV_GROUPS.find((g) => g.id === 'client-books')!
+    expect(g.items.length).toBe(2)
+    expect(g.items[0].id).toBe('import')
+    expect(g.items[1].id).toBe('mapping')
+  })
+
+  it('review-adjust group has 4 items', () => {
+    const g = NAV_GROUPS.find((g) => g.id === 'review-adjust')!
+    expect(g.items.length).toBe(4)
+    expect(g.items[0].id).toBe('statements')
+  })
+
+  it('deliverables group has 2 items', () => {
+    const g = NAV_GROUPS.find((g) => g.id === 'deliverables')!
+    expect(g.items.length).toBe(2)
+    expect(g.items[0].id).toBe('deliverables')
+  })
+
+  it('administration group has 4 items', () => {
+    const g = NAV_GROUPS.find((g) => g.id === 'administration')!
     expect(g.items.length).toBe(4)
   })
 
-  it('adjustments group has 3 items', () => {
-    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')!
-    expect(g.items.length).toBe(3)
-    expect(g.items[0].id).toBe('adjustments')
-  })
-
-  it('deliverables group has 5 items', () => {
-    const g = NAV_GROUPS.find((g) => g.id === 'deliverables')!
-    expect(g.items.length).toBe(5)
-    expect(g.items[0].id).toBe('deliverables-workspace')
-  })
-
-  it('total nav item count is 15', () => {
+  it('total nav item count is 13', () => {
     const total = NAV_GROUPS.reduce((sum, g) => sum + g.items.length, 0)
-    expect(total).toBe(15)
+    expect(total).toBe(13)
   })
 
-  it('active group auto-expands when navigating into it', () => {
-    renderSidebar('/review/trial-balance')
-    expect(screen.getByTestId('nav-group-items-review')).toBeInTheDocument()
+  it('review-adjust group auto-expands when navigating into it', () => {
+    renderSidebar('/statements')
+    expect(screen.getByTestId('nav-group-items-review-adjust')).toBeInTheDocument()
   })
 })

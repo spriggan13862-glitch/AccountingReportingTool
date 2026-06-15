@@ -1,15 +1,15 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   BarChart2,
-  BookOpen,
-  CheckSquare,
+  Building2,
+  Calendar,
   FileText,
   FolderOpen,
+  GitMerge,
   LayoutDashboard,
   Layers,
   Link2,
   Package,
-  Search,
   Settings2,
   SlidersHorizontal,
   TrendingUp,
@@ -40,7 +40,7 @@ export interface NavGroupConfig {
 export const NAV_GROUPS: NavGroupConfig[] = [
   {
     id: 'overview',
-    label: 'Overview',
+    label: 'Engagement Overview',
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -48,35 +48,25 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     ],
   },
   {
-    id: 'import',
-    label: 'Import',
+    id: 'client-books',
+    label: 'Client Books',
     icon: Upload,
     defaultOpen: true,
     items: [
-      { id: 'import-center', label: 'Import Center', to: '/client-data/imports', icon: Upload, badgeKey: 'import-unmapped' },
+      { id: 'import', label: 'Import Center', to: '/import', icon: Upload, badgeKey: 'import-unmapped' },
+      { id: 'mapping', label: 'Mapping Center', to: '/mapping', icon: Link2 },
     ],
   },
   {
-    id: 'review',
-    label: 'Review',
-    icon: Search,
+    id: 'review-adjust',
+    label: 'Review & Adjust',
+    icon: BarChart2,
     defaultOpen: true,
     items: [
-      { id: 'review', label: 'Statements', to: '/review', icon: BarChart2, end: true },
-      { id: 'review-tb', label: 'Trial Balance', to: '/review/trial-balance', icon: FileText },
-      { id: 'review-comparatives', label: 'Comparatives', to: '/review/comparatives', icon: TrendingUp },
-      { id: 'review-issues', label: 'Issue Library', to: '/review/issues', icon: BookOpen },
-    ],
-  },
-  {
-    id: 'adjustments',
-    label: 'Adjustments',
-    icon: SlidersHorizontal,
-    defaultOpen: true,
-    items: [
-      { id: 'adjustments', label: 'Bridge & AJEs', to: '/adjustments', icon: SlidersHorizontal, end: true, badgeKey: 'draft-je' },
-      { id: 'journal-entries', label: 'Journal Entries', to: '/adjustments/journal-entries', icon: FileText },
-      { id: 'consolidations', label: 'Consolidations', to: '/adjustments/consolidations', icon: Layers },
+      { id: 'statements', label: 'Financial Statements', to: '/statements', icon: BarChart2, end: true },
+      { id: 'bridge', label: 'Bridge', to: '/bridge', icon: TrendingUp },
+      { id: 'adjustments', label: 'Adjustment Workbench', to: '/adjustments', icon: SlidersHorizontal, badgeKey: 'draft-je' },
+      { id: 'consolidation', label: 'Consolidation', to: '/consolidation', icon: Layers },
     ],
   },
   {
@@ -85,20 +75,20 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     icon: Package,
     defaultOpen: false,
     items: [
-      { id: 'deliverables-workspace', label: 'Packages', to: '/deliverables/workspace', icon: Package, end: true },
-      { id: 'deliverables-workpapers', label: 'Workpapers', to: '/deliverables/workpapers', icon: FolderOpen },
-      { id: 'deliverables-reconciliations', label: 'Reconciliations', to: '/deliverables/reconciliations', icon: Link2 },
-      { id: 'deliverables-close', label: 'Close Package', to: '/deliverables/close-package', icon: CheckSquare },
-      { id: 'deliverables-reports', label: 'Reports', to: '/deliverables/reports', icon: BarChart2 },
+      { id: 'deliverables', label: 'Packages', to: '/deliverables', icon: Package, end: true },
+      { id: 'exports', label: 'Exports', to: '/exports', icon: FileText },
     ],
   },
   {
-    id: 'setup',
-    label: 'Setup',
+    id: 'administration',
+    label: 'Administration',
     icon: Settings2,
     defaultOpen: false,
     items: [
-      { id: 'setup', label: 'Setup', to: '/setup', icon: Settings2 },
+      { id: 'admin-entities', label: 'Entities', to: '/admin/entities', icon: Building2 },
+      { id: 'admin-periods', label: 'Periods', to: '/admin/periods', icon: Calendar },
+      { id: 'admin-documents', label: 'Documents', to: '/admin/documents', icon: FolderOpen },
+      { id: 'admin-settings', label: 'Settings', to: '/admin/settings', icon: Settings2 },
     ],
   },
 ]
