@@ -439,7 +439,7 @@ export function FinancialStatementsPage() {
   } | null>(null)
 
   const scenarioIds = scenarioId !== '' ? [scenarioId] : []
-  const ready = entityId !== '' && !!asOfDate
+  const ready = entityId !== '' && !!asOfDate && orgId > 0
 
   const periodStart = useMemo(() => {
     if (!asOfDate) return ''
@@ -1184,9 +1184,9 @@ export function FinancialStatementsPage() {
               </div>
             ))}
           </div>
-          {fsValidation.issues.length > 0 && (
+          {(fsValidation.issues?.length ?? 0) > 0 && (
             <ul className="mt-3 space-y-1">
-              {fsValidation.issues.map((issue, i) => (
+              {fsValidation.issues!.map((issue, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-amber-800">
                   <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 shrink-0" />
                   {issue}

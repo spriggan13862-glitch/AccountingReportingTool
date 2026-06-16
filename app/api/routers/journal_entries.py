@@ -237,7 +237,7 @@ def list_jes(
     end_date: datetime.date | None = None,
     account_id: int | None = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=500),
+    page_size: int = Query(50, ge=1, le=2000),
     db: Session = Depends(get_db),
 ):
     q = db.query(JournalEntry)
