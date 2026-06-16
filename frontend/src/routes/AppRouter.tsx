@@ -94,7 +94,7 @@ export function AppRouter() {
           {/* ── CANONICAL ROUTES (Phase 2 nav model) ──────────────────────── */}
           <Route path="import" element={<ImportCenterPage />} />
           <Route path="mapping" element={<TaxonomyAdminPage />} />
-          <Route path="statements" element={<ReviewWorkspacePage />} />
+          <Route path="statements" element={<FinancialStatementsPage />} />
           <Route path="bridge" element={<AdjustmentBridgePage />} />
           <Route path="consolidation" element={<ConsolidationsPage />} />
           <Route path="exports" element={<DeliverablesWorkspacePage />} />
@@ -164,7 +164,7 @@ export function AppRouter() {
 
           {/* ── LEGACY FINANCIAL-IMPACT REDIRECTS ─────────────────────────── */}
           <Route path="financial-impact/trial-balance" element={<Navigate replace to="/review/trial-balance" />} />
-          <Route path="financial-impact/statements" element={<Navigate replace to="/review" />} />
+          <Route path="financial-impact/statements" element={<Navigate replace to="/statements" />} />
           <Route path="financial-impact/builder" element={<Navigate replace to="/setup" />} />
           <Route path="financial-impact/comparatives" element={<Navigate replace to="/review/comparatives" />} />
           <Route path="financial-impact/variance" element={<Navigate replace to="/review" />} />
@@ -234,6 +234,7 @@ export function AppRouter() {
           <Route path="imports/general-ledger" element={<Navigate replace to="/client-data/imports/general-ledger" />} />
           <Route path="imports/journal-entries" element={<Navigate replace to="/client-data/imports/journal-entries" />} />
           <Route path="trial-balance-import" element={<TrialBalanceImportPage />} />
+          <Route path="tb-import" element={<TrialBalanceImportPage />} />
           <Route path="documents" element={<Navigate replace to="/client-data/documents" />} />
           <Route path="accounts" element={<Navigate replace to="/client-data/chart-of-accounts" />} />
           <Route path="chart-of-accounts" element={<Navigate replace to="/client-data/chart-of-accounts" />} />
@@ -248,7 +249,7 @@ export function AppRouter() {
           <Route path="draft-preview" element={<Navigate replace to="/workbench/draft-preview" />} />
           <Route path="consolidations" element={<Navigate replace to="/workbench/eliminations" />} />
           <Route path="trial-balances" element={<Navigate replace to="/financial-impact/trial-balance" />} />
-          <Route path="financial-statements" element={<Navigate replace to="/financial-impact/statements" />} />
+          <Route path="financial-statements" element={<Navigate replace to="/statements" />} />
           <Route path="fs-builder" element={<Navigate replace to="/financial-impact/builder" />} />
           <Route path="comparative-financials" element={<Navigate replace to="/financial-impact/comparatives" />} />
           <Route path="variance-analysis" element={<Navigate replace to="/financial-impact/variance" />} />

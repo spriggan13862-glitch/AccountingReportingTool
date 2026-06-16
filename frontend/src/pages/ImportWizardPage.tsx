@@ -412,8 +412,9 @@ export function ImportWizardPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
+              <label htmlFor="wizard-entity-select" className="block text-xs font-medium text-gray-600 mb-1">Entity *</label>
               <select
+                id="wizard-entity-select"
                 value={entityId}
                 onChange={(e) => { setEntityId(e.target.value); setSelectedPeriodId('') }}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
@@ -544,8 +545,9 @@ export function ImportWizardPage() {
                 />
                 <Layers className="w-4 h-4 text-gray-400 shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-800">{sheet.name}</p>
-                  <p className="text-xs text-gray-500">{sheet.row_count.toLocaleString()} rows</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {sheet.name} ({sheet.row_count.toLocaleString()} rows)
+                  </p>
                 </div>
                 {sheet.likely_tb_score >= 5 && (
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
@@ -709,12 +711,13 @@ export function ImportWizardPage() {
                     const sheetData = detected.sheets.find(s => s.name === selectedSheet)
                     const dataRow = sheetData?.raw_rows?.[(headerRowIdx ?? 0) + 1]
                     return detected.headers.map((h, colIdx) => {
-                      if (!h.trim()) return null
                       const sample = dataRow?.[colIdx]
                       const letter = colLetter(colIdx)
+                      const name = h.trim() || 'blank'
+                      const sampleText = sample || 'blank'
                       return (
-                        <option key={colIdx} value={h}>
-                          {letter} — {h}{sample ? ` — e.g. ${sample.slice(0, 25)}` : ''}
+                        <option key={colIdx} value={letter}>
+                          {letter} — {name} — sample: {sampleText}
                         </option>
                       )
                     })

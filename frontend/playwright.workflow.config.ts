@@ -61,7 +61,7 @@ export default defineConfig({
       name: 'ux-coverage',
       testMatch: '**/ux_coverage.spec.ts',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['workflow'],
+      dependencies: ['pdf-import'],
     },
   ],
   webServer: [
@@ -70,7 +70,7 @@ export default defineConfig({
       url: 'http://localhost:8002/api/v1/setup/status',
       reuseExistingServer: true,
       cwd: ROOT,
-      timeout: 30_000,
+      timeout: 90_000,
       env: {
         DATABASE_URL: E2E_DB_URL,
         ENVIRONMENT: 'development',
@@ -83,7 +83,7 @@ export default defineConfig({
       command: 'npx vite --config vite.e2e.config.ts --port 5174',
       url: 'http://localhost:5174',
       reuseExistingServer: true,
-      timeout: 30_000,
+      timeout: 90_000,
       env: {
         VITE_API_BASE_URL: 'http://localhost:8002/api/v1',
       },

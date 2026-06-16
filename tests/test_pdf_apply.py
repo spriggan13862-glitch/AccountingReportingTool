@@ -70,6 +70,7 @@ def test_pdf_upload_and_apply(client):
         upload_resp = client.post(
             "/api/v1/pdf-imports/upload",
             files={"file": ("hero_group_financial_statements_2025.pdf", f, "application/pdf")},
+            data={"entity_id": "1"},
         )
 
     print("\n--- UPLOAD RESPONSE ---")
@@ -127,7 +128,7 @@ def test_pdf_apply_accounts_queryable(client, engine):
         upload_resp = client.post(
             "/api/v1/pdf-imports/upload",
             files={"file": ("hero_group_financial_statements_2025.pdf", f, "application/pdf")},
-            data={"entity_id": str(entity_id), "basis_override": "accrual", "statement_scope": "standalone"}
+            data={"entity_id": str(entity_id), "basis_override": "accrual", "statement_scope": "standalone", "force": "true"}
         )
     assert upload_resp.status_code == 201, upload_resp.text
     batch_id = upload_resp.json()["batch_id"]

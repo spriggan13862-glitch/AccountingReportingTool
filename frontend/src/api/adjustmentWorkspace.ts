@@ -20,6 +20,7 @@ export interface AdjustmentListItem {
   overlay_group: string | null
   materiality: string | null
   total_debit: number
+  total_credit: number
   impact: AdjustmentImpact
   package_ids: number[]
   has_advisor_note: boolean

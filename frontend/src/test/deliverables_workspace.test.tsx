@@ -417,14 +417,14 @@ describe('DeliverablesWorkspacePage — nav config', () => {
     const { NAV_GROUPS } = await import('@/config/nav')
     const delivGroup = NAV_GROUPS.find((g) => g.id === 'deliverables')!
     expect(delivGroup).toBeDefined()
-    const wsItem = delivGroup.items.find((i) => i.id === 'deliverables-workspace')
+    const wsItem = delivGroup.items.find((i) => i.id === 'deliverables')
     expect(wsItem).toBeDefined()
-    expect(wsItem?.to).toBe('/deliverables/workspace')
+    expect(wsItem?.to).toBe('/deliverables')
   })
 
-  it('deliverables group has 5 items', async () => {
+  it('deliverables group has 2 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
     const delivGroup = NAV_GROUPS.find((g) => g.id === 'deliverables')!
-    expect(delivGroup.items.length).toBe(5)
+    expect(delivGroup.items.length).toBe(2)
   })
 })

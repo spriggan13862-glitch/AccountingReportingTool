@@ -96,6 +96,15 @@ def _total_debit(db: Session, je_id: int) -> Decimal:
     return Decimal(str(result or 0))
 
 
+def _total_credit(db: Session, je_id: int) -> Decimal:
+    result = (
+        db.query(func.sum(JournalEntryLine.credit))
+        .filter(JournalEntryLine.journal_entry_id == je_id)
+        .scalar()
+    )
+    return Decimal(str(result or 0))
+
+
 def _package_ids_for_je(db: Session, je_id: int) -> list[int]:
     rows = (
         db.query(AdjustmentPackageMembership.package_id)
@@ -210,6 +219,7 @@ def list_adjustments(
                 overlay_group=je.overlay_group,
                 materiality=je.materiality,
                 total_debit=_total_debit(db, je.id),
+                total_credit=_total_credit(db, je.id),
                 impact=_compute_impact(db, je.id),
                 package_ids=_package_ids_for_je(db, je.id),
                 has_advisor_note=note is not None,

@@ -188,7 +188,7 @@ describe('Tier 1.8 Frontend Regression Tests', () => {
     await waitFor(() => {
       expect(screen.getByTestId('mapping-workbench-grid')).toBeInTheDocument()
       expect(screen.getByTestId('export-mapping-issues-btn')).toBeInTheDocument()
-      expect(screen.getByTestId('direct-taxonomy-select-101')).toBeInTheDocument()
+      expect(screen.queryByTestId('direct-taxonomy-select-101')).not.toBeInTheDocument()
     })
   })
 

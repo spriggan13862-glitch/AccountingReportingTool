@@ -19,17 +19,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table('entities', recreate='always') as batch_op:
-        batch_op.create_check_constraint(
-            'ck_entities_type',
-            "entity_type IN ('operating','consolidation','elimination','carveout','staging')"
-        )
+    from sqlalchemy import inspect as sa_inspect
+    bind = op.get_bind()
+    inspector = sa_inspect(bind)
+    existing_tables = set(inspector.get_table_names())
 
-    with op.batch_alter_table('pdf_import_batches') as batch_op:
-        batch_op.add_column(sa.Column('content_hash', sa.String(64), nullable=True))
+    if 'entities' in existing_tables:
+        with op.batch_alter_table('entities', recreate='always') as batch_op:
+            batch_op.create_check_constraint(
+                'ck_entities_type',
+                "entity_type IN ('operating','consolidation','elimination','carveout','staging')"
+            )
 
-    with op.batch_alter_table('coa_import_batches') as batch_op:
-        batch_op.add_column(sa.Column('content_hash', sa.String(64), nullable=True))
+    if 'pdf_import_batches' in existing_tables:
+        columns = [c['name'] for c in inspector.get_columns('pdf_import_batches')]
+        if 'content_hash' not in columns:
+            with op.batch_alter_table('pdf_import_batches') as batch_op:
+                batch_op.add_column(sa.Column('content_hash', sa.String(64), nullable=True))
+
+    if 'coa_import_batches' in existing_tables:
+        columns = [c['name'] for c in inspector.get_columns('coa_import_batches')]
+        if 'content_hash' not in columns:
+            with op.batch_alter_table('coa_import_batches') as batch_op:
+                batch_op.add_column(sa.Column('content_hash', sa.String(64), nullable=True))
 
 
 def downgrade() -> None:

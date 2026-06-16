@@ -41,11 +41,12 @@ export function ScenarioSelect({
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label className="text-xs font-medium text-gray-700">
+        <label htmlFor="scenario-select-field" className="text-xs font-medium text-gray-700">
           {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
       )}
       <select
+        id="scenario-select-field"
         value={value}
         onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
         disabled={disabled || isLoading}

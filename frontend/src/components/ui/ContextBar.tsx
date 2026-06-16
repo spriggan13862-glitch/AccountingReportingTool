@@ -21,6 +21,7 @@ function ContextDropdown<T>({
   onClear,
   disabled,
   footer,
+  type,
 }: {
   icon: React.ElementType
   label: React.ReactNode
@@ -30,6 +31,7 @@ function ContextDropdown<T>({
   onClear?: () => void
   disabled?: boolean
   footer?: React.ReactNode
+  type: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -50,7 +52,7 @@ function ContextDropdown<T>({
         onClick={() => !disabled && setOpen((o) => !o)}
         disabled={disabled}
         className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-gray-200 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-        data-testid={`context-bar-${typeof label === 'string' ? label.toLowerCase() : 'dropdown'}-btn`}
+        data-testid={`context-bar-${type}-btn`}
       >
         {selected != null ? (
           <span className="font-medium text-gray-800">{label}</span>
@@ -72,12 +74,13 @@ function ContextDropdown<T>({
         <div className="absolute left-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-gray-200 bg-white shadow-lg">
           <ul className="max-h-60 overflow-y-auto py-1">
             {items.length === 0 ? (
-              <li className="px-3 py-2 text-gray-400 italic text-xs">No items found</li>
+              <li className="px-3 py-2 text-gray-400 italic text-xs" role="listitem">No items found</li>
             ) : (
               items.map((item, i) => (
-                <li key={i}>
+                <li key={i} role="listitem">
                   <button
                     type="button"
+                    role="option"
                     onClick={() => { onSelect(item); setOpen(false) }}
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50 text-gray-700"
                   >
@@ -208,6 +211,7 @@ export function ContextBar() {
 
       {/* Entity */}
       <ContextDropdown
+        type="entity"
         icon={Building2}
         label={activeEntity ? `${activeEntity.code} — ${activeEntity.name}` : null}
         items={entities}
@@ -230,6 +234,7 @@ export function ContextBar() {
 
       {/* Period */}
       <ContextDropdown
+        type="period"
         icon={Calendar}
         label={activePeriod ? activePeriod.period_name : null}
         items={sortedPeriods}
@@ -244,6 +249,7 @@ export function ContextBar() {
       {/* Scenario */}
       <div className="flex items-center gap-1">
         <ContextDropdown
+          type="scenario"
           icon={GitBranch}
           label={activeScenario ? `${activeScenario.code} — ${activeScenario.name}` : null}
           items={scenarios}

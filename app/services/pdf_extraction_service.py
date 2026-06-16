@@ -242,6 +242,10 @@ _SUBTOTAL_PREFIXES = (
     "earnings before",
     "net revenue",
     "net sales",
+    "stockholders' equity",
+    "shareholders' equity",
+    "stockholders’ equity",
+    "shareholders’ equity",
 )
 
 
@@ -464,6 +468,8 @@ def _parse_balance_sheet(
             if not name:
                 continue
             is_sub = _is_subtotal_line(name)
+            if current_section == "equity" and ("net income" in name.lower() or "net loss" in name.lower()):
+                is_sub = False
             is_contra = (
                 stripped.strip().startswith("(")
                 or "accumulated" in name.lower()

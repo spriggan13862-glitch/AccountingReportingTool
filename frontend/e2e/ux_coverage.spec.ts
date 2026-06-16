@@ -12,6 +12,7 @@
  */
 
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test'
+import { fileURLToPath } from 'url'
 
 const ADMIN_EMAIL = 'admin@livemarketing.test'
 const ADMIN_PASSWORD = 'Test1234!'
@@ -213,7 +214,7 @@ test.describe('TB import wizard UX', () => {
     await dateInput.fill('2025-12-31')
 
     // Upload multi-sheet XLSX fixture
-    const xlsxPath = new URL('../../tests/fixtures/tb/live_marketing_tb.xlsx', import.meta.url).pathname
+    const xlsxPath = fileURLToPath(new URL('../../tests/fixtures/tb/live_marketing_tb.xlsx', import.meta.url))
     const fileInput = page.locator('input[type="file"]').first()
     await fileInput.setInputFiles(xlsxPath)
 
@@ -225,8 +226,7 @@ test.describe('TB import wizard UX', () => {
       // If multiple sheets detected, should show sheet cards — not a React crash
       await expect(page.locator('body')).not.toContainText('Objects are not valid as a React child')
       // Sheet step OR column mapping step should be visible (CSV only has 1 sheet → goes straight to mapping)
-      const atSheetOrMapping = await page.getByText(/Worksheet Selection|Confirm Column Mapping/i).count() > 0
-      expect(atSheetOrMapping).toBeTruthy()
+      await expect(page.getByText(/Select Worksheet|Map Columns|Worksheet Selection|Confirm Column Mapping/i).first()).toBeVisible({ timeout: 8_000 })
     }
     expectNoErrors(errors)
   })

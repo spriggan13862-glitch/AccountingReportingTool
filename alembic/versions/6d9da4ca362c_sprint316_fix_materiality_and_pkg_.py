@@ -24,18 +24,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect as sa_inspect
+    bind = op.get_bind()
+    inspector = sa_inspect(bind)
+    existing_tables = set(inspector.get_table_names())
+
     # Add materiality column missing from journal_entries
-    with op.batch_alter_table('journal_entries') as batch_op:
-        batch_op.add_column(sa.Column('materiality', sa.String(length=50), nullable=True))
+    if 'journal_entries' in existing_tables:
+        columns = [c['name'] for c in inspector.get_columns('journal_entries')]
+        if 'materiality' not in columns:
+            with op.batch_alter_table('journal_entries') as batch_op:
+                batch_op.add_column(sa.Column('materiality', sa.String(length=50), nullable=True))
 
     # Rebuild adjustment_packages to update ck_pkg_type constraint
-    # (sprint315 was never actually executed; the table still has the old constraint)
-    with op.batch_alter_table('adjustment_packages', recreate='always') as batch_op:
-        batch_op.drop_constraint('ck_pkg_type', type_='check')
-        batch_op.create_check_constraint(
-            'ck_pkg_type',
-            "package_type IN ('audit','management','tax','qoe','seller','buyer','sba','client_posting')",
-        )
+    if 'adjustment_packages' in existing_tables:
+        with op.batch_alter_table('adjustment_packages', recreate='always') as batch_op:
+            try:
+                batch_op.drop_constraint('ck_pkg_type', type_='check')
+            except Exception:
+                pass
+            batch_op.create_check_constraint(
+                'ck_pkg_type',
+                "package_type IN ('audit','management','tax','qoe','seller','buyer','sba','client_posting')",
+            )
 
 
 def downgrade() -> None:

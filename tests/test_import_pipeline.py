@@ -572,10 +572,10 @@ def test_unmapped_blocks_posting(db, seeded):
     scenario = seeded["scenario"]
     user = seeded["user"]
 
-    # 9999 doesn't exist → unmapped
+    # Both number and name missing → unmapped
     content = _make_csv_dc([
         ("1000", "50000", "0"),
-        ("9999", "0",     "50000"),  # unknown account
+        ("", "0",     "50000"),  # unknown/blank account
     ])
     batch = upload_import_batch(
         db, content, "unmapped_block.csv",
@@ -714,10 +714,10 @@ def test_manual_mapping_overrides(db, seeded):
     org = seeded["org"]
     user = seeded["user"]
 
-    # Upload with an unmapped account
+    # Upload with an unmapped account (both blank)
     content = _make_csv_dc([
         ("1000", "50000", "0"),
-        ("UNKNOWN", "0",  "50000"),
+        ("", "0",  "50000"),
     ])
     batch = upload_import_batch(
         db, content, "manual_map.csv",
@@ -820,3 +820,46 @@ def test_import_audit_trail(db, seeded):
     je = db.get(JournalEntry, batch.posted_je_id)
     assert je.source == "tb_import"
     assert str(batch.id) in je.source_ref
+
+
+# ---------------------------------------------------------------------------
+# 19. Direct COA Ingestion test
+# ---------------------------------------------------------------------------
+
+def test_direct_coa_ingestion(db, seeded):
+    from app.services.import_batch_service import upload_import_batch
+    from app.models.account import Account
+    entity = seeded["entity"]
+    org = seeded["org"]
+    scenario = seeded["scenario"]
+    
+    # 5555 does not exist in COA
+    content = _make_csv_dc([
+        ("1000", "50000", "0"),
+        ("5555", "0", "50000"),
+    ])
+    
+    # Verify account does not exist beforehand
+    existing = db.query(Account).filter(Account.account_number == "5555", Account.entity_id == entity.id).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+    
+    batch = upload_import_batch(
+        db, content, "auto_coa.csv",
+        entity_id=entity.id, organization_id=org.id,
+        scenario_id=scenario.id,
+        as_of_date=datetime.date(2024, 6, 30),
+    )
+    db.commit()
+    
+    # Batch should have 0 unmapped because it was auto-created!
+    assert batch.unmapped_row_count == 0
+    assert batch.status == "validating"
+    
+    # The account should now exist in the COA
+    new_acct = db.query(Account).filter(Account.account_number == "5555", Account.entity_id == entity.id).first()
+    assert new_acct is not None
+    assert new_acct.account_type == "expense"  # guessed from 5xxx prefix
+    assert new_acct.normal_balance == "debit"
+

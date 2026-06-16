@@ -197,12 +197,38 @@ def _parse_csv_file(content: bytes) -> tuple[list[str], list[dict[str, str]]]:
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",\t|;")
     except csv.Error:
         dialect = csv.excel
-    reader = csv.DictReader(io.StringIO(text.strip()), dialect=dialect)
-    if not reader.fieldnames:
+    # Use regular csv.reader to preserve all column headers and indices
+    reader = csv.reader(io.StringIO(text.strip()), dialect=dialect)
+    all_rows = list(reader)
+    if not all_rows:
         raise ImportBatchError("CSV file is empty or has no header row")
-    headers = [h for h in reader.fieldnames if h]
-    rows = [dict(row) for row in reader]
-    return headers, rows
+        
+    hdr_idx = 0
+    for i, cells in enumerate(all_rows):
+        if any(cells):
+            hdr_idx = i
+            break
+            
+    headers = [h.strip() for h in all_rows[hdr_idx]]
+    if not any(headers):
+        raise ImportBatchError("CSV file is empty or has no header row")
+        
+    from openpyxl.utils import get_column_letter
+    data_rows: list[dict[str, str]] = []
+    for row in all_rows[hdr_idx + 1:]:
+        if not any(row):
+            continue  # skip blank rows
+        row_dict = {}
+        for col_idx, val in enumerate(row):
+            letter = get_column_letter(col_idx + 1)
+            row_dict[letter] = val
+            if col_idx < len(headers):
+                hdr = headers[col_idx]
+                if hdr:
+                    row_dict[hdr] = val
+        data_rows.append(row_dict)
+        
+    return headers, data_rows
 
 
 def _parse_xlsx_file(content: bytes, sheet_name: str | None = None, header_row_index: int | None = None) -> tuple[list[str], list[dict[str, str]]]:
@@ -239,11 +265,20 @@ def _parse_xlsx_file(content: bytes, sheet_name: str | None = None, header_row_i
     if not any(headers):
         raise ImportBatchError("XLSX file is empty or has no header row")
 
+    from openpyxl.utils import get_column_letter
     data_rows: list[dict[str, str]] = []
     for row in all_rows[hdr_idx + 1:]:
         if not any(row):
             continue  # skip blank rows
-        data_rows.append(dict(zip(headers, row)))
+        row_dict = {}
+        for col_idx, val in enumerate(row):
+            letter = get_column_letter(col_idx + 1)
+            row_dict[letter] = val
+            if col_idx < len(headers):
+                hdr = headers[col_idx]
+                if hdr:
+                    row_dict[hdr] = val
+        data_rows.append(row_dict)
 
     wb.close()
     return headers, data_rows
@@ -313,22 +348,113 @@ def _interpret_row(
 # Account resolution
 # ---------------------------------------------------------------------------
 
-def _find_account(db: Session, entity_id: int, account_number: str) -> Account | None:
-    """Entity-specific lookup, then fall back to global (entity_id IS NULL)."""
+def get_parent_account_number(account_number: str) -> str | None:
     if not account_number:
         return None
-    acct = (
-        db.query(Account)
-        .filter(Account.account_number == account_number, Account.entity_id == entity_id)
-        .first()
-    )
-    if acct is None:
+    # If it has a separator, e.g. "1000-01" or "1000.02" or "1000:05"
+    for sep in ('-', '.', ':'):
+        if sep in account_number:
+            parts = account_number.split(sep)
+            if parts[0].isdigit():
+                return parts[0]
+    # If it's a pure number and longer than 4 digits, check if the prefix (length 4) matches
+    if account_number.isdigit() and len(account_number) > 4:
+        return account_number[:4]
+    return None
+
+
+def guess_account_type_and_normal(account_number: str | None, account_name: str | None) -> tuple[str, str]:
+    num = (account_number or "").strip()
+    name = (account_name or "").lower()
+    
+    if num.startswith("1"):
+        return "asset", "debit"
+    if num.startswith("2"):
+        return "liability", "credit"
+    if num.startswith("3"):
+        return "equity", "credit"
+    if num.startswith("4"):
+        return "revenue", "credit"
+    if any(num.startswith(p) for p in ("5", "6", "7", "8")):
+        return "expense", "debit"
+        
+    if "asset" in name:
+        return "asset", "debit"
+    if "liab" in name:
+        return "liability", "credit"
+    if "equi" in name:
+        return "equity", "credit"
+    if "rev" in name or "inc" in name:
+        return "revenue", "credit"
+    if "exp" in name or "cost" in name or "fee" in name:
+        return "expense", "debit"
+        
+    return "asset", "debit"
+
+
+def _find_account(
+    db: Session,
+    entity_id: int,
+    account_number: str,
+    account_name: str | None = None,
+) -> Account | None:
+    """
+    Lookup account. Steps:
+      1. Exact account number on entity
+      2. Parent account number suffix strip fallback on entity (e.g. 1000-01 -> 1000)
+      3. Exact case-insensitive name match on entity
+      4. Fallback to global exact account number
+    """
+    if not account_number and not account_name:
+        return None
+
+    # 1. Exact account number match on entity
+    if account_number:
+        acct = (
+            db.query(Account)
+            .filter(Account.account_number == account_number, Account.entity_id == entity_id)
+            .first()
+        )
+        if acct:
+            return acct
+
+    # 2. Parent prefix match on entity
+    if account_number:
+        parent_num = get_parent_account_number(account_number)
+        if parent_num:
+            acct = (
+                db.query(Account)
+                .filter(Account.account_number == parent_num, Account.entity_id == entity_id)
+                .first()
+            )
+            if acct:
+                return acct
+
+    # 3. Exact case-insensitive name match on entity
+    if account_name:
+        normalized_name = account_name.strip().lower()
+        acct = (
+            db.query(Account)
+            .filter(
+                func.lower(func.trim(Account.account_name)) == normalized_name,
+                Account.entity_id == entity_id,
+            )
+            .first()
+        )
+        if acct:
+            return acct
+
+    # 4. Fallback to global exact account number
+    if account_number:
         acct = (
             db.query(Account)
             .filter(Account.account_number == account_number, Account.entity_id.is_(None))
             .first()
         )
-    return acct
+        if acct:
+            return acct
+
+    return None
 
 
 def _suggest_account(db: Session, entity_id: int, raw_number: str, raw_name: str) -> Account | None:
@@ -484,7 +610,21 @@ def upload_import_batch(
             raise
 
         # Calculate debit/credit from whichever format was used
-        account = _find_account(db, entity_id, acct_num) if acct_num else None
+        account = _find_account(db, entity_id, acct_num, acct_name) if (acct_num or acct_name) else None
+        
+        # If not found, automatically create the account in the COA!
+        if account is None and (acct_num or acct_name):
+            account_type, normal_balance = guess_account_type_and_normal(acct_num, acct_name)
+            account = Account(
+                account_number=acct_num or f"ACCT-{i-1}",
+                account_name=acct_name or f"Imported Account {i-1}",
+                account_type=account_type,
+                normal_balance=normal_balance,
+                entity_id=entity_id,
+            )
+            db.add(account)
+            db.flush()
+
         suggested = None
 
         if account is not None:
@@ -495,7 +635,7 @@ def upload_import_batch(
                 credit = raw_credit or Decimal("0")
             mapping_status = "mapped"
         else:
-            # Unmapped — preserve raw amounts, try suggestion
+            # Unmapped — preserve raw amounts, try suggestion (only for completely blank line)
             debit = raw_debit or Decimal("0")
             credit = raw_credit or Decimal("0")
             if raw_balance is not None:
@@ -562,7 +702,18 @@ def update_column_mapping(
     for line in lines:
         if line.is_manually_mapped:
             continue  # respect manual overrides
-        account = _find_account(db, batch.entity_id, line.raw_account_number or "")
+        account = _find_account(db, batch.entity_id, line.raw_account_number or "", line.raw_account_name)
+        if account is None and (line.raw_account_number or line.raw_account_name):
+            account_type, normal_balance = guess_account_type_and_normal(line.raw_account_number, line.raw_account_name)
+            account = Account(
+                account_number=line.raw_account_number or f"ACCT-{line.line_number}",
+                account_name=line.raw_account_name or f"Imported Account {line.line_number}",
+                account_type=account_type,
+                normal_balance=normal_balance,
+                entity_id=batch.entity_id,
+            )
+            db.add(account)
+            db.flush()
         if account:
             line.resolved_account_id = account.id
             # Recalculate debit/credit if we have raw_balance
@@ -1360,9 +1511,18 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
                     break
             # Build preview rows (dict) from rows after header
             sh_rows: list[dict[str, str]] = []
+            from openpyxl.utils import get_column_letter
             for cells in sh_raw_rows[auto_header_row_idx + 1:]:
                 if any(cells):
-                    sh_rows.append(dict(zip(sh_headers, cells[:len(sh_headers)])))
+                    row_dict = {}
+                    for col_idx, val in enumerate(cells):
+                        letter = get_column_letter(col_idx + 1)
+                        row_dict[letter] = val
+                        if col_idx < len(sh_headers):
+                            hdr = sh_headers[col_idx]
+                            if hdr:
+                                row_dict[hdr] = val
+                    sh_rows.append(row_dict)
                     if len(sh_rows) >= 5:
                         break
             sheets.append({

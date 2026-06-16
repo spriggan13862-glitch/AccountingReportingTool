@@ -177,9 +177,9 @@ describe('AdvisoryAnalysisPage — nav registration', () => {
     }
   })
 
-  it('adjustments group has 3 items', async () => {
+  it('adjustments group has 5 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')!
-    expect(g.items.length).toBe(3)
+    const g = NAV_GROUPS.find((g) => g.id === 'review-adjust')!
+    expect(g.items.length).toBe(5)
   })
 })

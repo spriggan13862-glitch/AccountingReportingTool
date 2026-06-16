@@ -26,6 +26,16 @@ const STEPS = [
   { label: 'Post to Ledger', desc: 'Commit journal entry' },
 ]
 
+function colLetter(idx: number): string {
+  let result = ''
+  let n = idx + 1
+  while (n > 0) {
+    result = String.fromCharCode(65 + ((n - 1) % 26)) + result
+    n = Math.floor((n - 1) / 26)
+  }
+  return result
+}
+
 export function TrialBalanceImportPage() {
   const { org } = useOrg()
   const orgId = org?.id ?? 0
@@ -53,6 +63,7 @@ export function TrialBalanceImportPage() {
   const [jeNumber, setJeNumber] = useState('')
   const [notes, setNotes] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
+  const [duplicateWarning, setDuplicateWarning] = useState<{ existingBatchId: number; existingStatus: string } | null>(null)
 
   const WIZARD_STEPS: WizardStep[] = STEPS.map((s, i) => {
     let status: 'pending' | 'active' | 'complete' | 'error' = 'pending'
@@ -81,7 +92,7 @@ export function TrialBalanceImportPage() {
   })
 
   const uploadMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (force = false) => {
       if (!file || !entityId || !asOfDate) throw new Error('Entity and date are required')
       return tbImportApi.uploadBatch({
         entity_id: entityId as number,
@@ -89,6 +100,7 @@ export function TrialBalanceImportPage() {
         as_of_date: asOfDate,
         scenario_id: scenarioId !== '' ? scenarioId : undefined,
         sheet_name: selectedSheet ?? undefined,
+        force,
         file,
       })
     },
@@ -96,10 +108,19 @@ export function TrialBalanceImportPage() {
       setBatchId(batch.id)
       setJeNumber(`JE-TB-${batch.id}-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}`)
       setApiError(null)
+      setDuplicateWarning(null)
       // Trigger validation immediately
       validateMutation.mutate(batch.id)
     },
-    onError: (err: Error) => { setApiError(err.message) },
+    onError: (err: unknown) => {
+      const detail = (err as any)?.response?.data?.detail
+      if (detail?.code === 'DUPLICATE_IMPORT') {
+        setDuplicateWarning({ existingBatchId: detail.existing_batch_id, existingStatus: detail.existing_status })
+        setApiError(null)
+      } else {
+        setApiError((err as Error).message ?? 'Upload failed')
+      }
+    },
   })
 
   const validateMutation = useMutation({
@@ -164,6 +185,36 @@ export function TrialBalanceImportPage() {
       <StepIndicator steps={WIZARD_STEPS} currentStep={step} onStepClick={(idx) => {
         if (idx < step) setStep(idx)
       }} />
+
+      {duplicateWarning && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 flex items-start gap-3 mb-4">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">Duplicate file detected</p>
+            <p className="text-xs text-amber-700 mt-1">
+              This file was already imported (Batch #{duplicateWarning.existingBatchId}, status: {duplicateWarning.existingStatus}).
+              Import again to create a separate version, or view the existing batch.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/import/${duplicateWarning.existingBatchId}`)}
+                className="text-xs px-3 py-1.5 border border-amber-400 rounded text-amber-800 hover:bg-amber-100"
+              >
+                View Existing Batch
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDuplicateWarning(null); uploadMutation.mutate(true) }}
+                disabled={uploadMutation.isPending}
+                className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
+              >
+                Import Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {apiError && <ErrorBanner message={apiError} />}
 
@@ -271,7 +322,7 @@ export function TrialBalanceImportPage() {
             </div>
 
             {/* Tab bar */}
-            <div className="flex gap-0 border-b border-gray-200 overflow-x-auto">
+            <div className="flex gap-0 border-b border-gray-200 overflow-x-auto overflow-y-hidden no-scrollbar">
               {detected.sheets.map((sheet: SheetInfo) => (
                 <button
                   key={sheet.name}
@@ -297,16 +348,23 @@ export function TrialBalanceImportPage() {
             {(() => {
               const active = detected.sheets.find((s: SheetInfo) => s.name === selectedSheet)
               if (!active || active.headers.length === 0) return (
-                <p className="text-xs text-gray-400 italic py-6 text-center">No data preview available for this sheet.</p>
+                <p className="text-xs text-gray-450 italic py-6 text-center">No data preview available for this sheet.</p>
               )
               return (
                 <div className="rounded-lg border border-gray-200 overflow-auto max-h-72 text-xs">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
-                      <tr>
-                        {active.headers.map((h: string, i: number) => (
-                          <th key={i} className="px-3 py-2 text-left font-semibold text-gray-600 border-b border-gray-200 whitespace-nowrap">
-                            {h}
+                  <table className="w-full border-collapse">
+                    <thead className="bg-gray-50 sticky top-0 z-10 font-mono text-[11px]">
+                      <tr className="bg-gray-100 border-b border-gray-200">
+                        {active.headers.map((_, ci: number) => (
+                          <th key={ci} className="px-3 py-1 border-r border-gray-200 text-gray-500 text-center font-semibold">
+                            {colLetter(ci)}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                        {active.headers.map((h: string, ci: number) => (
+                          <th key={ci} className="px-3 py-2 font-semibold text-gray-600 border-r border-gray-200 whitespace-nowrap">
+                            {h || <span className="text-gray-300 italic">blank</span>}
                           </th>
                         ))}
                       </tr>
@@ -314,11 +372,14 @@ export function TrialBalanceImportPage() {
                     <tbody>
                       {active.preview_rows.map((row: Record<string, string>, ri: number) => (
                         <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                          {active.headers.map((h: string, ci: number) => (
-                            <td key={ci} className="px-3 py-1.5 text-gray-700 border-b border-gray-100 whitespace-nowrap tabular-nums">
-                              {row[h] ?? ''}
-                            </td>
-                          ))}
+                          {active.headers.map((h: string, ci: number) => {
+                            const letter = colLetter(ci)
+                            return (
+                              <td key={ci} className="px-3 py-1.5 text-gray-700 border-b border-gray-100 border-r border-gray-100 whitespace-nowrap tabular-nums">
+                                {row[letter] ?? row[h] ?? ''}
+                              </td>
+                            )
+                          })}
                         </tr>
                       ))}
                       {active.preview_rows.length === 0 && (
@@ -376,19 +437,19 @@ export function TrialBalanceImportPage() {
             balance:        'bg-amber-50 border-amber-300',
             description:    'bg-purple-50 border-purple-300',
           }
-          // Invert mapping: column_header → field_key
+          // Invert mapping: column_header_or_letter → field_key
           const colToField: Record<string, string> = {}
           for (const [field, col] of Object.entries(colMapping)) {
             if (col) colToField[col] = field
           }
-          function setColField(colHeader: string, fieldKey: string) {
+          function setColField(colKey: string, fieldKey: string) {
             setColMapping(prev => {
               const next = { ...prev }
               // Remove any existing mapping to this column
               for (const [f, c] of Object.entries(next)) {
-                if (c === colHeader) delete next[f]
+                if (c === colKey) delete next[f]
               }
-              if (fieldKey) next[fieldKey] = colHeader
+              if (fieldKey) next[fieldKey] = colKey
               return next
             })
           }
@@ -404,37 +465,59 @@ export function TrialBalanceImportPage() {
               </div>
 
               <div className="rounded-lg border border-gray-200 overflow-auto">
-                <table className="text-xs">
+                <table className="text-xs border-collapse">
                   <thead>
-                    {/* Row 1: original column header */}
-                    <tr className="bg-gray-100 border-b border-gray-200">
-                      {detected.headers.map((h: string) => (
-                        <th key={h} className={`px-3 py-2 text-left font-semibold border-r border-gray-200 whitespace-nowrap last:border-r-0 ${
-                          colToField[h] ? FIELD_COLORS[colToField[h]] ?? 'bg-gray-100' : 'text-gray-500'
-                        }`}>
-                          {h}
-                        </th>
-                      ))}
+                    {/* Row 1: Column letters */}
+                    <tr className="bg-gray-100 border-b border-gray-200 font-mono text-[11px]">
+                      {detected.headers.map((h: string, ci: number) => {
+                        const letter = colLetter(ci)
+                        const field = colToField[letter] ?? colToField[h]
+                        return (
+                          <th key={letter} className={`px-3 py-1 text-center font-semibold border-r border-gray-200 last:border-r-0 ${
+                            field ? FIELD_COLORS[field] ?? 'bg-gray-100' : 'text-gray-500'
+                          }`}>
+                            {letter}
+                          </th>
+                        )
+                      })}
                     </tr>
-                    {/* Row 2: field assignment dropdowns */}
+                    {/* Row 2: original column header */}
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      {detected.headers.map((h: string, ci: number) => {
+                        const letter = colLetter(ci)
+                        const field = colToField[letter] ?? colToField[h]
+                        return (
+                          <th key={letter} className={`px-3 py-2 text-left font-semibold border-r border-gray-200 whitespace-nowrap last:border-r-0 ${
+                            field ? FIELD_COLORS[field] ?? 'bg-gray-50' : 'text-gray-550'
+                          }`}>
+                            {h || <span className="text-gray-300 italic">blank</span>}
+                          </th>
+                        )
+                      })}
+                    </tr>
+                    {/* Row 3: field assignment dropdowns */}
                     <tr className="bg-white border-b-2 border-indigo-200">
-                      {detected.headers.map((h: string) => (
-                        <td key={h} className="px-2 py-1.5 border-r border-gray-100 last:border-r-0">
-                          <select
-                            value={colToField[h] ?? ''}
-                            onChange={(e) => setColField(h, e.target.value)}
-                            className={`w-full rounded border px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400 ${
-                              colToField[h]
-                                ? `${FIELD_COLORS[colToField[h]] ?? 'bg-white border-gray-300'} font-medium`
-                                : 'bg-white border-gray-200 text-gray-400'
-                            }`}
-                          >
-                            {FIELD_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                      ))}
+                      {detected.headers.map((h: string, ci: number) => {
+                        const letter = colLetter(ci)
+                        const field = colToField[letter] ?? colToField[h]
+                        return (
+                          <td key={letter} className="px-2 py-1.5 border-r border-gray-100 last:border-r-0">
+                            <select
+                              value={field ?? ''}
+                              onChange={(e) => setColField(letter || h, e.target.value)}
+                              className={`w-full rounded border px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400 ${
+                                field
+                                  ? `${FIELD_COLORS[field] ?? 'bg-white border-gray-300'} font-medium`
+                                  : 'bg-white border-gray-200 text-gray-400'
+                              }`}
+                            >
+                              {FIELD_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                        )
+                      })}
                     </tr>
                   </thead>
                   {/* Preview data rows */}
@@ -444,13 +527,17 @@ export function TrialBalanceImportPage() {
                     )}
                     {previewRows.map((row: Record<string, string>, ri: number) => (
                       <tr key={ri} className={`border-b border-gray-50 ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        {detected.headers.map((h: string) => (
-                          <td key={h} className={`px-3 py-1.5 border-r border-gray-100 last:border-r-0 whitespace-nowrap tabular-nums ${
-                            colToField[h] ? 'text-gray-800' : 'text-gray-400'
-                          }`}>
-                            {row[h] ?? ''}
-                          </td>
-                        ))}
+                        {detected.headers.map((h: string, ci: number) => {
+                          const letter = colLetter(ci)
+                          const field = colToField[letter] ?? colToField[h]
+                          return (
+                            <td key={letter} className={`px-3 py-1.5 border-r border-gray-100 last:border-r-0 whitespace-nowrap tabular-nums ${
+                              field ? 'text-gray-800' : 'text-gray-400'
+                            }`}>
+                              {row[letter] ?? row[h] ?? ''}
+                            </td>
+                          )
+                        })}
                       </tr>
                     ))}
                   </tbody>
@@ -490,6 +577,26 @@ export function TrialBalanceImportPage() {
           <div className="space-y-6">
             <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Verification & Validation</h3>
             
+            {/* Unmapped accounts warning CTA banner */}
+            {validationIssues.some(i => i.code === 'IMPORT_MISSING_MAPPING') && (
+              <div className="bg-yellow-50 border border-yellow-250 rounded-lg p-4 flex items-center justify-between gap-4 mb-4" data-testid="unmapped-accounts-warning">
+                <div className="flex items-center gap-3 text-yellow-800">
+                  <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold">Unmapped accounts detected</p>
+                    <p className="text-[10px] text-yellow-600 mt-0.5">Some imported accounts are not mapped to your Chart of Accounts. These must be resolved before posting.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/import/${batchId}/mapping`)}
+                  className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-semibold rounded shrink-0 transition-colors"
+                >
+                  Resolve Mappings
+                </button>
+              </div>
+            )}
+
             {/* Validation Alerts */}
             <div className="space-y-2.5">
               {validationIssues.length === 0 ? (

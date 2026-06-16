@@ -2149,6 +2149,7 @@ class AdjustmentListItem(BaseModel):
     overlay_group: str | None = None
     materiality: str | None = None
     total_debit: Decimal = Decimal("0")
+    total_credit: Decimal = Decimal("0")
     impact: AdjustmentImpact = AdjustmentImpact()
     package_ids: list[int] = []
     has_advisor_note: bool = False

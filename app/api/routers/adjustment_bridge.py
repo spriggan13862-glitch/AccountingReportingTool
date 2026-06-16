@@ -457,13 +457,17 @@ def get_cpa_bridge(
     # Merge account sources
     all_account_ids = set(imported_by_account.keys()) | set(net_by_account_je.keys())
 
+    _ACCOUNT_TYPE_ORDER = {"asset": 0, "liability": 1, "equity": 2, "revenue": 3, "expense": 4}
+
     def _acct_sort(acct_id: int) -> tuple:
         meta = account_meta.get(acct_id) or account_meta_from_bridge.get(acct_id) or {}
         num = meta.get("account_number", "") or ""
+        acct_type = (meta.get("account_type", "") or "").lower()
+        type_order = _ACCOUNT_TYPE_ORDER.get(acct_type, 9)
         try:
-            return (0, int(num), num)
+            return (type_order, int(num), num)
         except (ValueError, TypeError):
-            return (1, 0, num)
+            return (type_order, 0, num)
 
     sorted_account_ids = sorted(all_account_ids, key=_acct_sort)
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -220,6 +220,7 @@ export function MappingWorkbenchPage() {
   // Per-line state
   const [selectedAccounts, setSelectedAccounts] = useState<Record<number, Account | null>>({})
   const [createLineId, setCreateLineId] = useState<number | null>(null)
+  const [editingLines, setEditingLines] = useState<Record<number, boolean>>({})
 
   // Batch mapping state
   const [isBatchMapOpen, setIsBatchMapOpen] = useState(false)
@@ -252,6 +253,24 @@ export function MappingWorkbenchPage() {
     queryFn: () => reportingTaxonomyApi.list(),
   })
 
+  const entityId = batch?.entity_id ?? 0
+
+  const { data: entityAccounts = [] } = useQuery({
+    queryKey: ['accounts-all', entityId],
+    queryFn: () => accountsApi.list(entityId),
+    enabled: !!entityId,
+  })
+
+  const accountMap = useMemo(() => {
+    const map: Record<number, Account> = {}
+    if (Array.isArray(entityAccounts)) {
+      entityAccounts.forEach((a) => {
+        map[a.id] = a
+      })
+    }
+    return map
+  }, [entityAccounts])
+
   const suggestMap: Record<number, ImportSuggestion> = {}
   suggestions?.forEach((s: ImportSuggestion) => { suggestMap[s.line_id] = s })
 
@@ -271,6 +290,7 @@ export function MappingWorkbenchPage() {
       queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
       queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
       setSelectedAccounts((p) => { const n = { ...p }; delete n[lineId]; return n })
+      setEditingLines((p) => { const n = { ...p }; delete n[lineId]; return n })
       setApiError(null)
     },
     onError: (err: Error) => setApiError(err.message),
@@ -419,14 +439,19 @@ export function MappingWorkbenchPage() {
       sortable: true,
       sortValue: (line: ImportLine) => line.raw_account_number || '',
       filterable: true,
-      render: (line: ImportLine) => (
-        <div>
-          <span className="font-mono text-xs font-semibold text-gray-700">{line.raw_account_number || '—'}</span>
-          {line.raw_account_name && (
-            <span className="ml-2 text-gray-500 text-xs">{line.raw_account_name}</span>
-          )}
-        </div>
-      ),
+      render: (line: ImportLine) => {
+        const num = line.raw_account_number || ''
+        const isSub = num.includes('-') || num.includes('.') || num.includes(':')
+        return (
+          <div style={isSub ? { paddingLeft: '1.25rem' } : undefined}>
+            {isSub && <span className="text-gray-400 font-mono text-xs select-none mr-1">└─</span>}
+            <span className="font-mono text-xs font-semibold text-gray-700">{num || '—'}</span>
+            {line.raw_account_name && (
+              <span className="ml-2 text-gray-500 text-xs">{line.raw_account_name}</span>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: 'raw_debit',
@@ -517,47 +542,6 @@ export function MappingWorkbenchPage() {
       }
     },
     {
-      key: 'map_to_reporting_line',
-      header: 'Map Directly to Reporting Line',
-      render: (line: ImportLine) => {
-        if (line.mapping_status !== 'unmapped') return <span className="text-gray-300">—</span>
-
-        return (
-          <select
-            value=""
-            onChange={(e) => {
-              const val = e.target.value
-              if (!val) return
-              const lineId = Number(val)
-              const taxLine = taxonomyLines.find((t) => t.id === lineId)
-              if (!taxLine) return
-              
-              const guessed = guessAccountTypeAndNormal(taxLine.code)
-              createMutation.mutate({
-                lineId: line.id,
-                data: {
-                  account_number: line.raw_account_number ?? `ACCT-${line.line_number}`,
-                  account_name: line.raw_account_name ?? `Imported Account ${line.line_number}`,
-                  account_type: guessed.account_type,
-                  normal_balance: guessed.normal_balance,
-                  reporting_taxonomy_line_id: taxLine.id,
-                }
-              })
-            }}
-            className="border border-gray-300 rounded px-2 py-1.5 text-xs w-full max-w-[200px]"
-            data-testid={`direct-taxonomy-select-${line.id}`}
-          >
-            <option value="">— Select FSLI —</option>
-            {taxonomyLines.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({t.code})
-              </option>
-            ))}
-          </select>
-        )
-      }
-    },
-    {
       key: 'map_to_account',
       header: 'Map to Account',
       render: (line: ImportLine) => {
@@ -565,14 +549,33 @@ export function MappingWorkbenchPage() {
         const isMapped = line.mapping_status === 'mapped'
         const isSkipped = line.mapping_status === 'skipped'
         const isCreating = createLineId === line.id
-        const entityId = batch?.entity_id ?? 0
         const inputRef = getOrCreateRef(line.id)
+        const isEditing = editingLines[line.id]
 
-        if (isMapped) {
+        if (isMapped && !isEditing) {
+          const mappedAcct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
+          const displayName = mappedAcct 
+            ? `${mappedAcct.account_number} — ${mappedAcct.account_name}`
+            : 'Mapped'
+
           return (
-            <span className="text-xs font-medium text-green-700 flex items-center gap-1 bg-green-50 border border-green-200 px-2 py-0.5 rounded w-max">
-              <Check className="w-3.5 h-3.5" /> Mapped
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-green-700 flex items-center gap-1 bg-green-50 border border-green-200 px-2 py-0.5 rounded max-w-[220px] truncate animate-in fade-in" title={displayName}>
+                <Check className="w-3.5 h-3.5 shrink-0" /> {displayName}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (mappedAcct) {
+                    setSelectedAccounts((p) => ({ ...p, [line.id]: mappedAcct }))
+                  }
+                  setEditingLines((p) => ({ ...p, [line.id]: true }))
+                }}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold shrink-0"
+              >
+                Change
+              </button>
+            </div>
           )
         }
         if (isSkipped) {
@@ -606,17 +609,31 @@ export function MappingWorkbenchPage() {
                 onTab={() => focusNextUnmapped(line.id)}
               />
             </div>
-            {selectedAcct && (
-              <button
-                type="button"
-                disabled={mapMutation.isPending}
-                onClick={() => mapMutation.mutate({ lineId: line.id, accountId: selectedAcct.id })}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 disabled:opacity-50 shrink-0 font-medium transition-colors"
-                data-testid={`map-btn-${line.id}`}
-              >
-                <Check className="w-3.5 h-3.5" /> Map
-              </button>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {selectedAcct && (
+                <button
+                  type="button"
+                  disabled={mapMutation.isPending}
+                  onClick={() => mapMutation.mutate({ lineId: line.id, accountId: selectedAcct.id })}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 disabled:opacity-50 font-medium transition-colors"
+                  data-testid={`map-btn-${line.id}`}
+                >
+                  <Check className="w-3.5 h-3.5" /> Map
+                </button>
+              )}
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAccounts((p) => { const n = { ...p }; delete n[line.id]; return n })
+                    setEditingLines((p) => { const n = { ...p }; delete n[line.id]; return n })
+                  }}
+                  className="px-2.5 py-1.5 border border-gray-300 text-gray-600 text-xs rounded hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
         )
       }

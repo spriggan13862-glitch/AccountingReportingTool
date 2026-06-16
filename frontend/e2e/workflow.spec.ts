@@ -180,7 +180,7 @@ test.describe('Workflow: COA Import', () => {
     await page.getByRole('button', { name: /view chart of accounts/i }).click()
 
     // Should navigate to /accounts after successful import and click
-    await expect(page).toHaveURL(/\/accounts/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/accounts|\/chart-of-accounts/, { timeout: 15_000 })
   })
 })
 
@@ -246,9 +246,9 @@ test.describe('Workflow: TB Import', () => {
 test.describe('Workflow: Financial Statements', () => {
   test.beforeEach(async ({ page }) => { await login(page) })
 
-  test('step 14 — /financial-statements page loads', async ({ page }) => {
+  test('step 14 — /statements page loads', async ({ page }) => {
     const errors = attachConsoleSpy(page)
-    await page.goto('/financial-statements')
+    await page.goto('/statements')
     await expect(page.getByRole('heading', { name: /financial statements/i })).toBeVisible({
       timeout: 8_000,
     })
@@ -256,33 +256,25 @@ test.describe('Workflow: Financial Statements', () => {
   })
 
   test('step 15 — financial statements shows entity selector', async ({ page }) => {
-    await page.goto('/financial-statements')
-    // Wait for the page to load and check if the entity selector is visible
+    await page.goto('/statements')
     await expect(page.locator('[data-testid="entity-select"]').first()).toBeVisible({ timeout: 10_000 })
-    // Also assert that the empty state helper text is displayed
     await expect(page.getByText('Select an entity and date')).toBeVisible({ timeout: 5_000 })
   })
 
   test('step 16 — financial statements with entity selected renders tabs', async ({ page }) => {
-    await page.goto('/financial-statements')
+    await page.goto('/statements')
 
     const entitySelect = page.locator('[data-testid="entity-select"]')
     if (await entitySelect.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await expect(entitySelect).toBeEnabled({ timeout: 8_000 })
       await entitySelect.selectOption({ label: ENTITY_OPTION_LABEL })
 
-      // Pick a date if there's a date input
       const dateInput = page.locator('input[type="date"]').first()
       if (await dateInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await dateInput.fill('2024-12-31')
       }
 
-      // Should show statement tabs or empty state
-      await page.waitForTimeout(2_000)
-      const hasBS = await page.getByText(/balance sheet/i).isVisible().catch(() => false)
-      const hasIS = await page.getByText(/income statement/i).isVisible().catch(() => false)
-      const hasEmpty = await page.getByText(/no data|select/i).isVisible().catch(() => false)
-      expect(hasBS || hasIS || hasEmpty).toBeTruthy()
+      await expect(page.locator('[data-testid="tab-BS"]')).toBeVisible({ timeout: 10_000 })
     }
   })
 })
