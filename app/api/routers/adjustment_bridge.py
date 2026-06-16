@@ -325,6 +325,207 @@ def get_bridge_rows(
 
 
 # ---------------------------------------------------------------------------
+# CPA Bridge endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/cpa-bridge")
+def get_cpa_bridge(
+    entity_id: int,
+    period_end: str,
+    scenario_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Returns a CPA-style account bridge with each posted AJE as its own column.
+
+    Response shape:
+    {
+      "columns": [{"je_id": 1, "je_number": "AJE-001", "description": "Bad debt accrual", "entry_date": "2024-01-15"}],
+      "rows": [
+        {
+          "account_number": "1200",
+          "account_name": "Accounts Receivable",
+          "account_type": "asset",
+          "account_sort": 1200,
+          "as_reported": 100000.0,
+          "ajes": {"1": 5000.0, "2": 0.0},
+          "total_ajes": 5000.0,
+          "adjusted": 105000.0
+        }
+      ],
+      "totals": {
+        "as_reported": ...,
+        "ajes": {...},
+        "total_ajes": ...,
+        "adjusted": ...
+      }
+    }
+    """
+    import datetime
+    from decimal import Decimal
+    from app.models.adjustment_bridge import AdjustmentBridgeRow
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.account import Account
+
+    # Get all bridge rows for this slice (already computed by /compute)
+    bridge_rows = (
+        db.query(AdjustmentBridgeRow)
+        .filter(
+            AdjustmentBridgeRow.entity_id == entity_id,
+            AdjustmentBridgeRow.period_end == period_end,
+            AdjustmentBridgeRow.scenario_id == scenario_id,
+        )
+        .all()
+    )
+
+    # Get all posted JEs for this entity/period/scenario
+    try:
+        period_end_date = datetime.date.fromisoformat(period_end)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="period_end must be YYYY-MM-DD")
+
+    je_query = (
+        db.query(JournalEntry)
+        .filter(
+            JournalEntry.entity_id == entity_id,
+            JournalEntry.status == "posted",
+            JournalEntry.entry_date <= period_end_date,
+        )
+    )
+    if scenario_id is not None:
+        je_query = je_query.filter(JournalEntry.scenario_id == scenario_id)
+
+    posted_jes = je_query.order_by(JournalEntry.entry_date, JournalEntry.je_number).all()
+
+    # Build columns list
+    columns = [
+        {
+            "je_id": je.id,
+            "je_number": je.je_number,
+            "description": je.description or "",
+            "entry_date": str(je.entry_date),
+        }
+        for je in posted_jes
+    ]
+    je_ids = [je.id for je in posted_jes]
+
+    # Fetch all JE lines for these JEs in one query
+    if je_ids:
+        je_lines = (
+            db.query(JournalEntryLine, Account)
+            .join(Account, JournalEntryLine.account_id == Account.id)
+            .filter(JournalEntryLine.journal_entry_id.in_(je_ids))
+            .all()
+        )
+    else:
+        je_lines = []
+
+    # Build per-account, per-JE net impact dict
+    # net_by_account_je[account_id][je_id] = net_amount (debit - credit)
+    net_by_account_je: dict[int, dict[int, Decimal]] = {}
+    account_meta: dict[int, dict] = {}
+    for line, acct in je_lines:
+        if acct.id not in net_by_account_je:
+            net_by_account_je[acct.id] = {}
+            account_meta[acct.id] = {
+                "account_number": acct.account_number,
+                "account_name": acct.account_name,
+                "account_type": acct.account_type,
+            }
+        je_id = line.journal_entry_id
+        net_by_account_je[acct.id][je_id] = (
+            net_by_account_je[acct.id].get(je_id, Decimal("0"))
+            + Decimal(str(line.debit or 0))
+            - Decimal(str(line.credit or 0))
+        )
+
+    # Build account lookup from bridge rows for imported_balance
+    imported_by_account: dict[int, Decimal] = {}
+    account_meta_from_bridge: dict[int, dict] = {}
+    for row in bridge_rows:
+        if row.account_id:
+            val = Decimal(str(row.imported_balance or "0"))
+            imported_by_account[row.account_id] = val
+            if row.account_id not in account_meta:
+                account_meta_from_bridge[row.account_id] = {
+                    "account_number": row.account_number or "",
+                    "account_name": row.account_name or "",
+                    "account_type": row.account_type or "",
+                }
+
+    # Merge account sources
+    all_account_ids = set(imported_by_account.keys()) | set(net_by_account_je.keys())
+
+    def _acct_sort(acct_id: int) -> tuple:
+        meta = account_meta.get(acct_id) or account_meta_from_bridge.get(acct_id) or {}
+        num = meta.get("account_number", "") or ""
+        try:
+            return (0, int(num), num)
+        except (ValueError, TypeError):
+            return (1, 0, num)
+
+    sorted_account_ids = sorted(all_account_ids, key=_acct_sort)
+
+    rows_out = []
+    totals_as_reported = Decimal("0")
+    totals_ajes: dict[str, Decimal] = {str(je_id): Decimal("0") for je_id in je_ids}
+    totals_total_ajes = Decimal("0")
+    totals_adjusted = Decimal("0")
+
+    for acct_id in sorted_account_ids:
+        meta = account_meta.get(acct_id) or account_meta_from_bridge.get(acct_id) or {}
+        as_reported = imported_by_account.get(acct_id, Decimal("0"))
+
+        ajes_for_acct: dict[str, float] = {}
+        total_ajes = Decimal("0")
+        for je in posted_jes:
+            net = net_by_account_je.get(acct_id, {}).get(je.id, Decimal("0"))
+            ajes_for_acct[str(je.id)] = float(net)
+            total_ajes += net
+            totals_ajes[str(je.id)] = totals_ajes.get(str(je.id), Decimal("0")) + net
+
+        adjusted = as_reported + total_ajes
+
+        totals_as_reported += as_reported
+        totals_total_ajes += total_ajes
+        totals_adjusted += adjusted
+
+        # Sort key for display
+        num = meta.get("account_number", "") or ""
+        try:
+            sort_val = int(num)
+        except (ValueError, TypeError):
+            sort_val = 0
+
+        rows_out.append({
+            "account_id": acct_id,
+            "account_number": meta.get("account_number", ""),
+            "account_name": meta.get("account_name", ""),
+            "account_type": meta.get("account_type", ""),
+            "account_sort": sort_val,
+            "as_reported": float(as_reported),
+            "ajes": ajes_for_acct,
+            "total_ajes": float(total_ajes),
+            "adjusted": float(adjusted),
+        })
+
+    return {
+        "entity_id": entity_id,
+        "period_end": period_end,
+        "scenario_id": scenario_id,
+        "columns": columns,
+        "rows": rows_out,
+        "totals": {
+            "as_reported": float(totals_as_reported),
+            "ajes": {k: float(v) for k, v in totals_ajes.items()},
+            "total_ajes": float(totals_total_ajes),
+            "adjusted": float(totals_adjusted),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
 # Views CRUD
 # ---------------------------------------------------------------------------
 

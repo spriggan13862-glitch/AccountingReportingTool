@@ -48,6 +48,39 @@ export interface ComputeResult {
   message: string
 }
 
+export interface CPABridgeColumn {
+  je_id: number
+  je_number: string
+  description: string
+  entry_date: string
+}
+
+export interface CPABridgeRow {
+  account_id: number
+  account_number: string
+  account_name: string
+  account_type: string
+  account_sort: number
+  as_reported: number
+  ajes: Record<string, number>
+  total_ajes: number
+  adjusted: number
+}
+
+export interface CPABridgeResult {
+  entity_id: number
+  period_end: string
+  scenario_id: number | null
+  columns: CPABridgeColumn[]
+  rows: CPABridgeRow[]
+  totals: {
+    as_reported: number
+    ajes: Record<string, number>
+    total_ajes: number
+    adjusted: number
+  }
+}
+
 export const adjustmentBridgeApi = {
   compute: (entityId: number, periodEnd: string, scenarioId?: number): Promise<ComputeResult> =>
     api.get<ComputeResult>('/adjustment-bridge/compute', {
@@ -74,4 +107,11 @@ export const adjustmentBridgeApi = {
 
   deleteView: (viewId: number): Promise<void> =>
     api.delete(`/adjustment-bridge/views/${viewId}`).then(() => undefined),
+
+  cpaBridge: (params: {
+    entity_id: number
+    period_end: string
+    scenario_id?: number
+  }): Promise<CPABridgeResult> =>
+    api.get<CPABridgeResult>('/adjustment-bridge/cpa-bridge', { params }).then((r) => r.data),
 }

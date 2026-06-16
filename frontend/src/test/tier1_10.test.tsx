@@ -109,6 +109,14 @@ vi.mock('@/api/adjustmentBridge', () => ({
       { id: 1, account_name: 'Cash', account_number: '1000', account_type: 'asset', imported_balance: '100.00', posted_adjustments: '50.00', adjusted_balance: '150.00', variance: '0.00' }
     ]),
     listViews: vi.fn().mockResolvedValue([]),
+    cpaBridge: vi.fn().mockResolvedValue({
+      entity_id: 1, period_end: '2026-03-31', scenario_id: null,
+      columns: [{ je_id: 1, je_number: 'AJE-001', description: 'Bonus accrual', entry_date: '2026-01-15' }],
+      rows: [
+        { account_id: 101, account_number: '1000', account_name: 'Cash', account_type: 'asset', account_sort: 1000, as_reported: 100000, ajes: { '1': 5000 }, total_ajes: 5000, adjusted: 105000 },
+      ],
+      totals: { as_reported: 100000, ajes: { '1': 5000 }, total_ajes: 5000, adjusted: 105000 },
+    }),
   },
 }))
 
@@ -175,22 +183,29 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
     })
   })
 
-  // 4. Adjustment bridge pivot summarization
-  it('computes and renders Group summaries and Grand Totals in Adjustment Bridge Pivot Table', async () => {
+  // 4. Adjustment bridge CPA workbook
+  it('renders CPA bridge table with per-AJE columns after entity and period selection', async () => {
     render(wrap(<AdjustmentBridgePage />))
 
-    // Wait for the entity options to load
+    // Wait for entity options to load
     await waitFor(() => {
       expect(screen.getByText('ENT1 — Entity 1')).toBeInTheDocument()
     })
 
-    // Select Entity first
+    // Select entity
     const entitySelect = screen.getByTestId('entity-select')
     fireEvent.change(entitySelect, { target: { value: '1' } })
 
+    // Select period
     await waitFor(() => {
-      expect(screen.getByText('Pivot Summary Table')).toBeInTheDocument()
+      expect(screen.getByTestId('period-select')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cpa-bridge-table')).toBeInTheDocument()
       expect(screen.getByText('Grand Total')).toBeInTheDocument()
+      expect(screen.getByText('AJE-001')).toBeInTheDocument()
     })
   })
 

@@ -113,6 +113,28 @@ def _note_for_je(db: Session, je_id: int) -> AdjustmentAdvisorNote | None:
     )
 
 
+def _get_je_lines(db: Session, je_id: int) -> list[dict]:
+    rows = (
+        db.query(JournalEntryLine, Account)
+        .join(Account, JournalEntryLine.account_id == Account.id)
+        .filter(JournalEntryLine.journal_entry_id == je_id)
+        .order_by(JournalEntryLine.line_number)
+        .all()
+    )
+    return [
+        {
+            "line_number": line.line_number,
+            "account_id": line.account_id,
+            "account_number": acct.account_number,
+            "account_name": acct.account_name,
+            "debit": float(line.debit or 0),
+            "credit": float(line.credit or 0),
+            "description": line.description,
+        }
+        for line, acct in rows
+    ]
+
+
 def _org_from_user(user) -> str:
     if user is None:
         return "default-org"
@@ -137,6 +159,7 @@ def list_adjustments(
     date_to: Optional[datetime.date] = Query(None),
     limit: int = Query(200, le=1000),
     offset: int = Query(0),
+    include_lines: bool = Query(False),
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -191,6 +214,7 @@ def list_adjustments(
                 package_ids=_package_ids_for_je(db, je.id),
                 has_advisor_note=note is not None,
                 advisor_resolution_status=note.resolution_status if note else None,
+                lines=_get_je_lines(db, je.id) if include_lines else None,
             )
         )
     return items

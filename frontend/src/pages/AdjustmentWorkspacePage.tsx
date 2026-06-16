@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  SlidersHorizontal, Search, X, ChevronRight, Package, FileText,
-  TrendingUp, AlertTriangle, CheckCircle2, Clock, Plus, Edit3,
-  Tag, BarChart3, Layers, Filter,
+  SlidersHorizontal, Search, X, Package, FileText,
+  AlertTriangle, CheckCircle2, Clock, Plus, Edit3,
+  ChevronDown, ChevronRight,
 } from 'lucide-react'
 
 import { adjustmentWorkspaceApi, type AdjustmentListItem, type AdjustmentPackage } from '@/api/adjustmentWorkspace'
@@ -14,6 +14,7 @@ import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { useToast } from '@/providers/ToastProvider'
+import { formatCurrency } from '@/lib/format'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
@@ -45,35 +46,12 @@ const PKG_TYPE_OPTIONS = [
   { value: 'buyer', label: 'Buyer' },
 ]
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function materialityConfig(m: string | null) {
   return MATERIALITY_OPTIONS.find((o) => o.value === m) ?? null
-}
-
-function fmtAmount(n: number): string {
-  if (n === 0) return '—'
-  const abs = Math.abs(n)
-  const sign = n < 0 ? '(' : ''
-  const end = n < 0 ? ')' : ''
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M${end}`
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K${end}`
-  return `${sign}$${abs.toFixed(0)}${end}`
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function ImpactBadge({ value, label }: { value: number; label: string }) {
-  if (value === 0) return null
-  const positive = value > 0
-  return (
-    <div className="flex flex-col items-end">
-      <span className="text-[10px] text-slate-400 leading-none">{label}</span>
-      <span className={cn('text-xs font-semibold leading-tight', positive ? 'text-emerald-600' : 'text-rose-600')}>
-        {positive ? '+' : ''}{fmtAmount(value)}
-      </span>
-    </div>
-  )
 }
 
 function MaterialityBadge({ value }: { value: string | null }) {
@@ -94,193 +72,6 @@ function StatusDot({ status }: { status: string }) {
     voided: 'bg-slate-300',
   }
   return <span className={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', map[status] ?? 'bg-slate-300')} />
-}
-
-// ---------------------------------------------------------------------------
-// Impact sidebar panel
-// ---------------------------------------------------------------------------
-
-interface ImpactDrawerProps {
-  item: AdjustmentListItem
-  packages: AdjustmentPackage[]
-  onClose: () => void
-  onMaterialityChange: (jeId: number, m: string | null) => void
-}
-
-function ImpactDrawer({ item, packages, onClose, onMaterialityChange }: ImpactDrawerProps) {
-  const { data: note } = useQuery({
-    queryKey: ['adj-notes', item.id],
-    queryFn: () => adjustmentWorkspaceApi.getNotes(item.id),
-  })
-  const qc = useQueryClient()
-  const toast = useToast()
-  const [issueVal, setIssueVal] = useState(note?.issue ?? '')
-  const [recVal, setRecVal] = useState(note?.recommendation ?? '')
-  const [clientVal, setClientVal] = useState(note?.client_response ?? '')
-  const [resStatus, setResStatus] = useState(note?.resolution_status ?? 'open')
-
-  const noteMutation = useMutation({
-    mutationFn: () =>
-      adjustmentWorkspaceApi.upsertNotes(item.id, {
-        issue: issueVal || undefined,
-        recommendation: recVal || undefined,
-        client_response: clientVal || undefined,
-        resolution_status: resStatus,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['adj-notes', item.id] })
-      qc.invalidateQueries({ queryKey: ['adj-workspace'] })
-      toast('Notes saved', 'success')
-    },
-  })
-
-  const memberPkgIds = new Set(item.package_ids)
-  const myPkgs = packages.filter((p) => memberPkgIds.has(p.id))
-
-  return (
-    <div data-testid="impact-drawer" className="fixed inset-y-0 right-0 w-96 bg-white border-l border-slate-200 shadow-xl z-40 flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-        <div>
-          <div className="text-xs text-slate-400 font-mono">{item.je_number}</div>
-          <div className="text-sm font-semibold text-slate-800 truncate max-w-[280px]">{item.description}</div>
-        </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-slate-200 text-slate-500">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
-
-        {/* Status & materiality */}
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</div>
-          <div className="flex items-center gap-2">
-            <StatusDot status={item.status} />
-            <span className="text-sm capitalize text-slate-700">{item.status}</span>
-          </div>
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-3">Materiality</div>
-          <div className="flex flex-wrap gap-1.5">
-            {MATERIALITY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => onMaterialityChange(item.id, item.materiality === opt.value ? null : opt.value)}
-                className={cn(
-                  'px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wide border transition-all',
-                  item.materiality === opt.value
-                    ? cn(opt.color, 'border-current shadow-sm')
-                    : 'text-slate-400 bg-slate-50 border-slate-200 hover:border-slate-300',
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Financial impact */}
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Financial Impact</div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: 'NI Impact', value: item.impact.ni_impact },
-              { label: 'EBITDA Impact', value: item.impact.ebitda_impact },
-              { label: 'Asset Impact', value: item.impact.asset_impact },
-              { label: 'Liability Impact', value: item.impact.liability_impact },
-              { label: 'Equity Impact', value: item.impact.equity_impact },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-slate-50 rounded p-2">
-                <div className="text-[10px] text-slate-400">{label}</div>
-                <div className={cn('text-sm font-semibold', value > 0 ? 'text-emerald-600' : value < 0 ? 'text-rose-600' : 'text-slate-400')}>
-                  {value === 0 ? '—' : `${value > 0 ? '+' : ''}${fmtAmount(value)}`}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Packages */}
-        {myPkgs.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Packages</div>
-            {myPkgs.map((p) => (
-              <div key={p.id} className="flex items-center gap-2 text-xs text-slate-700 bg-indigo-50 px-2 py-1 rounded">
-                <Package className="w-3 h-3 text-indigo-500" />
-                {p.name}
-                <span className="text-indigo-400 text-[10px]">{p.package_type}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Advisor notes */}
-        <div className="space-y-2">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Advisor Notes</div>
-          <div className="space-y-2">
-            <div>
-              <label className="text-[10px] text-slate-400 mb-0.5 block">Issue</label>
-              <textarea
-                className="w-full text-xs border border-slate-200 rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                rows={2}
-                value={issueVal}
-                onChange={(e) => setIssueVal(e.target.value)}
-                placeholder="Describe the issue…"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-slate-400 mb-0.5 block">Recommendation</label>
-              <textarea
-                className="w-full text-xs border border-slate-200 rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                rows={2}
-                value={recVal}
-                onChange={(e) => setRecVal(e.target.value)}
-                placeholder="Advisor recommendation…"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-slate-400 mb-0.5 block">Client Response</label>
-              <textarea
-                className="w-full text-xs border border-slate-200 rounded p-2 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                rows={2}
-                value={clientVal}
-                onChange={(e) => setClientVal(e.target.value)}
-                placeholder="Client's response…"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-slate-400 mb-0.5 block">Resolution Status</label>
-              <select
-                className="w-full text-xs border border-slate-200 rounded p-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                value={resStatus}
-                onChange={(e) => setResStatus(e.target.value)}
-              >
-                <option value="open">Open</option>
-                <option value="pending_client">Pending Client</option>
-                <option value="resolved">Resolved</option>
-                <option value="na">N/A</option>
-              </select>
-            </div>
-          </div>
-          <button
-            onClick={() => noteMutation.mutate()}
-            disabled={noteMutation.isPending}
-            className="w-full py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            {noteMutation.isPending ? 'Saving…' : 'Save Notes'}
-          </button>
-        </div>
-
-      </div>
-
-      <div className="px-4 py-3 border-t border-slate-200 bg-slate-50">
-        <a
-          href={`/workbench/journal-entries/${item.id}`}
-          className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-        >
-          Open in Journal Entries <ChevronRight className="w-3 h-3" />
-        </a>
-      </div>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -371,14 +162,68 @@ function MultiImpactBar({ selectedIds }: { selectedIds: number[] }) {
       <span className="font-semibold text-indigo-700">{selectedIds.length} selected</span>
       {impact && (
         <>
-          <ImpactBadge value={impact.ni_impact} label="NI" />
-          <ImpactBadge value={impact.ebitda_impact} label="EBITDA" />
-          <ImpactBadge value={impact.asset_impact} label="Assets" />
-          <ImpactBadge value={impact.liability_impact} label="Liabilities" />
-          <ImpactBadge value={impact.equity_impact} label="Equity" />
+          {impact.ni_impact !== 0 && (
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-slate-400 leading-none">NI</span>
+              <span className={cn('text-xs font-semibold leading-tight', impact.ni_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                {impact.ni_impact > 0 ? '+' : ''}{formatCurrency(impact.ni_impact)}
+              </span>
+            </div>
+          )}
+          {impact.ebitda_impact !== 0 && (
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] text-slate-400 leading-none">EBITDA</span>
+              <span className={cn('text-xs font-semibold leading-tight', impact.ebitda_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                {impact.ebitda_impact > 0 ? '+' : ''}{formatCurrency(impact.ebitda_impact)}
+              </span>
+            </div>
+          )}
         </>
       )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inline JE lines sub-table
+// ---------------------------------------------------------------------------
+
+function JELinesTable({ lines }: { lines: NonNullable<AdjustmentListItem['lines']> }) {
+  return (
+    <tr>
+      <td colSpan={10} className="px-0 pb-0">
+        <table className="w-full text-[10px]">
+          <thead>
+            <tr className="bg-slate-50 border-t border-slate-100">
+              <th className="w-8" />
+              <th className="px-3 py-1 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Acct #</th>
+              <th className="px-3 py-1 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Account Name</th>
+              <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Debit</th>
+              <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Credit</th>
+              <th className="px-3 py-1 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Line Memo</th>
+              <th colSpan={4} />
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((ln) => (
+              <tr key={ln.line_number} className="border-t border-slate-50 hover:bg-indigo-50/40">
+                <td className="w-8" />
+                <td className="px-3 py-1 font-mono text-slate-500">{ln.account_number}</td>
+                <td className="px-3 py-1 text-slate-700">{ln.account_name}</td>
+                <td className="px-3 py-1 text-right font-mono text-slate-700">
+                  {ln.debit > 0 ? formatCurrency(ln.debit) : ''}
+                </td>
+                <td className="px-3 py-1 text-right font-mono text-slate-700">
+                  {ln.credit > 0 ? formatCurrency(ln.credit) : ''}
+                </td>
+                <td className="px-3 py-1 text-slate-400 italic">{ln.description ?? ''}</td>
+                <td colSpan={4} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </td>
+    </tr>
   )
 }
 
@@ -400,9 +245,8 @@ export function AdjustmentWorkspacePage() {
 
   // UI state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
-  const [drawerItem, setDrawerItem] = useState<AdjustmentListItem | null>(null)
+  const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set())
   const [showPackages, setShowPackages] = useState(false)
-  const [activeTab, setActiveTab] = useState<'adjustments' | 'rollforward'>('adjustments')
 
   const filters = useMemo(() => ({
     search: search || undefined,
@@ -410,6 +254,7 @@ export function AdjustmentWorkspacePage() {
     overlay_group: filterOverlay || undefined,
     materiality: filterMateriality || undefined,
     package_id: filterPackage,
+    include_lines: true,
     limit: 200,
   }), [search, filterStatus, filterOverlay, filterMateriality, filterPackage])
 
@@ -426,12 +271,7 @@ export function AdjustmentWorkspacePage() {
   const materialityMutation = useMutation({
     mutationFn: ({ jeId, materiality }: { jeId: number; materiality: string | null }) =>
       adjustmentWorkspaceApi.setMateriality(jeId, materiality),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['adj-workspace'] })
-      if (drawerItem) {
-        qc.invalidateQueries({ queryKey: ['adj-workspace'] })
-      }
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['adj-workspace'] }),
   })
 
   const createPackageMutation = useMutation({
@@ -462,40 +302,39 @@ export function AdjustmentWorkspacePage() {
 
   const toggleSelectAll = () => {
     if (!items) return
-    if (selectedIds.size === items.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(items.map((i) => i.id)))
-    }
+    if (selectedIds.size === items.length) setSelectedIds(new Set())
+    else setSelectedIds(new Set(items.map((i) => i.id)))
   }
 
-  // Summary stats
+  const toggleCollapse = (id: number) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   const stats = useMemo(() => {
     if (!items) return null
     return {
       total: items.length,
       draft: items.filter((i) => i.status === 'draft').length,
+      posted: items.filter((i) => i.status === 'posted').length,
       material: items.filter((i) => i.materiality === 'material' || i.materiality === 'critical').length,
-      pending: items.filter((i) => i.advisor_resolution_status === 'pending_client').length,
       open: items.filter((i) => i.has_advisor_note && i.advisor_resolution_status === 'open').length,
     }
   }, [items])
 
-  // Update drawer item from fresh data
-  const drawerItemFresh = useMemo(
-    () => (drawerItem ? items?.find((i) => i.id === drawerItem.id) ?? drawerItem : null),
-    [drawerItem, items],
-  )
-
   return (
     <div className="flex flex-col h-full">
       <PageLayout
-        title="Adjustment Workspace"
-        subtitle="Unified view of all adjustments, their financial impact, packages, and advisor notes"
+        title="Adjustment Workbench"
+        subtitle="JE lines expanded inline — review every debit and credit without a click"
         breadcrumb={
           <Breadcrumb items={[
             { label: 'Workbench', href: '/workbench/adjustment-bridge' },
-            { label: 'Adjustment Workspace' },
+            { label: 'Adjustment Workbench' },
           ]} />
         }
         actions={
@@ -538,8 +377,8 @@ export function AdjustmentWorkspacePage() {
             {[
               { label: 'Total Adjustments', value: stats.total, icon: SlidersHorizontal, color: 'text-slate-700' },
               { label: 'Draft', value: stats.draft, icon: Clock, color: 'text-amber-600' },
+              { label: 'Posted', value: stats.posted, icon: CheckCircle2, color: 'text-emerald-600' },
               { label: 'Material / Critical', value: stats.material, icon: AlertTriangle, color: 'text-rose-600' },
-              { label: 'Pending Client', value: stats.pending, icon: FileText, color: 'text-indigo-600' },
               { label: 'Open Issues', value: stats.open, icon: Edit3, color: 'text-orange-600' },
             ].map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="bg-white border border-slate-200 rounded-lg px-4 py-3 flex items-center gap-3">
@@ -553,160 +392,137 @@ export function AdjustmentWorkspacePage() {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-slate-200 -mb-2">
-          {[
-            { id: 'adjustments', label: 'Master Grid', icon: SlidersHorizontal },
-            { id: 'rollforward', label: 'Rollforward', icon: BarChart3 },
-          ].map(({ id, label, icon: Icon }) => (
+        {/* Packages panel */}
+        {showPackages && (
+          <div className="bg-white border border-slate-200 rounded-lg p-4">
+            <PackagePanel
+              packages={packages}
+              onCreatePackage={(name, type) => createPackageMutation.mutate({ name, type })}
+              onDeletePackage={(id) => deletePackageMutation.mutate(id)}
+            />
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2" data-testid="workspace-filters">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <input
+              data-testid="workspace-search"
+              type="text"
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              placeholder="Search JE # or description…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            data-testid="filter-status"
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="posted">Posted</option>
+            <option value="reversed">Reversed</option>
+          </select>
+          <select
+            data-testid="filter-overlay"
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            value={filterOverlay}
+            onChange={(e) => setFilterOverlay(e.target.value)}
+          >
+            <option value="">All Types</option>
+            {OVERLAY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <select
+            data-testid="filter-materiality"
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            value={filterMateriality}
+            onChange={(e) => setFilterMateriality(e.target.value)}
+          >
+            <option value="">All Materiality</option>
+            {MATERIALITY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <select
+            data-testid="filter-package"
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            value={filterPackage ?? ''}
+            onChange={(e) => setFilterPackage(e.target.value ? Number(e.target.value) : undefined)}
+          >
+            <option value="">All Packages</option>
+            {packages.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {(search || filterStatus || filterOverlay || filterMateriality || filterPackage) && (
             <button
-              key={id}
-              data-testid={`tab-${id}`}
-              onClick={() => setActiveTab(id as typeof activeTab)}
-              className={cn(
-                'flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors',
-                activeTab === id
-                  ? 'border-indigo-600 text-indigo-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700',
-              )}
+              onClick={() => { setSearch(''); setFilterStatus(''); setFilterOverlay(''); setFilterMateriality(''); setFilterPackage(undefined) }}
+              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"
             >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
+              <X className="w-3 h-3" />Clear
             </button>
-          ))}
+          )}
         </div>
 
-        {activeTab === 'adjustments' && (
-          <div className="space-y-3">
+        {/* Multi-select bar */}
+        <MultiImpactBar selectedIds={Array.from(selectedIds)} />
 
-            {/* Packages panel */}
-            {showPackages && (
-              <div className="bg-white border border-slate-200 rounded-lg p-4">
-                <PackagePanel
-                  packages={packages}
-                  onCreatePackage={(name, type) => createPackageMutation.mutate({ name, type })}
-                  onDeletePackage={(id) => deletePackageMutation.mutate(id)}
-                />
-              </div>
-            )}
-
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2" data-testid="workspace-filters">
-              <div className="relative flex-1 min-w-[200px] max-w-xs">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  data-testid="workspace-search"
-                  type="text"
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                  placeholder="Search JE # or description…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <select
-                data-testid="filter-status"
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="posted">Posted</option>
-                <option value="reversed">Reversed</option>
-              </select>
-              <select
-                data-testid="filter-overlay"
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                value={filterOverlay}
-                onChange={(e) => setFilterOverlay(e.target.value)}
-              >
-                <option value="">All Types</option>
-                {OVERLAY_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <select
-                data-testid="filter-materiality"
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                value={filterMateriality}
-                onChange={(e) => setFilterMateriality(e.target.value)}
-              >
-                <option value="">All Materiality</option>
-                {MATERIALITY_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <select
-                data-testid="filter-package"
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                value={filterPackage ?? ''}
-                onChange={(e) => setFilterPackage(e.target.value ? Number(e.target.value) : undefined)}
-              >
-                <option value="">All Packages</option>
-                {packages.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {(search || filterStatus || filterOverlay || filterMateriality || filterPackage) && (
-                <button
-                  onClick={() => { setSearch(''); setFilterStatus(''); setFilterOverlay(''); setFilterMateriality(''); setFilterPackage(undefined) }}
-                  className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"
-                >
-                  <X className="w-3 h-3" />Clear
-                </button>
-              )}
-            </div>
-
-            {/* Multi-select bar */}
-            <MultiImpactBar selectedIds={Array.from(selectedIds)} />
-
-            {/* Grid */}
-            {isLoading ? (
-              <LoadingState message="Loading adjustments…" />
-            ) : error ? (
-              <ErrorState message="Failed to load adjustments" />
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-lg overflow-hidden" data-testid="adjustment-grid">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="w-8 px-3 py-2">
-                        <input
-                          type="checkbox"
-                          className="rounded"
-                          checked={items && items.length > 0 && selectedIds.size === items.length}
-                          onChange={toggleSelectAll}
-                        />
-                      </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">JE #</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Description</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Materiality</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">NI Impact</th>
-                      <th className="px-3 py-2 text-center text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {items?.length === 0 && (
-                      <tr>
-                        <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
-                          No adjustments match the current filters.
-                        </td>
-                      </tr>
-                    )}
-                    {items?.map((item) => (
+        {/* Grid */}
+        {isLoading ? (
+          <LoadingState message="Loading adjustments…" />
+        ) : error ? (
+          <ErrorState message="Failed to load adjustments" />
+        ) : (
+          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden" data-testid="adjustment-grid">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="w-8 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={items && items.length > 0 && selectedIds.size === items.length}
+                      onChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th className="w-6 px-1 py-2" />
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">JE #</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Date</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Description</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Materiality</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">NI Impact</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Source</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items?.length === 0 && (
+                  <tr>
+                    <td colSpan={11} className="px-3 py-8 text-center text-slate-400">
+                      No adjustments match the current filters.
+                    </td>
+                  </tr>
+                )}
+                {items?.map((item) => {
+                  const isCollapsed = collapsedIds.has(item.id)
+                  const hasLines = item.lines && item.lines.length > 0
+                  return (
+                    <>
                       <tr
                         key={item.id}
                         data-testid={`adj-row-${item.id}`}
                         className={cn(
-                          'hover:bg-slate-50 cursor-pointer transition-colors',
+                          'hover:bg-slate-50 transition-colors',
                           selectedIds.has(item.id) && 'bg-indigo-50',
-                          drawerItem?.id === item.id && 'bg-indigo-100',
                         )}
-                        onClick={() => setDrawerItem(drawerItem?.id === item.id ? null : item)}
                       >
                         <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                           <input
@@ -716,9 +532,30 @@ export function AdjustmentWorkspacePage() {
                             onChange={() => toggleSelect(item.id)}
                           />
                         </td>
+                        <td className="px-1 py-2">
+                          {hasLines && (
+                            <button
+                              type="button"
+                              onClick={() => toggleCollapse(item.id)}
+                              className="text-slate-400 hover:text-slate-600 p-0.5"
+                              aria-label={isCollapsed ? 'Expand lines' : 'Collapse lines'}
+                            >
+                              {isCollapsed
+                                ? <ChevronRight className="w-3.5 h-3.5" />
+                                : <ChevronDown className="w-3.5 h-3.5" />
+                              }
+                            </button>
+                          )}
+                        </td>
                         <td className="px-3 py-2 font-mono text-slate-700">{item.je_number}</td>
                         <td className="px-3 py-2 text-slate-500">{item.entry_date}</td>
                         <td className="px-3 py-2 text-slate-800 max-w-[200px] truncate">{item.description}</td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <StatusDot status={item.status} />
+                            <span className="capitalize text-slate-700">{item.status}</span>
+                          </div>
+                        </td>
                         <td className="px-3 py-2">
                           {item.overlay_group ? (
                             <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">
@@ -729,144 +566,35 @@ export function AdjustmentWorkspacePage() {
                           )}
                         </td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <StatusDot status={item.status} />
-                            <span className="capitalize text-slate-700">{item.status}</span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
                           <MaterialityBadge value={item.materiality} />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtAmount(item.total_debit)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-700">
+                          {formatCurrency(item.total_debit)}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {item.impact.ni_impact !== 0 ? (
                             <span className={cn('font-semibold', item.impact.ni_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
-                              {item.impact.ni_impact > 0 ? '+' : ''}{fmtAmount(item.impact.ni_impact)}
+                              {item.impact.ni_impact > 0 ? '+' : ''}{formatCurrency(Math.abs(item.impact.ni_impact))}
+                              {item.impact.ni_impact < 0 && <span className="text-rose-600"> ↓</span>}
                             </span>
                           ) : (
                             <span className="text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-center">
-                          {item.has_advisor_note && (
-                            <span className={cn(
-                              'inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold',
-                              item.advisor_resolution_status === 'resolved' ? 'bg-emerald-100 text-emerald-700' :
-                              item.advisor_resolution_status === 'pending_client' ? 'bg-amber-100 text-amber-700' :
-                              'bg-slate-100 text-slate-600',
-                            )}>
-                              ✓
-                            </span>
-                          )}
-                        </td>
+                        <td className="px-3 py-2 text-slate-400 text-[10px]">{item.source}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      {hasLines && !isCollapsed && (
+                        <JELinesTable key={`lines-${item.id}`} lines={item.lines!} />
+                      )}
+                    </>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
-        {activeTab === 'rollforward' && (
-          <RollforwardTab />
-        )}
-
       </PageLayout>
-
-      {drawerItemFresh && (
-        <ImpactDrawer
-          item={drawerItemFresh}
-          packages={packages}
-          onClose={() => setDrawerItem(null)}
-          onMaterialityChange={(jeId, m) => materialityMutation.mutate({ jeId, materiality: m })}
-        />
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Rollforward tab (account-level view)
-// ---------------------------------------------------------------------------
-
-function RollforwardTab() {
-  const [entityId, setEntityId] = useState<string>('')
-  const { data: entities } = useQuery({
-    queryKey: ['entities-brief'],
-    queryFn: async () => {
-      const mod = await import('@/api/entities')
-      return mod.entitiesApi.list()
-    },
-  })
-
-  const { data: rows, isLoading } = useQuery({
-    queryKey: ['adj-rollforward', entityId],
-    queryFn: () => adjustmentWorkspaceApi.rollforward(Number(entityId)),
-    enabled: !!entityId,
-  })
-
-  return (
-    <div className="space-y-4" data-testid="rollforward-tab">
-      <div className="flex items-center gap-3">
-        <select
-          data-testid="rollforward-entity-select"
-          className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 min-w-[200px]"
-          value={entityId}
-          onChange={(e) => setEntityId(e.target.value)}
-        >
-          <option value="">Select entity…</option>
-          {entities?.map?.((e: { id: number; name: string }) => (
-            <option key={e.id} value={e.id}>{e.name}</option>
-          ))}
-        </select>
-      </div>
-
-      {isLoading && <LoadingState message="Computing rollforward…" />}
-
-      {rows && (
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden" data-testid="rollforward-grid">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Account #</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Account Name</th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">As Reported</th>
-                <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Adjustments</th>
-                <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Adjusted</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-slate-400">No data for selected entity.</td>
-                </tr>
-              )}
-              {rows.map((row) => (
-                <tr key={row.account_id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono text-slate-700">{row.account_number}</td>
-                  <td className="px-3 py-2 text-slate-800">{row.account_name}</td>
-                  <td className="px-3 py-2">
-                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px]">{row.account_type}</span>
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtAmount(row.as_reported)}</td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    <span className={cn(row.adjustments > 0 ? 'text-emerald-600' : row.adjustments < 0 ? 'text-rose-600' : 'text-slate-400')}>
-                      {row.adjustments !== 0 ? `${row.adjustments > 0 ? '+' : ''}${fmtAmount(row.adjustments)}` : '—'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono font-semibold text-slate-900">{fmtAmount(row.adjusted)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {!entityId && (
-        <div className="text-center text-slate-400 py-8 text-sm">Select an entity to view the adjustment rollforward.</div>
-      )}
     </div>
   )
 }

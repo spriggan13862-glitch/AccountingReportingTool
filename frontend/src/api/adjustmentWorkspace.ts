@@ -24,6 +24,15 @@ export interface AdjustmentListItem {
   package_ids: number[]
   has_advisor_note: boolean
   advisor_resolution_status: string | null
+  lines?: Array<{
+    line_number: number
+    account_id: number
+    account_number: string
+    account_name: string
+    debit: number
+    credit: number
+    description: string | null
+  }>
 }
 
 export interface AdjustmentPackage {
@@ -71,6 +80,7 @@ export interface AdjustmentFilters {
   date_to?: string
   limit?: number
   offset?: number
+  include_lines?: boolean
 }
 
 export const adjustmentWorkspaceApi = {

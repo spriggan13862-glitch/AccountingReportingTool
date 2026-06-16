@@ -714,9 +714,9 @@ describe('Tier1.9: P10 — Adjustment Bridge', () => {
     expect(screen.getAllByText(/adjustment bridge/i).length).toBeGreaterThan(0)
   })
 
-  it('renders Compute/Refresh button', () => {
+  it('renders entity and period selectors', () => {
     renderBridgePage()
-    expect(screen.getByTestId('compute-bridge-btn')).toBeInTheDocument()
+    expect(screen.getByTestId('entity-select')).toBeInTheDocument()
   })
 
   it('renders entity slicer', () => {

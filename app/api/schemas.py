@@ -2153,6 +2153,7 @@ class AdjustmentListItem(BaseModel):
     package_ids: list[int] = []
     has_advisor_note: bool = False
     advisor_resolution_status: str | None = None
+    lines: list[dict] | None = None
 
 
 class ImpactPreviewRequest(BaseModel):

@@ -51,6 +51,10 @@ const mockItems: AdjustmentListItem[] = [
     package_ids: [10],
     has_advisor_note: true,
     advisor_resolution_status: 'open',
+    lines: [
+      { line_number: 1, account_id: 101, account_number: '6100', account_name: 'Bonus Expense', debit: 50000, credit: 0, description: null },
+      { line_number: 2, account_id: 102, account_number: '2100', account_name: 'Accrued Liabilities', debit: 0, credit: 50000, description: null },
+    ],
   },
   {
     id: 2,
@@ -68,6 +72,10 @@ const mockItems: AdjustmentListItem[] = [
     package_ids: [],
     has_advisor_note: false,
     advisor_resolution_status: null,
+    lines: [
+      { line_number: 1, account_id: 103, account_number: '4000', account_name: 'Revenue', debit: 120000, credit: 0, description: null },
+      { line_number: 2, account_id: 104, account_number: '1300', account_name: 'Intercompany AR', debit: 0, credit: 120000, description: null },
+    ],
   },
   {
     id: 3,
@@ -85,6 +93,7 @@ const mockItems: AdjustmentListItem[] = [
     package_ids: [],
     has_advisor_note: false,
     advisor_resolution_status: null,
+    lines: [],
   },
 ]
 
@@ -174,7 +183,7 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
 
   it('renders the page title', async () => {
     render(wrap(<AdjustmentWorkspacePage />))
-    expect(await screen.findByRole('heading', { name: 'Adjustment Workspace' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Adjustment Workbench' })).toBeInTheDocument()
   })
 
   it('renders the adjustment grid with rows', async () => {
@@ -251,52 +260,26 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
     })
   })
 
-  it('opens impact drawer when row clicked', async () => {
+  it('JE lines are expanded inline by default', async () => {
     render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('adj-row-1')
-    fireEvent.click(screen.getByTestId('adj-row-1'))
-    expect(await screen.findByTestId('impact-drawer')).toBeInTheDocument()
+    await screen.findByTestId('adjustment-grid')
+    // JE-001 has 2 lines with account numbers 6100 and 2100
+    expect(await screen.findByText('6100')).toBeInTheDocument()
+    expect(await screen.findByText('2100')).toBeInTheDocument()
+    expect(await screen.findByText('Bonus Expense')).toBeInTheDocument()
+    expect(await screen.findByText('Accrued Liabilities')).toBeInTheDocument()
   })
 
-  it('impact drawer shows JE number and description', async () => {
+  it('JE lines collapse when chevron clicked', async () => {
     render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('adj-row-1')
-    fireEvent.click(screen.getByTestId('adj-row-1'))
-    const drawer = await screen.findByTestId('impact-drawer')
-    expect(drawer.textContent).toContain('JE-001')
-    expect(drawer.textContent).toContain('Accrue bonus liability')
-  })
-
-  it('impact drawer shows materiality buttons', async () => {
-    render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('adj-row-1')
-    fireEvent.click(screen.getByTestId('adj-row-1'))
-    await screen.findByTestId('impact-drawer')
-    expect(screen.getAllByText('Material').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Critical').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Immaterial').length).toBeGreaterThan(0)
-  })
-
-  it('impact drawer shows NI impact', async () => {
-    render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('adj-row-1')
-    fireEvent.click(screen.getByTestId('adj-row-1'))
-    const drawer = await screen.findByTestId('impact-drawer')
-    expect(drawer.textContent).toContain('NI Impact')
-  })
-
-  it('closes impact drawer when X clicked', async () => {
-    render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('adj-row-1')
-    fireEvent.click(screen.getByTestId('adj-row-1'))
-    await screen.findByTestId('impact-drawer')
-    const closeButtons = screen.getAllByRole('button').filter((b) => b.querySelector('svg'))
-    // find close button — first button inside the drawer header
-    const drawer = screen.getByTestId('impact-drawer')
-    const closeBtn = drawer.querySelector('button')!
-    fireEvent.click(closeBtn)
+    await screen.findByTestId('adjustment-grid')
+    // Verify lines are visible
+    expect(await screen.findByText('6100')).toBeInTheDocument()
+    // Click the collapse chevron on the first JE row (JE-001)
+    const collapseButtons = await screen.findAllByLabelText('Collapse lines')
+    fireEvent.click(collapseButtons[0])
     await waitFor(() => {
-      expect(screen.queryByTestId('impact-drawer')).not.toBeInTheDocument()
+      expect(screen.queryByText('6100')).not.toBeInTheDocument()
     })
   })
 
@@ -319,22 +302,10 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
     expect(screen.getByText('3 selected')).toBeInTheDocument()
   })
 
-  it('switching to rollforward tab shows entity selector', async () => {
+  it('shows Source column with manual value', async () => {
     render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('tab-rollforward')
-    fireEvent.click(screen.getByTestId('tab-rollforward'))
-    expect(await screen.findByTestId('rollforward-tab')).toBeInTheDocument()
-    expect(screen.getByTestId('rollforward-entity-select')).toBeInTheDocument()
-  })
-
-  it('rollforward shows data after entity selection', async () => {
-    render(wrap(<AdjustmentWorkspacePage />))
-    await screen.findByTestId('tab-rollforward')
-    fireEvent.click(screen.getByTestId('tab-rollforward'))
-    await screen.findByTestId('rollforward-tab')
-    fireEvent.change(await screen.findByTestId('rollforward-entity-select'), { target: { value: '1' } })
-    expect(await screen.findByTestId('rollforward-grid', {}, { timeout: 3000 })).toBeInTheDocument()
-    expect(screen.getAllByText('Cash').length).toBeGreaterThan(0)
+    await screen.findByTestId('adjustment-grid')
+    expect((await screen.findAllByText('manual')).length).toBeGreaterThan(0)
   })
 
   it('packages button opens package panel', async () => {
@@ -350,21 +321,21 @@ describe('AdjustmentWorkspacePage — Sprint 3.6', () => {
 
   it('adjustments group nav has adjustments item', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')
+    const g = NAV_GROUPS.find((g) => g.id === 'review-adjust')
     expect(g).toBeDefined()
     expect(g!.items.find((i) => i.id === 'adjustments')).toBeDefined()
   })
 
   it('adjustments nav item points to /adjustments', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')
+    const g = NAV_GROUPS.find((g) => g.id === 'review-adjust')
     const item = g!.items.find((i) => i.id === 'adjustments')
     expect(item!.to).toBe('/adjustments')
   })
 
-  it('adjustments group has 3 items', async () => {
+  it('adjustments group has 5 items', async () => {
     const { NAV_GROUPS } = await import('@/config/nav')
-    const g = NAV_GROUPS.find((g) => g.id === 'adjustments')
-    expect(g!.items.length).toBe(3)
+    const g = NAV_GROUPS.find((g) => g.id === 'review-adjust')
+    expect(g!.items.length).toBe(5)
   })
 })
