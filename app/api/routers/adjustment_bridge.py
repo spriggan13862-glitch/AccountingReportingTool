@@ -530,6 +530,281 @@ def get_cpa_bridge(
 
 
 # ---------------------------------------------------------------------------
+# Phase 11: Hierarchical CPA Bridge — single source of truth endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/bridge")
+def get_bridge(
+    entity_id: int,
+    period_end: str,
+    scenario_id: int | None = None,
+    reporting_basis: str = "adjusted",
+    db: Session = Depends(get_db),
+):
+    """
+    Hierarchical CPA bridge using balance_engine sign convention.
+
+    reporting_basis:
+      "adjusted"   — As Reported + posted AJEs only
+      "pro_forma"  — As Reported + posted + draft AJEs
+
+    Returns hierarchical rows: section header rows (row_type='section')
+    interleaved with account rows (row_type='account'), plus section subtotals
+    embedded in the section header rows.
+    """
+    import datetime
+    from decimal import Decimal as _D
+    from sqlalchemy import func as _func
+    from app.models.account import Account
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.scenario import Scenario
+    from app.services.balance_engine import (
+        IMPORT_SOURCES, ACCOUNT_TYPE_SECTION, SECTION_ORDER,
+        bulk_balances_from_jes, bulk_aje_impacts,
+    )
+
+    try:
+        period_end_date = datetime.date.fromisoformat(period_end)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="period_end must be YYYY-MM-DD")
+
+    if scenario_id is not None:
+        scenario_ids = [scenario_id]
+    else:
+        scenario_ids = [s.id for s in db.query(Scenario).filter(Scenario.entity_id == entity_id).all()]
+
+    if not scenario_ids:
+        return {
+            "entity_id": entity_id, "period_end": period_end,
+            "scenario_id": scenario_id, "reporting_basis": reporting_basis,
+            "adjustments": [], "rows": [],
+            "totals": {"as_reported": 0.0, "adjustment_impacts": {}, "total_ajes": 0.0, "adjusted_balance": 0.0},
+        }
+
+    include_draft = reporting_basis == "pro_forma"
+
+    raw_ar = bulk_balances_from_jes(
+        db, entity_id, period_end_date, scenario_ids,
+        source_filter=IMPORT_SOURCES,
+    )
+
+    aje_statuses = ["posted"]
+    if include_draft:
+        aje_statuses.append("draft")
+
+    aje_jes = (
+        db.query(JournalEntry)
+        .filter(
+            JournalEntry.entity_id == entity_id,
+            JournalEntry.status.in_(aje_statuses),
+            JournalEntry.entry_date <= period_end_date,
+            JournalEntry.source.notin_(list(IMPORT_SOURCES)),
+            JournalEntry.scenario_id.in_(scenario_ids),
+        )
+        .order_by(JournalEntry.entry_date, JournalEntry.je_number)
+        .all()
+    )
+    aje_je_ids = [je.id for je in aje_jes]
+
+    raw_impacts = bulk_aje_impacts(db, entity_id, period_end_date, scenario_ids, aje_je_ids)
+
+    je_totals: dict[int, dict] = {}
+    if aje_je_ids:
+        for r in (
+            db.query(
+                JournalEntryLine.journal_entry_id,
+                _func.sum(JournalEntryLine.debit).label("td"),
+                _func.sum(JournalEntryLine.credit).label("tc"),
+            )
+            .filter(JournalEntryLine.journal_entry_id.in_(aje_je_ids))
+            .group_by(JournalEntryLine.journal_entry_id)
+            .all()
+        ):
+            je_totals[r.journal_entry_id] = {
+                "total_debit": float(r.td or 0),
+                "total_credit": float(r.tc or 0),
+            }
+
+    adjustments = [
+        {
+            "id": je.id,
+            "je_number": je.je_number,
+            "sequence": idx + 1,
+            "entry_date": str(je.entry_date),
+            "description": je.description or "",
+            "status": je.status,
+            "total_debit": je_totals.get(je.id, {}).get("total_debit", 0.0),
+            "total_credit": je_totals.get(je.id, {}).get("total_credit", 0.0),
+        }
+        for idx, je in enumerate(aje_jes)
+    ]
+
+    accounts = (
+        db.query(Account)
+        .filter(
+            Account.entity_id == entity_id,
+            Account.account_status == "active",
+            Account.is_postable == True,
+        )
+        .order_by(Account.account_number)
+        .all()
+    )
+
+    active_ids = set(raw_ar.keys()) | set(raw_impacts.keys())
+
+    sections: dict[str, list[dict]] = {s: [] for s in SECTION_ORDER}
+
+    for acct in accounts:
+        if acct.id not in active_ids:
+            continue
+        section = ACCOUNT_TYPE_SECTION.get(acct.account_type, "Other")
+        if section not in sections:
+            sections[section] = []
+
+        ar_nd = raw_ar.get(acct.id, _D("0"))
+        ar_signed = ar_nd if acct.normal_balance == "debit" else -ar_nd
+
+        impacts: dict[str, float] = {}
+        total_ajes = _D("0")
+        for je in aje_jes:
+            nd = raw_impacts.get(acct.id, {}).get(je.id, _D("0"))
+            signed = nd if acct.normal_balance == "debit" else -nd
+            impacts[str(je.id)] = float(signed)
+            total_ajes += signed
+
+        adjusted = ar_signed + total_ajes
+        sections[section].append({
+            "row_type": "account",
+            "level": 1,
+            "label": acct.account_name,
+            "account_id": acct.id,
+            "account_number": acct.account_number,
+            "account_name": acct.account_name,
+            "account_type": acct.account_type,
+            "as_reported": float(ar_signed),
+            "adjustment_impacts": impacts,
+            "total_ajes": float(total_ajes),
+            "adjusted_balance": float(adjusted),
+        })
+
+    output_rows = []
+    totals_ar = _D("0")
+    totals_impacts: dict[str, _D] = {str(je.id): _D("0") for je in aje_jes}
+    totals_ajes = _D("0")
+    totals_adj = _D("0")
+
+    for sec_name in sorted(sections.keys(), key=lambda s: SECTION_ORDER.get(s, 99)):
+        acct_rows = sections[sec_name]
+        if not acct_rows:
+            continue
+        sec_ar = sum(_D(str(r["as_reported"])) for r in acct_rows)
+        sec_impacts: dict[str, _D] = {}
+        for je in aje_jes:
+            k = str(je.id)
+            sec_impacts[k] = sum(_D(str(r["adjustment_impacts"].get(k, 0))) for r in acct_rows)
+        sec_ajes = sum(_D(str(r["total_ajes"])) for r in acct_rows)
+        sec_adj = sum(_D(str(r["adjusted_balance"])) for r in acct_rows)
+
+        output_rows.append({
+            "row_type": "section",
+            "level": 0,
+            "label": sec_name,
+            "account_id": None,
+            "account_number": None,
+            "account_name": None,
+            "account_type": acct_rows[0]["account_type"],
+            "as_reported": float(sec_ar),
+            "adjustment_impacts": {k: float(v) for k, v in sec_impacts.items()},
+            "total_ajes": float(sec_ajes),
+            "adjusted_balance": float(sec_adj),
+        })
+        output_rows.extend(acct_rows)
+
+        totals_ar += sec_ar
+        for k, v in sec_impacts.items():
+            totals_impacts[k] = totals_impacts.get(k, _D("0")) + v
+        totals_ajes += sec_ajes
+        totals_adj += sec_adj
+
+    return {
+        "entity_id": entity_id,
+        "period_end": period_end,
+        "scenario_id": scenario_id,
+        "reporting_basis": reporting_basis,
+        "adjustments": adjustments,
+        "rows": output_rows,
+        "totals": {
+            "as_reported": float(totals_ar),
+            "adjustment_impacts": {k: float(v) for k, v in totals_impacts.items()},
+            "total_ajes": float(totals_ajes),
+            "adjusted_balance": float(totals_adj),
+        },
+    }
+
+
+@router.get("/bridge/export-csv")
+def export_bridge_csv(
+    entity_id: int,
+    period_end: str,
+    scenario_id: int | None = None,
+    reporting_basis: str = "adjusted",
+    db: Session = Depends(get_db),
+):
+    """Export the bridge as a CSV file download."""
+    import io
+    import csv
+    from fastapi.responses import StreamingResponse
+
+    bridge = get_bridge(entity_id, period_end, scenario_id, reporting_basis, db)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    headers = ["Acct #", "Account Name", "As Reported"]
+    for adj in bridge["adjustments"]:
+        headers.append(f"{adj['sequence']} {adj['je_number']}")
+    headers += ["Total AJEs", "Adjusted Balance"]
+    writer.writerow(headers)
+
+    for row in bridge["rows"]:
+        if row["row_type"] == "section":
+            csv_row = ["", f"  {row['label']} (subtotal)", row["as_reported"]]
+            for adj in bridge["adjustments"]:
+                v = row["adjustment_impacts"].get(str(adj["id"]), 0)
+                csv_row.append(v if v != 0 else "")
+            csv_row += [
+                row["total_ajes"] if row["total_ajes"] != 0 else "",
+                row["adjusted_balance"],
+            ]
+        else:
+            csv_row = [row["account_number"], row["account_name"], row["as_reported"]]
+            for adj in bridge["adjustments"]:
+                v = row["adjustment_impacts"].get(str(adj["id"]), 0)
+                csv_row.append(v if v != 0 else "")
+            csv_row += [
+                row["total_ajes"] if row["total_ajes"] != 0 else "",
+                row["adjusted_balance"],
+            ]
+        writer.writerow(csv_row)
+
+    totals_row = ["", "Grand Total", bridge["totals"]["as_reported"]]
+    for adj in bridge["adjustments"]:
+        v = bridge["totals"]["adjustment_impacts"].get(str(adj["id"]), 0)
+        totals_row.append(v if v != 0 else "")
+    totals_row += [bridge["totals"]["total_ajes"], bridge["totals"]["adjusted_balance"]]
+    writer.writerow(totals_row)
+
+    output.seek(0)
+    filename = f"bridge_{entity_id}_{period_end}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Views CRUD
 # ---------------------------------------------------------------------------
 

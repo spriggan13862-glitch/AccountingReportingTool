@@ -117,6 +117,16 @@ vi.mock('@/api/adjustmentBridge', () => ({
       ],
       totals: { as_reported: 100000, ajes: { '1': 5000 }, total_ajes: 5000, adjusted: 105000 },
     }),
+    bridge: vi.fn().mockResolvedValue({
+      entity_id: 1, period_end: '2026-03-31', scenario_id: null, reporting_basis: 'adjusted',
+      adjustments: [{ id: 1, je_number: 'AJE-001', sequence: 1, entry_date: '2026-01-15', description: 'Bonus accrual', status: 'posted', total_debit: 5000, total_credit: 5000 }],
+      rows: [
+        { row_type: 'section', level: 0, label: 'Assets', account_id: null, account_number: null, account_name: null, account_type: 'asset', as_reported: 100000, adjustment_impacts: { '1': 5000 }, total_ajes: 5000, adjusted_balance: 105000 },
+        { row_type: 'account', level: 1, label: 'Cash', account_id: 101, account_number: '1000', account_name: 'Cash', account_type: 'asset', as_reported: 100000, adjustment_impacts: { '1': 5000 }, total_ajes: 5000, adjusted_balance: 105000 },
+      ],
+      totals: { as_reported: 100000, adjustment_impacts: { '1': 5000 }, total_ajes: 5000, adjusted_balance: 105000 },
+    }),
+    exportBridgeCsv: vi.fn().mockResolvedValue(new Blob(['csv'], { type: 'text/csv' })),
   },
 }))
 
@@ -202,9 +212,11 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
     const entitySelect = screen.getByTestId('entity-select')
     fireEvent.change(entitySelect, { target: { value: '1' } })
 
-    // Select period
+    // Wait for period options to appear — the real PeriodSelect only renders
+    // options after periodsApi.list resolves, which also ensures the page's
+    // own `periods` array is populated (same TanStack Query cache key).
     await waitFor(() => {
-      expect(screen.getByTestId('period-select')).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /Q1-2026/ })).toBeInTheDocument()
     })
     fireEvent.change(screen.getByTestId('period-select'), { target: { value: '1' } })
 

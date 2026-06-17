@@ -81,6 +81,46 @@ export interface CPABridgeResult {
   }
 }
 
+export interface BridgeAdjustment {
+  id: number
+  je_number: string
+  sequence: number
+  entry_date: string
+  description: string
+  status: string
+  total_debit: number
+  total_credit: number
+}
+
+export interface BridgeRow {
+  row_type: 'section' | 'account'
+  level: number
+  label: string
+  account_id: number | null
+  account_number: string | null
+  account_name: string | null
+  account_type: string | null
+  as_reported: number
+  adjustment_impacts: Record<string, number>
+  total_ajes: number
+  adjusted_balance: number
+}
+
+export interface BridgeResult {
+  entity_id: number
+  period_end: string
+  scenario_id: number | null
+  reporting_basis: string
+  adjustments: BridgeAdjustment[]
+  rows: BridgeRow[]
+  totals: {
+    as_reported: number
+    adjustment_impacts: Record<string, number>
+    total_ajes: number
+    adjusted_balance: number
+  }
+}
+
 export const adjustmentBridgeApi = {
   compute: (entityId: number, periodEnd: string, scenarioId?: number): Promise<ComputeResult> =>
     api.get<ComputeResult>('/adjustment-bridge/compute', {
@@ -114,4 +154,18 @@ export const adjustmentBridgeApi = {
     scenario_id?: number
   }): Promise<CPABridgeResult> =>
     api.get<CPABridgeResult>('/adjustment-bridge/cpa-bridge', { params }).then((r) => r.data),
+
+  bridge: (params: {
+    entity_id: number
+    period_end: string
+    scenario_id?: number
+    reporting_basis?: string
+  }): Promise<BridgeResult> =>
+    api.get<BridgeResult>('/adjustment-bridge/bridge', { params }).then((r) => r.data),
+
+  exportBridgeCsv: (entityId: number, periodEnd: string, scenarioId?: number, reportingBasis = 'adjusted'): Promise<Blob> =>
+    api.get('/adjustment-bridge/bridge/export-csv', {
+      params: { entity_id: entityId, period_end: periodEnd, scenario_id: scenarioId, reporting_basis: reportingBasis },
+      responseType: 'blob',
+    }).then((r) => r.data),
 }
