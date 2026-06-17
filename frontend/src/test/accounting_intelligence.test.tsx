@@ -9,10 +9,7 @@ import { RuleHarnessPage } from '@/pages/RuleHarnessPage'
 
 vi.mock('@/components/ui/PageLayout', () => ({
   PageLayout: ({ children, title }: { children: React.ReactNode; title?: string }) => (
-    <div>
-      {title && <h1>{title}</h1>}
-      {children}
-    </div>
+    <div data-testid={`pagelayout:${title}`}>{children}</div>
   ),
 }))
 

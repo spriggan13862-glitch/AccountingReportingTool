@@ -12,7 +12,7 @@ import {
 import { accountsApi } from '@/api/accounts'
 import type { AccountUpdate, AccountReparentResult } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
-import { PageLayout } from '@/components/ui/PageLayout'
+import { PageShell } from '@/components/ui/PageShell'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -2579,6 +2579,6 @@ export function ChartOfAccountsPage() {
         totalCount={buildFlatOrder(filteredTree).length}
         onSelectAll={() => setSelectedIds(new Set(buildFlatOrder(filteredTree).map((n) => n.id)))}
       />
-    </PageLayout>
+    </PageShell>
   )
 }

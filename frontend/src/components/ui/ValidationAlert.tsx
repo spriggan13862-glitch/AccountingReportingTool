@@ -73,7 +73,7 @@ export function ValidationAlert({ result, issues, className }: ValidationAlertPr
   if (errors.length === 0 && warnings.length === 0 && infos.length === 0) return null
 
   return (
-    <div className={cn('flex flex-col gap-2', className)} data-testid="validation-alert">
+    <div className={cn('flex flex-col gap-2', className)} data-testid="validation-alert" aria-live="polite">
       <IssueGroup label="Errors" items={errors} severity="ERROR" />
       <IssueGroup label="Warnings" items={warnings} severity="WARNING" />
       <IssueGroup label="Info" items={infos} severity="INFO" />
@@ -91,6 +91,7 @@ export function ErrorBanner({ message, className }: { message: string; className
       className={cn('flex items-start gap-2 rounded-md border p-3', cfg.bg, cfg.border, className)}
       data-testid="error-banner"
       role="alert"
+      aria-live="assertive"
     >
       <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', cfg.iconColor)} />
       <p className={cn('text-sm', cfg.text)}>{message}</p>

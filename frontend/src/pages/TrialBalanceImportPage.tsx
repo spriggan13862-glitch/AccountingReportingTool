@@ -1,9 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
-  FileText, Download, Sparkles, RefreshCw
+  FileText, Download, Sparkles, RefreshCw, Layers
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
@@ -17,6 +17,64 @@ import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard/types'
 import type { SheetInfo } from '@/types'
+
+const COLUMN_ALIASES: Record<string, string[]> = {
+  account_number: [
+    "account_number", "account #", "account no", "account no.", "account number",
+    "acct #", "acct no", "acct", "num", "gl account", "gl #", "code",
+    "account code", "account id", "ledger account", "chart of accounts",
+  ],
+  account_name: [
+    "account_name", "account name", "account description", "gl account name",
+    "name", "title", "account title", "ledger name",
+  ],
+  debit: [
+    "debit", "debit amount", "dr", "dr amount", "debit balance",
+    "debit (dr)", "ending debit", "total debit",
+  ],
+  credit: [
+    "credit", "credit amount", "cr", "cr amount", "credit balance",
+    "credit (cr)", "ending credit", "total credit",
+  ],
+  balance: [
+    "balance", "net balance", "net amount", "net change",
+    "ending balance", "amount", "total", "period net",
+    "net activity", "net", "balance amount",
+  ],
+  description: [
+    "description", "memo", "notes", "narration", "detail",
+    "transaction description", "account description",
+  ],
+  entity: [
+    "entity", "class", "location", "department", "subsidiary",
+    "cost center", "business unit",
+  ],
+}
+
+function normalizeHeader(h: string): string {
+  return h.trim().toLowerCase().replace(/-/g, " ").replace(/_/g, " ")
+}
+
+function matchColumn(header: string): string | null {
+  const normalized = normalizeHeader(header)
+  for (const [field, aliases] of Object.entries(COLUMN_ALIASES)) {
+    if (aliases.some(alias => normalizeHeader(alias) === normalized)) {
+      return field
+    }
+  }
+  return null
+}
+
+function detectTbMapping(headers: string[]): Record<string, string> {
+  const mapping: Record<string, string> = {}
+  headers.forEach(h => {
+    const field = matchColumn(h)
+    if (field && !mapping[field]) {
+      mapping[field] = h
+    }
+  })
+  return mapping
+}
 
 const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
@@ -54,16 +112,76 @@ export function TrialBalanceImportPage() {
   
   const [detected, setDetected] = useState<any>(null)
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
+  const [headerRowIndex, setHeaderRowIndex] = useState<number>(0)
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
   
   const [batchId, setBatchId] = useState<number | null>(null)
   const [validationIssues, setValidationIssues] = useState<any[]>([])
-  const [previewRows, setPreviewRows] = useState<any[]>([])
+  const [validationPreviewRows, setValidationPreviewRows] = useState<any[]>([])
   
   const [jeNumber, setJeNumber] = useState('')
   const [notes, setNotes] = useState('')
   const [apiError, setApiError] = useState<string | null>(null)
   const [duplicateWarning, setDuplicateWarning] = useState<{ existingBatchId: number; existingStatus: string } | null>(null)
+
+  const active = useMemo(() => {
+    return detected?.sheets?.find((s: any) => s.name === selectedSheet)
+  }, [detected, selectedSheet])
+
+  const { headers, previewRows } = useMemo(() => {
+    if (!detected) return { headers: [], previewRows: [] }
+    if (!detected.sheets || detected.sheets.length === 0) {
+      return {
+        headers: detected.headers || [],
+        previewRows: detected.preview_rows || [],
+      }
+    }
+    if (!active) return { headers: [], previewRows: [] }
+
+    const hIdx = headerRowIndex
+    const hdrs = active.raw_rows[hIdx] || []
+    const pRows: Record<string, string>[] = []
+    
+    for (let i = hIdx + 1; i < active.raw_rows.length; i++) {
+      const cells = active.raw_rows[i]
+      if (cells.some((c: string) => c.trim() !== '')) {
+        const rowDict: Record<string, string> = {}
+        cells.forEach((val: string, colIdx: number) => {
+          const letter = colLetter(colIdx)
+          rowDict[letter] = val
+          const hdr = hdrs[colIdx]
+          if (hdr) {
+            rowDict[hdr] = val
+          }
+        })
+        pRows.push(rowDict)
+        if (pRows.length >= 5) break
+      }
+    }
+    return { headers: hdrs, previewRows: pRows }
+  }, [detected, active, headerRowIndex])
+
+  const handleSheetChange = (sheetName: string) => {
+    setSelectedSheet(sheetName)
+    if (detected?.sheets) {
+      const activeSheet = detected.sheets.find((s: any) => s.name === sheetName)
+      if (activeSheet) {
+        setHeaderRowIndex(activeSheet.auto_header_row_idx)
+        const autoMapping = detectTbMapping(activeSheet.raw_rows[activeSheet.auto_header_row_idx] || [])
+        setColMapping(autoMapping)
+      }
+    }
+  }
+
+  const handleHeaderRowIndexChange = (newIdx: number) => {
+    setHeaderRowIndex(newIdx)
+    const activeSheet = detected?.sheets?.find((s: any) => s.name === selectedSheet)
+    if (activeSheet) {
+      const newHeaders = activeSheet.raw_rows[newIdx] || []
+      const autoMapping = detectTbMapping(newHeaders)
+      setColMapping(autoMapping)
+    }
+  }
 
   const WIZARD_STEPS: WizardStep[] = STEPS.map((s, i) => {
     let status: 'pending' | 'active' | 'complete' | 'error' = 'pending'
@@ -80,11 +198,19 @@ export function TrialBalanceImportPage() {
     onSuccess: (result) => {
       setDetected(result)
       setSelectedSheet(result.selected_sheet)
-      setColMapping(result.detected_mapping)
       setApiError(null)
       if (result.sheets && result.sheets.length > 0) {
         setStep(1)
+        const activeSheet = result.sheets.find((s: any) => s.name === result.selected_sheet)
+        if (activeSheet) {
+          setHeaderRowIndex(activeSheet.auto_header_row_idx)
+          const autoMapping = detectTbMapping(activeSheet.raw_rows[activeSheet.auto_header_row_idx] || [])
+          setColMapping(autoMapping)
+        }
       } else {
+        setHeaderRowIndex(0)
+        const autoMapping = detectTbMapping(result.headers || [])
+        setColMapping(autoMapping)
         setStep(2)
       }
     },
@@ -100,6 +226,7 @@ export function TrialBalanceImportPage() {
         as_of_date: asOfDate,
         scenario_id: scenarioId !== '' ? scenarioId : undefined,
         sheet_name: selectedSheet ?? undefined,
+        header_row_index: headerRowIndex,
         force,
         file,
       })
@@ -129,7 +256,7 @@ export function TrialBalanceImportPage() {
       setValidationIssues([...(res.errors || []), ...(res.warnings || [])])
       // Load raw preview rows
       tbImportApi.getRawPreview(id, 100).then(preview => {
-        setPreviewRows(preview.rows || [])
+        setValidationPreviewRows(preview.rows || [])
         setStep(3)
       })
     },
@@ -319,15 +446,13 @@ export function TrialBalanceImportPage() {
             <div>
               <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Select Worksheet</h3>
               <p className="text-xs text-gray-500 mt-0.5">Click a tab to preview its data, then confirm your selection.</p>
-            </div>
-
-            {/* Tab bar */}
+            </div>            {/* Tab bar */}
             <div className="flex gap-0 border-b border-gray-200 overflow-x-auto overflow-y-hidden no-scrollbar">
               {detected.sheets.map((sheet: SheetInfo) => (
                 <button
                   key={sheet.name}
                   type="button"
-                  onClick={() => setSelectedSheet(sheet.name)}
+                  onClick={() => handleSheetChange(sheet.name)}
                   className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px shrink-0 transition-colors ${
                     selectedSheet === sheet.name
                       ? 'border-indigo-600 text-indigo-700 bg-indigo-50/40'
@@ -344,49 +469,67 @@ export function TrialBalanceImportPage() {
               ))}
             </div>
 
-            {/* Data preview for active sheet */}
+            {/* Raw sheet preview and header selection */}
             {(() => {
-              const active = detected.sheets.find((s: SheetInfo) => s.name === selectedSheet)
-              if (!active || active.headers.length === 0) return (
+              const activeSheet = detected.sheets.find((s: SheetInfo) => s.name === selectedSheet)
+              if (!activeSheet || !activeSheet.raw_rows || activeSheet.raw_rows.length === 0) return (
                 <p className="text-xs text-gray-450 italic py-6 text-center">No data preview available for this sheet.</p>
               )
+              const rawRows = activeSheet.raw_rows
+              const numCols = rawRows.reduce((max: number, r: string[]) => Math.max(max, r.length), 0)
+              const colIndices = Array.from({ length: numCols }, (_, i) => i)
               return (
-                <div className="rounded-lg border border-gray-200 overflow-auto max-h-72 text-xs">
-                  <table className="w-full border-collapse">
-                    <thead className="bg-gray-50 sticky top-0 z-10 font-mono text-[11px]">
-                      <tr className="bg-gray-100 border-b border-gray-200">
-                        {active.headers.map((_, ci: number) => (
-                          <th key={ci} className="px-3 py-1 border-r border-gray-200 text-gray-500 text-center font-semibold">
-                            {colLetter(ci)}
-                          </th>
-                        ))}
-                      </tr>
-                      <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                        {active.headers.map((h: string, ci: number) => (
-                          <th key={ci} className="px-3 py-2 font-semibold text-gray-600 border-r border-gray-200 whitespace-nowrap">
-                            {h || <span className="text-gray-300 italic">blank</span>}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {active.preview_rows.map((row: Record<string, string>, ri: number) => (
-                        <tr key={ri} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                          {active.headers.map((h: string, ci: number) => {
-                            const letter = colLetter(ci)
-                            return (
-                              <td key={ci} className="px-3 py-1.5 text-gray-700 border-b border-gray-100 border-r border-gray-100 whitespace-nowrap tabular-nums">
-                                {row[letter] ?? row[h] ?? ''}
-                              </td>
-                            )
-                          })}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <p className="font-semibold">Worksheet preview — click a row to set as header</p>
+                    <p>Header: Row {(headerRowIndex ?? 0) + 1} · {headers.filter(Boolean).length} columns</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 overflow-auto max-h-72 text-xs">
+                    <table className="border-collapse w-max">
+                      <thead className="sticky top-0 z-10 bg-gray-100">
+                        <tr>
+                          <th className="px-2 py-1 border border-gray-300 text-gray-400 text-right min-w-[3rem] select-none">#</th>
+                          {colIndices.map(ci => (
+                            <th key={ci} className="px-2 py-1 border border-gray-300 text-gray-600 min-w-[8rem] text-center font-semibold">
+                              {colLetter(ci)}
+                            </th>
+                          ))}
                         </tr>
-                      ))}
-                      {active.preview_rows.length === 0 && (
-                        <tr><td colSpan={active.headers.length} className="px-3 py-4 text-center text-gray-400 italic">No data rows</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {rawRows.map((row: string[], rowIdx: number) => {
+                          const isHeader = rowIdx === headerRowIndex
+                          return (
+                            <tr
+                              key={rowIdx}
+                              onClick={() => handleHeaderRowIndexChange(rowIdx)}
+                              className={`cursor-pointer transition-colors ${
+                                isHeader ? 'bg-indigo-100 font-semibold' : 'even:bg-gray-50 hover:bg-indigo-50/50'
+                              }`}
+                            >
+                              <td className={`px-2 py-1 border border-gray-250 text-right select-none ${isHeader ? 'text-indigo-700 font-bold' : 'text-gray-400'}`}>
+                                {rowIdx + 1}{isHeader ? ' ★' : ''}
+                              </td>
+                              {colIndices.map(colIdx => {
+                                const val = row[colIdx] ?? ''
+                                return (
+                                  <td
+                                    key={colIdx}
+                                    className={`px-2 py-1 border border-gray-250 whitespace-nowrap max-w-[12rem] overflow-hidden text-ellipsis ${
+                                      val ? (isHeader ? 'text-indigo-800' : 'text-gray-800') : 'text-gray-350'
+                                    }`}
+                                    title={val}
+                                  >
+                                    {val}
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )
             })()}
@@ -453,7 +596,6 @@ export function TrialBalanceImportPage() {
               return next
             })
           }
-          const previewRows: Record<string, string>[] = detected.preview_rows ?? []
           return (
             <div className="space-y-4">
               <div>
@@ -469,7 +611,7 @@ export function TrialBalanceImportPage() {
                   <thead>
                     {/* Row 1: Column letters */}
                     <tr className="bg-gray-100 border-b border-gray-200 font-mono text-[11px]">
-                      {detected.headers.map((h: string, ci: number) => {
+                      {headers.map((h: string, ci: number) => {
                         const letter = colLetter(ci)
                         const field = colToField[letter] ?? colToField[h]
                         return (
@@ -482,8 +624,8 @@ export function TrialBalanceImportPage() {
                       })}
                     </tr>
                     {/* Row 2: original column header */}
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      {detected.headers.map((h: string, ci: number) => {
+                    <tr className="bg-gray-55 border-b border-gray-200">
+                      {headers.map((h: string, ci: number) => {
                         const letter = colLetter(ci)
                         const field = colToField[letter] ?? colToField[h]
                         return (
@@ -497,7 +639,7 @@ export function TrialBalanceImportPage() {
                     </tr>
                     {/* Row 3: field assignment dropdowns */}
                     <tr className="bg-white border-b-2 border-indigo-200">
-                      {detected.headers.map((h: string, ci: number) => {
+                      {headers.map((h: string, ci: number) => {
                         const letter = colLetter(ci)
                         const field = colToField[letter] ?? colToField[h]
                         return (
@@ -523,11 +665,11 @@ export function TrialBalanceImportPage() {
                   {/* Preview data rows */}
                   <tbody>
                     {previewRows.length === 0 && (
-                      <tr><td colSpan={detected.headers.length} className="px-3 py-4 text-center text-gray-400 italic">No preview data</td></tr>
+                      <tr><td colSpan={headers.length} className="px-3 py-4 text-center text-gray-400 italic">No preview data</td></tr>
                     )}
                     {previewRows.map((row: Record<string, string>, ri: number) => (
                       <tr key={ri} className={`border-b border-gray-50 ${ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                        {detected.headers.map((h: string, ci: number) => {
+                        {headers.map((h: string, ci: number) => {
                           const letter = colLetter(ci)
                           const field = colToField[letter] ?? colToField[h]
                           return (

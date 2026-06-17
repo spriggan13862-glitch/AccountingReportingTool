@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, CheckCircle, AlertCircle, Download, BookOpen, FileText, ChevronRight, Search, HelpCircle } from 'lucide-react'
 import { coaImportApi } from '@/api/coaImport'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
-import { PageLayout } from '@/components/ui/PageLayout'
+import { PageShell } from '@/components/ui/PageShell'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { useToast } from '@/providers/ToastProvider'
@@ -165,10 +165,7 @@ export function COAImportPage() {
   ).length
 
   return (
-    <PageLayout
-      title="Import Chart of Accounts"
-      subtitle="Upload your QuickBooks or custom COA to seed your entity accounts"
-    >
+    <PageShell title="Import Chart of Accounts" subtitle="Upload your QuickBooks or custom COA to seed your entity accounts" rightColumn={null}>
       {apiError && <ErrorBanner message={apiError} />}
 
       <StepIndicator
@@ -584,6 +581,6 @@ export function COAImportPage() {
       )}
       </>
       )}
-    </PageLayout>
+    </PageShell>
   )
 }

@@ -27,7 +27,7 @@ export function PageLayout({ title, subtitle, breadcrumb, actions, contextBar, c
       {contextBar && (
         <div className="-mt-3">{contextBar}</div>
       )}
-      {children}
+      <main role="main">{children}</main>
     </div>
   )
 }

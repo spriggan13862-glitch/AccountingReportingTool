@@ -26,6 +26,8 @@ export function getOrganizationId(): number | null {
 const TOKEN_KEY = 'accounting_access_token'
 
 let _accessToken: string | null = sessionStorage.getItem(TOKEN_KEY)
+// Refresh token is intentionally kept only in memory to avoid long-lived storage
+let _refreshToken: string | null = null
 
 export function setAccessToken(token: string | null) {
   _accessToken = token
@@ -36,12 +38,31 @@ export function setAccessToken(token: string | null) {
   }
 }
 
+export function setRefreshToken(token: string | null) {
+  _refreshToken = token
+}
+
+export function getRefreshToken(): string | null {
+  return _refreshToken
+}
+
+export function clearRefreshToken() {
+  _refreshToken = null
+}
+
 export function getAccessToken(): string | null {
   return _accessToken
 }
 
 export function clearAuth() {
   setAccessToken(null)
+  setOrganizationId(null)
+}
+
+// Clear both access and refresh tokens
+export function clearAllAuth() {
+  setAccessToken(null)
+  clearRefreshToken()
   setOrganizationId(null)
 }
 
@@ -68,13 +89,42 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error: AxiosError<ApiError>) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid — clear auth state and reload to login
-      clearAuth()
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login?reason=session_expired'
+    const originalRequest = (error.config as any) || {}
+    const status = error.response?.status
+
+    // Handle 401 by attempting a single refresh flow and retrying original request once.
+    if (status === 401 && !originalRequest._retry) {
+      const refreshToken = getRefreshToken()
+      if (!refreshToken) {
+        clearAuth()
+        if (window.location.pathname !== '/login') window.location.href = '/login?reason=session_expired'
+        return Promise.reject(error)
       }
+
+      // Mark request as retried to prevent loops
+      originalRequest._retry = true
+
+      // Call refresh endpoint directly using axios to avoid interceptor recursion
+      return axios.post(`${BASE_URL}/auth/refresh`, { refresh_token: refreshToken }, { baseURL: '' })
+        .then((r) => {
+          const data = r.data as any
+          // update tokens
+          setAccessToken(data.access_token)
+          if (data.refresh_token) setRefreshToken(data.refresh_token)
+          // retry original request with new access token
+          originalRequest.headers = originalRequest.headers || {}
+          if (getAccessToken()) originalRequest.headers['Authorization'] = `Bearer ${getAccessToken()}`
+          return api(originalRequest)
+        })
+        .catch((refreshErr) => {
+          // Refresh failed — clear auth and redirect to login
+          clearAuth()
+          clearRefreshToken()
+          if (window.location.pathname !== '/login') window.location.href = '/login?reason=session_expired'
+          return Promise.reject(refreshErr)
+        })
     }
+
     const rawDetail = error.response?.data?.detail ?? error.message ?? 'Unknown error'
     // Structured detail objects (e.g. 500 apply_failed) → extract human message
     const detail = typeof rawDetail === 'object' && rawDetail !== null

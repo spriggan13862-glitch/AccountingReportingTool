@@ -5,12 +5,22 @@ import {
   setAccessToken,
   getAccessToken,
   clearAuth,
+  setRefreshToken,
+  getRefreshToken,
+  clearRefreshToken,
 } from '@/api/client'
 
 describe('API client config', () => {
   beforeEach(() => {
     setOrganizationId(null)
     clearAuth()
+  })
+
+  it('refresh token can be set and cleared in memory', () => {
+    setRefreshToken('r1')
+    expect(getRefreshToken()).toBe('r1')
+    clearRefreshToken()
+    expect(getRefreshToken()).toBeNull()
   })
 
   it('getOrganizationId returns null initially', () => {

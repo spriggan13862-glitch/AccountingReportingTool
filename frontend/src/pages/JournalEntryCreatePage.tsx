@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { journalEntriesApi } from '@/api/journalEntries'
 import type { JECreate, JELineCreate, Account } from '@/types'
-import { PageLayout } from '@/components/ui/PageLayout'
+import { PageShell } from '@/components/ui/PageShell'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
@@ -126,11 +126,11 @@ export function JournalEntryCreatePage() {
   const canSubmit = !!entityId && scenarioId > 0 && filledLineCount >= 2
 
   return (
-    <PageLayout title="New Journal Entry" subtitle="Create a draft or post directly">
-      <div className="space-y-4 max-w-4xl">
+    <PageShell title="New Journal Entry" subtitle="Create a draft or post directly" rightColumn={null}>
+      <div className="space-y-4">
         {apiError && <ErrorBanner message={apiError} />}
 
-        {/* Header fields */}
+        {/* Header fields  */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Header</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Download, Search, ChevronRight, ChevronDown, X } from 'lucide-react'
 import { adjustmentBridgeApi } from '@/api/adjustmentBridge'
@@ -10,6 +10,7 @@ import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { periodsApi } from '@/api/periods'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------

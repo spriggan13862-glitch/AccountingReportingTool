@@ -457,10 +457,10 @@ export function MappingWorkbenchPage() {
       key: 'raw_debit',
       header: 'DR',
       sortable: true,
-      sortValue: (line: ImportLine) => line.raw_debit ? parseFloat(line.raw_debit) : 0,
+      sortValue: (line: ImportLine) => line.raw_debit != null ? parseFloat(line.raw_debit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
-          {line.raw_debit != null && Number(line.raw_debit) !== 0
+          {line.raw_debit != null
             ? Number(line.raw_debit).toLocaleString(undefined, { minimumFractionDigits: 2 })
             : '—'}
         </div>
@@ -470,10 +470,10 @@ export function MappingWorkbenchPage() {
       key: 'raw_credit',
       header: 'CR',
       sortable: true,
-      sortValue: (line: ImportLine) => line.raw_credit ? parseFloat(line.raw_credit) : 0,
+      sortValue: (line: ImportLine) => line.raw_credit != null ? parseFloat(line.raw_credit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
-          {line.raw_credit != null && Number(line.raw_credit) !== 0
+          {line.raw_credit != null
             ? Number(line.raw_credit).toLocaleString(undefined, { minimumFractionDigits: 2 })
             : '—'}
         </div>

@@ -6,8 +6,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getMe, login as apiLogin, logout as apiLogout } from '@/api/auth'
-import { clearAuth, getAccessToken, setAccessToken, setOrganizationId } from '@/api/client'
+import { getMe, login as apiLogin, logout as apiLogout, logoutRefresh as apiLogoutRefresh } from '@/api/auth'
+import { clearAuth, getAccessToken, setAccessToken, setOrganizationId, getRefreshToken, clearAllAuth } from '@/api/client'
 import type { CurrentUser } from '@/types'
 
 interface AuthContextValue {
@@ -65,11 +65,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await apiLogout()
+      // If a refresh token exists, call logout-refresh endpoint on the backend
+      // to ensure server-side refresh revocation. Otherwise call the generic logout.
+      if (getRefreshToken()) {
+        try {
+          await apiLogoutRefresh()
+        } catch {
+          // best-effort
+        }
+      } else {
+        try {
+          await apiLogout()
+        } catch {
+          // best-effort
+        }
+      }
     } catch {
       // best-effort — always clear local state
     }
-    clearAuth()
+    clearAllAuth()
     setToken(null)
     setUser(null)
   }, [])
