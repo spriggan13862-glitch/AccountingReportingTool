@@ -9,19 +9,16 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { periodsApi } from '@/api/periods'
-import { formatCurrency } from '@/lib/format'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtAje(n: number): string {
-  if (n === 0) return ''
-  return formatCurrency(Math.abs(n), { negativeFormat: 'parentheses' }) + (n < 0 ? ' ↓' : ' ↑')
-}
+type Fmt = (v: number | null | undefined) => string
 
-function CellValue({ value, highlight = false }: { value: number; highlight?: boolean }) {
+function CellValue({ value, highlight = false, fmt }: { value: number; highlight?: boolean; fmt: Fmt }) {
   if (value === 0 && !highlight) return <span className="text-slate-200">—</span>
   const neg = value < 0
   return (
@@ -30,17 +27,17 @@ function CellValue({ value, highlight = false }: { value: number; highlight?: bo
       highlight && 'font-bold',
       neg ? 'text-rose-600' : highlight ? 'text-slate-900' : 'text-slate-700',
     )}>
-      {neg ? `(${formatCurrency(Math.abs(value))})` : formatCurrency(value)}
+      {neg ? `(${fmt(Math.abs(value))})` : fmt(value)}
     </span>
   )
 }
 
-function AjeCell({ value }: { value: number }) {
+function AjeCell({ value, fmt }: { value: number; fmt: Fmt }) {
   if (value === 0) return <span className="text-slate-200">—</span>
   const neg = value < 0
   return (
     <span className={cn('font-mono font-semibold', neg ? 'text-rose-600' : 'text-emerald-700')}>
-      {neg ? `(${formatCurrency(Math.abs(value))})` : `+${formatCurrency(value)}`}
+      {neg ? `(${fmt(Math.abs(value))})` : `+${fmt(value)}`}
     </span>
   )
 }
@@ -50,6 +47,7 @@ function AjeCell({ value }: { value: number }) {
 // ---------------------------------------------------------------------------
 
 export function AdjustmentBridgePage() {
+  const fmt = useFormatCurrency()
   const [entityId, setEntityId] = useState<number | ''>('')
   const [periodId, setPeriodId] = useState<number | ''>('')
   const [periodEnd, setPeriodEnd] = useState('')
@@ -143,13 +141,14 @@ export function AdjustmentBridgePage() {
                       <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide min-w-[110px]">
                         As Reported
                       </th>
-                      {bridge.columns.map((col) => (
+                      {bridge.columns.map((col, idx) => (
                         <th
                           key={col.je_id}
                           className="px-3 py-2.5 text-right text-[10px] font-semibold text-indigo-600 uppercase tracking-wide min-w-[100px] cursor-default"
                           title={`${col.description}\n${col.entry_date}`}
+                          data-testid={`aje-col-${col.je_id}`}
                         >
-                          <div className="font-mono">{col.je_number}</div>
+                          <div className="font-mono">{idx + 1} {col.je_number}</div>
                           <div className="text-[9px] text-indigo-400 font-normal normal-case truncate max-w-[90px]" title={col.description}>
                             {col.description.length > 14 ? col.description.slice(0, 14) + '…' : col.description}
                           </div>
@@ -173,18 +172,18 @@ export function AdjustmentBridgePage() {
                           {row.account_name}
                         </td>
                         <td className="px-3 py-1.5 text-right">
-                          <CellValue value={row.as_reported} />
+                          <CellValue value={row.as_reported} fmt={fmt} />
                         </td>
                         {bridge.columns.map((col) => (
                           <td key={col.je_id} className="px-3 py-1.5 text-right">
-                            <AjeCell value={row.ajes[String(col.je_id)] ?? 0} />
+                            <AjeCell value={row.ajes[String(col.je_id)] ?? 0} fmt={fmt} />
                           </td>
                         ))}
                         <td className="px-3 py-1.5 text-right border-l border-slate-100">
-                          <CellValue value={row.total_ajes} />
+                          <CellValue value={row.total_ajes} fmt={fmt} />
                         </td>
                         <td className="px-3 py-1.5 text-right bg-indigo-50/40 border-l border-indigo-100">
-                          <CellValue value={row.adjusted} highlight />
+                          <CellValue value={row.adjusted} highlight fmt={fmt} />
                         </td>
                       </tr>
                     ))}
@@ -195,7 +194,7 @@ export function AdjustmentBridgePage() {
                         Grand Total
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900">
-                        {formatCurrency(bridge.totals.as_reported)}
+                        {fmt(bridge.totals.as_reported)}
                       </td>
                       {bridge.columns.map((col) => (
                         <td key={col.je_id} className="px-3 py-2.5 text-right font-mono font-bold">
@@ -204,16 +203,16 @@ export function AdjustmentBridgePage() {
                             return v === 0
                               ? <span className="text-slate-300 font-normal">—</span>
                               : <span className={v < 0 ? 'text-rose-600' : 'text-emerald-700'}>
-                                  {v < 0 ? `(${formatCurrency(Math.abs(v))})` : `+${formatCurrency(v)}`}
+                                  {v < 0 ? `(${fmt(Math.abs(v))})` : `+${fmt(v)}`}
                                 </span>
                           })()}
                         </td>
                       ))}
                       <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 border-l border-slate-200">
-                        {formatCurrency(bridge.totals.total_ajes)}
+                        {fmt(bridge.totals.total_ajes)}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono font-bold text-indigo-900 bg-indigo-100 border-l border-indigo-200">
-                        {formatCurrency(bridge.totals.adjusted)}
+                        {fmt(bridge.totals.adjusted)}
                       </td>
                     </tr>
                   </tfoot>

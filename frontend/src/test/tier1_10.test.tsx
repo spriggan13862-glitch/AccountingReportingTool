@@ -120,6 +120,12 @@ vi.mock('@/api/adjustmentBridge', () => ({
   },
 }))
 
+vi.mock('@/api/reportingSettings', () => ({
+  reportingSettingsApi: {
+    get: vi.fn().mockResolvedValue({ decimal_places: 0, currency_symbol: '$', negative_format: 'parentheses' }),
+  },
+}))
+
 vi.mock('@/providers/ToastProvider', () => ({
   useToast: () => vi.fn(),
 }))
@@ -205,7 +211,7 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
     await waitFor(() => {
       expect(screen.getByTestId('cpa-bridge-table')).toBeInTheDocument()
       expect(screen.getByText('Grand Total')).toBeInTheDocument()
-      expect(screen.getByText('AJE-001')).toBeInTheDocument()
+      expect(screen.getByText(/AJE-001/)).toBeInTheDocument()
     })
   })
 

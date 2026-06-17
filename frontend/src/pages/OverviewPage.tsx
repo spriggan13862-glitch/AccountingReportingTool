@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v12 · Adjustment Workbench + Bridge UX Fixes (Phase 10A)',
+    date: '2026-06-17',
+    items: [
+      'Adjustment Workbench: Total Debit and Total Credit now shown as separate columns on every JE summary row',
+      'Adjustment Workbench: JE line detail (Acct #, Account Name, Debit, Credit) visible inline — no sidebar required',
+      'Adjustment Workbench: approval UI removed; statuses are Draft, Posted, Reversed only',
+      'Bridge: each posted AJE now has a sequence number prefix (1 AJE-001, 2 AJE-002, …)',
+      'Bridge: accounts sorted by statement order (Assets → Liabilities → Equity → Revenue → Expenses), then account number',
+      'Reporting settings (decimal places, currency symbol, negative format) now applied globally via useFormatCurrency hook',
+    ],
+  },
+  {
     version: 'v11 · Intelligence QA + UX Polish (Phase 9A)',
     date: '2026-06-15',
     items: [

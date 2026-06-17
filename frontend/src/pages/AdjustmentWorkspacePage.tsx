@@ -14,7 +14,7 @@ import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { useToast } from '@/providers/ToastProvider'
-import { formatCurrency } from '@/lib/format'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 
 // ---------------------------------------------------------------------------
@@ -69,7 +69,6 @@ function StatusDot({ status }: { status: string }) {
     draft: 'bg-amber-400',
     posted: 'bg-emerald-500',
     reversed: 'bg-slate-400',
-    voided: 'bg-slate-300',
   }
   return <span className={cn('inline-block w-2 h-2 rounded-full flex-shrink-0', map[status] ?? 'bg-slate-300')} />
 }
@@ -148,7 +147,7 @@ function PackagePanel({ packages, onCreatePackage, onDeletePackage }: {
 // Multi-select impact bar
 // ---------------------------------------------------------------------------
 
-function MultiImpactBar({ selectedIds }: { selectedIds: number[] }) {
+function MultiImpactBar({ selectedIds, fmt }: { selectedIds: number[]; fmt: (v: number | null | undefined) => string }) {
   const { data: impact } = useQuery({
     queryKey: ['adj-impact-preview', selectedIds],
     queryFn: () => adjustmentWorkspaceApi.impactPreview(selectedIds),
@@ -166,7 +165,7 @@ function MultiImpactBar({ selectedIds }: { selectedIds: number[] }) {
             <div className="flex flex-col items-end">
               <span className="text-[10px] text-slate-400 leading-none">NI</span>
               <span className={cn('text-xs font-semibold leading-tight', impact.ni_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
-                {impact.ni_impact > 0 ? '+' : ''}{formatCurrency(impact.ni_impact)}
+                {impact.ni_impact > 0 ? '+' : ''}{fmt(impact.ni_impact)}
               </span>
             </div>
           )}
@@ -174,7 +173,7 @@ function MultiImpactBar({ selectedIds }: { selectedIds: number[] }) {
             <div className="flex flex-col items-end">
               <span className="text-[10px] text-slate-400 leading-none">EBITDA</span>
               <span className={cn('text-xs font-semibold leading-tight', impact.ebitda_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
-                {impact.ebitda_impact > 0 ? '+' : ''}{formatCurrency(impact.ebitda_impact)}
+                {impact.ebitda_impact > 0 ? '+' : ''}{fmt(impact.ebitda_impact)}
               </span>
             </div>
           )}
@@ -188,10 +187,10 @@ function MultiImpactBar({ selectedIds }: { selectedIds: number[] }) {
 // Inline JE lines sub-table
 // ---------------------------------------------------------------------------
 
-function JELinesTable({ lines }: { lines: NonNullable<AdjustmentListItem['lines']> }) {
+function JELinesTable({ lines, fmt }: { lines: NonNullable<AdjustmentListItem['lines']>; fmt: (v: number | null | undefined) => string }) {
   return (
     <tr>
-      <td colSpan={10} className="px-0 pb-0">
+      <td colSpan={13} className="px-0 pb-0">
         <table className="w-full text-[10px]">
           <thead>
             <tr className="bg-slate-50 border-t border-slate-100">
@@ -201,7 +200,7 @@ function JELinesTable({ lines }: { lines: NonNullable<AdjustmentListItem['lines'
               <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Debit</th>
               <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Credit</th>
               <th className="px-3 py-1 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Line Memo</th>
-              <th colSpan={4} />
+              <th colSpan={7} />
             </tr>
           </thead>
           <tbody>
@@ -211,13 +210,13 @@ function JELinesTable({ lines }: { lines: NonNullable<AdjustmentListItem['lines'
                 <td className="px-3 py-1 font-mono text-slate-500">{ln.account_number}</td>
                 <td className="px-3 py-1 text-slate-700">{ln.account_name}</td>
                 <td className="px-3 py-1 text-right font-mono text-slate-700">
-                  {ln.debit > 0 ? formatCurrency(ln.debit) : ''}
+                  {ln.debit > 0 ? fmt(ln.debit) : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-3 py-1 text-right font-mono text-slate-700">
-                  {ln.credit > 0 ? formatCurrency(ln.credit) : ''}
+                  {ln.credit > 0 ? fmt(ln.credit) : <span className="text-slate-300">—</span>}
                 </td>
                 <td className="px-3 py-1 text-slate-400 italic">{ln.description ?? ''}</td>
-                <td colSpan={4} />
+                <td colSpan={7} />
               </tr>
             ))}
           </tbody>
@@ -235,6 +234,7 @@ export function AdjustmentWorkspacePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const toast = useToast()
+  const fmt = useFormatCurrency()
 
   // Filters
   const [search, setSearch] = useState('')
@@ -471,7 +471,7 @@ export function AdjustmentWorkspacePage() {
         </div>
 
         {/* Multi-select bar */}
-        <MultiImpactBar selectedIds={Array.from(selectedIds)} />
+        <MultiImpactBar selectedIds={Array.from(selectedIds)} fmt={fmt} />
 
         {/* Grid */}
         {isLoading ? (
@@ -498,15 +498,17 @@ export function AdjustmentWorkspacePage() {
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Type</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Materiality</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total Dr</th>
+                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total Cr</th>
                   <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">NI Impact</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Source</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items?.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-3 py-8 text-center text-slate-400">
+                    <td colSpan={13} className="px-3 py-8 text-center text-slate-400">
                       No adjustments match the current filters.
                     </td>
                   </tr>
@@ -568,13 +570,16 @@ export function AdjustmentWorkspacePage() {
                         <td className="px-3 py-2">
                           <MaterialityBadge value={item.materiality} />
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-slate-700">
-                          {formatCurrency(item.total_debit)}
+                        <td className="px-3 py-2 text-right font-mono text-slate-700" data-testid="total-debit">
+                          {fmt(item.total_debit)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-700" data-testid="total-credit">
+                          {fmt(item.total_credit)}
                         </td>
                         <td className="px-3 py-2 text-right">
                           {item.impact.ni_impact !== 0 ? (
                             <span className={cn('font-semibold', item.impact.ni_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
-                              {item.impact.ni_impact > 0 ? '+' : ''}{formatCurrency(Math.abs(item.impact.ni_impact))}
+                              {item.impact.ni_impact > 0 ? '+' : ''}{fmt(Math.abs(item.impact.ni_impact))}
                               {item.impact.ni_impact < 0 && <span className="text-rose-600"> ↓</span>}
                             </span>
                           ) : (
@@ -582,9 +587,18 @@ export function AdjustmentWorkspacePage() {
                           )}
                         </td>
                         <td className="px-3 py-2 text-slate-400 text-[10px]">{item.source}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/workbench/journal-entries/${item.id}/edit`)}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                          >
+                            Edit
+                          </button>
+                        </td>
                       </tr>
                       {hasLines && !isCollapsed && (
-                        <JELinesTable key={`lines-${item.id}`} lines={item.lines!} />
+                        <JELinesTable key={`lines-${item.id}`} lines={item.lines!} fmt={fmt} />
                       )}
                     </>
                   )
