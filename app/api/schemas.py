@@ -411,6 +411,8 @@ class JELineOut(BaseModel):
     debit: Decimal
     credit: Decimal
     description: str | None = None
+    account_number: str | None = None
+    account_name: str | None = None
 
 
 class JEOut(BaseModel):
@@ -2389,3 +2391,43 @@ class ScenarioImpactResult(BaseModel):
 
 class ScenarioComparisonResult(BaseModel):
     scenarios: list[ScenarioImpactResult]
+
+
+# ---------------------------------------------------------------------------
+# Budgets
+# ---------------------------------------------------------------------------
+
+class BudgetLineCreate(BaseModel):
+    account_id: int
+    period_id: int | None = None
+    amount: Decimal
+
+
+class BudgetLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    budget_version_id: int
+    account_id: int
+    period_id: int | None = None
+    amount: Decimal
+    created_at: datetime.datetime
+
+
+class BudgetVersionCreate(BaseModel):
+    organization_id: int | None = None
+    scenario_id: int
+    name: str
+    description: str | None = None
+    status: str = "draft"
+
+
+class BudgetVersionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    organization_id: int | None = None
+    scenario_id: int
+    name: str
+    description: str | None = None
+    status: str
+    created_at: datetime.datetime
+    lines: list[BudgetLineOut] = []

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, ChevronDown, ChevronRight, Search, X, ArrowUpDown } from 'lucide-react'
@@ -42,43 +42,71 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// Column layout (13 total):
+// 1: expand toggle (w-8)
+// 2: spacer (w-5)
+// 3: JE #
+// 4: Date
+// 5: Description
+// 6: Status
+// 7: Account #   ← line rows align here
+// 8: Account Name
+// 9: Debit
+// 10: Credit
+// 11: NI Impact
+// 12: Source
+// 13: Actions
 function JELinesRows({
   lines,
   fmt,
-  colSpan,
 }: {
   lines: NonNullable<AdjustmentListItem['lines']>
   fmt: (v: number | null | undefined) => string
-  colSpan: number
 }) {
+  const totalDebit = lines.reduce((s, l) => s + l.debit, 0)
+  const totalCredit = lines.reduce((s, l) => s + l.credit, 0)
   return (
     <>
       {lines.map((ln) => {
         const net = ln.debit - ln.credit
         return (
-          <tr key={ln.line_number} className="bg-slate-50 border-t border-slate-100 hover:bg-indigo-50/30">
+          <tr key={ln.line_number} className="bg-slate-50/60 border-t border-slate-100 hover:bg-indigo-50/30">
+            {/* cols 1-2: indent */}
             <td className="w-8" />
             <td className="w-5" />
+            {/* cols 3-4: empty (JE #, Date) */}
+            <td />
+            <td />
+            {/* col 5: line memo in Description slot */}
+            <td className="px-3 py-1 text-[10px] text-slate-400 italic truncate max-w-[200px]">
+              {ln.description ?? ''}
+            </td>
+            {/* col 6: empty (Status) */}
+            <td />
+            {/* col 7: Account # */}
             <td className="px-3 py-1 font-mono text-[10px] text-slate-500">{ln.account_number}</td>
+            {/* col 8: Account Name */}
             <td className="px-3 py-1 text-[10px] text-slate-700 max-w-[220px] truncate">{ln.account_name}</td>
+            {/* col 9: Debit */}
             <td className="px-3 py-1 text-right font-mono text-[10px] text-slate-700">
               {ln.debit > 0 ? fmt(ln.debit) : <span className="text-slate-300">—</span>}
             </td>
+            {/* col 10: Credit */}
             <td className="px-3 py-1 text-right font-mono text-[10px] text-slate-700">
               {ln.credit > 0 ? fmt(ln.credit) : <span className="text-slate-300">—</span>}
             </td>
+            {/* col 11: NI Impact */}
             <td className="px-3 py-1 text-right font-mono text-[10px] font-semibold">
               {net !== 0 ? (
                 <span className={net > 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                  {net > 0 ? '+' : ''}{fmt(net)}
+                  {net > 0 ? '+' : ''}{fmt(Math.abs(net))}
                 </span>
               ) : (
                 <span className="text-slate-300">—</span>
               )}
             </td>
-            <td colSpan={colSpan - 7} className="px-3 py-1 text-[10px] text-slate-400 italic">
-              {ln.description ?? ''}
-            </td>
+            {/* cols 12-13: Source, Actions — empty */}
+            <td colSpan={2} />
           </tr>
         )
       })}
@@ -86,16 +114,20 @@ function JELinesRows({
       <tr className="bg-slate-100 border-t border-slate-200">
         <td className="w-8" />
         <td className="w-5" />
-        <td colSpan={2} className="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+        {/* cols 3-8: "Totals" label spanning JE#..Account Name */}
+        <td colSpan={6} className="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
           Totals
         </td>
+        {/* col 9: Total Debit */}
         <td className="px-3 py-1 text-right font-mono text-[10px] font-semibold text-slate-700">
-          {fmt(lines.reduce((s, l) => s + l.debit, 0))}
+          {fmt(totalDebit)}
         </td>
+        {/* col 10: Total Credit */}
         <td className="px-3 py-1 text-right font-mono text-[10px] font-semibold text-slate-700">
-          {fmt(lines.reduce((s, l) => s + l.credit, 0))}
+          {fmt(totalCredit)}
         </td>
-        <td colSpan={colSpan - 6} />
+        {/* cols 11-13 */}
+        <td colSpan={3} />
       </tr>
     </>
   )
@@ -193,7 +225,8 @@ export function AdjustmentsPage() {
     )
   }
 
-  const TOTAL_COLS = 10
+  // Header has 13 cols: expand(1) + spacer(1) + JE#(1) + Date(1) + Description(1) + Status(1) + Acct#(1) + AcctName(1) + Debit(1) + Credit(1) + NI(1) + Source(1) + Actions(1)
+  const TOTAL_COLS = 13
 
   return (
     <div className="flex flex-col h-full" data-testid="adjustments-page">
@@ -276,7 +309,7 @@ export function AdjustmentsPage() {
             <tbody className="divide-y divide-slate-100">
               {sortedItems.length === 0 && (
                 <tr>
-                  <td colSpan={TOTAL_COLS + 3} className="px-4 py-10 text-center text-slate-400 text-xs">
+                  <td colSpan={TOTAL_COLS} className="px-4 py-10 text-center text-slate-400 text-xs">
                     No adjustments found.
                   </td>
                 </tr>
@@ -289,10 +322,9 @@ export function AdjustmentsPage() {
                 const remainingLines = item.lines?.slice(1) ?? []
 
                 return (
-                  <>
+                  <React.Fragment key={item.id}>
                     {/* Summary row */}
                     <tr
-                      key={item.id}
                       data-testid={`adj-row-${item.id}`}
                       className={cn(
                         'hover:bg-slate-50 transition-colors',
@@ -370,13 +402,11 @@ export function AdjustmentsPage() {
                     {/* Expanded JE lines */}
                     {expanded && hasLines && (
                       <JELinesRows
-                        key={`lines-${item.id}`}
                         lines={item.lines!}
                         fmt={fmt}
-                        colSpan={TOTAL_COLS + 3}
                       />
                     )}
-                  </>
+                  </React.Fragment>
                 )
               })}
             </tbody>

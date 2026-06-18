@@ -1,10 +1,13 @@
 import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, File, Form, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, File, Form, UploadFile, Header
+from fastapi.responses import JSONResponse
+import json
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.api.schemas import JELineOut, JEOut, Page, ReverseJERequest, ValidationIssueOut
+from app.models.account import Account
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate
@@ -32,13 +35,21 @@ router = APIRouter(prefix="/journal-entries", tags=["journal-entries"])
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _lines(db: Session, je_id: int) -> list[JournalEntryLine]:
-    return (
-        db.query(JournalEntryLine)
+def _lines(db: Session, je_id: int) -> list[JELineOut]:
+    rows = (
+        db.query(JournalEntryLine, Account.account_number, Account.account_name)
+        .join(Account, Account.id == JournalEntryLine.account_id, isouter=True)
         .filter(JournalEntryLine.journal_entry_id == je_id)
         .order_by(JournalEntryLine.line_number)
         .all()
     )
+    result = []
+    for line, acct_num, acct_name in rows:
+        out = JELineOut.model_validate(line)
+        out.account_number = acct_num
+        out.account_name = acct_name
+        result.append(out)
+    return result
 
 
 def _issue_out(issue) -> ValidationIssueOut:
@@ -71,7 +82,7 @@ def _je_out(db: Session, je: JournalEntry, warnings=None) -> JEOut:
         created_at=je.created_at,
         posted_at=je.posted_at,
         reversed_at=je.reversed_at,
-        lines=[JELineOut.model_validate(l) for l in _lines(db, je.id)],
+        lines=_lines(db, je.id),
         warnings=[_issue_out(w) for w in (warnings or [])],
     )
 
@@ -135,6 +146,23 @@ def reverse_je(je_id: int, body: ReverseJERequest, db: Session = Depends(get_db)
         created_by=body.created_by,
     )
     return _je_out(db, rev)
+
+
+@router.get('/imports/{job_id}', status_code=200)
+def get_import_job_status(job_id: int, db: Session = Depends(get_db)):
+    from app.models.background_job import BackgroundJob
+    job = db.get(BackgroundJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return {
+        'id': job.id,
+        'job_type': job.job_type,
+        'status': job.status,
+        'attempts': job.attempts,
+        'result': job.result,
+        'created_at': job.created_at.isoformat() if job.created_at else None,
+        'updated_at': job.updated_at.isoformat() if job.updated_at else None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +312,7 @@ async def import_journal_entries(
     overlay_group: str | None = Form(default=None),
     is_reversing: bool = Form(default=False),
     file: UploadFile = File(...),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db),
 ):
     import csv
@@ -311,6 +340,10 @@ async def import_journal_entries(
         scenario_id = scenario.id
 
     content = await file.read()
+    # Enforce max upload size
+    from app.core.config import settings
+    if len(content) > settings.MAX_IMPORT_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail=f"Uploaded file too large. Max size is {settings.MAX_IMPORT_SIZE_BYTES} bytes")
     decoded = content.decode("utf-8-sig")
     reader = csv.DictReader(io.StringIO(decoded))
 
@@ -366,91 +399,40 @@ async def import_journal_entries(
 
     if not groups:
         raise HTTPException(status_code=400, detail="The uploaded CSV file contains no data rows")
+    # Enqueue background job for processing CSV import
+    from app.models.idempotency_key import IdempotencyKey
+    from app.models.background_job import BackgroundJob
 
-    created_jes = []
-    for key, lines_data in groups.items():
-        total_debits = sum(line["debit"] for line in lines_data)
-        total_credits = sum(line["credit"] for line in lines_data)
-        
-        if total_debits != total_credits:
-            je_identifier = lines_data[0]["je_number"] or f"Date: {lines_data[0]['entry_date']}, Desc: {lines_data[0]['description']}"
-            raise HTTPException(
-                status_code=400,
-                detail=f"Journal entry '{je_identifier}' is unbalanced: Total Debits ({total_debits}) must equal Total Credits ({total_credits})"
-            )
-
-        line_objects = []
-        for line_num, line in enumerate(lines_data, start=1):
-            acct_num = line["account_number"]
-            acct = db.query(Account).filter(
-                Account.entity_id == entity_id,
-                Account.account_number == acct_num,
-                Account.account_status == "active"
-            ).first()
-            if not acct:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Account number '{acct_num}' on row {line['row_idx']} does not exist or is inactive for this entity."
-                )
-            
-            line_objects.append(
-                JournalEntryLine(
-                    line_number=line_num,
-                    account_id=acct.id,
-                    debit=line["debit"],
-                    credit=line["credit"],
-                    description=line["description"] or None
-                )
-            )
-
-        first_line = lines_data[0]
-        try:
-            entry_date = datetime.date.fromisoformat(first_line["entry_date"])
-        except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid date format '{first_line['entry_date']}' on row {first_line['row_idx']}. Use YYYY-MM-DD."
-            )
-
-        je = JournalEntry(
-            entity_id=entity_id,
-            scenario_id=scenario_id,
-            entry_date=entry_date,
-            je_number=first_line["je_number"] or f"JE-IMP-{datetime.datetime.now().strftime('%m%d%H%M%S')}-{key[:4]}",
-            description=first_line["description"] or "Imported via CSV",
-            source="csv_import",
-            status="posted",
-            overlay_group=overlay_group,
-        )
-        db.add(je)
-        db.flush()
-
-        for l_obj in line_objects:
-            l_obj.journal_entry_id = je.id
-            db.add(l_obj)
-        db.flush()
-
-        if is_reversing:
-            if entry_date.month == 12:
-                reversal_date = datetime.date(entry_date.year + 1, 1, 1)
+    if idempotency_key:
+        existing = db.query(IdempotencyKey).filter(IdempotencyKey.key == idempotency_key).first()
+        if existing:
+            if existing.status == "completed" and existing.response:
+                try:
+                    return json.loads(existing.response)
+                except Exception:
+                    raise HTTPException(status_code=500, detail="Stored idempotent response corrupted")
             else:
-                reversal_date = datetime.date(entry_date.year, entry_date.month + 1, 1)
-            
-            reverse_journal_entry(
-                db,
-                je_id=je.id,
-                reversal_date=reversal_date,
-                je_number=f"REV-{je.je_number}",
-                description=f"Reversal of {je.description}",
-            )
+                return JSONResponse(status_code=202, content={"detail": "Import already in progress"})
 
-        created_jes.append(je)
+    # create idempotency record
+    idemp_rec = None
+    if idempotency_key:
+        idemp_rec = IdempotencyKey(key=idempotency_key, status="in_progress")
+        db.add(idemp_rec)
+        db.flush()
 
+    payload = {
+        "entity_id": entity_id,
+        "scenario_id": scenario_id,
+        "overlay_group": overlay_group,
+        "is_reversing": is_reversing,
+        "csv_text": decoded,
+        "idempotency_key": idempotency_key,
+    }
+
+    job = BackgroundJob(job_type="journal_import", payload=json.dumps(payload), status="pending")
+    db.add(job)
     db.flush()
     db.commit()
 
-    return {
-        "success": True,
-        "message": f"Successfully imported {len(created_jes)} journal entries",
-        "imported_count": len(created_jes)
-    }
+    return JSONResponse(status_code=202, content={"job_id": job.id, "detail": "Import enqueued"})

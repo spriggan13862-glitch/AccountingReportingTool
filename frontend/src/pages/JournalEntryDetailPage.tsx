@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { journalEntriesApi } from '@/api/journalEntries'
 import { workflowApi } from '@/api/workflow'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -24,6 +25,8 @@ export function JournalEntryDetailPage() {
   const { id } = useParams<{ id: string }>()
   const jeId = Number(id)
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const fmtCurrency = useFormatCurrency()
 
   const [actionError, setActionError] = useState<string | null>(null)
   const [reverseOpen, setReverseOpen] = useState(false)
@@ -111,6 +114,14 @@ export function JournalEntryDetailPage() {
       subtitle={`${je.entry_date} · ${je.description}`}
       actions={
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            data-testid="back-btn"
+          >
+            ← Back
+          </button>
           <StatusBadge status={je.status} />
           {isDraft && (
             <button
@@ -170,34 +181,42 @@ export function JournalEntryDetailPage() {
               <>
                 {!balanced && (
                   <div className="mb-2 inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700" data-testid="balance-chip">
-                    Out of balance by {diff.toFixed(2)}
+                    Out of balance by {fmtCurrency(diff)}
                   </div>
                 )}
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-xs text-gray-500">
                       <th className="pb-1 text-left">#</th>
-                      <th className="pb-1 text-left">Account</th>
+                      <th className="pb-1 text-left font-mono">Acct #</th>
+                      <th className="pb-1 text-left">Account Name</th>
                       <th className="pb-1 text-right">Debit</th>
                       <th className="pb-1 text-right">Credit</th>
                     </tr>
                   </thead>
                   <tbody>
                     {je.lines.map((line) => (
-                      <tr key={line.id} className="border-b border-gray-50">
+                      <tr key={line.id} className="border-b border-gray-50" data-testid={`je-line-${line.id}`}>
                         <td className="py-1 text-gray-400">{line.line_number}</td>
-                        <td className="py-1 font-mono">{line.account_id}</td>
-                        <td className="py-1 text-right tabular-nums">{Number(line.debit) !== 0 ? line.debit : ''}</td>
-                        <td className="py-1 text-right tabular-nums">{Number(line.credit) !== 0 ? line.credit : ''}</td>
+                        <td className="py-1 font-mono text-slate-600">{line.account_number ?? line.account_id}</td>
+                        <td className="py-1 text-gray-800 max-w-[200px] truncate">{line.account_name ?? '—'}</td>
+                        <td className="py-1 text-right tabular-nums">{Number(line.debit) !== 0 ? fmtCurrency(parseFloat(line.debit)) : <span className="text-gray-300">—</span>}</td>
+                        <td className="py-1 text-right tabular-nums">{Number(line.credit) !== 0 ? fmtCurrency(parseFloat(line.credit)) : <span className="text-gray-300">—</span>}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="border-t text-xs text-gray-500">
                     <tr>
-                      <td colSpan={2} className="pt-1.5 font-semibold">Totals</td>
-                      <td className="pt-1.5 text-right tabular-nums font-semibold">{totalDebit.toFixed(2)}</td>
-                      <td className="pt-1.5 text-right tabular-nums font-semibold">{totalCredit.toFixed(2)}</td>
+                      <td colSpan={3} className="pt-1.5 font-semibold">Totals</td>
+                      <td className="pt-1.5 text-right tabular-nums font-semibold">{fmtCurrency(totalDebit)}</td>
+                      <td className="pt-1.5 text-right tabular-nums font-semibold">{fmtCurrency(totalCredit)}</td>
                     </tr>
+                    {!balanced && (
+                      <tr>
+                        <td colSpan={3} className="pt-1 text-red-500">Difference</td>
+                        <td colSpan={2} className="pt-1 text-right tabular-nums text-red-500">{fmtCurrency(diff)}</td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </>

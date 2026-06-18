@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { formatCurrencyCompact } from '@/lib/format'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -606,7 +607,7 @@ export function TrialBalanceImportPage() {
                 </p>
               </div>
 
-              <div className="rounded-lg border border-gray-200 overflow-auto">
+              <div className="rounded-lg border border-gray-200 overflow-auto max-h-80">
                 <table className="text-xs border-collapse">
                   <thead>
                     {/* Row 1: Column letters */}
@@ -776,13 +777,13 @@ export function TrialBalanceImportPage() {
             </div>
 
             {/* AccountingDataGrid Preview */}
-            <div className="border border-gray-250 rounded-lg overflow-hidden h-72">
+            <div className="border border-gray-250 rounded-lg overflow-auto h-72">
               <AccountingDataGrid
                 columns={[
                   { key: 'account_number', header: 'Account Number', render: (r) => <span className="font-semibold text-gray-800">{r.account_number}</span> },
                   { key: 'account_name', header: 'Account Name', render: (r) => <span className="text-gray-600 font-medium">{r.account_name}</span> },
-                  { key: 'debit', header: 'Debit', render: (r) => r.debit ? `$${parseFloat(r.debit).toLocaleString(undefined, {minimumFractionDigits:2})}` : '—' },
-                  { key: 'credit', header: 'Credit', render: (r) => r.credit ? `$${parseFloat(r.credit).toLocaleString(undefined, {minimumFractionDigits:2})}` : '—' },
+                  { key: 'debit', header: 'Debit', render: (r) => r.debit ? formatCurrencyCompact(parseFloat(r.debit)) : '—' },
+                  { key: 'credit', header: 'Credit', render: (r) => r.credit ? formatCurrencyCompact(parseFloat(r.credit)) : '—' },
                 ]}
                 rowKey={(r) => r.account_number ?? String(Math.random())}
                 data={previewRows}

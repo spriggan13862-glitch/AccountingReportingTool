@@ -237,6 +237,8 @@ export interface JELine {
   debit: string
   credit: string
   description: string | null
+  account_number: string | null
+  account_name: string | null
 }
 
 export interface ValidationIssue {
