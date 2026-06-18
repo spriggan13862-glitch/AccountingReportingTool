@@ -1,316 +1,387 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, ChevronRight, CheckCircle, Clock, XCircle } from 'lucide-react'
-import { journalEntriesApi } from '@/api/journalEntries'
-import { reviewApi, type BridgeRow } from '@/api/review'
+import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, ChevronDown, ChevronRight, Search, X, ArrowUpDown } from 'lucide-react'
+import { adjustmentWorkspaceApi, type AdjustmentListItem } from '@/api/adjustmentWorkspace'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
-import type { JournalEntry } from '@/types'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
+import { cn } from '@/utils/cn'
 
-type JETab = 'all' | 'draft' | 'pending_approval' | 'posted'
+// ---------------------------------------------------------------------------
+// Types & constants
+// ---------------------------------------------------------------------------
+
+type JETab = 'all' | 'draft' | 'posted' | 'reversed'
 
 const TABS: { value: JETab; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'draft', label: 'Draft' },
-  { value: 'pending_approval', label: 'Pending Approval' },
   { value: 'posted', label: 'Posted' },
+  { value: 'reversed', label: 'Reversed' },
 ]
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-amber-100 text-amber-800',
-  pending_approval: 'bg-blue-100 text-blue-800',
-  posted: 'bg-green-100 text-green-800',
+  posted: 'bg-emerald-100 text-emerald-800',
   reversed: 'bg-gray-100 text-gray-600',
   voided: 'bg-red-100 text-red-700',
 }
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
 function StatusBadge({ status }: { status: string }) {
   const cls = STATUS_STYLES[status] ?? 'bg-gray-100 text-gray-600'
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${cls}`}>
-      {status.replace('_', ' ')}
+    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize', cls)}>
+      {status.replace(/_/g, ' ')}
     </span>
   )
 }
 
-function BridgePanel({ entityId, asOfDate, scenarioIds }: { entityId: number; asOfDate: string; scenarioIds: number[] }) {
-  const { data: rows, isLoading } = useQuery({
-    queryKey: ['bridge', entityId, asOfDate, scenarioIds],
-    queryFn: () => reviewApi.getBridge({ entity_id: entityId, as_of_date: asOfDate, scenario_ids: scenarioIds, statement: 'IS' }),
-    staleTime: 15_000,
-  })
-
-  if (isLoading) return <LoadingState />
-  if (!rows || rows.length === 0) return <p className="text-xs text-gray-400 italic">No bridge data available</p>
-
-  const netIncomeLine = rows.find((r) => r.code?.toLowerCase().includes('net_income') || r.name?.toLowerCase().includes('net income'))
-  const bridgeRows = netIncomeLine ? [netIncomeLine] : rows.slice(0, 5)
-
+function JELinesRows({
+  lines,
+  fmt,
+  colSpan,
+}: {
+  lines: NonNullable<AdjustmentListItem['lines']>
+  fmt: (v: number | null | undefined) => string
+  colSpan: number
+}) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b text-gray-400">
-            <th className="pb-1.5 text-left font-medium">Line</th>
-            <th className="pb-1.5 text-right font-medium w-20">As Rep.</th>
-            <th className="pb-1.5 text-right font-medium w-20">AJEs</th>
-            <th className="pb-1.5 text-right font-medium w-20">Adjusted</th>
-            <th className="pb-1.5 text-right font-medium w-20">Draft</th>
-            <th className="pb-1.5 text-right font-medium w-20">Pro Forma</th>
+    <>
+      {lines.map((ln) => {
+        const net = ln.debit - ln.credit
+        return (
+          <tr key={ln.line_number} className="bg-slate-50 border-t border-slate-100 hover:bg-indigo-50/30">
+            <td className="w-8" />
+            <td className="w-5" />
+            <td className="px-3 py-1 font-mono text-[10px] text-slate-500">{ln.account_number}</td>
+            <td className="px-3 py-1 text-[10px] text-slate-700 max-w-[220px] truncate">{ln.account_name}</td>
+            <td className="px-3 py-1 text-right font-mono text-[10px] text-slate-700">
+              {ln.debit > 0 ? fmt(ln.debit) : <span className="text-slate-300">—</span>}
+            </td>
+            <td className="px-3 py-1 text-right font-mono text-[10px] text-slate-700">
+              {ln.credit > 0 ? fmt(ln.credit) : <span className="text-slate-300">—</span>}
+            </td>
+            <td className="px-3 py-1 text-right font-mono text-[10px] font-semibold">
+              {net !== 0 ? (
+                <span className={net > 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                  {net > 0 ? '+' : ''}{fmt(net)}
+                </span>
+              ) : (
+                <span className="text-slate-300">—</span>
+              )}
+            </td>
+            <td colSpan={colSpan - 7} className="px-3 py-1 text-[10px] text-slate-400 italic">
+              {ln.description ?? ''}
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {bridgeRows.map((row) => (
-            <tr key={row.code} className="border-b border-gray-50">
-              <td className="py-1.5">
-                <span className="font-mono text-gray-400 text-[10px] mr-1">{row.code}</span>
-                <span className="text-gray-700">{row.name}</span>
-              </td>
-              <td className="py-1.5 text-right tabular-nums text-gray-600">{row.as_reported.toFixed(0)}</td>
-              <td className={`py-1.5 text-right tabular-nums ${row.posted_ajes !== 0 ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
-                {row.posted_ajes !== 0 ? (row.posted_ajes > 0 ? '+' : '') + row.posted_ajes.toFixed(0) : '—'}
-              </td>
-              <td className="py-1.5 text-right tabular-nums font-semibold text-gray-800">{row.net_adjusted.toFixed(0)}</td>
-              <td className={`py-1.5 text-right tabular-nums ${row.pro_forma_ajes !== 0 ? 'text-purple-600 font-medium' : 'text-gray-400'}`}>
-                {row.pro_forma_ajes !== 0 ? (row.pro_forma_ajes > 0 ? '+' : '') + row.pro_forma_ajes.toFixed(0) : '—'}
-              </td>
-              <td className="py-1.5 text-right tabular-nums font-semibold text-gray-800">{row.pro_forma.toFixed(0)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length > bridgeRows.length && (
-        <p className="text-xs text-gray-400 mt-2">{rows.length - bridgeRows.length} more lines…</p>
-      )}
-    </div>
+        )
+      })}
+      {/* Totals row */}
+      <tr className="bg-slate-100 border-t border-slate-200">
+        <td className="w-8" />
+        <td className="w-5" />
+        <td colSpan={2} className="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+          Totals
+        </td>
+        <td className="px-3 py-1 text-right font-mono text-[10px] font-semibold text-slate-700">
+          {fmt(lines.reduce((s, l) => s + l.debit, 0))}
+        </td>
+        <td className="px-3 py-1 text-right font-mono text-[10px] font-semibold text-slate-700">
+          {fmt(lines.reduce((s, l) => s + l.credit, 0))}
+        </td>
+        <td colSpan={colSpan - 6} />
+      </tr>
+    </>
   )
 }
 
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
 export function AdjustmentsPage() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { activeEntity, activePeriod, activeScenarioIds } = useWorkspace()
+  const qc = useQueryClient()
+  const { activeEntity } = useWorkspace()
+  const fmt = useFormatCurrency()
+
   const [tab, setTab] = useState<JETab>('all')
-  const [selectedJe, setSelectedJe] = useState<JournalEntry | null>(null)
+  const [search, setSearch] = useState('')
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+  const [sortKey, setSortKey] = useState<string>('entry_date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
-  const enabled = !!activeEntity
+  const filters = useMemo(() => ({
+    status: tab === 'all' ? undefined : tab,
+    search: search || undefined,
+    include_lines: true,
+    limit: 300,
+  }), [tab, search])
 
-  const { data: jes = [], isLoading, isError, error } = useQuery({
-    queryKey: ['adjustments-jes', activeEntity?.id, tab],
-    queryFn: () => journalEntriesApi.list({
-      entity_id: activeEntity!.id,
-      status: tab === 'all' ? undefined : tab,
-      page_size: 200,
+  const { data: items, isLoading, isError, error } = useQuery({
+    queryKey: ['adjustments-jes', activeEntity?.id, filters],
+    queryFn: () => adjustmentWorkspaceApi.listAdjustments({
+      ...filters,
+      entity_id: activeEntity?.id,
     }),
-    enabled,
+    enabled: !!activeEntity,
     staleTime: 15_000,
   })
 
-  const submitMutation = useMutation({
-    mutationFn: (id: number) => journalEntriesApi.submit(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adjustments-jes'] })
-      setSelectedJe(null)
-    },
-  })
-
-  const approveMutation = useMutation({
-    mutationFn: (id: number) => journalEntriesApi.approve(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adjustments-jes'] })
-      queryClient.invalidateQueries({ queryKey: ['bridge'] })
-      setSelectedJe(null)
-    },
-  })
-
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, note }: { id: number; note: string }) => journalEntriesApi.reject(id, note),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adjustments-jes'] })
-      setSelectedJe(null)
-    },
-  })
-
-  if (!enabled) {
+  if (!activeEntity) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-700">Select an entity in the context bar above</p>
-        </div>
+        <p className="text-sm text-gray-500">Select an entity in the context bar above.</p>
       </div>
     )
   }
 
+  function toggleExpand(id: number) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleSort(key: string) {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const sortedItems = useMemo(() => {
+    if (!items) return []
+    return [...items].sort((a, b) => {
+      let av: string | number = ''
+      let bv: string | number = ''
+      if (sortKey === 'je_number') { av = a.je_number; bv = b.je_number }
+      else if (sortKey === 'entry_date') { av = a.entry_date; bv = b.entry_date }
+      else if (sortKey === 'description') { av = a.description ?? ''; bv = b.description ?? '' }
+      else if (sortKey === 'status') { av = a.status; bv = b.status }
+      else if (sortKey === 'total_debit') { av = a.total_debit; bv = b.total_debit }
+      else if (sortKey === 'total_credit') { av = a.total_credit; bv = b.total_credit }
+      else if (sortKey === 'ni_impact') { av = a.impact.ni_impact; bv = b.impact.ni_impact }
+      const cmp = typeof av === 'number'
+        ? (av as number) - (bv as number)
+        : String(av).localeCompare(String(bv), undefined, { numeric: true })
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [items, sortKey, sortDir])
+
+  function SortTh({ col, label, right }: { col: string; label: string; right?: boolean }) {
+    const active = sortKey === col
+    return (
+      <th
+        className={cn(
+          'px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100 transition-colors',
+          right && 'text-right',
+        )}
+        onClick={() => handleSort(col)}
+      >
+        <span className={cn('flex items-center gap-1', right && 'justify-end')}>
+          {label}
+          <ArrowUpDown className={cn('w-3 h-3 shrink-0', active ? 'text-indigo-500' : 'text-slate-300')} />
+        </span>
+      </th>
+    )
+  }
+
+  const TOTAL_COLS = 10
+
   return (
-    <div className="flex h-full min-h-0 flex-col gap-0">
-      {/* Top: NI Bridge */}
-      {activePeriod && (
-        <div className="border-b border-gray-200 bg-white px-6 py-3">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">NI Walk</h2>
-          <BridgePanel
-            entityId={activeEntity.id}
-            asOfDate={activePeriod.end_date}
-            scenarioIds={activeScenarioIds}
+    <div className="flex flex-col h-full" data-testid="adjustments-page">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+        <h1 className="text-sm font-semibold text-gray-800">Adjustments</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/adjustments/journal-entries/new')}
+          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          data-testid="new-aje-btn"
+        >
+          <Plus className="h-3.5 w-3.5" /> New AJE
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-4 pt-2 border-b border-gray-100 bg-white">
+        {TABS.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTab(value)}
+            className={cn(
+              'px-3 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors',
+              tab === value ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700',
+            )}
+            data-testid={`tab-${value}`}
+          >
+            {label}
+          </button>
+        ))}
+
+        {/* Search */}
+        <div className="ml-auto relative mb-1">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className="pl-6 pr-6 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400 w-40"
+            data-testid="adj-search"
           />
-        </div>
-      )}
-
-      {/* Bottom: JE Register */}
-      <div className="flex flex-1 min-h-0">
-        {/* Left: register */}
-        <div className="flex-1 min-w-0 flex flex-col border-r border-gray-200">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h1 className="text-sm font-semibold text-gray-800">Adjustments</h1>
-            <Link
-              to="/adjustments/journal-entries/new"
-              className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
-              <Plus className="h-3.5 w-3.5" /> New AJE
-            </Link>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 px-4 pt-2 border-b border-gray-100">
-            {TABS.map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTab(value)}
-                className={`px-3 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors ${
-                  tab === value ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Table */}
-          <div className="flex-1 overflow-auto">
-            {isLoading && <LoadingState />}
-            {isError && <ErrorState message={(error as Error).message} />}
-            {!isLoading && jes.length === 0 && (
-              <div className="flex h-32 items-center justify-center">
-                <p className="text-xs text-gray-400 italic">No journal entries found</p>
-              </div>
-            )}
-            {!isLoading && jes.length > 0 && (
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white border-b border-gray-100">
-                  <tr className="text-gray-500">
-                    <th className="px-4 py-2 text-left font-medium">JE #</th>
-                    <th className="px-2 py-2 text-left font-medium">Date</th>
-                    <th className="px-2 py-2 text-left font-medium">Description</th>
-                    <th className="px-2 py-2 text-left font-medium">Status</th>
-                    <th className="px-2 py-2 text-right font-medium">Debit</th>
-                    <th className="px-2 py-2 w-6"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jes.map((je) => {
-                    const totalDebit = je.lines.reduce((s, l) => s + parseFloat(l.debit || '0'), 0)
-                    const isSelected = selectedJe?.id === je.id
-                    return (
-                      <tr
-                        key={je.id}
-                        onClick={() => setSelectedJe(isSelected ? null : je)}
-                        className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}
-                      >
-                        <td className="px-4 py-2 font-mono text-gray-700">{je.je_number}</td>
-                        <td className="px-2 py-2 text-gray-500">{je.entry_date}</td>
-                        <td className="px-2 py-2 text-gray-700 max-w-[200px] truncate">{je.description}</td>
-                        <td className="px-2 py-2"><StatusBadge status={je.status} /></td>
-                        <td className="px-2 py-2 text-right tabular-nums text-gray-700">{totalDebit.toFixed(2)}</td>
-                        <td className="px-2 py-2">
-                          <ChevronRight className="h-3 w-3 text-gray-300" />
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
-
-        {/* Right: detail / actions */}
-        <div className="w-80 shrink-0 flex flex-col">
-          {selectedJe ? (
-            <div className="flex-1 overflow-auto p-4 space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800">{selectedJe.je_number}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{selectedJe.entry_date} · {selectedJe.description}</p>
-                <div className="mt-2"><StatusBadge status={selectedJe.status} /></div>
-              </div>
-
-              {/* Lines summary */}
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Lines ({selectedJe.lines.length})</p>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {selectedJe.lines.map((l, i) => (
-                    <div key={i} className="flex justify-between text-xs text-gray-600">
-                      <span className="font-mono text-gray-400">{l.account_id}</span>
-                      {parseFloat(l.debit) > 0 && <span>Dr {parseFloat(l.debit).toFixed(2)}</span>}
-                      {parseFloat(l.credit) > 0 && <span>Cr {parseFloat(l.credit).toFixed(2)}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="space-y-2 pt-2 border-t border-gray-100">
-                <Link
-                  to={`/adjustments/journal-entries/${selectedJe.id}`}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  View Full Detail
-                </Link>
-
-                {selectedJe.status === 'draft' && (
-                  <button
-                    type="button"
-                    onClick={() => submitMutation.mutate(selectedJe.id)}
-                    disabled={submitMutation.isPending}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                  >
-                    <Clock className="h-3.5 w-3.5" />
-                    {submitMutation.isPending ? 'Submitting…' : 'Submit for Approval'}
-                  </button>
-                )}
-
-                {selectedJe.status === 'pending_approval' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => approveMutation.mutate(selectedJe.id)}
-                      disabled={approveMutation.isPending}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                    >
-                      <CheckCircle className="h-3.5 w-3.5" />
-                      {approveMutation.isPending ? 'Approving…' : 'Approve & Post'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => rejectMutation.mutate({ id: selectedJe.id, note: 'Rejected' })}
-                      disabled={rejectMutation.isPending}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                      {rejectMutation.isPending ? 'Rejecting…' : 'Reject'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-1 items-center justify-center p-8">
-              <p className="text-xs text-gray-400 text-center">Select a journal entry to view details and actions</p>
-            </div>
+              <X className="w-3 h-3" />
+            </button>
           )}
         </div>
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        {isLoading && <LoadingState />}
+        {isError && <ErrorState message={(error as Error).message} />}
+
+        {!isLoading && !isError && (
+          <table className="w-full text-xs" data-testid="adjustments-table">
+            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+              <tr>
+                <th className="w-8 px-3 py-2" />
+                <th className="w-5 px-1 py-2" />
+                <SortTh col="je_number" label="JE #" />
+                <SortTh col="entry_date" label="Date" />
+                <SortTh col="description" label="Description" />
+                <SortTh col="status" label="Status" />
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Account #</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Account Name</th>
+                <SortTh col="total_debit" label="Debit" right />
+                <SortTh col="total_credit" label="Credit" right />
+                <SortTh col="ni_impact" label="NI Impact" right />
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Source</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {sortedItems.length === 0 && (
+                <tr>
+                  <td colSpan={TOTAL_COLS + 3} className="px-4 py-10 text-center text-slate-400 text-xs">
+                    No adjustments found.
+                  </td>
+                </tr>
+              )}
+
+              {sortedItems.map((item) => {
+                const expanded = expandedIds.has(item.id)
+                const hasLines = item.lines && item.lines.length > 0
+                const firstLine = item.lines?.[0]
+                const remainingLines = item.lines?.slice(1) ?? []
+
+                return (
+                  <>
+                    {/* Summary row */}
+                    <tr
+                      key={item.id}
+                      data-testid={`adj-row-${item.id}`}
+                      className={cn(
+                        'hover:bg-slate-50 transition-colors',
+                        expanded && 'bg-indigo-50/40',
+                      )}
+                    >
+                      {/* Expand toggle */}
+                      <td className="px-3 py-2">
+                        {hasLines && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(item.id)}
+                            className="text-slate-400 hover:text-slate-600 p-0.5"
+                            aria-label={expanded ? 'Collapse lines' : 'Expand lines'}
+                          >
+                            {expanded
+                              ? <ChevronDown className="w-3.5 h-3.5" />
+                              : <ChevronRight className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+                      </td>
+                      <td className="w-5" />
+
+                      {/* JE-level columns */}
+                      <td className="px-3 py-2 font-mono text-slate-700">{item.je_number}</td>
+                      <td className="px-3 py-2 text-slate-500">{item.entry_date}</td>
+                      <td className="px-3 py-2 text-slate-800 max-w-[200px] truncate">{item.description}</td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={item.status} />
+                      </td>
+
+                      {/* First line's account fields inline */}
+                      <td className="px-3 py-2 font-mono text-slate-500 text-[10px]">
+                        {firstLine?.account_number ?? '—'}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700 max-w-[180px] truncate text-[10px]">
+                        {firstLine?.account_name ?? '—'}
+                        {remainingLines.length > 0 && (
+                          <span className="ml-1 text-slate-400 text-[9px]">+{remainingLines.length} more</span>
+                        )}
+                      </td>
+
+                      {/* Totals */}
+                      <td className="px-3 py-2 text-right font-mono text-slate-700" data-testid="total-debit">
+                        {fmt(item.total_debit)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-700" data-testid="total-credit">
+                        {fmt(item.total_credit)}
+                      </td>
+
+                      {/* NI Impact */}
+                      <td className="px-3 py-2 text-right">
+                        {item.impact.ni_impact !== 0 ? (
+                          <span className={cn('font-semibold', item.impact.ni_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                            {item.impact.ni_impact > 0 ? '+' : ''}{fmt(Math.abs(item.impact.ni_impact))}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+
+                      <td className="px-3 py-2 text-slate-400 text-[10px]">{item.source}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/adjustments/journal-entries/${item.id}`)}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                          data-testid={`edit-btn-${item.id}`}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+
+                    {/* Expanded JE lines */}
+                    {expanded && hasLines && (
+                      <JELinesRows
+                        key={`lines-${item.id}`}
+                        lines={item.lines!}
+                        fmt={fmt}
+                        colSpan={TOTAL_COLS + 3}
+                      />
+                    )}
+                  </>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

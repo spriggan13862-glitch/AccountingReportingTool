@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  SlidersHorizontal, Search, X, Package, FileText,
+  SlidersHorizontal, Search, X, Package,
   AlertTriangle, CheckCircle2, Clock, Plus, Edit3,
-  ChevronDown, ChevronRight,
+  ChevronDown, ChevronRight, ArrowUpDown,
 } from 'lucide-react'
 
 import { adjustmentWorkspaceApi, type AdjustmentListItem, type AdjustmentPackage } from '@/api/adjustmentWorkspace'
@@ -199,26 +199,39 @@ function JELinesTable({ lines, fmt }: { lines: NonNullable<AdjustmentListItem['l
               <th className="px-3 py-1 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Account Name</th>
               <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Debit</th>
               <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Credit</th>
+              <th className="px-3 py-1 text-right text-[9px] font-semibold text-slate-400 uppercase tracking-wide w-24">Net Impact</th>
               <th className="px-3 py-1 text-left text-[9px] font-semibold text-slate-400 uppercase tracking-wide">Line Memo</th>
-              <th colSpan={7} />
+              <th colSpan={6} />
             </tr>
           </thead>
           <tbody>
-            {lines.map((ln) => (
-              <tr key={ln.line_number} className="border-t border-slate-50 hover:bg-indigo-50/40">
-                <td className="w-8" />
-                <td className="px-3 py-1 font-mono text-slate-500">{ln.account_number}</td>
-                <td className="px-3 py-1 text-slate-700">{ln.account_name}</td>
-                <td className="px-3 py-1 text-right font-mono text-slate-700">
-                  {ln.debit > 0 ? fmt(ln.debit) : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-1 text-right font-mono text-slate-700">
-                  {ln.credit > 0 ? fmt(ln.credit) : <span className="text-slate-300">—</span>}
-                </td>
-                <td className="px-3 py-1 text-slate-400 italic">{ln.description ?? ''}</td>
-                <td colSpan={7} />
-              </tr>
-            ))}
+            {lines.map((ln) => {
+              const net = ln.debit - ln.credit
+              return (
+                <tr key={ln.line_number} className="border-t border-slate-50 hover:bg-indigo-50/40">
+                  <td className="w-8" />
+                  <td className="px-3 py-1 font-mono text-slate-500">{ln.account_number}</td>
+                  <td className="px-3 py-1 text-slate-700">{ln.account_name}</td>
+                  <td className="px-3 py-1 text-right font-mono text-slate-700">
+                    {ln.debit > 0 ? fmt(ln.debit) : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-3 py-1 text-right font-mono text-slate-700">
+                    {ln.credit > 0 ? fmt(ln.credit) : <span className="text-slate-300">—</span>}
+                  </td>
+                  <td className="px-3 py-1 text-right font-mono font-semibold">
+                    {net !== 0 ? (
+                      <span className={net > 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                        {net > 0 ? '+' : ''}{fmt(net)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-1 text-slate-400 italic">{ln.description ?? ''}</td>
+                  <td colSpan={6} />
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </td>
@@ -247,6 +260,8 @@ export function AdjustmentWorkspacePage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [collapsedIds, setCollapsedIds] = useState<Set<number>>(new Set())
   const [showPackages, setShowPackages] = useState(false)
+  const [sortKey, setSortKey] = useState<string>('entry_date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const filters = useMemo(() => ({
     search: search || undefined,
@@ -325,6 +340,49 @@ export function AdjustmentWorkspacePage() {
       open: items.filter((i) => i.has_advisor_note && i.advisor_resolution_status === 'open').length,
     }
   }, [items])
+
+  function handleSort(key: string) {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const sortedItems = useMemo(() => {
+    if (!items) return []
+    return [...items].sort((a, b) => {
+      let av: string | number = ''
+      let bv: string | number = ''
+      if (sortKey === 'je_number') { av = a.je_number; bv = b.je_number }
+      else if (sortKey === 'entry_date') { av = a.entry_date; bv = b.entry_date }
+      else if (sortKey === 'description') { av = a.description ?? ''; bv = b.description ?? '' }
+      else if (sortKey === 'status') { av = a.status; bv = b.status }
+      else if (sortKey === 'materiality') {
+        const order = ['critical', 'material', 'immaterial', 'clearly_trivial', '']
+        av = order.indexOf(a.materiality ?? ''); bv = order.indexOf(b.materiality ?? '')
+      }
+      else if (sortKey === 'total_debit') { av = a.total_debit; bv = b.total_debit }
+      else if (sortKey === 'total_credit') { av = a.total_credit; bv = b.total_credit }
+      else if (sortKey === 'ni_impact') { av = a.impact.ni_impact; bv = b.impact.ni_impact }
+      const cmp = typeof av === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv), undefined, { numeric: true })
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [items, sortKey, sortDir])
+
+  function SortTh({ col, label, className }: { col: string; label: string; className?: string }) {
+    const active = sortKey === col
+    return (
+      <th
+        className={cn('px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wide cursor-pointer select-none hover:bg-slate-100 transition-colors', className)}
+        onClick={() => handleSort(col)}
+      >
+        <span className="flex items-center gap-1">
+          {label}
+          <ArrowUpDown className={cn('w-3 h-3', active ? 'text-indigo-500' : 'text-slate-300')} />
+        </span>
+      </th>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -492,34 +550,33 @@ export function AdjustmentWorkspacePage() {
                     />
                   </th>
                   <th className="w-6 px-1 py-2" />
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">JE #</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Description</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                  <SortTh col="je_number" label="JE #" />
+                  <SortTh col="entry_date" label="Date" />
+                  <SortTh col="description" label="Description" />
+                  <SortTh col="status" label="Status" />
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Materiality</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total Dr</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Total Cr</th>
-                  <th className="px-3 py-2 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide">NI Impact</th>
+                  <SortTh col="materiality" label="Materiality" />
+                  <SortTh col="total_debit" label="Total Dr" className="text-right" />
+                  <SortTh col="total_credit" label="Total Cr" className="text-right" />
+                  <SortTh col="ni_impact" label="NI Impact" className="text-right" />
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Source</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items?.length === 0 && (
+                {sortedItems.length === 0 && !isLoading && (
                   <tr>
                     <td colSpan={13} className="px-3 py-8 text-center text-slate-400">
                       No adjustments match the current filters.
                     </td>
                   </tr>
                 )}
-                {items?.map((item) => {
+                {sortedItems.map((item) => {
                   const isCollapsed = collapsedIds.has(item.id)
                   const hasLines = item.lines && item.lines.length > 0
                   return (
-                    <>
+                    <React.Fragment key={item.id}>
                       <tr
-                        key={item.id}
                         data-testid={`adj-row-${item.id}`}
                         className={cn(
                           'hover:bg-slate-50 transition-colors',
@@ -600,7 +657,7 @@ export function AdjustmentWorkspacePage() {
                       {hasLines && !isCollapsed && (
                         <JELinesTable key={`lines-${item.id}`} lines={item.lines!} fmt={fmt} />
                       )}
-                    </>
+                    </React.Fragment>
                   )
                 })}
               </tbody>

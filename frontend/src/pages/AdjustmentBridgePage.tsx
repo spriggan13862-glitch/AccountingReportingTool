@@ -238,6 +238,7 @@ export function AdjustmentBridgePage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [activeAje, setActiveAje] = useState<BridgeAdjustment | null>(null)
   const [activeAccount, setActiveAccount] = useState<BridgeRow | null>(null)
+  const [showVariance, setShowVariance] = useState(true)
 
   // Sync from workspace context when it changes
   useEffect(() => {
@@ -433,16 +434,30 @@ export function AdjustmentBridgePage() {
               </div>
             )}
           </div>
-          {ready && (
-            <button
-              onClick={handleExport}
-              data-testid="export-csv-btn"
-              className="h-9 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export CSV
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {ready && (
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 select-none">
+                <input
+                  type="checkbox"
+                  checked={showVariance}
+                  onChange={(e) => setShowVariance(e.target.checked)}
+                  className="rounded accent-amber-500"
+                  data-testid="variance-toggle"
+                />
+                Variance
+              </label>
+            )}
+            {ready && (
+              <button
+                onClick={handleExport}
+                data-testid="export-csv-btn"
+                className="h-9 px-3 rounded-md border border-slate-300 bg-white text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Placeholder */}
@@ -480,7 +495,7 @@ export function AdjustmentBridgePage() {
               <div className="overflow-x-auto">
                 <table
                   className="w-full text-xs border-collapse"
-                  style={{ minWidth: `${80 + 220 + (3 + adjCount) * 110}px` }}
+                  style={{ minWidth: `${80 + 220 + (3 + adjCount) * 110 + (showVariance ? 100 : 0)}px` }}
                 >
                   <thead>
                     <tr className="bg-slate-50 border-b-2 border-slate-200">
@@ -526,6 +541,11 @@ export function AdjustmentBridgePage() {
                       <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-800 uppercase tracking-wide min-w-[110px] bg-indigo-50 border-l border-indigo-200">
                         Adjusted
                       </th>
+                      {showVariance && (
+                        <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-amber-700 uppercase tracking-wide min-w-[100px] bg-amber-50 border-l border-amber-200">
+                          Variance
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -572,6 +592,14 @@ export function AdjustmentBridgePage() {
                             <td className="px-3 py-2 text-right bg-indigo-50/60 border-l border-indigo-100 font-mono font-bold text-indigo-900">
                               <NumCell value={row.adjusted_balance} bold highlight fmt={fmt} />
                             </td>
+                            {showVariance && (() => {
+                              const v = row.as_reported - row.adjusted_balance
+                              return (
+                                <td className="px-3 py-2 text-right bg-amber-50/60 border-l border-amber-100 font-mono font-semibold">
+                                  {v === 0 ? <span className="text-slate-200">—</span> : <span className="text-amber-700">{v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v)}</span>}
+                                </td>
+                              )
+                            })()}
                           </tr>
                         )
                       }
@@ -623,6 +651,14 @@ export function AdjustmentBridgePage() {
                           <td className="px-3 py-1.5 text-right bg-indigo-50/40 border-l border-indigo-100">
                             <NumCell value={row.adjusted_balance} highlight fmt={fmt} />
                           </td>
+                          {showVariance && (() => {
+                            const v = row.as_reported - row.adjusted_balance
+                            return (
+                              <td className="px-3 py-1.5 text-right bg-amber-50/30 border-l border-amber-100 font-mono text-xs">
+                                {v === 0 ? <span className="text-slate-200">—</span> : <span className="text-amber-600">{v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v)}</span>}
+                              </td>
+                            )
+                          })()}
                         </tr>
                       )
                     })}
@@ -662,6 +698,14 @@ export function AdjustmentBridgePage() {
                       <td className="px-3 py-2.5 text-right font-mono font-bold text-indigo-900 bg-indigo-100 border-l border-indigo-200">
                         {fmt(bridge.totals.adjusted_balance)}
                       </td>
+                      {showVariance && (() => {
+                        const v = bridge.totals.as_reported - bridge.totals.adjusted_balance
+                        return (
+                          <td className="px-3 py-2.5 text-right font-mono font-bold bg-amber-100 border-l border-amber-200">
+                            {v === 0 ? <span className="text-slate-300">—</span> : <span className="text-amber-800">{v < 0 ? `(${fmt(Math.abs(v))})` : fmt(v)}</span>}
+                          </td>
+                        )
+                      })()}
                     </tr>
                   </tfoot>
                 </table>
