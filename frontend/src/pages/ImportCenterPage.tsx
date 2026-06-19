@@ -194,52 +194,10 @@ export function ImportCenterPage() {
 
   // Map registry entries with domain attributes
   const mappedEntries = useMemo(() => {
+    // If registryEntries are present, use them. Do not fallback to historical batches when no current registry exists
     const entries = registryEntries && registryEntries.length > 0
       ? registryEntries
-      : [
-          ...(tbBatches ?? []).map(tb => ({
-            id: `tb_${tb.id}`,
-            source_module: 'tb_import' as const,
-            source_id: tb.id,
-            filename: tb.filename,
-            entity_id: tb.entity_id || null,
-            source_entity_name: (tb as any).entity_name || null,
-            status: tb.status,
-            line_count: tb.row_count || 0,
-            description: `Trial Balance Import: ${tb.filename}`,
-            created_at: tb.uploaded_at || null,
-            basis_of_accounting: null,
-            statement_date: tb.as_of_date || null,
-          })),
-          ...(pdfBatches ?? []).map(pdf => ({
-            id: `pdf_${pdf.id}`,
-            source_module: 'pdf_import' as const,
-            source_id: pdf.id,
-            filename: pdf.filename,
-            entity_id: pdf.entity_id || null,
-            source_entity_name: (pdf as any).entity_name || null,
-            status: pdf.status,
-            line_count: null,
-            description: `PDF Import: ${pdf.filename}`,
-            created_at: (pdf as any).uploaded_at || pdf.created_at || null,
-            basis_of_accounting: null,
-            statement_date: null,
-          })),
-          ...(coaBatches ?? []).map(coa => ({
-            id: `coa_${coa.id}`,
-            source_module: 'coa_import' as const,
-            source_id: coa.id,
-            filename: coa.filename,
-            entity_id: coa.entity_id || null,
-            source_entity_name: (coa as any).entity_name || null,
-            status: coa.status,
-            line_count: null,
-            description: `COA Import: ${coa.filename}`,
-            created_at: (coa as any).uploaded_at || null,
-            basis_of_accounting: null,
-            statement_date: null,
-          })),
-        ]
+      : []
 
     return entries.map((entry) => {
       let unmappedCount = 0
@@ -345,10 +303,14 @@ export function ImportCenterPage() {
     })
   }, [registryEntries, tbBatches, pdfBatches, coaBatches])
 
-  const totalUnmappedAccounts = useMemo(
-    () => (tbBatches ?? []).reduce((sum, tb) => sum + (tb.unmapped_row_count ?? 0), 0),
-    [tbBatches],
-  )
+  const totalUnmappedAccounts = useMemo(() => {
+    const relevantIds = new Set(
+      (registryEntries ?? []).filter(e => e.source_module === 'tb_import').map(e => e.source_id)
+    )
+    return (tbBatches ?? [])
+      .filter(tb => !entityId || relevantIds.has(tb.id))
+      .reduce((sum, tb) => sum + (tb.unmapped_row_count ?? 0), 0)
+  }, [tbBatches, registryEntries, entityId])
 
   // Statistics summaries calculations
   const stats = useMemo(() => {
@@ -380,7 +342,9 @@ export function ImportCenterPage() {
       key: 'filename',
       header: 'Import Name',
       sortable: true,
+      filterable: true,
       sortValue: (b: any) => b.filename ?? '',
+      filterValue: (b: any) => b.filename || b.description || '',
       render: (b: any) => (
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -413,7 +377,9 @@ export function ImportCenterPage() {
       key: 'lifecycleStatus',
       header: 'Status',
       sortable: true,
+      filterable: true,
       sortValue: (b: any) => b.lifecycleStatus,
+      filterValue: (b: any) => b.lifecycleStatus,
       render: (b: any) => getLifecycleBadge(b.lifecycleStatus),
     },
     {
@@ -662,7 +628,16 @@ export function ImportCenterPage() {
         </div>
       </div>
 
-      {entityId && <ImportReadinessMatrix entityId={Number(entityId)} />}
+      {entityId && registryEntries && registryEntries.length > 0 && (
+        <ImportReadinessMatrix entityId={Number(entityId)} />
+      )}
+      {entityId && !isRegistryLoading && registryEntries !== undefined && registryEntries.length === 0 && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">
+          <Upload className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+          <p className="text-sm font-medium text-slate-600">No imports for this entity yet</p>
+          <p className="text-xs text-slate-400 mt-1">Upload a trial balance, COA, or PDF statement to get started.</p>
+        </div>
+      )}
 
       {/* Upload Type Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">

@@ -99,8 +99,20 @@ export function TaxonomyTable({
   const isMultiColumn = rows.length > 0 && ('importedBalance' in rows[0])
 
   if (isMultiColumn) {
+    const allBalancesZero = rows.every((r) => (r as any).adjustedBalance === 0 && (r as any).importedBalance === 0)
+    const hasMappedAccounts = mappedCount > 0
+
     return (
       <div className="overflow-x-auto">
+        {allBalancesZero && hasMappedAccounts && (
+          <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700 flex items-start gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">Accounts are mapped ({mappedCount}) but all balances are $0.</p>
+              <p className="mt-0.5">No posted trial balance data found for this entity and date. Import a trial balance or post journal entries first.</p>
+            </div>
+          </div>
+        )}
         <table className="w-full text-xs text-slate-755 min-w-[800px]" data-testid="taxonomy-table">
           <thead>
             <tr className="border-b bg-slate-50 text-slate-550 font-bold uppercase tracking-wider text-[10px]">

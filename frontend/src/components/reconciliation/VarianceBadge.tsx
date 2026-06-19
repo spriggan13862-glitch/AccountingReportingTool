@@ -1,4 +1,4 @@
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 import type { TieOutStatus } from '@/types'
 
@@ -22,15 +22,19 @@ interface VarianceBadgeProps {
   className?: string
 }
 
-function fmt(val: string | null) {
-  if (val === null || val === undefined) return '—'
-  const n = parseFloat(val)
-  if (isNaN(n)) return '—'
-  const prefix = n > 0.005 ? '+' : ''
-  return prefix + formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | null) => {
+    if (val === null || val === undefined) return '—'
+    const n = parseFloat(val)
+    if (isNaN(n)) return '—'
+    const prefix = n > 0.005 ? '+' : ''
+    return prefix + fmt(n)
+  }
 }
 
 export function VarianceBadge({ variance, tieOutStatus, className }: VarianceBadgeProps) {
+  const fmt = useFmt()
   return (
     <div className={cn('flex items-center gap-1.5', className)} data-testid="variance-badge">
       <span className="tabular-nums text-xs font-mono">{fmt(variance)}</span>

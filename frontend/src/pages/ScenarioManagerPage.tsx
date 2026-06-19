@@ -9,7 +9,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { adjustmentWorkspaceApi, type AdjustmentPackage } from '@/api/adjustmentWorkspace'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import {
   listAdvisorScenarios,
   createAdvisorScenario,
@@ -62,8 +62,9 @@ const IMPACT_METRICS = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtImpact(val: number): string {
-  return (val >= 0 ? '+' : '') + formatCurrencyCompact(val)
+function useFmtImpact() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: number) => (val >= 0 ? '+' : '') + fmt(val)
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +486,8 @@ function CompareTab() {
     queryKey: ['advisor-scenarios'],
     queryFn: listAdvisorScenarios,
   })
+
+  const fmtImpact = useFmtImpact()
 
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {

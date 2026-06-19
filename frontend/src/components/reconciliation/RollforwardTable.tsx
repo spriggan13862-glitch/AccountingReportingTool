@@ -1,11 +1,14 @@
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 import type { RollforwardScheduleLine } from '@/types'
 
-function fmt(val: string | number) {
-  const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | number) => {
+    const n = typeof val === 'string' ? parseFloat(val) : val
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
 interface RollforwardTableProps {
@@ -15,6 +18,7 @@ interface RollforwardTableProps {
 }
 
 export function RollforwardTable({ title, lines, className }: RollforwardTableProps) {
+  const fmt = useFmt()
   return (
     <div className={cn('rounded-lg border border-gray-200 bg-white', className)} data-testid="rollforward-table">
       <div className="border-b px-4 py-2">

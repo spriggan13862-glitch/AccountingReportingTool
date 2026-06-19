@@ -572,6 +572,33 @@ export function AdjustmentWorkspacePage() {
                     </td>
                   </tr>
                 )}
+                {(() => {
+                  const totalDr = sortedItems.reduce((s, i) => s + i.total_debit, 0)
+                  const totalCr = sortedItems.reduce((s, i) => s + i.total_credit, 0)
+                  const totalNI = sortedItems.reduce((s, i) => s + i.impact.ni_impact, 0)
+                  const totalBS = sortedItems.reduce((s, i) => s + i.impact.asset_impact + i.impact.liability_impact + i.impact.equity_impact, 0)
+                  return sortedItems.length > 1 ? (
+                    <tr className="bg-slate-100 border-t-2 border-slate-300 text-[10px] font-bold text-slate-600">
+                      <td colSpan={2} />
+                      <td colSpan={6} className="px-3 py-2 uppercase tracking-wide text-slate-400">
+                        Total ({sortedItems.length} adjustments)
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(totalDr)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{fmt(totalCr)}</td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        <span className={totalBS > 0 ? 'text-emerald-700' : totalBS < 0 ? 'text-rose-700' : 'text-slate-400'}>
+                          {totalBS !== 0 ? (totalBS > 0 ? '+' : '') + fmt(Math.abs(totalBS)) : '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono">
+                        <span className={totalNI > 0 ? 'text-emerald-700' : totalNI < 0 ? 'text-rose-700' : 'text-slate-400'}>
+                          {totalNI !== 0 ? (totalNI > 0 ? '+' : '') + fmt(Math.abs(totalNI)) : '—'}
+                        </span>
+                      </td>
+                      <td colSpan={2} />
+                    </tr>
+                  ) : null
+                })()}
                 {sortedItems.map((item) => {
                   const isCollapsed = collapsedIds.has(item.id)
                   const hasLines = item.lines && item.lines.length > 0

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Download, ChevronDown, ChevronRight, ShieldAlert, X, Info } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { overlayApi, downloadPreviewExport } from '@/api/overlay'
 import { accountsApi } from '@/api/accounts'
 import { journalEntriesApi } from '@/api/journalEntries'
@@ -21,10 +21,13 @@ import { useOrg } from '@/providers/OrgProvider'
 import { cn } from '@/utils/cn'
 import type { OverlayCalculateRequest, OverlayLineItem, OverlayResult, ReportingTaxonomyLine } from '@/types'
 
-function fmt(val: string | number) {
-  const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | number) => {
+    const n = typeof val === 'string' ? parseFloat(val) : val
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
 function adjColor(val: string | number) {
@@ -110,7 +113,7 @@ export function DraftPreviewPage() {
     enabled: !!result?.entity_id,
   })
 
-  // Queries for pivot calculations
+  const fmt = useFmt()
   const { data: accounts } = useQuery({
     queryKey: ['accounts', result?.entity_id],
     queryFn: () => accountsApi.list(result?.entity_id),

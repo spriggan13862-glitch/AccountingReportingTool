@@ -1,4 +1,4 @@
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 import type { OverlayResult } from '@/types'
 
@@ -7,10 +7,13 @@ interface OverlaySummaryCardProps {
   className?: string
 }
 
-function fmt(val: string | number) {
-  const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | number) => {
+    const n = typeof val === 'string' ? parseFloat(val) : val
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
 export function OverlaySummaryCard({ result, className }: OverlaySummaryCardProps) {
@@ -30,6 +33,8 @@ export function OverlaySummaryCard({ result, className }: OverlaySummaryCardProp
       groupCounts[grp] = (groupCounts[grp] ?? 0) + 1
     }
   }
+
+  const fmt = useFmt()
 
   return (
     <div

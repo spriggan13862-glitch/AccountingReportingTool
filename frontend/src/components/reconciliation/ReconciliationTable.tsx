@@ -1,15 +1,18 @@
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 import type { Reconciliation } from '@/types'
 import { ReconciliationStatusBadge } from './ReconciliationStatusBadge'
 import { TieOutIndicator } from './TieOutIndicator'
 import { VarianceBadge } from './VarianceBadge'
 
-function fmt(val: string | null) {
-  if (val === null || val === undefined) return '—'
-  const n = parseFloat(val)
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | null) => {
+    if (val === null || val === undefined) return '—'
+    const n = parseFloat(val)
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
 interface ReconciliationTableProps {
@@ -19,6 +22,8 @@ interface ReconciliationTableProps {
 }
 
 export function ReconciliationTable({ reconciliations, onSelect, className }: ReconciliationTableProps) {
+  // Ensure useFmt is invoked at the top-level of the component
+  const fmt = useFmt()
   return (
     <div className={cn('rounded-lg border border-gray-200 bg-white', className)} data-testid="reconciliation-table">
       <div className="overflow-x-auto">
