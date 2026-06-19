@@ -392,6 +392,19 @@ def guess_account_type_and_normal(account_number: str | None, account_name: str 
     return "asset", "debit"
 
 
+def _names_compatible(source_name: str | None, existing_name: str | None) -> bool:
+    """Return True if source and existing account names can auto-match."""
+    if not source_name or not existing_name:
+        return True  # one side blank — no conflict possible
+    s = source_name.strip().lower()
+    e = existing_name.strip().lower()
+    if s == e:
+        return True
+    if len(s) >= 4 and (s in e or e in s):
+        return True
+    return False
+
+
 def _find_account(
     db: Session,
     entity_id: int,
@@ -416,6 +429,8 @@ def _find_account(
             .first()
         )
         if acct:
+            if not _names_compatible(account_name, acct.account_name):
+                return None  # name conflict — do not auto-match
             return acct
 
     # 2. Parent prefix match on entity
@@ -621,9 +636,30 @@ def upload_import_batch(
 
         # Calculate debit/credit from whichever format was used
         account = _find_account(db, entity_id, acct_num, acct_name) if (acct_num or acct_name) else None
-        
+
+        # Detect number-matches-but-name-conflicts before auto-create
+        name_conflict_note: str | None = None
+        if account is None and acct_num and acct_name:
+            existing = (
+                db.query(Account)
+                .filter(Account.account_number == acct_num, Account.entity_id == entity_id)
+                .first()
+            )
+            if existing and not _names_compatible(acct_name, existing.account_name):
+                name_conflict_note = (
+                    f"CONFLICT: number {acct_num!r} matches existing account "
+                    f"{existing.account_name!r} — source name {acct_name!r} differs. "
+                    f"Map manually or create a new account."
+                )
+                # Don't auto-create — number is taken; require manual resolution
+                auto_create_for_this_row = False
+            else:
+                auto_create_for_this_row = auto_create_accounts
+        else:
+            auto_create_for_this_row = auto_create_accounts
+
         # If not found, automatically create the account in the COA!
-        if auto_create_accounts and account is None and (acct_num or acct_name):
+        if auto_create_for_this_row and account is None and (acct_num or acct_name):
             account_type, normal_balance = guess_account_type_and_normal(acct_num, acct_name)
             account = Account(
                 account_number=acct_num or f"ACCT-{i-1}",
@@ -671,6 +707,7 @@ def upload_import_batch(
             resolved_account_id=account.id if account else None,
             mapping_status=mapping_status,
             suggested_account_id=suggested.id if suggested else None,
+            notes=name_conflict_note or None,
         )
         db.add(il)
         import_lines.append(il)

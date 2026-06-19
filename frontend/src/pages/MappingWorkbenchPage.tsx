@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -14,7 +14,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { GridColumn, BatchAction, RowAction } from '@/components/data-grid/types'
-import type { ImportLine, ImportSuggestion, Account } from '@/types'
+import type { ImportLine, ImportSuggestion, Account, ReportingTaxonomyLine } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Account search combobox
@@ -214,9 +214,11 @@ export function MappingWorkbenchPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const [apiError, setApiError] = useState<string | null>(null)
+  const fmtAmount = useFormatCurrency()
 
   // Filters
   const [showMapped, setShowMapped] = useState(false)
+  const [colFilters, setColFilters] = useState({ sourceAccount: '', fsliText: '', status: 'all' })
 
   // Per-line state
   const [selectedAccounts, setSelectedAccounts] = useState<Record<number, Account | null>>({})
@@ -321,6 +323,16 @@ export function MappingWorkbenchPage() {
     onError: (err: Error) => setApiError(err.message),
   })
 
+  const updateFsliMutation = useMutation({
+    mutationFn: ({ accountId, taxonomyLineId }: { accountId: number; taxonomyLineId: number | null }) =>
+      accountsApi.update(accountId, { reporting_taxonomy_line_id: taxonomyLineId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
+      toast('FSLI mapping updated', 'success')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
   function applyBulkSuggestions() {
     const mappings = lines
       .filter((l) => l.mapping_status === 'unmapped' && suggestMap[l.id]?.suggested_account_id != null)
@@ -385,10 +397,25 @@ export function MappingWorkbenchPage() {
     }
   }
 
-  const gridData = lines.filter((l) => {
-    if (!showMapped && l.mapping_status !== 'unmapped') return false
-    return true
-  })
+  const gridData = useMemo(() => {
+    return lines.filter((l) => {
+      if (!showMapped && l.mapping_status !== 'unmapped') return false
+      if (colFilters.status !== 'all' && l.mapping_status !== colFilters.status) return false
+      if (colFilters.sourceAccount) {
+        const q = colFilters.sourceAccount.toLowerCase()
+        if (!(l.raw_account_number?.toLowerCase().includes(q) ?? false) &&
+            !(l.raw_account_name?.toLowerCase().includes(q) ?? false)) return false
+      }
+      if (colFilters.fsliText) {
+        const acct = l.resolved_account_id ? accountMap[l.resolved_account_id] : null
+        const taxLine = acct?.reporting_taxonomy_line_id
+          ? taxonomyLines.find((t: ReportingTaxonomyLine) => t.id === acct.reporting_taxonomy_line_id)
+          : null
+        if (!taxLine?.name.toLowerCase().includes(colFilters.fsliText.toLowerCase())) return false
+      }
+      return true
+    })
+  }, [lines, showMapped, colFilters, accountMap, taxonomyLines])
 
   const toolbarLeft = (
     <div className="flex items-center gap-4">
@@ -461,8 +488,8 @@ export function MappingWorkbenchPage() {
       sortValue: (line: ImportLine) => line.raw_debit != null ? parseFloat(line.raw_debit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
-          {line.raw_debit != null
-            ? formatCurrencyCompact(Number(line.raw_debit))
+          {line.raw_debit != null && Number(line.raw_debit) !== 0
+            ? fmtAmount(Number(line.raw_debit))
             : '—'}
         </div>
       ),
@@ -474,8 +501,8 @@ export function MappingWorkbenchPage() {
       sortValue: (line: ImportLine) => line.raw_credit != null ? parseFloat(line.raw_credit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
-          {line.raw_credit != null
-            ? formatCurrencyCompact(Number(line.raw_credit))
+          {line.raw_credit != null && Number(line.raw_credit) !== 0
+            ? fmtAmount(Number(line.raw_credit))
             : '—'}
         </div>
       ),
@@ -487,8 +514,8 @@ export function MappingWorkbenchPage() {
       sortValue: (line: ImportLine) => line.raw_balance ? parseFloat(line.raw_balance) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
-          {line.raw_balance != null
-            ? formatCurrencyCompact(Number(line.raw_balance))
+          {line.raw_balance != null && Number(line.raw_balance) !== 0
+            ? fmtAmount(Number(line.raw_balance))
             : '—'}
         </div>
       ),
@@ -510,17 +537,26 @@ export function MappingWorkbenchPage() {
       },
     },
     {
-      key: 'suggested_fsli',
-      header: 'Suggested FSLI',
+      key: 'fsli',
+      header: 'FSLI / Reporting Line',
       render: (line: ImportLine) => {
-        const acctId = line.resolved_account_id
-        const acct = acctId ? accountMap[acctId] : null
-        const taxLineId = acct?.reporting_taxonomy_line_id
-        const taxLine = taxLineId ? taxonomyLines.find((t) => t.id === taxLineId) : null
-        if (taxLine) {
-          return <span className="text-xs text-indigo-600 font-medium">{taxLine.name}</span>
-        }
-        return <span className="text-xs text-gray-300">—</span>
+        const acct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
+        if (!acct) return <span className="text-xs text-gray-300 italic">—</span>
+        return (
+          <select
+            value={acct.reporting_taxonomy_line_id ?? ''}
+            onChange={(e) => {
+              const val = e.target.value ? Number(e.target.value) : null
+              updateFsliMutation.mutate({ accountId: acct.id, taxonomyLineId: val })
+            }}
+            className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-indigo-700 bg-indigo-50 focus:outline-none focus:ring-1 focus:ring-indigo-300 min-w-[120px] max-w-[180px]"
+          >
+            <option value="">— Select FSLI —</option>
+            {taxonomyLines.map((t: ReportingTaxonomyLine) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        )
       },
     },
     {
@@ -574,7 +610,7 @@ export function MappingWorkbenchPage() {
     },
     {
       key: 'map_to_account',
-      header: 'Map to Account',
+      header: 'COA Match / Override',
       render: (line: ImportLine) => {
         const selectedAcct = selectedAccounts[line.id]
         const isMapped = line.mapping_status === 'mapped'
@@ -800,7 +836,43 @@ export function MappingWorkbenchPage() {
       {isLoading ? (
         <p className="text-sm text-gray-400">Loading lines…</p>
       ) : (
-        <AccountingDataGrid
+        <>
+          <div className="mb-3 flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              placeholder="Account # or name…"
+              value={colFilters.sourceAccount}
+              onChange={(e) => setColFilters((p) => ({ ...p, sourceAccount: e.target.value }))}
+              className="text-xs border border-gray-200 rounded px-2.5 py-1.5 w-48 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            />
+            <select
+              value={colFilters.status}
+              onChange={(e) => setColFilters((p) => ({ ...p, status: e.target.value }))}
+              className="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            >
+              <option value="all">All statuses</option>
+              <option value="unmapped">Unmapped</option>
+              <option value="mapped">Mapped</option>
+              <option value="skipped">Skipped</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Filter FSLI…"
+              value={colFilters.fsliText}
+              onChange={(e) => setColFilters((p) => ({ ...p, fsliText: e.target.value }))}
+              className="text-xs border border-gray-200 rounded px-2.5 py-1.5 w-36 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            />
+            {(colFilters.sourceAccount || colFilters.fsliText || colFilters.status !== 'all') && (
+              <button
+                type="button"
+                onClick={() => setColFilters({ sourceAccount: '', fsliText: '', status: 'all' })}
+                className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+              >
+                <X className="w-3 h-3" /> Clear filters
+              </button>
+            )}
+          </div>
+          <AccountingDataGrid
           columns={gridColumns}
           data={gridData}
           rowKey={(l) => l.id}
@@ -814,6 +886,7 @@ export function MappingWorkbenchPage() {
           pageSize={50}
           data-testid="mapping-workbench-grid"
         />
+        </>
       )}
 
       {/* Footer navigation */}

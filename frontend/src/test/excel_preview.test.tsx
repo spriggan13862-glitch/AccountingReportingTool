@@ -47,6 +47,17 @@ vi.mock('@/api/entities', () => ({
 vi.mock('@/api/accounts', () => ({
   accountsApi: {
     list: vi.fn().mockResolvedValue([]),
+    update: vi.fn().mockResolvedValue({}),
+  },
+}))
+
+vi.mock('@/api/reportingSettings', () => ({
+  reportingSettingsApi: {
+    get: vi.fn().mockResolvedValue({
+      decimal_places: 0,
+      currency_symbol: '$',
+      negative_format: 'parentheses',
+    }),
   },
 }))
 
@@ -626,5 +637,52 @@ describe('TrialBalanceImportPage: column_mapping sent to uploadBatch', () => {
       // Button disabled = account_number not mapped = column_mapping would be omitted
       expect(procBtn).toBeDisabled()
     }
+  })
+})
+
+describe('MappingWorkbenchPage: column filters and amount formatting', () => {
+  it('renders column filter inputs for source account, status, and FSLI', async () => {
+    const mockBatch = {
+      id: 42, filename: 'tb.xlsx', row_count: 1,
+      mapped_row_count: 0, unmapped_row_count: 1,
+      status: 'mapping_required', entity_id: 1, organization_id: 1,
+    }
+    vi.mocked(tbImportApi.getBatch).mockResolvedValue(mockBatch)
+    vi.mocked(tbImportApi.getBatchLines).mockResolvedValue([
+      { id: 1, batch_id: 42, line_number: 1, raw_account_number: '9999', raw_account_name: 'Test Account',
+        mapping_status: 'unmapped', debit: '0', credit: '500', raw_debit: null, raw_credit: '500', raw_balance: null }
+    ])
+    vi.mocked(tbImportApi.getSuggestions).mockResolvedValue([])
+
+    render(wrap(<MappingWorkbenchPage />, '/import/42/mapping', '/import/:id/mapping'))
+
+    await waitFor(() => expect(screen.getByPlaceholderText('Account # or name…')).toBeInTheDocument())
+    expect(screen.getByPlaceholderText('Filter FSLI…')).toBeInTheDocument()
+  })
+
+  it('filters rows by source account text', async () => {
+    const mockBatch = {
+      id: 42, filename: 'tb.xlsx', row_count: 2,
+      mapped_row_count: 0, unmapped_row_count: 2,
+      status: 'mapping_required', entity_id: 1, organization_id: 1,
+    }
+    vi.mocked(tbImportApi.getBatch).mockResolvedValue(mockBatch)
+    vi.mocked(tbImportApi.getBatchLines).mockResolvedValue([
+      { id: 1, batch_id: 42, line_number: 1, raw_account_number: '1000', raw_account_name: 'Cash',
+        mapping_status: 'unmapped', debit: '1000', credit: '0', raw_debit: '1000', raw_credit: null, raw_balance: null },
+      { id: 2, batch_id: 42, line_number: 2, raw_account_number: '4000', raw_account_name: 'Revenue',
+        mapping_status: 'unmapped', debit: '0', credit: '5000', raw_debit: null, raw_credit: '5000', raw_balance: null },
+    ])
+    vi.mocked(tbImportApi.getSuggestions).mockResolvedValue([])
+
+    render(wrap(<MappingWorkbenchPage />, '/import/42/mapping', '/import/:id/mapping'))
+
+    await waitFor(() => expect(screen.getByText('Revenue')).toBeInTheDocument())
+    expect(screen.getByText('Cash')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('Account # or name…'), { target: { value: 'Cash' } })
+
+    await waitFor(() => expect(screen.queryByText('Revenue')).not.toBeInTheDocument())
+    expect(screen.getByText('Cash')).toBeInTheDocument()
   })
 })

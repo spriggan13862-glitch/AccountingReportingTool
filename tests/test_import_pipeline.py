@@ -1198,3 +1198,115 @@ def test_column_header_text_mapping_passed_through(db, seeded):
     assert "1000" in nums
     assert "2000" in nums
 
+
+
+# ---------------------------------------------------------------------------
+# 18. COA name-conflict detection
+# ---------------------------------------------------------------------------
+
+def test_account_number_name_conflict_not_auto_matched(db, seeded):
+    """Source 1100 Inventory must NOT auto-match to 1100 Accounts Receivable (name conflict)."""
+    from app.services.import_batch_service import upload_import_batch
+    from app.models.import_line import ImportLine
+    db.rollback()
+    entity = seeded["entity"]
+    org = seeded["org"]
+
+    # seeded entity has 1100 = "Accounts Receivable"
+    # import a row with number 1100 but name "Inventory" — should NOT auto-match
+    csv_content = (
+        "account_number,account_name,debit,credit\n"
+        "1100,Inventory,25000,0\n"
+    ).encode()
+
+    batch = upload_import_batch(
+        db, csv_content, "conflict_test.csv",
+        entity_id=entity.id, organization_id=org.id,
+        as_of_date=datetime.date(2025, 6, 30),
+        auto_create_accounts=False,
+    )
+    db.commit()
+
+    lines = db.query(ImportLine).filter(ImportLine.batch_id == batch.id).all()
+    assert len(lines) == 1
+    line = lines[0]
+    assert line.mapping_status == 'unmapped', (
+        f"Expected unmapped due to name conflict, got: {line.mapping_status}, "
+        f"resolved_account_id={line.resolved_account_id}"
+    )
+
+
+def test_account_number_name_compatible_auto_matched(db, seeded):
+    """Source 1000 Cash DOES auto-match when name is compatible."""
+    from app.services.import_batch_service import upload_import_batch
+    from app.models.import_line import ImportLine
+    db.rollback()
+    entity = seeded["entity"]
+    org = seeded["org"]
+
+    # seeded entity has 1000 = "Cash"
+    csv_content = (
+        "account_number,account_name,debit,credit\n"
+        "1000,Cash,50000,0\n"
+    ).encode()
+
+    batch = upload_import_batch(
+        db, csv_content, "compat_test.csv",
+        entity_id=entity.id, organization_id=org.id,
+        as_of_date=datetime.date(2025, 6, 30),
+        auto_create_accounts=False,
+    )
+    db.commit()
+
+    lines = db.query(ImportLine).filter(ImportLine.batch_id == batch.id).all()
+    assert len(lines) == 1
+    line = lines[0]
+    assert line.mapping_status == 'mapped', (
+        f"Expected mapped (compatible names), got: {line.mapping_status}"
+    )
+    assert line.resolved_account_id is not None
+
+
+def test_names_compatible_function():
+    """_names_compatible returns True for compatible names, False for conflicts."""
+    from app.services.import_batch_service import _names_compatible
+    assert _names_compatible("Cash", "Cash") is True
+    assert _names_compatible("Cash", "Cash & Equivalents") is True
+    assert _names_compatible("Accounts Receivable", "Inventory") is False
+    assert _names_compatible(None, "Cash") is True  # no name = no conflict
+    assert _names_compatible("", "Cash") is True    # blank = no conflict
+
+
+# ---------------------------------------------------------------------------
+# 19. Accounting sign convention engine
+# ---------------------------------------------------------------------------
+
+def test_accounting_engine_normal_balance():
+    from app.services.accounting_engine import get_normal_balance
+    assert get_normal_balance("asset") == "debit"
+    assert get_normal_balance("expense") == "debit"
+    assert get_normal_balance("liability") == "credit"
+    assert get_normal_balance("equity") == "credit"
+    assert get_normal_balance("revenue") == "credit"
+
+
+def test_accounting_engine_signed_balance():
+    from app.services.accounting_engine import get_accounting_signed_balance
+    from decimal import Decimal
+    # Asset: debit 1000, credit 0 → +1000
+    assert get_accounting_signed_balance("debit", Decimal("1000"), Decimal("0")) == Decimal("1000")
+    # Revenue: credit 5000, debit 0 → +5000 (credit-normal)
+    assert get_accounting_signed_balance("credit", Decimal("0"), Decimal("5000")) == Decimal("5000")
+    # Expense with partial credit → net debit
+    assert get_accounting_signed_balance("debit", Decimal("800"), Decimal("200")) == Decimal("600")
+
+
+def test_accounting_engine_fs_presentation():
+    from app.services.accounting_engine import get_fs_presentation_amount
+    from decimal import Decimal
+    # Asset: FS = accounting balance (kept positive)
+    assert get_fs_presentation_amount("asset", Decimal("1000")) == Decimal("1000")
+    # Revenue (credit-normal): negated in FS processing
+    assert get_fs_presentation_amount("revenue", Decimal("5000")) == Decimal("-5000")
+    # Expense: FS = accounting balance (kept positive)
+    assert get_fs_presentation_amount("expense", Decimal("3000")) == Decimal("3000")

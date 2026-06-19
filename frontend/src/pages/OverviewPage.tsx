@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v18 · Import Mapping Logic + Sign Convention',
+    date: '2026-06-19',
+    items: [
+      'COA matching: account number match now requires compatible account names — 1200 AR no longer auto-matches to 1200 Inventory; conflict flagged as unmapped with CONFLICT note',
+      'Import mapping: DR/CR/Balance amounts now use full reporting format ($1,000 not $1K)',
+      'Import mapping: FSLI / Reporting Line column is now an editable dropdown — select any taxonomy line and it saves immediately to the account',
+      'Import mapping: per-column filter bar added — text filter for source account, status dropdown, FSLI text filter',
+      'Import mapping: "Map to Account" column renamed to "COA Match / Override"',
+      'New centralized accounting sign convention: getNormalBalance(), getAccountingSignedBalance(), getFinancialStatementAmount() in frontend/src/lib/accounting.ts and app/services/accounting_engine.py',
+    ],
+  },
+  {
     version: 'v17 · Trial Balance Account Identity Fix',
     date: '2026-06-19',
     items: [
