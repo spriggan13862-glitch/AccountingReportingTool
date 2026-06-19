@@ -118,7 +118,7 @@ FORMAT_SIGNATURES: dict[str, set[str]] = {
 
 # Combined format: "6125 Merchant Fees" or "4000 - Revenue"
 # Requires at least one space between number and name to avoid splitting pure numbers like "1000".
-_COMBINED_PATTERN = re.compile(r"^(\d{3,8})\s*(?:[-–—·:]\s*|\s)(.+)$")
+_COMBINED_PATTERN = re.compile(r"^(\d{3,8})\s*(?:[-–—·:]\s*|\s+)(.+)$")
 
 
 # ---------------------------------------------------------------------------
@@ -520,6 +520,7 @@ def upload_import_batch(
     template_id: int | None = None,
     sheet_name: str | None = None,
     header_row_index: int | None = None,
+    column_mapping: dict[str, str] | None = None,
     auto_create_accounts: bool = True,
 ) -> ImportBatch:
     """
@@ -555,6 +556,13 @@ def upload_import_batch(
         col_map = tmpl.column_mapping if tmpl else {}
     else:
         col_map = auto_detect_column_mapping(headers)
+
+    # Override auto-detection if caller provides explicit mapping
+    if column_mapping:
+        col_map = {k: v for k, v in column_mapping.items() if v in headers}
+        for k, v in auto_detect_column_mapping(headers).items():
+            if k not in col_map:
+                col_map[k] = v
 
     # Validate mapping has at least account_number
     if "account_number" not in col_map:

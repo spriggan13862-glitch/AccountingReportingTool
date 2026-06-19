@@ -37,6 +37,7 @@ export interface UploadBatchParams {
   template_id?: number
   sheet_name?: string
   header_row_index?: number
+  column_mapping?: Record<string, string>
   force?: boolean
   file: File
 }
@@ -116,6 +117,9 @@ export const tbImportApi = {
       header_row_index: params.header_row_index,
       file: params.file,
     })
+    if (params.column_mapping) {
+      fd.append('column_mapping', JSON.stringify(params.column_mapping))
+    }
     const url = params.force ? '/tb-imports/batches/upload?force=true' : '/tb-imports/batches/upload'
     return api
       .post<ImportBatch>(url, fd, {

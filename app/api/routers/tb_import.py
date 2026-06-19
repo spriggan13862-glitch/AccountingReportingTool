@@ -30,6 +30,7 @@ Templates:
 """
 
 import datetime
+import json
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
@@ -192,6 +193,7 @@ async def upload_batch(
     template_id: int | None = Form(None),
     sheet_name: str | None = Form(None),
     header_row_index: int | None = Form(None),
+    column_mapping: str | None = Form(None),
     force: bool = Query(False),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -222,6 +224,13 @@ async def upload_batch(
                     "existing_status": existing.status,
                 },
             )
+
+    col_map_parsed: dict[str, str] | None = None
+    if column_mapping:
+        try:
+            col_map_parsed = json.loads(column_mapping)
+        except (json.JSONDecodeError, ValueError):
+            raise HTTPException(status_code=400, detail="column_mapping must be valid JSON")
 
     try:
         try:
@@ -257,6 +266,7 @@ async def upload_batch(
             template_id=template_id,
             sheet_name=sheet_name,
             header_row_index=header_row_index,
+            column_mapping=col_map_parsed,
         )
         attach_document(
             db=db,

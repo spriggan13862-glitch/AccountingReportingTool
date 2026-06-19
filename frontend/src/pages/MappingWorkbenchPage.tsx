@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { formatCurrencyCompact } from '@/lib/format'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -461,7 +462,7 @@ export function MappingWorkbenchPage() {
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
           {line.raw_debit != null
-            ? Number(line.raw_debit).toLocaleString(undefined, { minimumFractionDigits: 2 })
+            ? formatCurrencyCompact(Number(line.raw_debit))
             : '—'}
         </div>
       ),
@@ -474,7 +475,7 @@ export function MappingWorkbenchPage() {
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
           {line.raw_credit != null
-            ? Number(line.raw_credit).toLocaleString(undefined, { minimumFractionDigits: 2 })
+            ? formatCurrencyCompact(Number(line.raw_credit))
             : '—'}
         </div>
       ),
@@ -487,10 +488,40 @@ export function MappingWorkbenchPage() {
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
           {line.raw_balance != null
-            ? Number(line.raw_balance).toLocaleString(undefined, { minimumFractionDigits: 2 })
+            ? formatCurrencyCompact(Number(line.raw_balance))
             : '—'}
         </div>
       ),
+    },
+    {
+      key: 'matched_coa',
+      header: 'Matched COA',
+      render: (line: ImportLine) => {
+        if (line.resolved_account_id && accountMap[line.resolved_account_id]) {
+          const acct = accountMap[line.resolved_account_id]
+          return (
+            <div className="text-xs">
+              <span className="font-mono text-gray-700 font-semibold">{acct.account_number}</span>
+              <span className="ml-1 text-gray-500">{acct.account_name}</span>
+            </div>
+          )
+        }
+        return <span className="text-xs text-amber-500 italic">No match — will create</span>
+      },
+    },
+    {
+      key: 'suggested_fsli',
+      header: 'Suggested FSLI',
+      render: (line: ImportLine) => {
+        const acctId = line.resolved_account_id
+        const acct = acctId ? accountMap[acctId] : null
+        const taxLineId = acct?.reporting_taxonomy_line_id
+        const taxLine = taxLineId ? taxonomyLines.find((t) => t.id === taxLineId) : null
+        if (taxLine) {
+          return <span className="text-xs text-indigo-600 font-medium">{taxLine.name}</span>
+        }
+        return <span className="text-xs text-gray-300">—</span>
+      },
     },
     {
       key: 'suggestion',

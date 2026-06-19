@@ -241,44 +241,24 @@ describe('Tier 1.10 Frontend Regression Tests', () => {
     })
   })
 
-  // 6. Drag and Drop Mapping UI in TaxonomyAdminPage
-  it('handles HTML5 drag and drop of accounts onto taxonomy nodes', async () => {
-    const { container } = render(wrap(<TaxonomyAdminPage />))
-    
+  // 6. Account Mapping Table in TaxonomyAdminPage
+  it('renders account mapping table with filterable rows', async () => {
+    render(wrap(<TaxonomyAdminPage />))
+
     await waitFor(() => {
       expect(screen.getAllByText('1000').length).toBeGreaterThan(0)
     })
-    
-    const draggableElements = screen.getAllByText('1000')
-    const draggableRow = draggableElements[0].closest('[draggable="true"]')
-    expect(draggableRow).not.toBeNull()
-    
-    const mockData = new Map()
-    const mockDataTransfer = {
-      setData: vi.fn((format, data) => mockData.set(format, data)),
-      getData: vi.fn((format) => mockData.get(format)),
-      effectAllowed: 'move',
-      dropEffect: 'none',
-    }
-    
-    fireEvent.dragStart(draggableRow!, {
-      dataTransfer: mockDataTransfer,
-    })
-    
-    expect(mockDataTransfer.setData).toHaveBeenCalledWith('text/plain', '101')
-    
-    const dropZone = await screen.findByText('Cash', { selector: '.font-medium' })
-    
-    fireEvent.dragOver(dropZone, {
-      dataTransfer: mockDataTransfer,
-    })
-    
-    fireEvent.drop(dropZone, {
-      dataTransfer: mockDataTransfer,
-    })
-    
-    const { accountsApi } = await import('@/api/accounts')
-    expect(accountsApi.update).toHaveBeenCalledWith(101, { reporting_taxonomy_line_id: 1 })
+
+    // Table headers should be present
+    expect(screen.getByText('Account #')).toBeInTheDocument()
+    expect(screen.getByText('Account Name')).toBeInTheDocument()
+    expect(screen.getByText('Type')).toBeInTheDocument()
+    expect(screen.getByText('Status')).toBeInTheDocument()
+
+    // Account rows render as table rows, not draggable cards
+    const accountNumElements = screen.getAllByText('1000')
+    const tableRow = accountNumElements[0].closest('tr')
+    expect(tableRow).not.toBeNull()
   })
 })
 

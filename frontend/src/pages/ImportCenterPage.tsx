@@ -26,6 +26,7 @@ import { coaImportApi } from '@/api/coaImport'
 import { documentsApi } from '@/api/documents'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { ImportReadinessMatrix } from '@/components/ui/ImportReadinessMatrix'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
@@ -660,6 +661,8 @@ export function ImportCenterPage() {
           <p className="text-[10px] text-slate-400 mt-1">Posted in current period</p>
         </div>
       </div>
+
+      {entityId && <ImportReadinessMatrix entityId={Number(entityId)} />}
 
       {/* Upload Type Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">

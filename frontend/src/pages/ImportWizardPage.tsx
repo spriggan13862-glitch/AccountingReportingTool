@@ -236,6 +236,7 @@ export function ImportWizardPage() {
         as_of_date: asOfDate,
         sheet_name: selectedSheet ?? undefined,
         header_row_index: headerRowIdx ?? undefined,
+        column_mapping: Object.keys(colMapping).length > 0 ? colMapping : undefined,
         force,
         file,
       })
