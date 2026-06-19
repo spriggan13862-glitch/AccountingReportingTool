@@ -1098,3 +1098,103 @@ def test_import_readiness_with_coa_and_balances(db, seeded):
     ).first()
     assert loaded is not None, "Uploaded batch should be visible in readiness query"
 
+
+# ---------------------------------------------------------------------------
+# 16. Hyphenated account number parsing (parse_account_label)
+# ---------------------------------------------------------------------------
+
+def test_parse_combined_hyphenated_subaccount_middle_dot(db, seeded):
+    """1000-01 · FHB - MLI Operating parses as num=1000-01, name=FHB - MLI Operating."""
+    from app.services.import_batch_service import parse_combined_account_field
+    num, name = parse_combined_account_field("1000-01 · FHB - MLI Operating")
+    assert num == "1000-01", f"Expected '1000-01' but got '{num}'"
+    assert name == "FHB - MLI Operating", f"Expected 'FHB - MLI Operating' but got '{name}'"
+
+
+def test_parse_combined_hyphenated_subaccount_plain_space(db, seeded):
+    """1000-01 Cash Sub-Account parses as num=1000-01, name=Cash Sub-Account."""
+    from app.services.import_batch_service import parse_combined_account_field
+    num, name = parse_combined_account_field("1000-01 Cash Sub-Account")
+    assert num == "1000-01", f"Expected '1000-01' but got '{num}'"
+    assert name == "Cash Sub-Account", f"Expected 'Cash Sub-Account' but got '{name}'"
+
+
+def test_parse_combined_plain_number_dash_separator(db, seeded):
+    """1000 - Cash (space-dash-space) still parses as num=1000, name=Cash."""
+    from app.services.import_batch_service import parse_combined_account_field
+    num, name = parse_combined_account_field("1000 - Cash")
+    assert num == "1000", f"Expected '1000' but got '{num}'"
+    assert name == "Cash", f"Expected 'Cash' but got '{name}'"
+
+
+def test_parse_combined_two_level_subaccount(db, seeded):
+    """1000-01-02 · Petty Cash parses num=1000-01-02, name=Petty Cash."""
+    from app.services.import_batch_service import parse_combined_account_field
+    num, name = parse_combined_account_field("1000-01-02 · Petty Cash")
+    assert num == "1000-01-02", f"Expected '1000-01-02' but got '{num}'"
+    assert "Petty Cash" in name
+
+
+# ---------------------------------------------------------------------------
+# 17. Column letter mapping accepted by upload_import_batch
+# ---------------------------------------------------------------------------
+
+def test_column_letter_mapping_passed_through(db, seeded):
+    """When column_mapping uses column letters (B → account_number), the import resolves correctly."""
+    from app.services.import_batch_service import upload_import_batch
+    from app.models.import_line import ImportLine
+    db.rollback()  # guard against cascade from earlier test failures
+    entity = seeded["entity"]
+    org = seeded["org"]
+
+    # CSV where column A is a row label, column B is the combined account label, column C is balance
+    csv_content = (
+        "Row,Account,Balance\n"
+        "1,1000 · Cash,50000\n"
+        "2,3000 · Common Stock,-50000\n"
+    ).encode()
+
+    batch = upload_import_batch(
+        db, csv_content, "col_letter_map.csv",
+        entity_id=entity.id, organization_id=org.id,
+        as_of_date=datetime.date(2025, 3, 31),
+        column_mapping={"account_number": "B", "balance": "C"},
+    )
+    db.commit()
+
+    lines = db.query(ImportLine).filter(ImportLine.batch_id == batch.id).all()
+    assert len(lines) == 2
+    nums = {l.raw_account_number for l in lines}
+    assert "1000" in nums, f"Expected '1000' in {nums}"
+    assert "3000" in nums, f"Expected '3000' in {nums}"
+    names = {l.raw_account_name for l in lines}
+    assert "Cash" in names, f"Expected 'Cash' in {names}"
+
+
+def test_column_header_text_mapping_passed_through(db, seeded):
+    """When column_mapping uses header text (Account → account_number), the import resolves correctly."""
+    from app.services.import_batch_service import upload_import_batch
+    from app.models.import_line import ImportLine
+    db.rollback()  # guard against cascade from earlier test failures
+    entity = seeded["entity"]
+    org = seeded["org"]
+
+    csv_content = (
+        "Account,Debit,Credit\n"
+        "1000,50000,0\n"
+        "2000,0,50000\n"
+    ).encode()
+
+    batch = upload_import_batch(
+        db, csv_content, "hdr_text_map.csv",
+        entity_id=entity.id, organization_id=org.id,
+        as_of_date=datetime.date(2025, 3, 31),
+        column_mapping={"account_number": "Account", "debit": "Debit", "credit": "Credit"},
+    )
+    db.commit()
+
+    lines = db.query(ImportLine).filter(ImportLine.batch_id == batch.id).all()
+    nums = {l.raw_account_number for l in lines}
+    assert "1000" in nums
+    assert "2000" in nums
+

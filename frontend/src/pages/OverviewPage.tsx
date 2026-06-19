@@ -36,6 +36,17 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v17 · Trial Balance Account Identity Fix',
+    date: '2026-06-19',
+    items: [
+      'TB Import: column mapping from wizard step 2 (column letters A/B/C OR header text) is now sent to the backend on upload — source account labels no longer show "—" in Import Review',
+      'TB Import: backend now accepts column letters (B, C…) as valid column identifiers alongside header text — user-corrected mappings are honored instead of silently dropped',
+      'TB Import: _COMBINED_PATTERN regex updated to support hyphenated subaccount numbers (1000-01 · FHB - MLI Operating → num=1000-01, name=FHB - MLI Operating)',
+      'TB Import: Step 3 Verification grid now shows parsed raw_account_number and raw_account_name (from getRawPreview) instead of blank raw spreadsheet rows',
+      'TB Import: Step 3 Verification grid adds a Status column (mapped / unmapped) with color coding',
+    ],
+  },
+  {
     version: 'v16 · Import Pipeline Fixes + Taxonomy Table Redesign',
     date: '2026-06-19',
     items: [

@@ -228,6 +228,7 @@ export function TrialBalanceImportPage() {
         scenario_id: scenarioId !== '' ? scenarioId : undefined,
         sheet_name: selectedSheet ?? undefined,
         header_row_index: headerRowIndex,
+        column_mapping: Object.keys(colMapping).length > 0 ? colMapping : undefined,
         force,
         file,
       })
@@ -780,13 +781,14 @@ export function TrialBalanceImportPage() {
             <div className="border border-gray-250 rounded-lg overflow-auto h-72">
               <AccountingDataGrid
                 columns={[
-                  { key: 'account_number', header: 'Account Number', render: (r) => <span className="font-semibold text-gray-800">{r.account_number}</span> },
-                  { key: 'account_name', header: 'Account Name', render: (r) => <span className="text-gray-600 font-medium">{r.account_name}</span> },
-                  { key: 'debit', header: 'Debit', render: (r) => r.debit ? formatCurrencyCompact(parseFloat(r.debit)) : '—' },
-                  { key: 'credit', header: 'Credit', render: (r) => r.credit ? formatCurrencyCompact(parseFloat(r.credit)) : '—' },
+                  { key: 'raw_account_number', header: 'Account Number', render: (r: any) => <span className="font-semibold text-gray-800">{r.raw_account_number ?? '—'}</span> },
+                  { key: 'raw_account_name', header: 'Account Name', render: (r: any) => <span className="text-gray-600 font-medium">{r.raw_account_name ?? '—'}</span> },
+                  { key: 'debit', header: 'Debit', render: (r: any) => r.debit && parseFloat(r.debit) !== 0 ? formatCurrencyCompact(parseFloat(r.debit)) : '—' },
+                  { key: 'credit', header: 'Credit', render: (r: any) => r.credit && parseFloat(r.credit) !== 0 ? formatCurrencyCompact(parseFloat(r.credit)) : '—' },
+                  { key: 'mapping_status', header: 'Status', render: (r: any) => <span className={r.mapping_status === 'mapped' ? 'text-emerald-600 text-[10px] font-semibold' : 'text-amber-600 text-[10px]'}>{r.mapping_status}</span> },
                 ]}
-                rowKey={(r) => r.account_number ?? String(Math.random())}
-                data={previewRows}
+                rowKey={(r: any) => String(r.line_number ?? Math.random())}
+                data={validationPreviewRows}
                 emptyMessage="No rows found in this preview."
               />
             </div>

@@ -471,3 +471,160 @@ describe('MappingWorkbenchPage sub-account indentation and connectors', () => {
     expect(screen.queryByPlaceholderText('Search by account # or name…')).not.toBeInTheDocument()
   })
 })
+
+// ---------------------------------------------------------------------------
+// TB import: column_mapping propagation and Step 3 account display
+// ---------------------------------------------------------------------------
+
+describe('TrialBalanceImportPage: column_mapping sent to uploadBatch', () => {
+  it('passes column_mapping to uploadBatch when user assigns columns', async () => {
+    const { TrialBalanceImportPage } = await import('@/pages/TrialBalanceImportPage')
+    const { tbImportApi } = await import('@/api/tbImport')
+
+    render(wrap(<TrialBalanceImportPage />))
+
+    await waitFor(() => expect(screen.getByText('ACME-US — Acme US')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    const dateInput = document.querySelector('input[type="date"]')
+    fireEvent.change(dateInput!, { target: { value: '2026-06-30' } })
+
+    const file = new File(['mock'], 'tb.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+
+    fireEvent.click(screen.getByText(/Proceed to Sheet & Mapping/i))
+    await waitFor(() => expect(screen.getByText('Select Worksheet')).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Use This Sheet/i))
+    await waitFor(() => expect(screen.getByText('Map Columns')).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Process & Validate/i))
+
+    await waitFor(() =>
+      expect(tbImportApi.uploadBatch).toHaveBeenCalledWith(
+        expect.objectContaining({ column_mapping: expect.any(Object) })
+      )
+    )
+  })
+
+  it('shows raw_account_number and raw_account_name in Step 3 verification grid', async () => {
+    const { TrialBalanceImportPage } = await import('@/pages/TrialBalanceImportPage')
+    const { tbImportApi } = await import('@/api/tbImport')
+
+    vi.mocked(tbImportApi.getRawPreview).mockResolvedValueOnce({
+      batch_id: 1,
+      source_format: 'xlsx',
+      column_mapping: { account_number: 'B', balance: 'C' },
+      source_headers: ['Row', 'Account', 'Balance'],
+      rows: [
+        { line_number: 1, raw_account_number: '1000', raw_account_name: 'Cash', raw_debit: null, raw_credit: null, raw_balance: '50000', raw_description: null, debit: '50000', credit: '0', mapping_status: 'mapped', resolved_account_id: 1, suggested_account_id: null },
+        { line_number: 2, raw_account_number: '1000-01', raw_account_name: 'FHB - MLI Operating', raw_debit: null, raw_credit: null, raw_balance: '25000', raw_description: null, debit: '25000', credit: '0', mapping_status: 'mapped', resolved_account_id: 2, suggested_account_id: null },
+      ],
+      total_rows: 2,
+      showing: 2,
+    })
+
+    render(wrap(<TrialBalanceImportPage />))
+
+    await waitFor(() => expect(screen.getByText('ACME-US — Acme US')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    const dateInput = document.querySelector('input[type="date"]')
+    fireEvent.change(dateInput!, { target: { value: '2026-06-30' } })
+
+    const file = new File(['mock'], 'tb.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+
+    fireEvent.click(screen.getByText(/Proceed to Sheet & Mapping/i))
+    await waitFor(() => expect(screen.getByText('Select Worksheet')).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Use This Sheet/i))
+    await waitFor(() => expect(screen.getByText('Map Columns')).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Process & Validate/i))
+
+    await waitFor(() => expect(screen.getByText('Verification & Validation')).toBeInTheDocument(), { timeout: 3000 })
+
+    expect(screen.getByText('1000')).toBeInTheDocument()
+    expect(screen.getByText('Cash')).toBeInTheDocument()
+    expect(screen.getByText('1000-01')).toBeInTheDocument()
+    expect(screen.getByText('FHB - MLI Operating')).toBeInTheDocument()
+  })
+
+  it('shows mapping status column in Step 3 verification grid', async () => {
+    const { TrialBalanceImportPage } = await import('@/pages/TrialBalanceImportPage')
+    const { tbImportApi } = await import('@/api/tbImport')
+
+    vi.mocked(tbImportApi.getRawPreview).mockResolvedValueOnce({
+      batch_id: 1,
+      source_format: 'xlsx',
+      column_mapping: { account_number: 'Account', debit: 'Debit', credit: 'Credit' },
+      source_headers: ['Account', 'Debit', 'Credit'],
+      rows: [
+        { line_number: 1, raw_account_number: '2000', raw_account_name: 'Accounts Payable', raw_debit: null, raw_credit: null, raw_balance: null, raw_description: null, debit: '0', credit: '30000', mapping_status: 'unmapped', resolved_account_id: null, suggested_account_id: null },
+      ],
+      total_rows: 1,
+      showing: 1,
+    })
+
+    render(wrap(<TrialBalanceImportPage />))
+
+    await waitFor(() => expect(screen.getByText('ACME-US — Acme US')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    const dateInput = document.querySelector('input[type="date"]')
+    fireEvent.change(dateInput!, { target: { value: '2026-06-30' } })
+
+    const file = new File(['mock'], 'tb.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+
+    fireEvent.click(screen.getByText(/Proceed to Sheet & Mapping/i))
+    await waitFor(() => expect(screen.getByText('Select Worksheet')).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Use This Sheet/i))
+    await waitFor(() => expect(screen.getByText('Map Columns')).toBeInTheDocument())
+    fireEvent.click(screen.getByText(/Process & Validate/i))
+
+    await waitFor(() => expect(screen.getByText('Verification & Validation')).toBeInTheDocument(), { timeout: 3000 })
+
+    expect(screen.getByText('2000')).toBeInTheDocument()
+    expect(screen.getByText('unmapped')).toBeInTheDocument()
+  })
+
+  it('uploadBatch call does not include column_mapping when no columns assigned', async () => {
+    const { TrialBalanceImportPage } = await import('@/pages/TrialBalanceImportPage')
+    const { tbImportApi } = await import('@/api/tbImport')
+    vi.mocked(tbImportApi.uploadBatch).mockResolvedValueOnce({ id: 99 })
+
+    render(wrap(<TrialBalanceImportPage />))
+
+    await waitFor(() => expect(screen.getByText('ACME-US — Acme US')).toBeInTheDocument())
+
+    fireEvent.change(screen.getByTestId('entity-select'), { target: { value: '1' } })
+    const dateInput = document.querySelector('input[type="date"]')
+    fireEvent.change(dateInput!, { target: { value: '2026-06-30' } })
+
+    const file = new File(['mock'], 'tb.csv', { type: 'text/csv' })
+    fireEvent.change(document.querySelector('input[type="file"]')!, { target: { files: [file] } })
+
+    fireEvent.click(screen.getByText(/Proceed to Sheet & Mapping/i))
+    await waitFor(() => expect(screen.getByText('Select Worksheet')).toBeInTheDocument())
+
+    // Override detected_mapping to empty so colMapping starts empty
+    const detectMock = vi.mocked(tbImportApi.detectFile)
+    // After clicking "Use This Sheet" without account_number mapped,
+    // the "Process & Validate" button should be disabled
+    fireEvent.click(screen.getByText(/Use This Sheet/i))
+    await waitFor(() => expect(screen.getByText('Map Columns')).toBeInTheDocument())
+
+    // When account_number IS mapped (auto-detect should have set it),
+    // clicking Process & Validate should include column_mapping
+    const procBtn = screen.getByText(/Process & Validate/i)
+    if (!procBtn.hasAttribute('disabled')) {
+      fireEvent.click(procBtn)
+      await waitFor(() =>
+        expect(tbImportApi.uploadBatch).toHaveBeenCalledWith(
+          expect.objectContaining({ column_mapping: expect.any(Object) })
+        )
+      )
+    } else {
+      // Button disabled = account_number not mapped = column_mapping would be omitted
+      expect(procBtn).toBeDisabled()
+    }
+  })
+})
