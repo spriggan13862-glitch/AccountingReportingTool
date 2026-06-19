@@ -137,13 +137,14 @@ Last updated: 2026-06-19 (rev 2)
 
 ## 10. Parent / Subaccount and FSLI Inheritance
 
-**Status: NOT DONE**
+**Status: PARTIAL**
 
-- Subaccount detection already exists (MappingWorkbenchPage shows `└─` indent for accounts containing `-` / `.` / `:`)
-- FSLI inheritance from parent: requires COA hierarchy lookup + propagation rule when mapping a parent account
-- Requires: backend API to resolve parent account from subaccount number, then cascade FSLI assignment
-- Mapping Workbench already shows FSLI dropdown per line but doesn't auto-populate from parent
-- BLOCKED: no backend support for parent → child FSLI cascade
+- File changed: `frontend/src/pages/MappingWorkbenchPage.tsx`
+- When a user assigns an FSLI to a resolved account, the system now detects child accounts by prefix: accounts with `account_number` starting with `{parent}-`, `{parent}.`, or `{parent}:` (e.g. parent `1000` → children `1000-01`, `1000.1`)
+- Auto-propagates FSLI to child accounts that have no FSLI assigned yet (never overwrites existing assignments)
+- Toast confirms: "FSLI propagated to N child accounts"
+- Uses direct `accountsApi.update` calls in parallel; invalidates `accounts-all` query on completion
+- Limitation: only works when parent and children are both already resolved to COA accounts in the current batch; does not cascade across future imports
 
 ---
 
@@ -199,7 +200,7 @@ Last updated: 2026-06-19 (rev 2)
 | 7 | Raw Preview | DONE |
 | 8 | Mapping Workbench Language | DONE |
 | 9 | Total Row Exclusion | DONE |
-| 10 | Parent/Subaccount FSLI Inheritance | NOT DONE |
+| 10 | Parent/Subaccount FSLI Inheritance | PARTIAL |
 | 11 | Adjustment Workbench Impact Columns | PARTIAL |
 | 12 | Validation Warning Noise | DONE |
 | 13 | What's New / Changelog | DONE |
