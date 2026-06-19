@@ -36,6 +36,19 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v16 · Import Pipeline Fixes + Taxonomy Table Redesign',
+    date: '2026-06-19',
+    items: [
+      'Import: column mapping from wizard step 2 is now sent to the backend on upload — source account labels no longer blank after column correction',
+      'Import: _COMBINED_PATTERN regex fixed so "1000 Cash" (single space, no separator) is correctly split into account number + name',
+      'Import: Mapping Workbench now shows "Matched COA" column (resolved account number/name, or "No match — will create") and "Suggested FSLI" column (taxonomy line from matched account)',
+      'Import Center: Import Readiness Matrix now shown on the Import Center page (not just the wizard) when an entity is selected',
+      'Taxonomy Admin: account mapping section redesigned as a compact filterable table — columns: Account #, Account Name, Type, Status, Current Mapping, Suggested Mapping, Actions',
+      'Taxonomy Admin: account type filter chips (All / Asset / Liability / Equity / Revenue / Expense) added to account mapping toolbar',
+      'Taxonomy Admin: mapping status dropdown (All / Mapped / Unmapped) replaces checkbox; inline taxonomy select + Save button per row replaces drag-drop cards',
+    ],
+  },
+  {
     version: 'v15 · Import Architecture + JE Detail + Account Label Parser',
     date: '2026-06-18',
     items: [
