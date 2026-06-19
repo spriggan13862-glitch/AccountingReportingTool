@@ -787,9 +787,9 @@ export function ImportWizardPage() {
           </p>
 
           {detected.preview_rows.length > 0 ? (
-            <div className="overflow-x-auto border border-gray-200 rounded">
+            <div className="overflow-auto max-h-[480px] border border-gray-200 rounded">
               <table className="w-full text-xs">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50">
                     {detected.headers.map((h) => {
                       const isMapped = Object.values(colMapping).includes(h)

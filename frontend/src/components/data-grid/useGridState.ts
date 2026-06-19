@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
-import type { GridColumn, GridState, SortDir, GridDensity } from './types'
+import type { GridColumn, GridState, SortDir, GridDensity, ColumnFilterMode } from './types'
 
 const PAGE_SIZES = [10, 25, 50, 100, 250]
 export { PAGE_SIZES }
@@ -20,6 +20,9 @@ export function useGridState<T>(
     density: initialDensity,
     hiddenColumns: new Set(),
     columnFilters: {},
+    columnFilterModes: {},
+    columnFilterMin: {},
+    columnFilterMax: {},
   })
 
   // Filtered rows (global search + per-column filters)
@@ -38,17 +41,49 @@ export function useGridState<T>(
       )
     }
 
-    for (const [key, value] of Object.entries(state.columnFilters)) {
-      if (!value.trim()) continue
+    const allFilterKeys = new Set([
+      ...Object.keys(state.columnFilters),
+      ...Object.keys(state.columnFilterModes),
+      ...Object.keys(state.columnFilterMin),
+      ...Object.keys(state.columnFilterMax),
+    ])
+
+    for (const key of allFilterKeys) {
       const col = columns.find((c) => c.key === key)
       if (!col) continue
-      const q = value.toLowerCase()
-      rows = rows.filter((row) => {
-        const text = col.filterValue
-          ? col.filterValue(row)
-          : String(col.sortValue?.(row) ?? '')
-        return text.toLowerCase().includes(q)
-      })
+      const mode = state.columnFilterModes[key] ?? 'contains'
+      const value = state.columnFilters[key] ?? ''
+      const min = state.columnFilterMin[key] ?? ''
+      const max = state.columnFilterMax[key] ?? ''
+
+      if (mode === 'blank' || mode === 'nonblank') {
+        rows = rows.filter((row) => {
+          const text = col.filterValue
+            ? col.filterValue(row)
+            : String(col.sortValue?.(row) ?? '')
+          const isEmpty = !text.trim()
+          return mode === 'blank' ? isEmpty : !isEmpty
+        })
+      } else if (value.trim()) {
+        const q = value.toLowerCase()
+        rows = rows.filter((row) => {
+          const text = col.filterValue
+            ? col.filterValue(row)
+            : String(col.sortValue?.(row) ?? '')
+          return text.toLowerCase().includes(q)
+        })
+      }
+
+      if (min.trim() || max.trim()) {
+        rows = rows.filter((row) => {
+          const raw = col.sortValue?.(row)
+          const num = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''))
+          if (isNaN(num)) return true
+          if (min.trim() && num < parseFloat(min)) return false
+          if (max.trim() && num > parseFloat(max)) return false
+          return true
+        })
+      }
     }
 
     return rows
@@ -132,15 +167,54 @@ export function useGridState<T>(
     }))
   }, [])
 
+  const setColumnFilterMode = useCallback((key: string, mode: ColumnFilterMode) => {
+    setState((s) => ({
+      ...s,
+      columnFilterModes: { ...s.columnFilterModes, [key]: mode },
+      columnFilters: { ...s.columnFilters, [key]: '' },
+      page: 1,
+    }))
+  }, [])
+
+  const setColumnFilterMin = useCallback((key: string, value: string) => {
+    setState((s) => ({
+      ...s,
+      columnFilterMin: { ...s.columnFilterMin, [key]: value },
+      page: 1,
+    }))
+  }, [])
+
+  const setColumnFilterMax = useCallback((key: string, value: string) => {
+    setState((s) => ({
+      ...s,
+      columnFilterMax: { ...s.columnFilterMax, [key]: value },
+      page: 1,
+    }))
+  }, [])
+
+  const clearColumnFilter = useCallback((key: string) => {
+    setState((s) => {
+      const filters = { ...s.columnFilters }
+      const modes = { ...s.columnFilterModes }
+      const mins = { ...s.columnFilterMin }
+      const maxs = { ...s.columnFilterMax }
+      delete filters[key]; delete modes[key]; delete mins[key]; delete maxs[key]
+      return { ...s, columnFilters: filters, columnFilterModes: modes, columnFilterMin: mins, columnFilterMax: maxs, page: 1 }
+    })
+  }, [])
+
   const clearFilters = useCallback(() => {
-    setState((s) => ({ ...s, search: '', columnFilters: {}, page: 1 }))
+    setState((s) => ({ ...s, search: '', columnFilters: {}, columnFilterModes: {}, columnFilterMin: {}, columnFilterMax: {}, page: 1 }))
   }, [])
 
   const activeFilterCount = useMemo(() => {
     let count = state.search.trim() ? 1 : 0
     count += Object.values(state.columnFilters).filter(Boolean).length
+    count += Object.values(state.columnFilterModes).filter(Boolean).length
+    count += Object.values(state.columnFilterMin).filter(Boolean).length
+    count += Object.values(state.columnFilterMax).filter(Boolean).length
     return count
-  }, [state.search, state.columnFilters])
+  }, [state.search, state.columnFilters, state.columnFilterModes, state.columnFilterMin, state.columnFilterMax])
 
   return {
     state,
@@ -158,6 +232,10 @@ export function useGridState<T>(
     setDensity,
     toggleColumn,
     setColumnFilter,
+    setColumnFilterMode,
+    setColumnFilterMin,
+    setColumnFilterMax,
+    clearColumnFilter,
     clearFilters,
   }
 }

@@ -36,6 +36,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v20 · Import UX + Global Column Filters + Validation Clarity',
+    date: '2026-06-19',
+    items: [
+      'Import Step 3 preview: table now scrolls both vertically (max 480px) and horizontally with sticky headers — supports 200+ row files',
+      'Global column filters: Excel-style filter popover on all AccountingDataGrid columns — sort asc/desc, text contains, blank/non-blank, numeric min/max',
+      'Mapping Workbench: replaced "No match — will create" with specific status labels — "Will create new COA account", "Awaiting parent assignment", "Total/header row — exclude"',
+      'Mapping Workbench: total/header row auto-detection — blank account rows with large amounts flagged for exclusion',
+      'Mapping Workbench: "Exclude — Total/Header Row" row action added alongside existing "Skip Line"',
+      'Mapping Workbench: DR, CR, Balance columns now support numeric min/max range filter',
+      'Validation warnings: grouped by severity (Errors always expanded, Warnings and Info collapsed by default) — blocking codes clearly marked',
+      'Number formatting: removed stale raw formatCurrencyCompact import from TrialBalanceImportPage — all screens use global reporting formatter hook',
+    ],
+  },
+  {
     version: 'v19 · Build Stabilization',
     date: '2026-06-19',
     items: [

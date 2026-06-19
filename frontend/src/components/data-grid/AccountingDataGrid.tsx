@@ -9,7 +9,6 @@
 
 import { useMemo, useCallback, useRef } from 'react'
 import {
-  ChevronUp, ChevronDown, ChevronsUpDown,
   ChevronRight, AlertCircle, Loader2,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
@@ -19,6 +18,7 @@ import { GridToolbar } from './GridToolbar'
 import { GridPagination } from './GridPagination'
 import { BatchActionBar } from './BatchActionBar'
 import { RowActionMenu } from './RowActionMenu'
+import { ColumnFilterMenu } from './ColumnFilterMenu'
 import type {
   GridColumn,
   GridDensity,
@@ -26,6 +26,7 @@ import type {
   BatchAction,
   UndoConfig,
   GridCellContext,
+  ColumnFilterMode,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -50,16 +51,6 @@ function downloadCSV(filename: string, headers: string[], rows: string[][]) {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
-}
-
-// ---------------------------------------------------------------------------
-// Sort icon
-// ---------------------------------------------------------------------------
-
-function SortIcon({ dir }: { dir: 'asc' | 'desc' | null }) {
-  if (dir === 'asc') return <ChevronUp className="w-3 h-3" />
-  if (dir === 'desc') return <ChevronDown className="w-3 h-3" />
-  return <ChevronsUpDown className="w-3 h-3 opacity-30" />
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +156,11 @@ export function AccountingDataGrid<T>({
     setPageSize,
     setDensity,
     toggleColumn,
+    setColumnFilter,
+    setColumnFilterMode,
+    setColumnFilterMin,
+    setColumnFilterMax,
+    clearColumnFilter,
     clearFilters,
   } = gridState
 
@@ -274,23 +270,55 @@ export function AccountingDataGrid<T>({
 
               {visibleColumns.map((col) => {
                 const canSort = col.sortable !== false && !!col.sortValue
+                const canFilter = col.filterable === true
                 const dir = state.sortKey === col.key ? state.sortDir : null
+                const filterMode: ColumnFilterMode = state.columnFilterModes[col.key] ?? 'contains'
+                const hasActive = !!(
+                  state.columnFilters[col.key]?.trim() ||
+                  state.columnFilterModes[col.key] ||
+                  state.columnFilterMin[col.key]?.trim() ||
+                  state.columnFilterMax[col.key]?.trim()
+                )
                 return (
                   <th
                     key={col.key}
                     className={cn(
                       'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap',
-                      canSort && 'cursor-pointer select-none hover:bg-gray-100',
                       col.headerClassName
                     )}
                     style={col.width ? { width: col.width } : undefined}
-                    onClick={canSort ? () => setSort(col.key) : undefined}
                     data-testid={testId ? `${testId}-th-${col.key}` : undefined}
                   >
-                    <div className="flex items-center gap-1">
-                      {col.header}
-                      {canSort && <SortIcon dir={dir} />}
-                    </div>
+                    {canFilter ? (
+                      <ColumnFilterMenu
+                        columnKey={col.key}
+                        header={col.header}
+                        sortable={canSort}
+                        filterType={col.filterType ?? 'text'}
+                        sortDir={dir}
+                        filterValue={state.columnFilters[col.key] ?? ''}
+                        filterMode={filterMode}
+                        filterMin={state.columnFilterMin[col.key] ?? ''}
+                        filterMax={state.columnFilterMax[col.key] ?? ''}
+                        isActive={hasActive}
+                        onSort={() => setSort(col.key)}
+                        onFilterChange={(v) => setColumnFilter(col.key, v)}
+                        onModeChange={(m) => setColumnFilterMode(col.key, m)}
+                        onMinChange={(v) => setColumnFilterMin(col.key, v)}
+                        onMaxChange={(v) => setColumnFilterMax(col.key, v)}
+                        onClear={() => clearColumnFilter(col.key)}
+                      />
+                    ) : (
+                      <div
+                        className={cn('flex items-center gap-1', canSort && 'cursor-pointer select-none hover:text-gray-700')}
+                        onClick={canSort ? () => setSort(col.key) : undefined}
+                      >
+                        {col.header}
+                        {canSort && dir === 'asc' && <span className="text-[10px]">↑</span>}
+                        {canSort && dir === 'desc' && <span className="text-[10px]">↓</span>}
+                        {canSort && !dir && <span className="text-[10px] opacity-30">↕</span>}
+                      </div>
+                    )}
                   </th>
                 )
               })}
@@ -298,28 +326,6 @@ export function AccountingDataGrid<T>({
               {/* Row actions column */}
               {hasRowActions && <th className="w-10" />}
             </tr>
-
-            {/* Per-column filter row */}
-            {visibleColumns.some((c) => c.filterable) && (
-              <tr className="border-t border-gray-200">
-                {hasSelection && <th className="px-3 py-1.5" />}
-                {visibleColumns.map((col) => (
-                  <th key={col.key} className="px-3 py-1.5">
-                    {col.filterable && (
-                      <input
-                        type="text"
-                        placeholder={`Filter ${col.header.toLowerCase()}…`}
-                        value={state.columnFilters[col.key] ?? ''}
-                        onChange={(e) => gridState.setColumnFilter(col.key, e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 font-normal normal-case tracking-normal"
-                        data-testid={`col-filter-${col.key}`}
-                      />
-                    )}
-                  </th>
-                ))}
-                {hasRowActions && <th className="px-3 py-1.5 w-10" />}
-              </tr>
-            )}
           </thead>
 
           <tbody

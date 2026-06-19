@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { formatCurrencyCompact } from '@/lib/format'
 import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'

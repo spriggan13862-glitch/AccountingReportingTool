@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw, Clock, Upload, Shield, Download } from 'lucide-react'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
@@ -32,6 +32,128 @@ function MappingStatusDot({ status }: { status: string }) {
     rejected: 'bg-red-500',
   }
   return <span className={`inline-block w-2 h-2 rounded-full ${map[status] ?? 'bg-gray-300'}`} />
+}
+
+const BLOCKING_CODES = new Set(['OUT_OF_BALANCE', 'MISSING_ACCOUNT', 'UNMAPPED_REQUIRED', 'INVALID_AMOUNT'])
+
+function IssuesPanel({ batchId, issues }: { batchId: number; issues: ImportIssue[] | undefined }) {
+  const [warningsOpen, setWarningsOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
+
+  const grouped = useMemo(() => {
+    const errors: ImportIssue[] = []
+    const warnings: ImportIssue[] = []
+    const infos: ImportIssue[] = []
+    for (const i of (issues ?? [])) {
+      if (i.severity === 'ERROR') errors.push(i)
+      else if (i.severity === 'WARNING') warnings.push(i)
+      else infos.push(i)
+    }
+    return { errors, warnings, infos }
+  }, [issues])
+
+  function exportCsv() {
+    const rows = [
+      ['Severity', 'Code', 'Message', 'Suggestion'],
+      ...(issues ?? []).map((i) => [i.severity, i.code, i.message, i.suggested_resolution ?? '']),
+    ]
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `import-${batchId}-issues.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function IssueRow({ issue }: { issue: ImportIssue }) {
+    const isBlocking = BLOCKING_CODES.has(issue.code)
+    return (
+      <div className="flex items-start gap-3 px-4 py-2.5 border-b last:border-0">
+        {issue.severity === 'ERROR' && <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />}
+        {issue.severity === 'WARNING' && <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />}
+        {issue.severity === 'INFO' && <CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-0.5">
+            <SeverityBadge severity={issue.severity} />
+            <span className="text-xs font-mono text-gray-400">{issue.code}</span>
+            {isBlocking && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 bg-red-100 text-red-700 rounded">Blocks posting</span>}
+          </div>
+          <p className="text-sm text-gray-700">{issue.message}</p>
+          {issue.suggested_resolution && (
+            <p className="text-xs text-gray-400 mt-0.5">Suggestion: {issue.suggested_resolution}</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (!issues?.length) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg px-4 py-8 text-center">
+        <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-400" />
+        <p className="text-sm text-gray-500">No validation issues. Run validation to check the batch.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button type="button" onClick={exportCsv} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50">
+          <Download className="w-3.5 h-3.5" /> Export Issues CSV
+        </button>
+      </div>
+
+      {/* Errors — always expanded, block posting */}
+      {grouped.errors.length > 0 && (
+        <div className="bg-white border border-red-200 rounded-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-200">
+            <XCircle className="w-4 h-4 text-red-500" />
+            <span className="text-sm font-semibold text-red-700">{grouped.errors.length} Error{grouped.errors.length !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-red-500 ml-1">— must resolve before posting</span>
+          </div>
+          {grouped.errors.map((i) => <IssueRow key={i.id} issue={i} />)}
+        </div>
+      )}
+
+      {/* Warnings — collapsed by default */}
+      {grouped.warnings.length > 0 && (
+        <div className="bg-white border border-yellow-200 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setWarningsOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2 bg-yellow-50 border-b border-yellow-200 hover:bg-yellow-100 transition-colors"
+          >
+            <AlertCircle className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm font-semibold text-yellow-700 flex-1 text-left">
+              {grouped.warnings.length} Warning{grouped.warnings.length !== 1 ? 's' : ''}
+            </span>
+            <span className="text-xs text-yellow-600">Non-blocking</span>
+            <span className="text-xs text-gray-400 ml-2">{warningsOpen ? '▲ collapse' : '▼ expand'}</span>
+          </button>
+          {warningsOpen && grouped.warnings.map((i) => <IssueRow key={i.id} issue={i} />)}
+        </div>
+      )}
+
+      {/* Info — collapsed by default */}
+      {grouped.infos.length > 0 && (
+        <div className="bg-white border border-blue-200 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setInfoOpen((v) => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-200 hover:bg-blue-100 transition-colors"
+          >
+            <CheckCircle className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-semibold text-blue-700 flex-1 text-left">
+              {grouped.infos.length} Info notice{grouped.infos.length !== 1 ? 's' : ''}
+            </span>
+            <span className="text-xs text-gray-400 ml-2">{infoOpen ? '▲ collapse' : '▼ expand'}</span>
+          </button>
+          {infoOpen && grouped.infos.map((i) => <IssueRow key={i.id} issue={i} />)}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function ImportReviewPage() {
@@ -99,6 +221,8 @@ export function ImportReviewPage() {
     onError: (err: Error) => setApiError(err.message),
   })
 
+  const fmtCompact = useFormatCurrencyCompact()
+
   if (!batch) {
     return (
       <PageLayout title="Import Review">
@@ -150,13 +274,13 @@ export function ImportReviewPage() {
         {batch.total_debits && (
           <div>
             <p className="text-xs text-gray-500">Total DR</p>
-            <p className="text-sm font-medium text-gray-700">{formatCurrencyCompact(Number(batch.total_debits))}</p>
+            <p className="text-sm font-medium text-gray-700">{fmtCompact(Number(batch.total_debits))}</p>
           </div>
         )}
         {batch.total_credits && (
           <div>
             <p className="text-xs text-gray-500">Total CR</p>
-            <p className="text-sm font-medium text-gray-700">{formatCurrencyCompact(Number(batch.total_credits))}</p>
+            <p className="text-sm font-medium text-gray-700">{fmtCompact(Number(batch.total_credits))}</p>
           </div>
         )}
 
@@ -312,7 +436,7 @@ export function ImportReviewPage() {
                 className: 'text-right font-mono',
                 render: (l: ImportLine) => (
                   <span>
-                    {Number(l.debit) > 0 ? formatCurrencyCompact(Number(l.debit)) : '—'}
+                    {Number(l.debit) > 0 ? fmtCompact(Number(l.debit)) : '—'}
                   </span>
                 ),
               },
@@ -324,7 +448,7 @@ export function ImportReviewPage() {
                 className: 'text-right font-mono',
                 render: (l: ImportLine) => (
                   <span>
-                    {Number(l.credit) > 0 ? formatCurrencyCompact(Number(l.credit)) : '—'}
+                    {Number(l.credit) > 0 ? fmtCompact(Number(l.credit)) : '—'}
                   </span>
                 ),
               },
@@ -352,63 +476,8 @@ export function ImportReviewPage() {
         </div>
       )}
 
-      {/* Issues tab */}
-      {tab === 'issues' && (
-        <div className="space-y-2">
-          {issues && issues.length > 0 && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  const rows = [
-                    ['Severity', 'Code', 'Message', 'Suggestion'],
-                    ...issues.map((i: ImportIssue) => [
-                      i.severity, i.code, i.message, i.suggested_resolution ?? '',
-                    ]),
-                  ]
-                  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-                  const blob = new Blob([csv], { type: 'text/csv' })
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `import-${batchId}-issues.csv`
-                  a.click()
-                  URL.revokeObjectURL(url)
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
-              >
-                <Download className="w-3.5 h-3.5" /> Export Issues CSV
-              </button>
-            </div>
-          )}
-          {!issues?.length ? (
-            <div className="bg-white border border-gray-200 rounded-lg px-4 py-8 text-center">
-              <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-400" />
-              <p className="text-sm text-gray-500">No validation issues. Run validation to check the batch.</p>
-            </div>
-          ) : (
-            issues.map((issue: ImportIssue) => (
-              <div key={issue.id} className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-                <div className="flex items-start gap-3">
-                  {issue.severity === 'ERROR' && <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />}
-                  {issue.severity === 'WARNING' && <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 shrink-0" />}
-                  {issue.severity === 'INFO' && <CheckCircle className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <SeverityBadge severity={issue.severity} />
-                      <span className="text-xs font-mono text-gray-400">{issue.code}</span>
-                    </div>
-                    <p className="text-sm text-gray-700">{issue.message}</p>
-                    {issue.suggested_resolution && (
-                      <p className="text-xs text-gray-400 mt-0.5">Suggestion: {issue.suggested_resolution}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      {/* Issues tab — grouped by severity, warnings collapsed by default */}
+      {tab === 'issues' && <IssuesPanel batchId={batchId} issues={issues} />}
 
       {/* Raw preview tab */}
       {tab === 'preview' && (
@@ -496,7 +565,7 @@ export function ImportReviewPage() {
                     }
                   }
                 ]}
-                data={rawPreview.rows}
+                data={rawPreview?.rows}
                 rowKey={(row: any) => row.line_number}
                 selectionEnabled={false}
                 pageSize={50}
@@ -559,7 +628,7 @@ export function ImportReviewPage() {
                 <p className="text-xs font-medium text-gray-700">
                   {batch.status === 'validation_failed' ? 'Validation failed' : 'Validation passed'}
                 </p>
-                <p className="text-xs text-gray-400">DR {formatCurrencyCompact(Number(batch.total_debits ?? 0))} / CR {formatCurrencyCompact(Number(batch.total_credits ?? 0))}</p>
+                <p className="text-xs text-gray-400">DR {fmtCompact(Number(batch.total_debits ?? 0))} / CR {fmtCompact(Number(batch.total_credits ?? 0))}</p>
                 {batch.status === 'validation_failed' && batch.error_message && (
                   <p className="text-xs text-red-600 mt-1 font-medium">{batch.error_message}</p>
                 )}

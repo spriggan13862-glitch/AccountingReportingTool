@@ -193,6 +193,38 @@ function CreateAccountForm({ onSubmit, onCancel, isPending, defaultNumber = '', 
 // Helpers
 // ---------------------------------------------------------------------------
 
+function looksLikeTotalRow(line: ImportLine): boolean {
+  const hasNoAccount = !line.raw_account_number?.trim() && !line.raw_account_name?.trim()
+  const debit = parseFloat(line.raw_debit ?? '0')
+  const credit = parseFloat(line.raw_credit ?? '0')
+  const balance = parseFloat(line.raw_balance ?? '0')
+  const hasLargeAmount = Math.abs(debit) > 1000 || Math.abs(credit) > 1000 || Math.abs(balance) > 1000
+  const nameIsTotal = /^(total|subtotal|check|sum|grand total)/i.test(line.raw_account_name ?? '')
+  return (hasNoAccount && hasLargeAmount) || nameIsTotal
+}
+
+function getMappingStatusLabel(line: ImportLine, accountMap: Record<number, Account>): React.ReactNode {
+  if (line.mapping_status === 'skipped') {
+    return <span className="text-xs text-gray-400 italic">Excluded</span>
+  }
+  if (line.resolved_account_id && accountMap[line.resolved_account_id]) {
+    const acct = accountMap[line.resolved_account_id]
+    return (
+      <div className="text-xs">
+        <span className="font-mono text-gray-700 font-semibold">{acct.account_number}</span>
+        <span className="ml-1 text-gray-500">{acct.account_name}</span>
+      </div>
+    )
+  }
+  if (looksLikeTotalRow(line)) {
+    return <span className="text-xs text-orange-500 italic">Total / header row — exclude</span>
+  }
+  if (!line.raw_account_number?.trim()) {
+    return <span className="text-xs text-amber-600 italic">Awaiting parent assignment</span>
+  }
+  return <span className="text-xs text-indigo-500 italic">Will create new COA account</span>
+}
+
 function guessAccountTypeAndNormal(code: string): { account_type: string; normal_balance: string } {
   const c = code.toLowerCase()
   if (c.includes('asset') || c.startsWith('1')) return { account_type: 'asset', normal_balance: 'debit' }
@@ -485,6 +517,8 @@ export function MappingWorkbenchPage() {
       key: 'raw_debit',
       header: 'DR',
       sortable: true,
+      filterable: true,
+      filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_debit != null ? parseFloat(line.raw_debit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
@@ -498,6 +532,8 @@ export function MappingWorkbenchPage() {
       key: 'raw_credit',
       header: 'CR',
       sortable: true,
+      filterable: true,
+      filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_credit != null ? parseFloat(line.raw_credit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
@@ -511,6 +547,8 @@ export function MappingWorkbenchPage() {
       key: 'raw_balance',
       header: 'Balance',
       sortable: true,
+      filterable: true,
+      filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_balance ? parseFloat(line.raw_balance) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600">
@@ -522,19 +560,19 @@ export function MappingWorkbenchPage() {
     },
     {
       key: 'matched_coa',
-      header: 'Matched COA',
-      render: (line: ImportLine) => {
+      header: 'Matched COA / Status',
+      filterable: true,
+      sortable: true,
+      sortValue: (line: ImportLine) => line.resolved_account_id ? (accountMap[line.resolved_account_id]?.account_number ?? '') : '',
+      filterValue: (line: ImportLine) => {
+        if (line.mapping_status === 'skipped') return 'excluded'
         if (line.resolved_account_id && accountMap[line.resolved_account_id]) {
-          const acct = accountMap[line.resolved_account_id]
-          return (
-            <div className="text-xs">
-              <span className="font-mono text-gray-700 font-semibold">{acct.account_number}</span>
-              <span className="ml-1 text-gray-500">{acct.account_name}</span>
-            </div>
-          )
+          const a = accountMap[line.resolved_account_id]
+          return `${a.account_number} ${a.account_name}`
         }
-        return <span className="text-xs text-amber-500 italic">No match — will create</span>
+        return looksLikeTotalRow(line) ? 'total header row' : 'will create new'
       },
+      render: (line: ImportLine) => getMappingStatusLabel(line, accountMap),
     },
     {
       key: 'fsli',
@@ -714,6 +752,13 @@ export function MappingWorkbenchPage() {
       icon: Plus,
       hidden: (row) => row.mapping_status !== 'unmapped',
       onClick: (row) => setCreateLineId(row.id),
+    },
+    {
+      key: 'mark_total_row',
+      label: 'Exclude — Total / Header Row',
+      icon: SkipForward,
+      hidden: (row) => row.mapping_status !== 'unmapped',
+      onClick: (row) => skipMutation.mutate(row.id),
     },
     {
       key: 'skip_line',

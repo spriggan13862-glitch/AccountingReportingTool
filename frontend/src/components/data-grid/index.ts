@@ -1,6 +1,7 @@
 export { AccountingDataGrid } from './AccountingDataGrid'
 export type { AccountingDataGridProps } from './AccountingDataGrid'
 export { BatchActionBar } from './BatchActionBar'
+export { ColumnFilterMenu } from './ColumnFilterMenu'
 export { GridToolbar } from './GridToolbar'
 export { GridPagination } from './GridPagination'
 export { RowActionMenu } from './RowActionMenu'
@@ -11,6 +12,7 @@ export type {
   GridCellContext,
   GridDensity,
   GridState,
+  ColumnFilterMode,
   RowAction,
   BatchAction,
   UndoConfig,

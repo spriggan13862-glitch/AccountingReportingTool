@@ -21,6 +21,8 @@ export interface GridColumn<T> {
   hidden?: boolean
   sortable?: boolean
   filterable?: boolean
+  /** 'text' for contains filter (default), 'numeric' for min/max range */
+  filterType?: 'text' | 'numeric'
   /** Sorting + global search: extract comparable primitive */
   sortValue?: (row: T) => string | number | null | undefined
   /** Override search text (defaults to sortValue) */
@@ -60,6 +62,8 @@ export interface BatchAction<T> {
 // Grid state
 // ---------------------------------------------------------------------------
 
+export type ColumnFilterMode = 'contains' | 'blank' | 'nonblank'
+
 export interface GridState {
   search: string
   sortKey: string | null
@@ -69,6 +73,9 @@ export interface GridState {
   density: GridDensity
   hiddenColumns: Set<string>
   columnFilters: Record<string, string>
+  columnFilterModes: Record<string, ColumnFilterMode>
+  columnFilterMin: Record<string, string>
+  columnFilterMax: Record<string, string>
 }
 
 // ---------------------------------------------------------------------------
