@@ -1,6 +1,6 @@
 import { useState, Fragment } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
 import type { OverlayLineItem } from '@/types'
 
@@ -10,10 +10,13 @@ interface OverlayComparisonTableProps {
   className?: string
 }
 
-function fmt(val: string | number) {
-  const n = typeof val === 'string' ? parseFloat(val) : val
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | number) => {
+    const n = typeof val === 'string' ? parseFloat(val) : val
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
 function adjColor(val: string) {
@@ -70,6 +73,7 @@ export function OverlayComparisonTable({
   onDrilldown,
   className,
 }: OverlayComparisonTableProps) {
+  const fmt = useFmt()
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
   const [typeFilter, setTypeFilter] = useState<string | null>(null)
   const [showOnlyChanged, setShowOnlyChanged] = useState(false)

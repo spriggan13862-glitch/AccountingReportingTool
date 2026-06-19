@@ -119,6 +119,12 @@ vi.mock('@/providers/OrgProvider', () => ({
   OrgProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+vi.mock('@/api/reportingSettings', () => ({
+  reportingSettingsApi: {
+    get: vi.fn().mockResolvedValue({ decimal_places: 0, currency_symbol: '$', negative_format: 'parentheses' }),
+  },
+}))
+
 // ---- tests ------------------------------------------------------------------
 
 describe('Milestone 18: Draft Overlay Preview', () => {
@@ -140,7 +146,7 @@ describe('Milestone 18: Draft Overlay Preview', () => {
   })
 
   it('OverlaySummaryCard displays official, adjustment, and preview totals', () => {
-    render(<OverlaySummaryCard result={mockResult} />)
+    render(wrap(<OverlaySummaryCard result={mockResult} />))
     expect(screen.getByTestId('overlay-summary-card')).toBeInTheDocument()
     expect(screen.getByText(/Official \(Posted\)/i)).toBeInTheDocument()
     expect(screen.getByText(/Draft Adjustment/i)).toBeInTheDocument()
@@ -149,7 +155,7 @@ describe('Milestone 18: Draft Overlay Preview', () => {
   })
 
   it('OverlayComparisonTable renders all account rows', () => {
-    render(<OverlayComparisonTable lineItems={mockLineItems} />)
+    render(wrap(<OverlayComparisonTable lineItems={mockLineItems} />))
     expect(screen.getByTestId('overlay-comparison-table')).toBeInTheDocument()
     expect(screen.getByText(/1000/)).toBeInTheDocument()
     expect(screen.getByText(/4000/)).toBeInTheDocument()
@@ -157,13 +163,13 @@ describe('Milestone 18: Draft Overlay Preview', () => {
   })
 
   it('OverlayComparisonTable shows "synthetic RE" label for RE rollforward rows', () => {
-    render(<OverlayComparisonTable lineItems={mockLineItems} />)
+    render(wrap(<OverlayComparisonTable lineItems={mockLineItems} />))
     expect(screen.getByText(/synthetic RE/i)).toBeInTheDocument()
   })
 
   it('OverlayComparisonTable calls onDrilldown when a changed account is clicked', () => {
     const onDrilldown = vi.fn()
-    render(<OverlayComparisonTable lineItems={mockLineItems} onDrilldown={onDrilldown} />)
+    render(wrap(<OverlayComparisonTable lineItems={mockLineItems} onDrilldown={onDrilldown} />))
 
     // Cash row has a draft adjustment of 500 → should be clickable
     const cashCell = screen.getByText(/1000 — Cash/)
@@ -182,7 +188,7 @@ describe('Milestone 18: Draft Overlay Preview', () => {
       source_je_ids: [],
       overlay_groups_used: [],
     }
-    render(<OverlayComparisonTable lineItems={[...mockLineItems, unchanged]} />)
+    render(wrap(<OverlayComparisonTable lineItems={[...mockLineItems, unchanged]} />))
 
     // Toggle "show only changed"
     const checkbox = screen.getByRole('checkbox', { name: /show only changed/i })
@@ -212,7 +218,7 @@ describe('Milestone 18: Draft Overlay Preview', () => {
   })
 
   it('OverlayComparisonTable expand/collapse shows source JE info', () => {
-    render(<OverlayComparisonTable lineItems={mockLineItems} />)
+    render(wrap(<OverlayComparisonTable lineItems={mockLineItems} />))
     // Cash row has source_je_ids=[42], so expand button should be present
     const expandBtns = screen.getAllByRole('button', { name: /Toggle detail/ })
     expect(expandBtns.length).toBeGreaterThan(0)

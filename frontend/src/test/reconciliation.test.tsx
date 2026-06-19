@@ -133,6 +133,12 @@ vi.mock('@/api/reconciliation', () => ({
   },
 }))
 
+vi.mock('@/api/reportingSettings', () => ({
+  reportingSettingsApi: {
+    get: vi.fn().mockResolvedValue({ decimal_places: 0, currency_symbol: '$', negative_format: 'parentheses' }),
+  },
+}))
+
 vi.mock('@/providers/OrgProvider', () => ({
   useOrg: () => ({ org: { id: 1, name: 'Acme' }, setOrg: vi.fn() }),
   OrgProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -155,14 +161,14 @@ describe('Milestone 19: Reconciliation and Rollforward', () => {
   })
 
   it('VarianceBadge renders variance and tie-out status', () => {
-    render(<VarianceBadge variance="100.00" tieOutStatus="in_tolerance" />)
+    render(wrap(<VarianceBadge variance="100.00" tieOutStatus="in_tolerance" />))
     expect(screen.getByTestId('variance-badge')).toBeInTheDocument()
     expect(screen.getByTestId('tie-out-badge')).toHaveTextContent('In Tolerance')
     expect(screen.getByText(/\$100/)).toBeInTheDocument()
   })
 
   it('VarianceBadge shows Out of Tolerance when tie-out status is out_of_tolerance', () => {
-    render(<VarianceBadge variance="500.00" tieOutStatus="out_of_tolerance" />)
+    render(wrap(<VarianceBadge variance="500.00" tieOutStatus="out_of_tolerance" />))
     expect(screen.getByTestId('tie-out-badge')).toHaveTextContent('Out of Tolerance')
   })
 
@@ -200,7 +206,7 @@ describe('Milestone 19: Reconciliation and Rollforward', () => {
   })
 
   it('RollforwardTable renders all lines with subtotal highlighted', () => {
-    render(<RollforwardTable title="Cash Rollforward" lines={mockRollforward} />)
+    render(wrap(<RollforwardTable title="Cash Rollforward" lines={mockRollforward} />))
     expect(screen.getByTestId('rollforward-table')).toBeInTheDocument()
     expect(screen.getByText(/Opening Cash Balance/)).toBeInTheDocument()
     expect(screen.getByText(/Closing Cash Balance/)).toBeInTheDocument()
@@ -208,7 +214,7 @@ describe('Milestone 19: Reconciliation and Rollforward', () => {
   })
 
   it('ReconciliationTable renders rows with status and variance', () => {
-    render(<ReconciliationTable reconciliations={[mockRecon]} />)
+    render(wrap(<ReconciliationTable reconciliations={[mockRecon]} />))
     expect(screen.getByTestId('reconciliation-table')).toBeInTheDocument()
     expect(screen.getByTestId(`recon-row-${mockRecon.id}`)).toBeInTheDocument()
     expect(screen.getByText(/Prepared/)).toBeInTheDocument()
@@ -216,7 +222,7 @@ describe('Milestone 19: Reconciliation and Rollforward', () => {
 
   it('ReconciliationTable calls onSelect when row clicked', () => {
     const onSelect = vi.fn()
-    render(<ReconciliationTable reconciliations={[mockRecon]} onSelect={onSelect} />)
+    render(wrap(<ReconciliationTable reconciliations={[mockRecon]} onSelect={onSelect} />))
     fireEvent.click(screen.getByTestId(`recon-row-${mockRecon.id}`))
     expect(onSelect).toHaveBeenCalledWith(mockRecon)
   })

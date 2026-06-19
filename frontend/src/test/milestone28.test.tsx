@@ -101,6 +101,36 @@ vi.mock('@/api/journalEntries', () => ({
   },
 }))
 
+vi.mock('@/api/importRegistry', () => ({
+  importRegistryApi: {
+    list: vi.fn().mockResolvedValue([
+      { id: 'r1', source_module: 'tb_import', source_id: 1, filename: 'tb.csv',
+        entity_id: 1, source_entity_name: 'Acme Corp', status: 'mapping_required',
+        line_count: 50, description: '', created_at: '2024-12-31T12:00:00Z',
+        basis_of_accounting: null, statement_date: '2024-12-31' },
+    ]),
+  },
+}))
+
+vi.mock('@/api/pdfImport', () => ({
+  pdfImportApi: { list: vi.fn().mockResolvedValue([]) },
+}))
+
+vi.mock('@/api/coaImport', () => ({
+  coaImportApi: { list: vi.fn().mockResolvedValue([]) },
+}))
+
+vi.mock('@/providers/WorkspaceProvider', () => ({
+  useWorkspace: () => ({ activeEntity: { id: 1 }, activePeriod: null }),
+  WorkspaceProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+vi.mock('@/api/reportingSettings', () => ({
+  reportingSettingsApi: {
+    get: vi.fn().mockResolvedValue({ decimal_places: 0, currency_symbol: '$', negative_format: 'parentheses' }),
+  },
+}))
+
 // Onboarding status fetch mock
 globalThis.fetch = vi.fn().mockResolvedValue({
   ok: true,
