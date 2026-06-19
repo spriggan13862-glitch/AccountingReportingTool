@@ -36,6 +36,57 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v15 · Import Architecture + JE Detail + Account Label Parser',
+    date: '2026-06-18',
+    items: [
+      'Import: TB-only import now auto-creates COA accounts from imported rows — no pre-existing chart of accounts required',
+      'Import: combined account field parser expanded to handle colon (6100: Cash) and middle-dot (6100 · Cash) separators',
+      'Import: Import Readiness Matrix shown on step 1 after selecting entity — displays COA, balances, GL detail, taxonomy %, and three readiness gates (Statements / Bridge / Drilldown)',
+      'Import: contextual warning banners for mismatched state (TB without COA, COA without TB, GL without opening balance)',
+      'Import: new GET /tb-imports/readiness/{entity_id} API endpoint',
+      'JE Detail: account number and account name now shown on each line (not raw database ID)',
+      'JE Detail: ← Back button added; amounts formatted via global reporting settings (symbol, decimal places, negative format)',
+      'JE Detail: Acct # and Account Name column headers; Difference row in totals footer',
+      'Adjustment Workbench: expanded JE line rows align under Account #, Account Name, Debit, Credit, NI Impact column headers',
+      'Adjustment Workbench: Totals row in expanded block shows summed Debit and Credit',
+      'parseAccountLabel utility (frontend): splits "NNNN Name" / "NNNN - Name" / "NNNN: Name" into {account_number, account_name}',
+      'Import wizard step 3 preview: scrollable container (overflow-auto) for wide column mapping tables',
+    ],
+  },
+  {
+    version: 'v14 · Sprint 4.0 UX Audit',
+    date: '2026-06-18',
+    items: [
+      'Bridge: optional Variance column (toggle on/off) showing difference between As Reported and Adjusted Balance',
+      'Bridge: individual AJE columns, Total AJEs column, Adjusted Balance updates with AJE total',
+      'Financial Statements: drilldown entries sorted Date ASC then JE# ASC; Running Balance column; ASC/DESC sort toggle',
+      'Financial Statements: Cash Flow from_date now uses period start (was same day as to_date — incorrect)',
+      'Financial Statements: period start respects fiscal year (was hardcoded Jan 1 for all entities)',
+      'Financial Statements: taxonomy rollup no longer double-counts intermediate nodes in multi-level trees',
+      'Reporting Views: new view creation clones from an existing view (default GAAP) — copies full taxonomy structure',
+      'Chart of Accounts: mapping badges now horizontal; AI-suggested taxonomy shown inline; Mapped/Unmapped filter chips',
+      'Adjustment Workbench: Net Impact column per JE line; sortable column headers on all main table columns',
+      'Consolidations: Consolidation Groups workflow (save/load named entity sets); Entities tab; Taxonomy Mapping tab',
+    ],
+  },
+  {
+    version: 'v13 · CPA Bridge Engine Rebuild (Phase 11)',
+    date: '2026-06-17',
+    items: [
+      'Bridge: sign convention engine — debit-normal and credit-normal accounts shown with correct positive balance (assets, expenses positive; liabilities, equity, revenue positive)',
+      'Bridge: As Reported column now reads actual imported GL balances, not hardcoded zeros',
+      'Bridge: hierarchical layout — Assets / Liabilities / Equity / Revenue / Expenses section headers with subtotals, collapsible',
+      'Bridge: Adjusted and Pro Forma reporting basis selector — toggle between posted-only and posted + draft AJEs',
+      'Bridge: click any AJE column header to open a JE summary panel (description, date, status, Total Dr/Cr)',
+      'Bridge: click any account row to open an account drilldown panel showing per-AJE impact breakdown',
+      'Bridge: account search/filter bar and Export CSV button',
+      'Bridge: no longer requires /compute — computes directly from JEs on every page load',
+      'Financial Statements: currency formatting (symbol, decimal places, negative format) now driven by Reporting Settings instead of hardcoded 2-decimal locale format',
+      'Financial Statements: same reporting basis concept (As Reported / Adjusted / Pro Forma) available via the Official Only and Include Draft Adjustments toggles',
+      'Adjustment Workbench: reporting settings-driven formatting already applied in Phase 10A — consistent across Workbench, Bridge, and Financial Statements',
+    ],
+  },
+  {
     version: 'v12 · Adjustment Workbench + Bridge UX Fixes (Phase 10A)',
     date: '2026-06-17',
     items: [
