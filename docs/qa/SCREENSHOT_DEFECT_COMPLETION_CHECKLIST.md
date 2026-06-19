@@ -1,6 +1,6 @@
 # Screenshot Defect Completion Checklist
 
-Last updated: 2026-06-19
+Last updated: 2026-06-19 (rev 2)
 
 ## Status key
 - DONE — verified rendered, files changed
@@ -37,14 +37,18 @@ Last updated: 2026-06-19
 
 ## 3. Global Number Formatting
 
-**Status: PARTIAL**
+**Status: DONE**
 
-- File changed: `frontend/src/pages/TrialBalanceImportPage.tsx` — removed stale `import { formatCurrencyCompact } from '@/lib/format'` raw import; all currency now goes through `useFormatCurrencyCompact` hook
-- MappingWorkbenchPage: already uses `useFormatCurrency()` hook
-- FinancialStatementsPage: already uses `useFormatCurrency()` hook via `makeFmt()`
-- AdjustmentWorkspacePage: already uses `useFormatCurrency()` hook
-- Remaining audit needed: check if any pages still have stale raw `formatCurrency`/`formatCurrencyCompact` direct function calls for displayed balances
-- NOT DONE: end-to-end verification that actuals setting propagates consistently across Bridge, Consolidation, Intelligence, Deliverables pages
+- All module-scope `fmt()` wrappers that called raw `formatCurrencyCompact` converted to hook pattern:
+  - `OverlaySummaryCard.tsx` — `useFmt()` hook added, `fmt` called inside component
+  - `ReconciliationTable.tsx` — same pattern
+  - `RollforwardTable.tsx` — same pattern
+  - `VarianceBadge.tsx` — same pattern
+  - `DraftPreviewPage.tsx` — same pattern
+  - `ScenarioManagerPage.tsx` — same pattern
+  - `TrialBalanceImportPage.tsx` — stale raw import removed (prior commit)
+- MappingWorkbenchPage, FinancialStatementsPage, AdjustmentWorkspacePage: already on hook
+- Limitation: PDFImportPage uses direct `formatCurrency` for extraction-detail display (2dp precision for source data, intentional — not a reporting screen)
 
 ---
 
@@ -53,23 +57,24 @@ Last updated: 2026-06-19
 **Status: PARTIAL**
 
 - Route: `/financial-statements`
-- FinancialStatementsPage already renders multi-column mode (Imported Balance, Posted Adj., Draft Adj., Adjusted Balance) when `computedBsRows` has data
-- The `(1)` count is the `account_count` badge next to line names — intentional, shows how many accounts roll into that FSLI
-- Balances show as $0 when no trial balance has been imported for the selected entity/period
-- Drilldown from taxonomy line to account detail is already wired
-- NOT DONE: drilldown from FSLI to list of contributing accounts (only drilldown to JE adjustments is implemented)
+- Multi-column mode (Imported Balance, Posted Adj., Draft Adj., Adjusted Balance) already renders when `computedBsRows` has data
+- Added: zero-balance warning banner when accounts are mapped (`mappedCount > 0`) but all balance columns are $0 — directs user to import a trial balance or post JEs
+- The `(1)` count is the `account_count` badge — intentional, shows rollup account count
+- Drilldown from taxonomy line to account detail is wired
+- NOT DONE: drilldown from FSLI to contributing account list (only JE-level drilldown exists)
 
 ---
 
 ## 5. Import Center Empty / Stale State
 
-**Status: NOT DONE**
+**Status: PARTIAL**
 
 - Route: `/import`
-- The readiness matrix renders from `importRegistryApi.list(entityId)` — already scoped to selected entity
-- Stale data issue: switching entity updates the query key but old entity's data may linger until refetch
-- Required fix: add `period` dimension to the registry query key + show "no data for this period" when registry entries don't match the current entity/period selection
-- Blocked by: no period filter parameter on `importRegistryApi.list()` in current API
+- File changed: `frontend/src/pages/ImportCenterPage.tsx`
+- Fixed: `ImportReadinessMatrix` now only renders when `registryEntries.length > 0`; explicit empty state shown when entity is selected but has no registry entries ("No imports for this entity yet")
+- Fixed: `totalUnmappedAccounts` now scoped to TB batches linked through the current entity's registry entries (was previously summing all TB batches regardless of entity)
+- Fixed: removed cross-entity batch fallback that caused stale data from other entities to appear
+- Remaining limitation: no period-dimension filter — switching period on same entity doesn't re-filter (needs `importRegistryApi.list(entityId, periodId)` API change)
 
 ---
 
@@ -145,11 +150,11 @@ Last updated: 2026-06-19
 **Status: PARTIAL**
 
 - Route: `/adjustments` (AdjustmentWorkspacePage)
-- NI Impact and BS Impact columns already exist in the main table
-- Parent row shows aggregate Total Dr / Total Cr / NI Impact / BS Impact — these are correct totals for the JE
-- Issue reported: parent row "implies DR and CR hit same account" — this is misleading because the parent row summary shows the JE total, not a per-account breakdown
-- Expanded line detail already shows actual DR/CR per account line
-- NOT DONE: summary row showing grand totals across all JEs (currently each JE parent row shows its own totals)
+- File changed: `frontend/src/pages/AdjustmentWorkspacePage.tsx`
+- Added: grand total footer row below all JEs showing sum of Total Dr, Total Cr, NI Impact, BS Impact across all `sortedItems` — only shown when `sortedItems.length > 1`
+- NI Impact / BS Impact in the footer row are color-coded (emerald = positive, rose = negative, slate = zero)
+- Each JE parent row still shows its own per-JE totals; expanded lines show per-account DR/CR
+- NOT DONE: exposing a per-account breakdown in the parent row (by design — that data is in expanded lines)
 
 ---
 
@@ -185,9 +190,9 @@ Last updated: 2026-06-19
 |---|------|--------|
 | 1 | Import Step 3 Scrolling | DONE |
 | 2 | Global Column Filters | PARTIAL |
-| 3 | Global Number Formatting | PARTIAL |
+| 3 | Global Number Formatting | DONE |
 | 4 | Financial Statements Balances | PARTIAL |
-| 5 | Import Center Empty/Stale State | NOT DONE |
+| 5 | Import Center Empty/Stale State | PARTIAL |
 | 6 | Data Category Logic | NOT DONE |
 | 7 | Raw Preview | DONE |
 | 8 | Mapping Workbench Language | DONE |
