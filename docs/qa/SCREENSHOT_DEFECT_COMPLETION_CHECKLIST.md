@@ -80,13 +80,15 @@ Last updated: 2026-06-19 (rev 2)
 
 ## 6. Data Category Logic
 
-**Status: NOT DONE**
+**Status: PARTIAL**
 
-- ScenarioSelect shows custom scenario names from the database
-- Standard categories (Actual, Budget, Forecast, Pro Forma, Tax, Management) would require seeding default scenarios or a separate category enum field
-- Requires backend schema change: add `data_category` enum to scenarios table
-- Display "Actual — ACME" format: already partially done in ScenarioSelect label rendering
-- BLOCKED: needs backend API + alembic migration
+- File changed: `frontend/src/components/ui/ContextBar.tsx`
+- ContextBar selected scenario label now shows: `Actuals — ACT2024` (type label — code) instead of bare code — name
+- Dropdown items: color-coded type chip (emerald=Actuals, blue=Budget, sky=Forecast, violet=Topside, amber=Pro Forma, purple=Eliminations, rose=Carveout) + code + name
+- `ScenarioSelect` already showed `TYPE_LABELS[s.scenario_type] — code` in `<option>` text
+- Backend `scenario_type` field already covers: actual, budget, forecast, pro_forma, topside, elimination, carveout
+- NOT DONE: "Tax" and "Management" categories not in backend VALID_TYPES; would need migration to add them
+- NOT DONE: no ability to filter by category without selecting a specific scenario
 
 ---
 
@@ -193,7 +195,7 @@ Last updated: 2026-06-19 (rev 2)
 | 3 | Global Number Formatting | DONE |
 | 4 | Financial Statements Balances | PARTIAL |
 | 5 | Import Center Empty/Stale State | PARTIAL |
-| 6 | Data Category Logic | NOT DONE |
+| 6 | Data Category Logic | PARTIAL |
 | 7 | Raw Preview | DONE |
 | 8 | Mapping Workbench Language | DONE |
 | 9 | Total Row Exclusion | DONE |
