@@ -108,6 +108,26 @@ const ENTITY_TYPE_CHIP: Record<string, string> = {
   carveout: 'bg-sky-50 text-sky-700 border-sky-200',
 }
 
+const SCENARIO_TYPE_LABELS: Record<string, string> = {
+  actual: 'Actuals',
+  topside: 'Topside',
+  pro_forma: 'Pro Forma',
+  elimination: 'Eliminations',
+  carveout: 'Carveout',
+  budget: 'Budget',
+  forecast: 'Forecast',
+}
+
+const SCENARIO_TYPE_CHIP: Record<string, string> = {
+  actual: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  budget: 'bg-blue-50 text-blue-700 border-blue-200',
+  forecast: 'bg-sky-50 text-sky-700 border-sky-200',
+  topside: 'bg-violet-50 text-violet-700 border-violet-200',
+  pro_forma: 'bg-amber-50 text-amber-700 border-amber-200',
+  elimination: 'bg-purple-50 text-purple-700 border-purple-200',
+  carveout: 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
 function renderItem(item: unknown): React.ReactNode {
   if (isEntity(item)) return (
     <>
@@ -121,7 +141,15 @@ function renderItem(item: unknown): React.ReactNode {
     </>
   )
   if (isPeriod(item)) return <span>{item.period_name} <span className="text-gray-400">({item.start_date})</span></span>
-  if (isScenario(item)) return <><span className="font-mono text-gray-500 w-12 shrink-0">{item.code}</span><span>{item.name}</span></>
+  if (isScenario(item)) return (
+    <>
+      <span className={`text-[9px] font-semibold border rounded px-1 py-0.5 shrink-0 ${SCENARIO_TYPE_CHIP[item.scenario_type] ?? 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+        {SCENARIO_TYPE_LABELS[item.scenario_type] ?? item.scenario_type}
+      </span>
+      <span className="font-mono text-gray-500 w-10 shrink-0">{item.code}</span>
+      <span className="flex-1">{item.name}</span>
+    </>
+  )
   return null
 }
 
@@ -251,7 +279,7 @@ export function ContextBar() {
         <ContextDropdown
           type="scenario"
           icon={GitBranch}
-          label={activeScenario ? `${activeScenario.code} — ${activeScenario.name}` : null}
+          label={activeScenario ? `${SCENARIO_TYPE_LABELS[activeScenario.scenario_type] ?? activeScenario.scenario_type} — ${activeScenario.code}` : null}
           items={scenarios}
           selected={activeScenario}
           onSelect={(s: Scenario) => setActiveScenarioIds([s.id])}
