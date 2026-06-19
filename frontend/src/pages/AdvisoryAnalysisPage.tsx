@@ -4,7 +4,7 @@ import {
   BarChart3, Download, Loader, ChevronDown, ChevronRight,
   TrendingUp, ClipboardCheck, Building2, Calculator,
 } from 'lucide-react'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
@@ -27,16 +27,22 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function fmtAmt(val: string | null | undefined): string {
-  const n = parseFloat(String(val ?? '0'))
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function fmtAmtFactory() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | null | undefined) => {
+    const n = parseFloat(String(val ?? '0'))
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
-function fmtDollar(val: string | null | undefined): string {
-  const n = parseFloat(String(val ?? '0'))
-  if (isNaN(n)) return '—'
-  return formatCurrencyCompact(n)
+function fmtDollarFactory() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | null | undefined) => {
+    const n = parseFloat(String(val ?? '0'))
+    if (isNaN(n)) return '—'
+    return fmt(n)
+  }
 }
 
 type TabId = 'ebitda' | 'qoe' | 'sba' | 'dscr'
@@ -57,6 +63,7 @@ function LineItemsTable({ items, totalLabel, total }: {
   totalLabel: string
   total: string
 }) {
+  const fmtAmt = fmtAmtFactory()
   return (
     <div data-testid="line-items-table">
       {items.length === 0 ? (
@@ -116,6 +123,8 @@ function LineItemsTable({ items, totalLabel, total }: {
 // ---------------------------------------------------------------------------
 
 function EBITDABridgeTab({ bridge }: { bridge: EBITDABridge }) {
+  const fmtAmt = fmtAmtFactory()
+  const fmtDollar = fmtDollarFactory()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   function toggle(cat: string) {
@@ -238,6 +247,7 @@ function DSCRTab({
   annualDebtService: number
   onDebtServiceChange: (val: number) => void
 }) {
+  const fmtDollar = fmtDollarFactory()
   const dscrVal = dscr ? parseFloat(dscr.dscr ?? '0') : null
   const coverageColor =
     dscrVal === null ? 'text-slate-500'
@@ -313,6 +323,7 @@ function DSCRTab({
 // ---------------------------------------------------------------------------
 
 export function AdvisoryAnalysisPage() {
+  const fmtAmt = fmtAmtFactory()
   const [activeTab, setActiveTab] = useState<TabId>('ebitda')
   const [entityId, setEntityId] = useState<number | ''>('')
   const [selectedScenarioIds, setSelectedScenarioIds] = useState<number[]>([])

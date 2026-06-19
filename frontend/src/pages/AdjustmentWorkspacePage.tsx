@@ -363,7 +363,7 @@ export function AdjustmentWorkspacePage() {
       else if (sortKey === 'total_credit') { av = a.total_credit; bv = b.total_credit }
       else if (sortKey === 'ni_impact') { av = a.impact.ni_impact; bv = b.impact.ni_impact }
       const cmp = typeof av === 'number'
-        ? av - bv
+        ? av - (bv as number)
         : String(av).localeCompare(String(bv), undefined, { numeric: true })
       return sortDir === 'asc' ? cmp : -cmp
     })

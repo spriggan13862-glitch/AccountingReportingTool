@@ -130,6 +130,8 @@ export function TrialBalanceImportPage() {
     return detected?.sheets?.find((s: any) => s.name === selectedSheet)
   }, [detected, selectedSheet])
 
+  const fmt = useFormatCurrencyCompact()
+
   const { headers, previewRows } = useMemo(() => {
     if (!detected) return { headers: [], previewRows: [] }
     if (!detected.sheets || detected.sheets.length === 0) {
@@ -220,7 +222,7 @@ export function TrialBalanceImportPage() {
   })
 
   const uploadMutation = useMutation({
-    mutationFn: (force = false) => {
+    mutationFn: (force: boolean = false) => {
       if (!file || !entityId || !asOfDate) throw new Error('Entity and date are required')
       return tbImportApi.uploadBatch({
         entity_id: entityId as number,
@@ -706,7 +708,7 @@ export function TrialBalanceImportPage() {
                 <button
                   type="button"
                   disabled={!colMapping['account_number'] || uploadMutation.isPending}
-                  onClick={() => uploadMutation.mutate()}
+                  onClick={() => uploadMutation.mutate(false)}
                   className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   {uploadMutation.isPending ? 'Uploading…' : 'Process & Validate'}
@@ -784,14 +786,8 @@ export function TrialBalanceImportPage() {
                 columns={[
                   { key: 'raw_account_number', header: 'Account Number', render: (r: any) => <span className="font-semibold text-gray-800">{r.raw_account_number ?? '—'}</span> },
                   { key: 'raw_account_name', header: 'Account Name', render: (r: any) => <span className="text-gray-600 font-medium">{r.raw_account_name ?? '—'}</span> },
-                  { key: 'debit', header: 'Debit', render: (r: any) => {
-                    const fmtCompact = useFormatCurrencyCompact()
-                    return r.debit && parseFloat(r.debit) !== 0 ? fmtCompact(parseFloat(r.debit)) : '—'
-                  } },
-                  { key: 'credit', header: 'Credit', render: (r: any) => {
-                    const fmtCompact = useFormatCurrencyCompact()
-                    return r.credit && parseFloat(r.credit) !== 0 ? fmtCompact(parseFloat(r.credit)) : '—'
-                  } },
+                  { key: 'debit', header: 'Debit', render: (r: any) => (r.debit && parseFloat(r.debit) !== 0 ? fmt(parseFloat(r.debit)) : '—') },
+                  { key: 'credit', header: 'Credit', render: (r: any) => (r.credit && parseFloat(r.credit) !== 0 ? fmt(parseFloat(r.credit)) : '—') },
                   { key: 'mapping_status', header: 'Status', render: (r: any) => <span className={r.mapping_status === 'mapped' ? 'text-emerald-600 text-[10px] font-semibold' : 'text-amber-600 text-[10px]'}>{r.mapping_status}</span> },
                 ]}
                 rowKey={(r: any) => String(r.line_number ?? Math.random())}

@@ -228,7 +228,7 @@ export function ImportWizardPage() {
   })
 
   const uploadMutation = useMutation({
-    mutationFn: (force = false) => {
+    mutationFn: (force: boolean = false) => {
       if (!file || !entityId || !asOfDate) throw new Error('All fields required')
       return tbImportApi.uploadBatch({
         entity_id: Number(entityId),

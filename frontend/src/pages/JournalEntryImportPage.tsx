@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
@@ -54,6 +54,8 @@ export function JournalEntryImportPage() {
   const [isReversing, setIsReversing] = useState<boolean>(false)
 
   const [apiError, setApiError] = useState<string | null>(null)
+
+  const fmt = useFormatCurrencyCompact()
 
   // Fetch periods to derive as_of_date from selected period's end_date
   const { data: periods = [] } = useQuery<AccountingPeriod[]>({
@@ -482,8 +484,8 @@ export function JournalEntryImportPage() {
                   { key: 'entry_date', header: 'Posting Date', render: (r) => <span className="text-gray-500 font-medium">{r.entry_date}</span> },
                   { key: 'description', header: 'Memo Description', render: (r) => <span className="text-gray-600 truncate max-w-[200px] block">{r.description}</span> },
                   { key: 'line_count', header: 'Lines', render: (r) => <span className="text-slate-500 font-semibold">{r.line_count}</span> },
-                  { key: 'total_debits', header: 'Debits Sum', render: (r) => formatCurrencyCompact(r.total_debits) },
-                  { key: 'total_credits', header: 'Credits Sum', render: (r) => formatCurrencyCompact(r.total_credits) },
+                  { key: 'total_credits', header: 'Credits Sum', render: (r) => fmt(r.total_credits) },
+                  { key: 'total_debits', header: 'Debits Sum', render: (r) => fmt(r.total_debits) },
                   { key: 'status', header: 'Audit Status', render: (r) => r.is_unbalanced ? <span className="text-rose-600 font-semibold">Unbalanced</span> : <span className="text-emerald-600 font-semibold">Balanced</span> },
                 ]}
                 rowKey={(r) => r.je_number}
@@ -522,7 +524,7 @@ export function JournalEntryImportPage() {
             
             <h3 className="text-sm font-bold text-gray-800">Final Confirmation</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed mt-1">
-              You are about to import <span className="font-semibold text-gray-700">{groupedTransactions.length} journal entries</span> totaling <span className="font-semibold text-gray-700">{formatCurrencyCompact(groupedTransactions.reduce((sum, t) => sum + t.total_debits, 0))}</span> into the ledger database.
+              You are about to import <span className="font-semibold text-gray-700">{groupedTransactions.length} journal entries</span> totaling <span className="font-semibold text-gray-700">{fmt(groupedTransactions.reduce((sum, t) => sum + t.total_debits, 0))}</span> into the ledger database.
             </p>
 
             {isReversing && (

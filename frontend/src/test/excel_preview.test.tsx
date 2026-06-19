@@ -5,6 +5,48 @@ import { describe, it, expect, vi } from 'vitest'
 import { ImportWizardPage } from '@/pages/ImportWizardPage'
 import { MappingWorkbenchPage } from '@/pages/MappingWorkbenchPage'
 import { tbImportApi } from '@/api/tbImport'
+import type { ImportBatch, ImportLine, Account, ValidationResponse } from '@/types'
+
+function makeImportBatch(overrides: Partial<ImportBatch> & { id: number }): ImportBatch {
+  return {
+    organization_id: 1, entity_id: 1, period_id: null, scenario_id: null,
+    filename: 'tb.xlsx', source_format: 'xlsx', content_hash: 'hash',
+    column_mapping: {}, as_of_date: '2026-06-30', status: 'mapping_required',
+    row_count: null, mapped_row_count: null, unmapped_row_count: null,
+    total_debits: null, total_credits: null, error_message: null, notes: null,
+    posted_je_id: null, reversal_je_id: null, uploaded_by_user_id: null,
+    reviewed_by_user_id: null, uploaded_at: '2026-06-01T00:00:00Z', reviewed_at: null,
+    ...overrides,
+  }
+}
+
+function makeImportLine(overrides: Partial<ImportLine> & { id: number; batch_id: number; line_number: number }): ImportLine {
+  return {
+    raw_account_number: null, raw_account_name: null, raw_debit: null,
+    raw_credit: null, raw_balance: null, raw_description: null,
+    debit: '0', credit: '0', description: null, resolved_account_id: null,
+    mapping_status: 'unmapped', is_manually_mapped: false, mapped_by_user_id: null,
+    mapped_at: null, suggested_account_id: null, notes: null,
+    ...overrides,
+  }
+}
+
+function makeAccount(overrides: Partial<Account> & { id: number }): Account {
+  return {
+    entity_id: 1, account_number: '1000', account_name: 'Test Account',
+    account_type: 'asset', normal_balance: 'debit', parent_account_id: null,
+    active: true, detail_type: null, account_status: 'active', description: null,
+    tax_line: null, source_system: null, reporting_taxonomy_line_id: null,
+    is_header: false, is_postable: true, fs_sign_convention: null,
+    cfs_section: null, fs_statement: null, fs_section: null, fs_line_label: null,
+    fs_line_order: null, account_path: null, depth_level: null, sort_order: null,
+    ...overrides,
+  }
+}
+
+function makeValidationResponse(overrides: Partial<ValidationResponse> = {}): ValidationResponse {
+  return { success: true, errors: [], warnings: [], info: [], ...overrides }
+}
 
 function makeClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -241,12 +283,12 @@ describe('TrialBalanceImportPage raw preview and mapping', () => {
     const { TrialBalanceImportPage } = await import('@/pages/TrialBalanceImportPage')
     const { tbImportApi } = await import('@/api/tbImport')
 
-    const mockIssues = {
+    const mockIssues = makeValidationResponse({
+      success: false,
       errors: [
-        { code: 'IMPORT_MISSING_MAPPING', severity: 'error', message: 'Line 2: account 1000-01 has no mapping.', suggested_resolution: 'Use the mapping workbench' }
+        { code: 'IMPORT_MISSING_MAPPING', severity: 'error', message: 'Line 2: account 1000-01 has no mapping.', source_type: 'import_line', source_id: null, field_name: null, suggested_resolution: 'Use the mapping workbench' }
       ],
-      warnings: []
-    }
+    })
     vi.mocked(tbImportApi.validateBatch).mockResolvedValueOnce(mockIssues)
 
     render(wrap(<TrialBalanceImportPage />))
@@ -338,7 +380,7 @@ describe('TrialBalanceImportPage raw preview and mapping', () => {
     expect(screen.getByText('View Existing Batch')).toBeInTheDocument()
     expect(screen.getByText('Import Anyway')).toBeInTheDocument()
 
-    vi.mocked(tbImportApi.uploadBatch).mockResolvedValueOnce({ id: 43 })
+    vi.mocked(tbImportApi.uploadBatch).mockResolvedValueOnce(makeImportBatch({ id: 43 }))
     fireEvent.click(screen.getByText('Import Anyway'))
 
     await waitFor(() => {
@@ -349,19 +391,18 @@ describe('TrialBalanceImportPage raw preview and mapping', () => {
 
 describe('MappingWorkbenchPage sub-account indentation and connectors', () => {
   it('renders sub-accounts with indentation and branch connector └─', async () => {
-    const mockBatch = {
+    const mockBatch = makeImportBatch({
       id: 42,
       filename: 'tb_sub.xlsx',
       row_count: 3,
       mapped_row_count: 1,
       unmapped_row_count: 2,
       status: 'mapping_required',
-      entity_id: 1,
-      organization_id: 1,
-    }
+      content_hash: 'mockhash',
+    })
 
     const mockLines = [
-      {
+      makeImportLine({
         id: 101,
         batch_id: 42,
         line_number: 1,
@@ -370,18 +411,30 @@ describe('MappingWorkbenchPage sub-account indentation and connectors', () => {
         mapping_status: 'mapped',
         debit: '100.00',
         credit: '0.00',
-      },
-      {
+        resolved_account_id: 501,
+      }),
+      makeImportLine({
         id: 102,
         batch_id: 42,
         line_number: 2,
         raw_account_number: '1000-01',
         raw_account_name: 'Cash Sub 1',
+        raw_debit: null,
+        raw_credit: null,
+        raw_balance: null,
+        raw_description: null,
         mapping_status: 'unmapped',
         debit: '50.00',
         credit: '0.00',
-      },
-      {
+        description: null,
+        resolved_account_id: null,
+        is_manually_mapped: false,
+        mapped_by_user_id: null,
+        mapped_at: null,
+        suggested_account_id: null,
+        notes: null,
+      }),
+      makeImportLine({
         id: 103,
         batch_id: 42,
         line_number: 3,
@@ -390,7 +443,7 @@ describe('MappingWorkbenchPage sub-account indentation and connectors', () => {
         mapping_status: 'unmapped',
         debit: '50.00',
         credit: '0.00',
-      }
+      }),
     ]
 
     vi.mocked(tbImportApi.getBatch).mockResolvedValue(mockBatch)
@@ -415,19 +468,18 @@ describe('MappingWorkbenchPage sub-account indentation and connectors', () => {
   })
 
   it('allows editing mappings of already mapped accounts', async () => {
-    const mockBatch = {
+    const mockBatch = makeImportBatch({
       id: 42,
       filename: 'tb_sub.xlsx',
       row_count: 1,
       mapped_row_count: 1,
       unmapped_row_count: 0,
       status: 'validating',
-      entity_id: 1,
-      organization_id: 1,
-    }
+      content_hash: 'mockhash',
+    })
 
     const mockLines = [
-      {
+      makeImportLine({
         id: 101,
         batch_id: 42,
         line_number: 1,
@@ -437,11 +489,11 @@ describe('MappingWorkbenchPage sub-account indentation and connectors', () => {
         resolved_account_id: 501,
         debit: '100.00',
         credit: '0.00',
-      }
+      }),
     ]
 
     const mockAccounts = [
-      { id: 501, account_number: '1000', account_name: 'Cash Parent Account', account_type: 'asset', normal_balance: 'debit', entity_id: 1 }
+      makeAccount({ id: 501, account_number: '1000', account_name: 'Cash Parent Account' }),
     ]
 
     const { accountsApi } = await import('@/api/accounts')
@@ -600,7 +652,7 @@ describe('TrialBalanceImportPage: column_mapping sent to uploadBatch', () => {
   it('uploadBatch call does not include column_mapping when no columns assigned', async () => {
     const { TrialBalanceImportPage } = await import('@/pages/TrialBalanceImportPage')
     const { tbImportApi } = await import('@/api/tbImport')
-    vi.mocked(tbImportApi.uploadBatch).mockResolvedValueOnce({ id: 99 })
+    vi.mocked(tbImportApi.uploadBatch).mockResolvedValueOnce(makeImportBatch({ id: 99 }))
 
     render(wrap(<TrialBalanceImportPage />))
 
@@ -642,15 +694,10 @@ describe('TrialBalanceImportPage: column_mapping sent to uploadBatch', () => {
 
 describe('MappingWorkbenchPage: column filters and amount formatting', () => {
   it('renders column filter inputs for source account, status, and FSLI', async () => {
-    const mockBatch = {
-      id: 42, filename: 'tb.xlsx', row_count: 1,
-      mapped_row_count: 0, unmapped_row_count: 1,
-      status: 'mapping_required', entity_id: 1, organization_id: 1,
-    }
+    const mockBatch = makeImportBatch({ id: 42, row_count: 1, unmapped_row_count: 1, content_hash: 'mockhash' })
     vi.mocked(tbImportApi.getBatch).mockResolvedValue(mockBatch)
     vi.mocked(tbImportApi.getBatchLines).mockResolvedValue([
-      { id: 1, batch_id: 42, line_number: 1, raw_account_number: '9999', raw_account_name: 'Test Account',
-        mapping_status: 'unmapped', debit: '0', credit: '500', raw_debit: null, raw_credit: '500', raw_balance: null }
+      makeImportLine({ id: 1, batch_id: 42, line_number: 1, raw_account_number: '9999', raw_account_name: 'Test Account', raw_credit: '500', credit: '500' }),
     ])
     vi.mocked(tbImportApi.getSuggestions).mockResolvedValue([])
 
@@ -661,17 +708,11 @@ describe('MappingWorkbenchPage: column filters and amount formatting', () => {
   })
 
   it('filters rows by source account text', async () => {
-    const mockBatch = {
-      id: 42, filename: 'tb.xlsx', row_count: 2,
-      mapped_row_count: 0, unmapped_row_count: 2,
-      status: 'mapping_required', entity_id: 1, organization_id: 1,
-    }
+    const mockBatch = makeImportBatch({ id: 42, row_count: 2, mapped_row_count: 0, unmapped_row_count: 2 })
     vi.mocked(tbImportApi.getBatch).mockResolvedValue(mockBatch)
     vi.mocked(tbImportApi.getBatchLines).mockResolvedValue([
-      { id: 1, batch_id: 42, line_number: 1, raw_account_number: '1000', raw_account_name: 'Cash',
-        mapping_status: 'unmapped', debit: '1000', credit: '0', raw_debit: '1000', raw_credit: null, raw_balance: null },
-      { id: 2, batch_id: 42, line_number: 2, raw_account_number: '4000', raw_account_name: 'Revenue',
-        mapping_status: 'unmapped', debit: '0', credit: '5000', raw_debit: null, raw_credit: '5000', raw_balance: null },
+      makeImportLine({ id: 1, batch_id: 42, line_number: 1, raw_account_number: '1000', raw_account_name: 'Cash', raw_debit: '1000', debit: '1000' }),
+      makeImportLine({ id: 2, batch_id: 42, line_number: 2, raw_account_number: '4000', raw_account_name: 'Revenue', raw_credit: '5000', credit: '5000' }),
     ])
     vi.mocked(tbImportApi.getSuggestions).mockResolvedValue([])
 

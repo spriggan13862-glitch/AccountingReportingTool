@@ -10,13 +10,16 @@ import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { getDiagnostics, listRepository, type DiagnosticsResult, type IssueTemplate } from '@/api/accountingIntelligence'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 
-function fmtAmt(val: string | null | undefined): string {
-  if (!val) return '—'
-  const n = parseFloat(val)
-  if (isNaN(n)) return val
-  return formatCurrencyCompact(n)
+function useFmtAmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | null | undefined) => {
+    if (!val) return '—'
+    const n = parseFloat(val)
+    if (isNaN(n)) return val
+    return fmt(n)
+  }
 }
 
 function fmtRatio(val: string | null | undefined, decimals = 2): string {
@@ -67,6 +70,7 @@ function RatioSection({ data }: { data: DiagnosticsResult }) {
   const gm = data.gross_margin_pct ? parseFloat(data.gross_margin_pct) : null
   const de = data.debt_to_equity ? parseFloat(data.debt_to_equity) : null
   const roa = data.roa ? parseFloat(data.roa) : null
+  const fmtAmt = useFmtAmt()
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4" data-testid="ratio-analysis">
@@ -105,6 +109,7 @@ function RatioSection({ data }: { data: DiagnosticsResult }) {
 }
 
 function IncomeSection({ data }: { data: DiagnosticsResult }) {
+  const fmtAmt = useFmtAmt()
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4" data-testid="income-analysis">
       <div className="flex items-center gap-2 mb-3">
@@ -126,6 +131,7 @@ function IncomeSection({ data }: { data: DiagnosticsResult }) {
 }
 
 function BalanceSheetSection({ data }: { data: DiagnosticsResult }) {
+  const fmtAmt = useFmtAmt()
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4" data-testid="balance-sheet-analysis">
       <div className="flex items-center gap-2 mb-3">
@@ -219,6 +225,7 @@ function RelatedIssueTemplates({ data }: { data: DiagnosticsResult }) {
 }
 
 function BalanceValidation({ data }: { data: DiagnosticsResult }) {
+  const fmtAmt = useFmtAmt()
   const { balanced, assets, liabilities_plus_equity } = data.balance_check
   return (
     <div className="bg-white border border-slate-200 rounded-lg p-4" data-testid="balance-validation">

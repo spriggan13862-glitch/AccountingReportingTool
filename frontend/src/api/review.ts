@@ -53,6 +53,7 @@ export interface VarianceRow {
   amount_delta: number
   pct_delta: number | null
   flag: boolean
+  is_subtotal?: boolean
 }
 
 export interface CheckResult {

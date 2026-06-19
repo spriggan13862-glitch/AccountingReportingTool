@@ -16,7 +16,7 @@ import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { periodsApi } from '@/api/periods'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -32,11 +32,14 @@ const SEV_CONFIG: Record<IssueSeverity, { label: string; bg: string; border: str
   informational: { label: 'Informational', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-600', icon: Info, dot: 'bg-gray-300' },
 }
 
-function fmt(n: number | undefined | null, unit: 'amount' | 'percent' | 'ratio' = 'amount'): string {
-  if (n == null) return '—'
-  if (unit === 'percent') return `${n.toFixed(1)}%`
-  if (unit === 'ratio') return `${n.toFixed(2)}x`
-  return formatCurrencyCompact(n)
+function useFmt() {
+  const fmt = useFormatCurrencyCompact()
+  return (n: number | undefined | null, unit: 'amount' | 'percent' | 'ratio' = 'amount') => {
+    if (n == null) return '—'
+    if (unit === 'percent') return `${n.toFixed(1)}%`
+    if (unit === 'ratio') return `${n.toFixed(2)}x`
+    return fmt(n)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +69,7 @@ function FindingRow({
   selected: boolean
   onClick: () => void
 }) {
-  const c = SEV_CONFIG[issue.severity]
+  const c = SEV_CONFIG[issue.severity];
   return (
     <button
       type="button"
@@ -290,6 +293,7 @@ function SeveritySection({
 // ---------------------------------------------------------------------------
 
 function MaterialityPanel({ profile }: { profile: MaterialityProfile }) {
+  const fmt = useFmt()
   const bases = profile.basis_used.split(',').filter(Boolean)
   return (
     <div className="space-y-3">
@@ -374,6 +378,7 @@ type DashboardTab = 'findings' | 'materiality' | 'trends' | 'adjustments'
 export function IntelligenceDashboardPage() {
   const { activeEntity, activePeriod } = useWorkspace()
   const queryClient = useQueryClient()
+  const fmt = useFmt()
   const [activeTab, setActiveTab] = useState<DashboardTab>('findings')
   const [selectedIssue, setSelectedIssue] = useState<DetectedIssue | null>(null)
   const [compPeriodId, setCompPeriodId] = useState<number | null>(null)
@@ -396,7 +401,7 @@ export function IntelligenceDashboardPage() {
   // Issues list
   const { data: issuesData, isLoading: issuesLoading, isError: issuesError } = useQuery({
     queryKey: ['detected-issues', entityId, periodId],
-    queryFn: () => listDetectedIssues({ entity_id: entityId!, period_id: periodId! }),
+    queryFn: () => listDetectedIssues({ entity_id: entityId!, current_period_id: periodId! }),
     enabled,
     staleTime: 30_000,
   })
@@ -769,8 +774,8 @@ export function IntelligenceDashboardPage() {
                 {/* Summary */}
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Posted AJEs', value: adjReport.summary.total_posted, sub: `${formatCurrencyCompact(adjReport.summary.total_amount_posted)} total`, color: 'text-gray-900' },
-                    { label: 'Draft / Pending', value: adjReport.summary.total_draft, sub: `${formatCurrencyCompact(adjReport.summary.total_amount_draft)} exposure`, color: adjReport.summary.total_draft > 5 ? 'text-amber-700' : 'text-gray-900' },
+                    { label: 'Posted AJEs', value: adjReport.summary.total_posted, sub: `${fmt(adjReport.summary.total_amount_posted)} total`, color: 'text-gray-900' },
+                    { label: 'Draft / Pending', value: adjReport.summary.total_draft, sub: `${fmt(adjReport.summary.total_amount_draft)} exposure`, color: adjReport.summary.total_draft > 5 ? 'text-amber-700' : 'text-gray-900' },
                   ].map(({ label, value, sub, color }) => (
                     <div key={label} className="rounded border border-gray-100 bg-gray-50 p-3">
                       <p className="text-[10px] text-gray-400">{label}</p>

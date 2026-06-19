@@ -192,8 +192,8 @@ describe('ImportWizardPage', () => {
     vi.mocked(tbImportApi.detectFile).mockResolvedValueOnce({
       source_format: 'xlsx',
       sheets: [
-        { name: 'Trial Balance', row_count: 120, likely_tb_score: 10 },
-        { name: 'Sheet2', row_count: 5, likely_tb_score: 0 },
+        { name: 'Trial Balance', row_count: 120, likely_tb_score: 10, headers: [], preview_rows: [], detected_mapping: {}, raw_rows: [], auto_header_row_idx: 0 },
+        { name: 'Sheet2', row_count: 5, likely_tb_score: 0, headers: [], preview_rows: [], detected_mapping: {}, raw_rows: [], auto_header_row_idx: 0 },
       ],
       selected_sheet: 'Trial Balance',
       headers: ['Account', 'Debit', 'Credit'],

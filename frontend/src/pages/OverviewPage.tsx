@@ -36,6 +36,13 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'v19 · Build Stabilization',
+    date: '2026-06-19',
+    items: [
+      'Build stabilization: fixed TypeScript build blockers after formatter hook and import type refactors',
+    ],
+  },
+  {
     version: 'v18 · Import Mapping Logic + Sign Convention',
     date: '2026-06-19',
     items: [

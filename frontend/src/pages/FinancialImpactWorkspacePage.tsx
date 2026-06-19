@@ -13,7 +13,7 @@ import { overlayApi } from '@/api/overlay'
 import { periodGovernanceApi } from '@/api/periodGovernance'
 import { adjustmentWorkspaceApi } from '@/api/adjustmentWorkspace'
 import { reportingViewsApi } from '@/api/reportingViews'
-import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
@@ -39,14 +39,18 @@ const SCENARIO_MODE_OPTIONS: { value: ScenarioMode; label: string; description: 
   { value: 'pro_forma', label: 'Pro Forma', description: 'All scenarios including eliminations and pro forma' },
 ]
 
-function fmt(val: string | number | null | undefined): string {
-  const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0)
-  if (isNaN(n) || n === 0) return '—'
-  return formatCurrencyCompact(n)
+function fmtFactory() {
+  const fmt = useFormatCurrencyCompact()
+  return (val: string | number | null | undefined) => {
+    const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0)
+    if (isNaN(n) || n === 0) return '—'
+    return fmt(n)
+  }
 }
 
-function fmtK(n: number): string {
-  return formatCurrencyCompact(n)
+function fmtKFactory() {
+  const fmt = useFormatCurrencyCompact()
+  return (n: number) => fmt(n)
 }
 
 function varianceClass(v: number): string {
@@ -97,6 +101,7 @@ interface KPICardProps {
 }
 
 function KPICard({ label, book, adjusted, icon: Icon, invertVariance }: KPICardProps) {
+  const fmtK = fmtKFactory()
   const variance = adjusted - book
   const displayVariance = invertVariance ? -variance : variance
   return (
@@ -175,6 +180,7 @@ function StatementsTab({
   viewId?: number
   onDrilldown: (code: string) => void
 }) {
+  const fmt = fmtFactory()
   const [statement, setStatement] = useState<'BS' | 'IS' | 'CF'>('IS')
   const [search, setSearch] = useState('')
 
@@ -319,6 +325,7 @@ function TrialBalanceTab({
   bookScenarioIds: number[]
   adjScenarioIds: number[]
 }) {
+  const fmtK = fmtKFactory()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
 
@@ -433,6 +440,7 @@ function TrialBalanceTab({
 // ---------------------------------------------------------------------------
 
 function ComparativesTab({ entityId, scenarioId }: { entityId: number; scenarioId: number | '' }) {
+  const fmt = fmtFactory()
   const [currentPeriodId, setCurrentPeriodId] = useState<number | ''>('')
   const [comparisonPeriodId, setComparisonPeriodId] = useState<number | ''>('')
   const [reportType, setReportType] = useState('income_statement')
@@ -545,6 +553,7 @@ function ImpactAnalysisTab({
   bookScenarioIds: number[]
   adjScenarioIds: number[]
 }) {
+  const fmtK = fmtKFactory()
   const { data: bookTb, isLoading } = useQuery({
     queryKey: ['ia-book', entityId, asOfDate, bookScenarioIds],
     queryFn: () => reportingApi.trialBalance(entityId, asOfDate, bookScenarioIds),
@@ -612,6 +621,7 @@ function ImpactAnalysisTab({
 // ---------------------------------------------------------------------------
 
 function VarianceTab({ entityId, scenarioId }: { entityId: number; scenarioId: number | '' }) {
+  const fmtK = fmtKFactory()
   const [search, setSearch] = useState('')
 
   const { data: rows, isLoading } = useQuery({
