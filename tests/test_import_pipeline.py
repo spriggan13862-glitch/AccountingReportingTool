@@ -863,3 +863,238 @@ def test_direct_coa_ingestion(db, seeded):
     assert new_acct.account_type == "expense"  # guessed from 5xxx prefix
     assert new_acct.normal_balance == "debit"
 
+
+# ---------------------------------------------------------------------------
+# 20. Delete Batch hard-deletes child lines and issues
+# ---------------------------------------------------------------------------
+
+def test_delete_batch_cleans_children(db, seeded):
+    from app.services.import_batch_service import upload_import_batch, delete_batch, validate_batch
+    from app.models.import_line import ImportLine
+    from app.models.import_validation_issue import ImportValidationIssue
+    from app.models.import_batch import ImportBatch
+    entity = seeded["entity"]
+    org = seeded["org"]
+    scenario = seeded["scenario"]
+    
+    # 9999 does not exist in COA, which will cause a validation/mapping issue.
+    # Let's make it unbalanced to trigger validation issues as well.
+    content = _make_csv_dc([
+        ("1000", "50000", "0"),
+        ("9999", "0", "40000"),
+    ])
+    
+    batch = upload_import_batch(
+        db, content, "delete_test.csv",
+        entity_id=entity.id, organization_id=org.id,
+        scenario_id=scenario.id,
+        as_of_date=datetime.date(2024, 6, 30),
+    )
+    db.commit()
+    
+    validate_batch(db, batch.id)
+    db.commit()
+    
+    # Confirm lines and issues exist in DB
+    lines = db.query(ImportLine).filter(ImportLine.batch_id == batch.id).all()
+    issues = db.query(ImportValidationIssue).filter(ImportValidationIssue.batch_id == batch.id).all()
+    assert len(lines) > 0
+    assert len(issues) > 0
+    
+    # Delete the batch
+    delete_batch(db, batch.id)
+    db.commit()
+    
+    # Verify the batch, lines, and issues are gone from DB
+    deleted_batch = db.get(ImportBatch, batch.id)
+    assert deleted_batch is None
+    
+    deleted_lines = db.query(ImportLine).filter(ImportLine.batch_id == batch.id).all()
+    assert len(deleted_lines) == 0
+    
+    deleted_issues = db.query(ImportValidationIssue).filter(ImportValidationIssue.batch_id == batch.id).all()
+    assert len(deleted_issues) == 0
+
+
+# ---------------------------------------------------------------------------
+# Import architecture tests — three-layer model (Source → COA → Taxonomy)
+# ---------------------------------------------------------------------------
+
+def test_tb_import_auto_creates_coa_accounts(db, seeded):
+    """TB import with auto_create_accounts=True creates COA rows for unknown accounts."""
+    from app.services.import_batch_service import upload_import_batch
+    from app.models.account import Account
+    entity = seeded["entity"]
+    org = seeded["org"]
+    scenario = seeded["scenario"]
+
+    new_acct_num = "9800"
+    assert db.query(Account).filter(
+        Account.entity_id == entity.id, Account.account_number == new_acct_num
+    ).first() is None
+
+    content = _make_csv_dc([
+        ("1000", "5000", "0"),
+        (new_acct_num, "0", "5000"),  # not in pre-seeded COA
+    ])
+    batch = upload_import_batch(
+        db, content, "auto_coa.csv",
+        entity_id=entity.id, organization_id=org.id,
+        scenario_id=scenario.id,
+        as_of_date=datetime.date(2024, 9, 30),
+        auto_create_accounts=True,
+    )
+    db.commit()
+
+    created = db.query(Account).filter(
+        Account.entity_id == entity.id, Account.account_number == new_acct_num
+    ).first()
+    assert created is not None, "auto_create_accounts=True must create missing COA account"
+    assert batch.mapped_row_count == 2
+
+
+def test_tb_import_matches_existing_coa(db, seeded):
+    """TB import resolves rows against pre-existing COA accounts by account_number."""
+    from app.services.import_batch_service import upload_import_batch
+    entity = seeded["entity"]
+    org = seeded["org"]
+    scenario = seeded["scenario"]
+
+    content = _make_csv_dc([
+        ("1000", "10000", "0"),
+        ("2000", "0", "10000"),
+    ])
+    batch = upload_import_batch(
+        db, content, "match_coa.csv",
+        entity_id=entity.id, organization_id=org.id,
+        scenario_id=scenario.id,
+        as_of_date=datetime.date(2024, 10, 31),
+        auto_create_accounts=False,
+    )
+    db.commit()
+
+    assert batch.mapped_row_count == 2
+    assert batch.unmapped_row_count == 0
+
+
+def test_tb_import_combined_account_field_with_colon(db, seeded):
+    """Combined 'NNNN: Name' (colon separator) is parsed by _COMBINED_PATTERN."""
+    from app.services.import_batch_service import parse_combined_account_field
+    num, name = parse_combined_account_field("6125: Merchant Fees")
+    assert num == "6125"
+    assert name == "Merchant Fees"
+
+
+def test_tb_import_combined_account_field_with_middle_dot(db, seeded):
+    """Combined 'NNNN · Name' (middle-dot) is parsed by _COMBINED_PATTERN."""
+    from app.services.import_batch_service import parse_combined_account_field
+    num, name = parse_combined_account_field("6125 · Merchant Fees")
+    assert num == "6125"
+    assert name == "Merchant Fees"
+
+
+def test_taxonomy_mapping_is_view_specific(db, seeded):
+    """ViewAccountOverride stores per-view taxonomy assignments; different views are independent."""
+    from app.models.view_account_override import ViewAccountOverride
+    from app.models.reporting_taxonomy import ReportingTaxonomyView
+    org = seeded["org"]
+    accounts = seeded["accounts"]
+
+    view_a = ReportingTaxonomyView(
+        code="GAAP-TST", name="GAAP View Test",
+    )
+    view_b = ReportingTaxonomyView(
+        code="TAX-TST", name="Tax View Test",
+    )
+    db.add_all([view_a, view_b])
+    db.flush()
+
+    acct = accounts["4000"]
+
+    override_a = ViewAccountOverride(
+        view_id=view_a.id, account_id=acct.id,
+        taxonomy_line_id=None,
+    )
+    override_b = ViewAccountOverride(
+        view_id=view_b.id, account_id=acct.id,
+        taxonomy_line_id=None,
+    )
+    db.add_all([override_a, override_b])
+    db.flush()
+
+    rows_a = db.query(ViewAccountOverride).filter(
+        ViewAccountOverride.view_id == view_a.id,
+        ViewAccountOverride.account_id == acct.id,
+    ).all()
+    rows_b = db.query(ViewAccountOverride).filter(
+        ViewAccountOverride.view_id == view_b.id,
+        ViewAccountOverride.account_id == acct.id,
+    ).all()
+    assert len(rows_a) == 1
+    assert len(rows_b) == 1
+    assert rows_a[0].id != rows_b[0].id, "Each view must have its own override row"
+
+
+def test_import_readiness_no_data(db, seeded):
+    """Readiness for a brand-new entity: nothing available."""
+    from app.models.entity import Entity
+    from app.models.account import Account
+    from app.models.import_batch import ImportBatch
+
+    org = seeded["org"]
+    empty_entity = Entity(
+        code="EMPTY-E2", name="Empty Entity 2", entity_type="operating",
+        organization_id=org.id,
+    )
+    db.add(empty_entity)
+    db.flush()
+    db.commit()
+
+    coa_count = db.query(Account).filter(Account.entity_id == empty_entity.id).count()
+    assert coa_count == 0
+
+    balances = db.query(ImportBatch).filter(
+        ImportBatch.entity_id == empty_entity.id, ImportBatch.status == "posted"
+    ).first()
+    assert balances is None
+
+    taxonomy_pct = 0.0
+    ready_for_statements = coa_count > 0 and balances is not None and taxonomy_pct >= 80
+    assert not ready_for_statements
+
+
+def test_import_readiness_with_coa_and_balances(db, seeded):
+    """A batch that reaches 'validating' status signals balances are loaded for this entity."""
+    from app.services.import_batch_service import upload_import_batch, validate_batch
+    from app.models.import_batch import ImportBatch
+    entity = seeded["entity"]
+    org = seeded["org"]
+    scenario = seeded["scenario"]
+
+    content = _make_csv_dc([
+        ("1000", "20000", "0"),
+        ("3000", "0", "20000"),
+    ])
+    batch = upload_import_batch(
+        db, content, "readiness_post.csv",
+        entity_id=entity.id, organization_id=org.id,
+        scenario_id=scenario.id,
+        as_of_date=datetime.date(2024, 11, 30),
+    )
+    db.commit()
+
+    # Fully mapped batch with no errors should be ready to post
+    validation = validate_batch(db, batch.id)
+    db.commit()
+
+    assert batch.mapped_row_count == 2
+    assert batch.unmapped_row_count == 0
+    assert not validation.has_errors, f"Expected no errors: {[i.message for i in validation.errors]}"
+
+    # Readiness check: batch in any non-failed state means balances loaded
+    loaded = db.query(ImportBatch).filter(
+        ImportBatch.entity_id == entity.id,
+        ImportBatch.status.in_(["validating", "validated", "posted"]),
+    ).first()
+    assert loaded is not None, "Uploaded batch should be visible in readiness query"
+

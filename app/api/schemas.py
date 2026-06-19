@@ -1556,6 +1556,21 @@ class RawPreviewOut(BaseModel):
     showing: int
 
 
+class ImportReadinessOut(BaseModel):
+    entity_id: int
+    coa_available: bool
+    coa_account_count: int
+    balances_available: bool
+    gl_detail_available: bool
+    fs_available: bool
+    taxonomy_completion_pct: float
+    ready_for_statements: bool
+    ready_for_bridge: bool
+    ready_for_drilldown: bool
+    warnings: list[str] = []
+
+
+
 # ---------------------------------------------------------------------------
 # M24: Close Management
 # ---------------------------------------------------------------------------

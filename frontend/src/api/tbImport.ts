@@ -9,6 +9,7 @@ import type {
   ImportSuggestion,
   DetectResult,
   RawPreview,
+  ImportReadiness,
 } from '@/types'
 
 export interface TbImportParams {
@@ -215,4 +216,7 @@ export const tbImportApi = {
 
   deleteTemplate: (templateId: number) =>
     api.delete(`/tb-imports/templates/${templateId}`).then((r) => r.data),
+
+  getReadiness: (entityId: number) =>
+    api.get<ImportReadiness>(`/tb-imports/readiness/${entityId}`).then((r) => r.data),
 }

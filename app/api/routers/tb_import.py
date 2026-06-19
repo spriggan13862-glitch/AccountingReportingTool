@@ -48,6 +48,7 @@ from app.api.schemas import (
     ImportBatchOut,
     ImportIssueOut,
     ImportLineOut,
+    ImportReadinessOut,
     ImportSuggestionOut,
     ImportTemplateOut,
     MapLineRequest,
@@ -545,6 +546,95 @@ def delete_batch(
         raise HTTPException(status_code=404, detail=str(exc))
     except ImportBatchStateError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Import Readiness Matrix
+# ---------------------------------------------------------------------------
+
+@router.get("/readiness/{entity_id}", response_model=ImportReadinessOut)
+def get_import_readiness(entity_id: int, db: Session = Depends(get_db)):
+    from app.models.account import Account
+    from app.models.import_batch import ImportBatch
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.view_account_override import ViewAccountOverride
+
+    coa_count = db.query(Account).filter(Account.entity_id == entity_id).count()
+    coa_available = coa_count > 0
+
+    # Balances available: any posted TB import batch for this entity
+    balances_batch = (
+        db.query(ImportBatch)
+        .filter(ImportBatch.entity_id == entity_id, ImportBatch.status == "posted")
+        .first()
+    )
+    balances_available = balances_batch is not None
+
+    # GL detail: posted journal entries beyond opening balances
+    gl_count = (
+        db.query(JournalEntry)
+        .filter(
+            JournalEntry.entity_id == entity_id,
+            JournalEntry.status == "posted",
+            JournalEntry.source != "tb_import",
+        )
+        .count()
+    )
+    gl_detail_available = gl_count > 0
+
+    # FS available: any JournalEntryLine exists for this entity (proxy for financial data)
+    fs_line = (
+        db.query(JournalEntryLine)
+        .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+        .filter(JournalEntry.entity_id == entity_id, JournalEntry.status == "posted")
+        .first()
+    )
+    fs_available = fs_line is not None
+
+    # Taxonomy completion: % of COA accounts that have at least one taxonomy mapping
+    mapped_count = (
+        db.query(ViewAccountOverride.account_id)
+        .join(Account, Account.id == ViewAccountOverride.account_id)
+        .filter(Account.entity_id == entity_id, ViewAccountOverride.taxonomy_line_id.isnot(None))
+        .distinct()
+        .count()
+    )
+    taxonomy_completion_pct = round((mapped_count / coa_count * 100) if coa_count > 0 else 0.0, 1)
+
+    # Readiness gates
+    ready_for_statements = coa_available and balances_available and taxonomy_completion_pct >= 80
+    ready_for_bridge = coa_available and balances_available
+    ready_for_drilldown = coa_available and balances_available and gl_detail_available
+
+    warnings: list[str] = []
+    if balances_available and not coa_available:
+        warnings.append("Balances imported but no COA accounts found")
+    if coa_available and not balances_available:
+        warnings.append("COA accounts exist but no trial balance has been posted")
+    if gl_detail_available and not balances_available:
+        warnings.append("GL activity found but no opening balance has been posted")
+    if fs_available and coa_count == 0:
+        warnings.append("Financial statements exist but no account detail is mapped")
+    if coa_available and taxonomy_completion_pct < 80:
+        warnings.append(
+            f"Taxonomy mapping {taxonomy_completion_pct:.0f}% complete — "
+            "financial statements may be incomplete"
+        )
+
+    return ImportReadinessOut(
+        entity_id=entity_id,
+        coa_available=coa_available,
+        coa_account_count=coa_count,
+        balances_available=balances_available,
+        gl_detail_available=gl_detail_available,
+        fs_available=fs_available,
+        taxonomy_completion_pct=taxonomy_completion_pct,
+        ready_for_statements=ready_for_statements,
+        ready_for_bridge=ready_for_bridge,
+        ready_for_drilldown=ready_for_drilldown,
+        warnings=warnings,
+    )
 
 
 # ---------------------------------------------------------------------------

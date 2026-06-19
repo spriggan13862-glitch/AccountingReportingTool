@@ -914,6 +914,20 @@ export interface RawPreview {
   showing: number
 }
 
+export interface ImportReadiness {
+  entity_id: number
+  coa_available: boolean
+  coa_account_count: number
+  balances_available: boolean
+  gl_detail_available: boolean
+  fs_available: boolean
+  taxonomy_completion_pct: number
+  ready_for_statements: boolean
+  ready_for_bridge: boolean
+  ready_for_drilldown: boolean
+  warnings: string[]
+}
+
 // ---------------------------------------------------------------------------
 // M24: Close Management
 // ---------------------------------------------------------------------------

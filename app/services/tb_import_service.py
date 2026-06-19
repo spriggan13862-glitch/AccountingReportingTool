@@ -21,8 +21,10 @@ import datetime
 import io
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from sqlalchemy.orm import Session
+from app.models.import_batch import ImportBatch
 
 from app.models.account import Account
 from app.models.tb_import import TbImport
@@ -39,6 +41,99 @@ class TbImportError(ValueError):
 # Public API
 # ---------------------------------------------------------------------------
 
+def _precheck_and_upload(
+    db: Session,
+    entity_id: int,
+    csv_content: str,
+    filename: str,
+    scenario_id: int,
+    as_of_date: datetime.date,
+) -> Any:
+    from app.models.entity import Entity
+    from app.services.import_batch_service import upload_import_batch
+
+    entity = db.get(Entity, entity_id)
+    if not entity:
+        raise TbImportError(f"Entity {entity_id} not found")
+
+    # Pre-check CSV headers and validity to replicate legacy exception expectations
+    import csv
+    import io
+
+    reader = csv.DictReader(io.StringIO(csv_content.strip()))
+    if not reader.fieldnames:
+        raise TbImportError(f"{filename}: CSV is empty or missing a header row")
+
+    headers = {h.strip().lower() for h in reader.fieldnames}
+    if "account_number" not in headers:
+        raise TbImportError(f"{filename}: missing required column 'account_number'")
+
+    if not ("debit" in headers and "credit" in headers) and "balance" not in headers:
+        raise TbImportError(
+            f"{filename}: unrecognized format. "
+            "Expected columns (account_number, debit, credit) "
+            "or (account_number, balance)"
+        )
+
+    rows = list(reader)
+    if not rows:
+        raise TbImportError(f"{filename}: CSV has a header row but no data rows")
+
+    for line_num, row in enumerate(rows, start=2):
+        acct = (row.get("account_number") or "").strip()
+        if not acct:
+            raise TbImportError(f"{filename}: row {line_num} has an empty account_number")
+
+        # Validate amounts
+        if "debit" in headers and "credit" in headers:
+            deb_str = (row.get("debit") or "").strip()
+            cred_str = (row.get("credit") or "").strip()
+            try:
+                d = Decimal(deb_str) if deb_str else Decimal("0")
+                c = Decimal(cred_str) if cred_str else Decimal("0")
+            except InvalidOperation:
+                raise TbImportError(f"{filename}: row {line_num} contains a non-numeric amount")
+            if d < 0 or c < 0:
+                raise TbImportError(
+                    f"{filename}: row {line_num}: debit/credit amounts must be "
+                    f"non-negative (got debit={d}, credit={c})"
+                )
+        elif "balance" in headers:
+            bal_str = (row.get("balance") or "").strip()
+            try:
+                Decimal(bal_str) if bal_str else Decimal("0")
+            except InvalidOperation:
+                raise TbImportError(f"{filename}: row {line_num} contains a non-numeric amount")
+
+    org_id = entity.organization_id
+    if org_id is None:
+        from app.models.organization import Organization
+        org = db.query(Organization).first()
+        if not org:
+            org = Organization(name="Default Org", slug="default")
+            db.add(org)
+            db.flush()
+        org_id = org.id
+        entity.organization_id = org_id
+        db.flush()
+
+    try:
+        batch = upload_import_batch(
+            db=db,
+            file_content=csv_content.encode("utf-8"),
+            filename=filename,
+            entity_id=entity_id,
+            organization_id=org_id,
+            as_of_date=as_of_date,
+            scenario_id=scenario_id,
+            auto_create_accounts=True,
+        )
+    except Exception as exc:
+        raise TbImportError(f"{filename}: {exc}")
+
+    return batch
+
+
 def preview_tb_import(
     db: Session,
     entity_id: int,
@@ -49,16 +144,32 @@ def preview_tb_import(
 ) -> ValidationResult:
     """
     Parse and validate a trial balance CSV without importing it.
-
-    Returns a ValidationResult; errors are populated if validation fails.
-    Never raises — all failures are captured as ERROR issues in the result.
     """
     result = ValidationResult()
+    nested = db.begin_nested()
     try:
-        parsed = _parse_csv(csv_content, filename)
-        resolved = _resolve_accounts(db, entity_id, parsed, filename)
-        aggregated = _aggregate(resolved)
-        _validate_balance(aggregated, filename)
+        batch = _precheck_and_upload(db, entity_id, csv_content, filename, scenario_id, as_of_date)
+
+        # Check for unmapped accounts (meaning not found in COA)
+        from app.models.import_line import ImportLine
+        unmapped_lines = db.query(ImportLine).filter(
+            ImportLine.batch_id == batch.id,
+            ImportLine.mapping_status == "unmapped"
+        ).all()
+        for line in unmapped_lines:
+            result.error(
+                code="UNMAPPED_ACCOUNT",
+                message=f"account_number '{line.raw_account_number}' not found",
+                source_type="tb_import",
+                source_id=filename,
+            )
+
+        # Run validation
+        from app.services.import_batch_service import validate_batch
+        val_res = validate_batch(db, batch.id)
+        for issue in val_res.issues:
+            result.add_issue(issue)
+
     except TbImportError as exc:
         result.error(
             code="TB_VALIDATION_ERROR",
@@ -66,6 +177,16 @@ def preview_tb_import(
             source_type="tb_import",
             source_id=filename,
         )
+    except Exception as exc:
+        result.error(
+            code="TB_VALIDATION_ERROR",
+            message=str(exc),
+            source_type="tb_import",
+            source_id=filename,
+        )
+    finally:
+        nested.rollback()
+
     return result
 
 
@@ -81,13 +202,6 @@ def import_trial_balance(
 ) -> TbImport:
     """
     Parse a trial balance CSV, validate it, and post it as an opening-balance JE.
-
-    Creates a TbImport audit record regardless of outcome:
-      - status='processed' on success, with je_id and totals populated
-      - status='failed'    on error,   with error_message populated
-
-    Raises TbImportError or JournalEntryValidationError; the TbImport row is
-    flushed in both cases so the caller can commit the audit trail.
     """
     tb_import = TbImport(
         entity_id=entity_id,
@@ -100,28 +214,56 @@ def import_trial_balance(
     db.flush()
 
     try:
-        parsed = _parse_csv(csv_content, filename)
-        resolved = _resolve_accounts(db, entity_id, parsed, filename)
-        aggregated = _aggregate(resolved)
-        _validate_balance(aggregated, filename)
-        je_lines, total_debits, total_credits = _build_je_lines(aggregated, entity_id)
+        # 1. Precheck and upload
+        batch = _precheck_and_upload(db, entity_id, csv_content, filename, scenario_id, as_of_date)
 
-        je = post_journal_entry(db, JournalEntryCreate(
-            je_number=je_number,
-            entry_date=as_of_date,
-            entity_id=entity_id,
-            scenario_id=scenario_id,
-            description=f"Trial balance import: {filename}",
-            source="tb_import",
-            source_ref=filename,
-            created_by=imported_by,
-            lines=je_lines,
-        ))
+        # 2. Raise error if there are unmapped accounts
+        from app.models.import_line import ImportLine
+        unmapped = db.query(ImportLine).filter(
+            ImportLine.batch_id == batch.id,
+            ImportLine.mapping_status == "unmapped"
+        ).first()
+        if unmapped:
+            raise TbImportError(
+                f"{filename}: account_number '{unmapped.raw_account_number}' not found "
+                f"(searched entity_id={entity_id} and global accounts)"
+            )
 
-        tb_import.je_id = je.id
-        tb_import.row_count = len(parsed)
-        tb_import.total_debits = total_debits
-        tb_import.total_credits = total_credits
+        # 3. Validate
+        from app.services.import_batch_service import validate_batch
+        val_result = validate_batch(db, batch.id)
+        if val_result.has_errors:
+            err = next((issue for issue in val_result.issues if issue.severity.value == "ERROR"), None)
+            msg = err.message if err else "Validation failed"
+            if "does not balance" in msg.lower():
+                mapped_lines = db.query(ImportLine).filter(
+                    ImportLine.batch_id == batch.id,
+                    ImportLine.mapping_status == "mapped"
+                ).all()
+                total_dr = sum(l.debit for l in mapped_lines)
+                total_cr = sum(l.credit for l in mapped_lines)
+                raise TbImportError(
+                    f"{filename}: trial balance does not balance — "
+                    f"total debits={total_dr}, total credits={total_cr}"
+                )
+            elif "all mapped lines have zero amounts" in msg.lower() or "zero" in msg.lower():
+                raise TbImportError(f"{filename}: trial balance has no non-zero amounts")
+            raise TbImportError(f"{filename}: {msg}")
+
+        # 4. Post
+        from app.models.user import User
+        user_obj = None
+        if imported_by:
+            user_obj = db.query(User).filter(User.email == imported_by).first()
+
+        from app.services.import_batch_service import post_batch
+        post_batch(db, batch.id, je_number=je_number, acting_user=user_obj)
+        db.flush()
+
+        tb_import.je_id = batch.posted_je_id
+        tb_import.row_count = batch.row_count
+        tb_import.total_debits = batch.total_debits
+        tb_import.total_credits = batch.total_credits
         tb_import.status = "processed"
         db.flush()
 
@@ -133,212 +275,3 @@ def import_trial_balance(
 
     return tb_import
 
-
-# ---------------------------------------------------------------------------
-# Internal data structures
-# ---------------------------------------------------------------------------
-
-@dataclass
-class _ParsedRow:
-    account_number: str
-    debit: Decimal | None = field(default=None)    # set for debit/credit format
-    credit: Decimal | None = field(default=None)   # set for debit/credit format
-    signed_balance: Decimal | None = field(default=None)  # set for signed format
-
-
-# ---------------------------------------------------------------------------
-# Step 1 — Parse CSV
-# ---------------------------------------------------------------------------
-
-def _parse_csv(content: str, filename: str) -> list[_ParsedRow]:
-    reader = csv.DictReader(io.StringIO(content.strip()))
-
-    if not reader.fieldnames:
-        raise TbImportError(f"{filename}: CSV is empty or missing a header row")
-
-    headers = {h.strip().lower() for h in reader.fieldnames}
-
-    if "account_number" not in headers:
-        raise TbImportError(f"{filename}: missing required column 'account_number'")
-
-    if "debit" in headers and "credit" in headers:
-        fmt = "debit_credit"
-    elif "balance" in headers:
-        fmt = "signed"
-    else:
-        raise TbImportError(
-            f"{filename}: unrecognized format. "
-            "Expected columns (account_number, debit, credit) "
-            "or (account_number, balance)"
-        )
-
-    rows: list[_ParsedRow] = []
-    for line_num, row in enumerate(reader, start=2):
-        acct = (row.get("account_number") or "").strip()
-        if not acct:
-            raise TbImportError(f"{filename}: row {line_num} has an empty account_number")
-
-        try:
-            if fmt == "debit_credit":
-                debit  = Decimal((row.get("debit")  or "0").strip())
-                credit = Decimal((row.get("credit") or "0").strip())
-                if debit < 0 or credit < 0:
-                    raise TbImportError(
-                        f"{filename}: row {line_num}: debit/credit amounts must be "
-                        f"non-negative (got debit={debit}, credit={credit})"
-                    )
-                rows.append(_ParsedRow(account_number=acct, debit=debit, credit=credit))
-            else:
-                balance = Decimal((row.get("balance") or "0").strip())
-                rows.append(_ParsedRow(account_number=acct, signed_balance=balance))
-        except InvalidOperation:
-            raise TbImportError(
-                f"{filename}: row {line_num} contains a non-numeric amount"
-            )
-
-    if not rows:
-        raise TbImportError(f"{filename}: CSV has a header row but no data rows")
-
-    return rows
-
-
-# ---------------------------------------------------------------------------
-# Step 2 — Resolve account_number → Account (entity-specific, then global)
-# ---------------------------------------------------------------------------
-
-def _resolve_accounts(
-    db: Session,
-    entity_id: int,
-    rows: list[_ParsedRow],
-    filename: str,
-) -> list[tuple[Account, Decimal, Decimal]]:
-    """
-    Returns (account, debit, credit) for every row.
-    Converts signed balances to debit/credit using account.normal_balance.
-    Raises TbImportError for any unrecognised account_number.
-    """
-    resolved: list[tuple[Account, Decimal, Decimal]] = []
-
-    for row in rows:
-        account = _find_account(db, entity_id, row.account_number)
-        if account is None:
-            raise TbImportError(
-                f"{filename}: account_number '{row.account_number}' not found "
-                f"(searched entity_id={entity_id} and global accounts)"
-            )
-
-        if row.signed_balance is not None:
-            debit, credit = _signed_to_debit_credit(row.signed_balance, account.normal_balance)
-        else:
-            debit  = row.debit  or Decimal("0")
-            credit = row.credit or Decimal("0")
-
-        resolved.append((account, debit, credit))
-
-    return resolved
-
-
-def _find_account(db: Session, entity_id: int, account_number: str) -> Account | None:
-    """Entity-specific lookup first, then fall back to global (entity_id IS NULL)."""
-    acct = (
-        db.query(Account)
-        .filter(
-            Account.account_number == account_number,
-            Account.entity_id == entity_id,
-        )
-        .first()
-    )
-    if acct is None:
-        acct = (
-            db.query(Account)
-            .filter(
-                Account.account_number == account_number,
-                Account.entity_id.is_(None),
-            )
-            .first()
-        )
-    return acct
-
-
-def _signed_to_debit_credit(balance: Decimal, normal_balance: str) -> tuple[Decimal, Decimal]:
-    """
-    Converts a signed balance to (debit, credit).
-
-    Positive  → balance on the account's normal side
-                  debit-normal  → (balance, 0)
-                  credit-normal → (0, balance)
-    Negative  → contra (abnormal) balance; absolute value goes to the opposite side
-                  debit-normal  → (0, -balance)
-                  credit-normal → (-balance, 0)
-    Zero      → (0, 0)
-    """
-    zero = Decimal("0")
-    if balance > zero:
-        return (balance, zero) if normal_balance == "debit" else (zero, balance)
-    elif balance < zero:
-        abs_val = -balance
-        return (zero, abs_val) if normal_balance == "debit" else (abs_val, zero)
-    return zero, zero
-
-
-# ---------------------------------------------------------------------------
-# Step 3 — Aggregate duplicate rows for the same account
-# ---------------------------------------------------------------------------
-
-def _aggregate(
-    resolved: list[tuple[Account, Decimal, Decimal]],
-) -> list[tuple[Account, Decimal, Decimal]]:
-    totals: dict[int, tuple[Account, Decimal, Decimal]] = {}
-    for account, debit, credit in resolved:
-        if account.id in totals:
-            _, acc_d, acc_c = totals[account.id]
-            totals[account.id] = (account, acc_d + debit, acc_c + credit)
-        else:
-            totals[account.id] = (account, debit, credit)
-    return list(totals.values())
-
-
-# ---------------------------------------------------------------------------
-# Step 4 — Validate balance
-# ---------------------------------------------------------------------------
-
-def _validate_balance(
-    aggregated: list[tuple[Account, Decimal, Decimal]],
-    filename: str,
-) -> None:
-    total_debit  = sum(d for _, d, _ in aggregated)
-    total_credit = sum(c for _, _, c in aggregated)
-
-    if total_debit != total_credit:
-        raise TbImportError(
-            f"{filename}: trial balance does not balance — "
-            f"total debits={total_debit}, total credits={total_credit}"
-        )
-    if total_debit == Decimal("0"):
-        raise TbImportError(f"{filename}: trial balance has no non-zero amounts")
-
-
-# ---------------------------------------------------------------------------
-# Step 5 — Build JournalEntryLineCreate objects
-# ---------------------------------------------------------------------------
-
-def _build_je_lines(
-    aggregated: list[tuple[Account, Decimal, Decimal]],
-    entity_id: int,
-) -> tuple[list[JournalEntryLineCreate], Decimal, Decimal]:
-    lines: list[JournalEntryLineCreate] = []
-    total_debits = Decimal("0")
-    total_credits = Decimal("0")
-
-    for i, (account, debit, credit) in enumerate(aggregated):
-        lines.append(JournalEntryLineCreate(
-            line_number=i + 1,
-            account_id=account.id,
-            entity_id=entity_id,
-            debit=debit,
-            credit=credit,
-        ))
-        total_debits  += debit
-        total_credits += credit
-
-    return lines, total_debits, total_credits

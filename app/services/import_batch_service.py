@@ -118,7 +118,7 @@ FORMAT_SIGNATURES: dict[str, set[str]] = {
 
 # Combined format: "6125 Merchant Fees" or "4000 - Revenue"
 # Requires at least one space between number and name to avoid splitting pure numbers like "1000".
-_COMBINED_PATTERN = re.compile(r"^(\d{3,8})\s+(?:[-–—]\s*)?(.+)$")
+_COMBINED_PATTERN = re.compile(r"^(\d{3,8})\s*(?:[-–—·:]\s*|\s)(.+)$")
 
 
 # ---------------------------------------------------------------------------
@@ -520,6 +520,7 @@ def upload_import_batch(
     template_id: int | None = None,
     sheet_name: str | None = None,
     header_row_index: int | None = None,
+    auto_create_accounts: bool = True,
 ) -> ImportBatch:
     """
     Upload a TB/GL file and create an ImportBatch with parsed ImportLines.
@@ -613,7 +614,7 @@ def upload_import_batch(
         account = _find_account(db, entity_id, acct_num, acct_name) if (acct_num or acct_name) else None
         
         # If not found, automatically create the account in the COA!
-        if account is None and (acct_num or acct_name):
+        if auto_create_accounts and account is None and (acct_num or acct_name):
             account_type, normal_balance = guess_account_type_and_normal(acct_num, acct_name)
             account = Account(
                 account_number=acct_num or f"ACCT-{i-1}",
@@ -1421,6 +1422,8 @@ def delete_batch(db: Session, batch_id: int) -> None:
         raise ImportBatchNotFoundError(f"Batch {batch_id} not found")
     if batch.status == "posted":
         raise ImportBatchStateError("Cannot delete a posted batch — rollback first")
+    db.query(ImportLine).filter(ImportLine.batch_id == batch_id).delete()
+    db.query(ImportValidationIssue).filter(ImportValidationIssue.batch_id == batch_id).delete()
     db.delete(batch)
     db.flush()
 

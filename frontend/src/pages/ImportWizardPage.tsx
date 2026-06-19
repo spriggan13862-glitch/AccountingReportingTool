@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useFormatNumber } from '@/hooks/useFormatCurrency'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -10,6 +11,7 @@ import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
+import { ImportReadinessMatrix } from '@/components/ui/ImportReadinessMatrix'
 import { useOrg } from '@/providers/OrgProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
@@ -143,6 +145,7 @@ function ConfidenceMeter({ score }: { score: number }) {
 }
 
 export function ImportWizardPage() {
+  const fmtNumber = useFormatNumber()
   const { org } = useOrg()
   const orgId = org?.id ?? 0
   const navigate = useNavigate()
@@ -475,6 +478,10 @@ export function ImportWizardPage() {
             </div>
           </div>
 
+          {entityId && (
+            <ImportReadinessMatrix entityId={Number(entityId)} />
+          )}
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -546,7 +553,7 @@ export function ImportWizardPage() {
                 <Layers className="w-4 h-4 text-gray-400 shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-800">
-                    {sheet.name} ({sheet.row_count.toLocaleString()} rows)
+                    {sheet.name} ({fmtNumber(sheet.row_count)} rows)
                   </p>
                 </div>
                 {sheet.likely_tb_score >= 5 && (
