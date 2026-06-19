@@ -11,19 +11,24 @@ import { TieOutIndicator } from '@/components/reconciliation/TieOutIndicator'
 import { SupportReferencePanel } from '@/components/reconciliation/SupportReferencePanel'
 import { ReviewerCommentPanel } from '@/components/reconciliation/ReviewerCommentPanel'
 import { RollforwardTable } from '@/components/reconciliation/RollforwardTable'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { RollforwardScheduleLine } from '@/types'
 
-function fmt(val: string | null) {
-  if (val === null || val === undefined) return '—'
-  const n = parseFloat(val)
-  if (isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+function makeFmt(fmtCurrency: (v: number | null | undefined) => string) {
+  return (val: string | null | undefined) => {
+    if (val == null) return '—'
+    const n = parseFloat(val)
+    if (isNaN(n)) return '—'
+    return fmtCurrency(n)
+  }
 }
 
 export function ReconciliationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const reconId = Number(id)
   const queryClient = useQueryClient()
+  const fmtCurrency = useFormatCurrency()
+  const fmt = makeFmt(fmtCurrency)
   const [apiError, setApiError] = useState<string | null>(null)
   const [scheduleLines, setScheduleLines] = useState<RollforwardScheduleLine[] | null>(null)
   const [cashOpening, setCashOpening] = useState('')

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     MAX_LOGIN_ATTEMPTS: int = 5              # lock account after N consecutive failures
     ACCOUNT_LOCKOUT_MINUTES: int = 15
 
+    # Upload limits
+    MAX_IMPORT_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB default max import file size
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]

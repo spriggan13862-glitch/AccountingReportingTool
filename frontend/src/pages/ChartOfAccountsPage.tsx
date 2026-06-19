@@ -12,7 +12,7 @@ import {
 import { accountsApi } from '@/api/accounts'
 import type { AccountUpdate, AccountReparentResult } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
-import { PageShell } from '@/components/ui/PageShell'
+import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -1100,6 +1100,10 @@ function AccountRow({
     return taxonomyLines.find((t) => t.id === inheritedMappingId)?.name ?? null
   }, [inheritedMappingId, taxonomyLines])
 
+  const suggestionCode = getSuggestedTaxonomyCode(node.account_type, node.detail_type, node.account_name)
+  const suggestedLine = suggestionCode ? taxonomyLines.find(l => l.code === suggestionCode) : null
+  const suggestedName = suggestedLine?.name ?? null
+
   const py = DENSITY_PY[density]
 
   function openMenu(e: React.MouseEvent) {
@@ -1324,7 +1328,7 @@ function AccountRow({
             (() => {
               const flags = getAccountValidationFlags(node, flatAccounts, taxonomyLines)
               return (
-                <div className="flex flex-col gap-1 items-start">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {taxonomyName ? (
                     <span 
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-150 bg-indigo-50/70 text-indigo-700 text-[11px] font-semibold whitespace-nowrap shadow-sm"
@@ -1348,6 +1352,15 @@ function AccountRow({
                     >
                       <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
                       Unmapped
+                    </span>
+                  )}
+                  {suggestedName && suggestedName !== taxonomyName && suggestedName !== inheritedTaxonomyName && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-600 text-[10px] font-medium whitespace-nowrap"
+                      title="AI-suggested mapping"
+                      data-testid="suggested-mapping-badge"
+                    >
+                      → {suggestedName}
                     </span>
                   )}
                   {flags.length > 0 && (
@@ -1659,6 +1672,7 @@ export function ChartOfAccountsPage() {
   const [statusFilter, setStatusFilter] = useState('active')
   const [globalSearch, setGlobalSearch] = useState('')
   const [showInactive, setShowInactive] = useState(false)
+  const [mappingFilter, setMappingFilter] = useState<'' | 'mapped' | 'unmapped'>('')
   // Column sort — key corresponds to AccountNode field; null = natural tree order
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -2110,7 +2124,10 @@ export function ChartOfAccountsPage() {
       const typeMatch = !typeFilter || node.account_type === typeFilter
       const statusMatch = showInactive || node.account_status === statusFilter || statusFilter === ''
       const searchMatch = !globalSearch || matchesSearch(node, globalSearch)
-      if (typeMatch && statusMatch && searchMatch) return [{ ...node, children: filteredChildren }]
+      const mappingMatch = !mappingFilter ||
+        (mappingFilter === 'mapped' && !!node.reporting_taxonomy_line_id) ||
+        (mappingFilter === 'unmapped' && !node.reporting_taxonomy_line_id)
+      if (typeMatch && statusMatch && searchMatch && mappingMatch) return [{ ...node, children: filteredChildren }]
       if (filteredChildren.length > 0) return [{ ...node, children: filteredChildren }]
       return []
     })
@@ -2374,6 +2391,34 @@ export function ChartOfAccountsPage() {
               </button>
             ))}
 
+            <div className="w-px h-4 bg-slate-200 mx-1" />
+            <button
+              type="button"
+              onClick={() => setMappingFilter(mappingFilter === 'mapped' ? '' : 'mapped')}
+              className={cn(
+                "px-3.5 py-1 rounded-full text-xs font-semibold border transition-all duration-200 select-none shadow-xs cursor-pointer",
+                mappingFilter === 'mapped'
+                  ? "bg-indigo-600 border-indigo-600 text-white"
+                  : "bg-white text-slate-655 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+              )}
+              data-testid="filter-mapped"
+            >
+              Mapped
+            </button>
+            <button
+              type="button"
+              onClick={() => setMappingFilter(mappingFilter === 'unmapped' ? '' : 'unmapped')}
+              className={cn(
+                "px-3.5 py-1 rounded-full text-xs font-semibold border transition-all duration-200 select-none shadow-xs cursor-pointer",
+                mappingFilter === 'unmapped'
+                  ? "bg-amber-600 border-amber-600 text-white"
+                  : "bg-white text-slate-655 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+              )}
+              data-testid="filter-unmapped"
+            >
+              Unmapped
+            </button>
+
             {!showInactive && (
               <div className="ml-auto flex items-center gap-1.5 pr-1">
                 <label className="text-xs text-slate-500 font-semibold">Status:</label>
@@ -2579,6 +2624,6 @@ export function ChartOfAccountsPage() {
         totalCount={buildFlatOrder(filteredTree).length}
         onSelectAll={() => setSelectedIds(new Set(buildFlatOrder(filteredTree).map((n) => n.id)))}
       />
-    </PageShell>
+    </PageLayout>
   )
 }

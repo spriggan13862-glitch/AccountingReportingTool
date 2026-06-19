@@ -11,6 +11,7 @@ import { useOrg } from '@/providers/OrgProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { StatusBadge, SeverityBadge } from '@/components/ui/Badge'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -166,6 +167,7 @@ export function DashboardPage() {
   const orgId = org?.id ?? 0
   const toast = useToast()
   const queryClient = useQueryClient()
+  const fmtCurrency = useFormatCurrency()
 
   const { activeEntity } = useWorkspace()
 
@@ -450,7 +452,7 @@ export function DashboardPage() {
             </div>
             <div className="flex items-baseline gap-2 mt-2">
               <span className="text-3xl font-extrabold text-slate-900 tracking-tight">{draftAJEsCount}</span>
-              <span className="text-xs text-slate-500 font-medium">entries (${draftAJEsTotalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+              <span className="text-xs text-slate-500 font-medium">entries ({fmtCurrency(draftAJEsTotalValue)})</span>
             </div>
             <Link to="/journal-entries" className="text-xs text-blue-700 hover:text-blue-850 font-semibold inline-flex items-center gap-1 mt-2 hover:underline">
               Manage Journal Entries →
@@ -547,7 +549,7 @@ export function DashboardPage() {
                                 {je.description}
                               </td>
                               <td className="py-2.5 text-slate-400">{je.entry_date}</td>
-                              <td className="py-2.5 text-right font-mono text-slate-800">${jeTotalAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td className="py-2.5 text-right font-mono text-slate-800">{fmtCurrency(jeTotalAmt)}</td>
                               <td className="py-2.5 text-right">
                                 <Link to="/journal-entries" className="text-amber-500 hover:text-amber-600 font-semibold hover:underline">
                                   Review
@@ -820,6 +822,19 @@ export function DashboardPage() {
           <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">What's New</h2>
           <div className="space-y-3">
             {[
+              {
+                version: 'v14 · Sprint 4.0 UX Audit',
+                date: '2026-06-18',
+                items: [
+                  'Bridge: optional Variance column; individual AJE columns; Total AJEs',
+                  'Financial Statements: drilldown running balance; Date/JE# sort; CFS period start fixed',
+                  'Financial Statements: taxonomy rollup double-counting fixed for multi-level trees',
+                  'Reporting Views: clone-first creation workflow (defaults to GAAP source)',
+                  'Chart of Accounts: horizontal mapping badges; AI suggestion inline; Mapped/Unmapped filters',
+                  'Adjustment Workbench: Net Impact per line; sortable column headers',
+                  'Consolidations: Groups workflow; Entities and Taxonomy Mapping tabs',
+                ],
+              },
               {
                 version: 'v8 · Phase 8',
                 date: '2026-06-14',

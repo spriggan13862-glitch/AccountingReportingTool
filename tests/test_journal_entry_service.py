@@ -264,3 +264,14 @@ def test_get_existing_journal_entry(session, entity, scenario, accounts):
 def test_get_missing_journal_entry_raises(session):
     with pytest.raises(JournalEntryNotFoundError, match="not found"):
         get_journal_entry_or_raise(session, 999999)
+
+
+def test_duplicate_je_number_is_rejected(session, entity, scenario, accounts):
+    """Creating two journal entries with the same JE number should raise a validation error."""
+    data1 = _je_data(entity, scenario, accounts, je_number="JE-DUP-001")
+    je1 = post_journal_entry(session, data1)
+    assert je1 is not None
+
+    data2 = _je_data(entity, scenario, accounts, je_number="JE-DUP-001")
+    with pytest.raises(JournalEntryValidationError):
+        post_journal_entry(session, data2)

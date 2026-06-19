@@ -2,16 +2,12 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   GitBranch,
-  Plus,
   Trash2,
   Copy,
-  ChevronDown,
-  ChevronRight,
-  Pencil,
-  BarChart2,
   ArrowLeftRight,
 } from 'lucide-react'
 import { reportingViewsApi } from '@/api/reportingViews'
+import { useFormatNumber } from '@/hooks/useFormatCurrency'
 import type {
   ViewAccountOverride,
   ViewImpactAccount,
@@ -256,6 +252,7 @@ function ComparisonPanel({
   entityId: number
   asOfDate: string
 }) {
+  const fmtNumber = useFormatNumber()
   const [view1Id, setView1Id] = useState<number | ''>('')
   const [view2Id, setView2Id] = useState<number | ''>('')
   const [stmtType, setStmtType] = useState('income_statement')
@@ -346,15 +343,13 @@ function ComparisonPanel({
                     {row.name}
                   </td>
                   <td className="px-3 py-1.5 text-right tabular-nums">
-                    {row.view1_balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    {fmtNumber(row.view1_balance)}
                   </td>
                   <td className="px-3 py-1.5 text-right tabular-nums">
-                    {row.view2_balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    {fmtNumber(row.view2_balance)}
                   </td>
                   <td className={`px-3 py-1.5 text-right tabular-nums ${row.delta !== 0 ? 'text-amber-700' : 'text-gray-400'}`}>
-                    {row.delta !== 0
-                      ? row.delta.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-                      : '—'}
+                    {row.delta !== 0 ? fmtNumber(row.delta) : '—'}
                   </td>
                 </tr>
               ))}
@@ -373,49 +368,52 @@ function ComparisonPanel({
 }
 
 // ---------------------------------------------------------------------------
-// View Form (create / edit)
+// Clone Form — create new view by cloning an existing one
 // ---------------------------------------------------------------------------
 
-function ViewForm({
-  initial,
+function CloneForm({
+  views,
   onSave,
   onCancel,
   saving,
 }: {
-  initial?: Partial<{ code: string; name: string; description: string }>
-  onSave: (data: { code: string; name: string; description: string }) => void
+  views: ReportingTaxonomyView[]
+  onSave: (sourceId: number, name: string, description: string) => void
   onCancel: () => void
   saving: boolean
 }) {
-  const [code, setCode] = useState(initial?.code ?? '')
-  const [name, setName] = useState(initial?.name ?? '')
-  const [description, setDescription] = useState(initial?.description ?? '')
+  const gaapView = views.find((v) => v.code === 'GAAP' || v.is_default)
+  const [sourceId, setSourceId] = useState<number | ''>(gaapView?.id ?? (views[0]?.id ?? ''))
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
 
   return (
-    <div className="bg-white border rounded p-4 space-y-3" data-testid="view-form">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Code</label>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
-            placeholder="GAAP"
-            className="border rounded px-2 py-1.5 text-sm w-full"
-            data-testid="view-form-code"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="GAAP Presentation"
-            className="border rounded px-2 py-1.5 text-sm w-full"
-            data-testid="view-form-name"
-          />
-        </div>
+    <div className="bg-white border rounded p-4 space-y-3" data-testid="clone-form">
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Clone from</label>
+        <select
+          value={sourceId}
+          onChange={(e) => setSourceId(e.target.value ? Number(e.target.value) : '')}
+          className="border rounded px-2 py-1.5 text-sm w-full"
+          data-testid="clone-form-source"
+        >
+          {views.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name} ({v.code})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">New view name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Tax Basis Presentation"
+          className="border rounded px-2 py-1.5 text-sm w-full"
+          data-testid="clone-form-name"
+        />
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
@@ -424,26 +422,29 @@ function ViewForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           className="border rounded px-2 py-1.5 text-sm w-full"
-          data-testid="view-form-description"
+          data-testid="clone-form-description"
         />
       </div>
       <div className="flex gap-2">
         <button
-          onClick={() => onSave({ code, name, description })}
-          disabled={!code || !name || saving}
+          onClick={() => sourceId !== '' && onSave(sourceId as number, name, description)}
+          disabled={!sourceId || !name || saving}
           className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-          data-testid="view-form-save"
+          data-testid="clone-form-save"
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Cloning…' : 'Clone & Create'}
         </button>
         <button
           onClick={onCancel}
           className="border px-3 py-1.5 rounded text-sm hover:bg-gray-50"
-          data-testid="view-form-cancel"
+          data-testid="clone-form-cancel"
         >
           Cancel
         </button>
       </div>
+      <p className="text-xs text-gray-400">
+        Copies all taxonomy structure, mappings, rollups, and statement definitions from the source view.
+      </p>
     </div>
   )
 }
@@ -483,9 +484,11 @@ export function ReportingViewWorkspacePage() {
     enabled: !!selectedEntityId,
   })
 
-  const createMutation = useMutation({
-    mutationFn: (data: { code: string; name: string; description: string }) =>
-      reportingViewsApi.create({ code: data.code, name: data.name, description: data.description || null }),
+  const cloneCreateMutation = useMutation({
+    mutationFn: async ({ sourceId, name, description }: { sourceId: number; name: string; description: string }) => {
+      const cloned = await reportingViewsApi.clone(sourceId)
+      return reportingViewsApi.update(cloned.id, { name, description: description || null })
+    },
     onSuccess: (view) => {
       qc.invalidateQueries({ queryKey: ['reporting-views'] })
       setShowCreateForm(false)
@@ -495,7 +498,10 @@ export function ReportingViewWorkspacePage() {
 
   const cloneMutation = useMutation({
     mutationFn: (id: number) => reportingViewsApi.clone(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reporting-views'] }),
+    onSuccess: (view) => {
+      qc.invalidateQueries({ queryKey: ['reporting-views'] })
+      setSelectedViewId(view.id)
+    },
   })
 
   const deleteMutation = useMutation({
@@ -526,19 +532,22 @@ export function ReportingViewWorkspacePage() {
           <button
             onClick={() => setShowCreateForm((v) => !v)}
             className="text-blue-600 hover:text-blue-800"
-            title="New view"
+            title="Clone view"
             data-testid="create-view-btn"
           >
-            <Plus size={16} />
+            <Copy size={16} />
           </button>
         </div>
 
         {showCreateForm && (
           <div className="p-3 border-b">
-            <ViewForm
-              onSave={(data) => createMutation.mutate(data)}
+            <CloneForm
+              views={views}
+              onSave={(sourceId, name, description) =>
+                cloneCreateMutation.mutate({ sourceId, name, description })
+              }
               onCancel={() => setShowCreateForm(false)}
-              saving={createMutation.isPending}
+              saving={cloneCreateMutation.isPending}
             />
           </div>
         )}

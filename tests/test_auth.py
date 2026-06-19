@@ -448,3 +448,44 @@ def test_login_endpoint_invalid(api_client):
         json={"email": "admin@alpha.com", "password": "wrong"},
     )
     assert r.status_code == 401
+
+
+def test_login_returns_refresh_token(seeded, api_client):
+    r = api_client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@alpha.com", "password": seeded["pw_admin"]},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "refresh_token" in data and data["refresh_token"]
+    assert "refresh_expires_in" in data and data["refresh_expires_in"] > 0
+
+
+def test_refresh_endpoint_rotates_token(seeded, api_client):
+    # Login to obtain a refresh token
+    r1 = api_client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@alpha.com", "password": seeded["pw_admin"]},
+    )
+    assert r1.status_code == 200
+    d1 = r1.json()
+    old_refresh = d1.get("refresh_token")
+    assert old_refresh
+
+    # Exchange refresh token for new tokens
+    r2 = api_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": old_refresh},
+    )
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2.get("access_token")
+    new_refresh = d2.get("refresh_token")
+    assert new_refresh and new_refresh != old_refresh
+
+    # Using the old refresh token again should fail (rotation revoked it)
+    r3 = api_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": old_refresh},
+    )
+    assert r3.status_code == 401

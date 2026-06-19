@@ -8,19 +8,22 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { ComparativeReport, ComparativeLine } from '@/types'
+
+function makeFmt(fmtCurrency: (v: number | null | undefined) => string) {
+  return (v: string | number | null | undefined) => {
+    if (v == null) return '—'
+    const val = typeof v === 'string' ? parseFloat(v) : v
+    return isNaN(val) ? '—' : fmtCurrency(val)
+  }
+}
 
 function varianceIcon(line: ComparativeLine) {
   const v = parseFloat(line.amount_variance)
   if (v > 0) return <TrendingUp className="w-3.5 h-3.5 text-green-600" />
   if (v < 0) return <TrendingDown className="w-3.5 h-3.5 text-red-600" />
   return <Minus className="w-3.5 h-3.5 text-gray-400" />
-}
-
-function fmt(val: string) {
-  const n = parseFloat(val)
-  if (isNaN(n)) return '—'
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 })
 }
 
 function fmtPct(val: string | null) {
@@ -37,6 +40,8 @@ const REPORT_TYPES = [
 
 export function ComparativeFinancialsPage() {
   const { org } = useOrg()
+  const fmtCurrency = useFormatCurrency()
+  const fmt = makeFmt(fmtCurrency)
   const [entityId, setEntityId] = useState<number | ''>('')
   const [currentPeriodId, setCurrentPeriodId] = useState<number | ''>('')
   const [comparisonPeriodId, setComparisonPeriodId] = useState<number | ''>('')

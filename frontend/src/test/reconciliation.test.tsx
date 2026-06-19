@@ -158,7 +158,7 @@ describe('Milestone 19: Reconciliation and Rollforward', () => {
     render(<VarianceBadge variance="100.00" tieOutStatus="in_tolerance" />)
     expect(screen.getByTestId('variance-badge')).toBeInTheDocument()
     expect(screen.getByTestId('tie-out-badge')).toHaveTextContent('In Tolerance')
-    expect(screen.getByText(/100\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/\$100/)).toBeInTheDocument()
   })
 
   it('VarianceBadge shows Out of Tolerance when tie-out status is out_of_tolerance', () => {
@@ -204,7 +204,7 @@ describe('Milestone 19: Reconciliation and Rollforward', () => {
     expect(screen.getByTestId('rollforward-table')).toBeInTheDocument()
     expect(screen.getByText(/Opening Cash Balance/)).toBeInTheDocument()
     expect(screen.getByText(/Closing Cash Balance/)).toBeInTheDocument()
-    expect(screen.getByText(/57,000\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/\$57K/)).toBeInTheDocument()
   })
 
   it('ReconciliationTable renders rows with status and variance', () => {

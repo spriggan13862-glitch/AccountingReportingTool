@@ -55,6 +55,27 @@ def create_access_token(
     return jwt.encode(data, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
+def create_refresh_token(
+    payload: dict[str, Any],
+    expires_delta: datetime.timedelta | None = None,
+) -> str:
+    """
+    Create a refresh token JWT. By convention refresh tokens live longer and
+    include a stable 'jti' claim for rotation and revocation tracking.
+    """
+    expire = datetime.datetime.now(datetime.UTC) + (
+        expires_delta
+        or datetime.timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    )
+    data = {**payload, "exp": expire, "iat": datetime.datetime.now(datetime.UTC)}
+    return jwt.encode(data, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_refresh_token(token: str) -> dict[str, Any]:
+    """Decode and validate a refresh token JWT."""
+    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     """
     Decode and validate a JWT.

@@ -13,6 +13,7 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { ScenarioMultiSelect } from '@/components/ui/ScenarioMultiSelect'
 import { AccountSearch } from '@/components/ui/AccountSearch'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 
 interface LineState extends JELineCreate {
   _selectedAccount: Account | null
@@ -38,6 +39,7 @@ export function JournalEntryCreatePage() {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { activeEntity } = useWorkspace()
+  const fmtCurrency = useFormatCurrency()
 
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [scenarioIds, setScenarioIds] = useState<number[]>([])
@@ -197,7 +199,7 @@ export function JournalEntryCreatePage() {
               <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Lines</h2>
               {!isBalanced && totalDebit + totalCredit > 0 && (
                 <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700" data-testid="balance-chip">
-                  {(totalDebit - totalCredit).toFixed(2)} diff
+                  {fmtCurrency(totalDebit - totalCredit)} diff
                 </span>
               )}
               {isBalanced && totalDebit > 0 && (
@@ -288,16 +290,16 @@ export function JournalEntryCreatePage() {
           <div className="mt-3 flex justify-end gap-6 text-sm border-t pt-3" data-testid="je-totals">
             <div className="text-right">
               <span className="text-xs text-gray-500 block">Total Debits</span>
-              <span className="font-mono font-medium">{totalDebit.toFixed(2)}</span>
+              <span className="font-mono font-medium">{fmtCurrency(totalDebit)}</span>
             </div>
             <div className="text-right">
               <span className="text-xs text-gray-500 block">Total Credits</span>
-              <span className="font-mono font-medium">{totalCredit.toFixed(2)}</span>
+              <span className="font-mono font-medium">{fmtCurrency(totalCredit)}</span>
             </div>
             <div className="text-right">
               <span className="text-xs text-gray-500 block">Difference</span>
               <span className={`font-mono font-medium ${isBalanced ? 'text-green-600' : 'text-red-600'}`}>
-                {difference.toFixed(2)}
+                {fmtCurrency(difference)}
               </span>
             </div>
           </div>
@@ -336,6 +338,6 @@ export function JournalEntryCreatePage() {
           </button>
         </div>
       </div>
-    </PageLayout>
+    </PageShell>
   )
 }

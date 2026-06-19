@@ -19,8 +19,10 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from contextlib import nullcontext
 
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
@@ -30,6 +32,7 @@ from app.models.journal_entry_line import JournalEntryLine
 from app.schemas.journal_entry import JournalEntryCreate
 from app.services.permission_service import check_entity_org_access, require_permission
 from app.services.validation import ValidationResult
+from app.models.audit_log import AuditLog
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -267,39 +270,80 @@ def post_journal_entry(
     _check_period_not_closed(db, data.entity_id, data.entry_date)
     _check_accounts_postable(db, data)
 
+    # Perform the insert within an explicit transaction so the header and
+    # lines are created atomically. Any IntegrityError (eg duplicate je_number)
+    # is translated to a JournalEntryValidationError for caller clarity.
     now = datetime.datetime.now()
     user_id = acting_user.id if acting_user is not None else None
-    je = JournalEntry(
-        je_number=data.je_number,
-        entry_date=data.entry_date,
-        entity_id=data.entity_id,
-        scenario_id=data.scenario_id,
-        description=data.description,
-        source=data.source,
-        source_ref=data.source_ref,
-        created_by=data.created_by,
-        status="posted",
-        posted_at=now,
-        created_by_user_id=user_id,
-        posted_by_user_id=user_id,
-    )
-    db.add(je)
-    db.flush()
+    try:
+        ctx = db.begin() if not db.in_transaction() else nullcontext()
+        with ctx:
+            je = JournalEntry(
+                je_number=data.je_number,
+                entry_date=data.entry_date,
+                entity_id=data.entity_id,
+                scenario_id=data.scenario_id,
+                description=data.description,
+                source=data.source,
+                source_ref=data.source_ref,
+                created_by=data.created_by,
+                status="posted",
+                posted_at=now,
+                created_by_user_id=user_id,
+                posted_by_user_id=user_id,
+            )
+            db.add(je)
+            db.flush()
 
-    for line in data.lines:
-        db.add(JournalEntryLine(
-            journal_entry_id=je.id,
-            line_number=line.line_number,
-            account_id=line.account_id,
-            entity_id=line.entity_id,
-            debit=line.debit,
-            credit=line.credit,
-            description=line.description,
-        ))
+            for line in data.lines:
+                db.add(JournalEntryLine(
+                    journal_entry_id=je.id,
+                    line_number=line.line_number,
+                    account_id=line.account_id,
+                    entity_id=line.entity_id,
+                    debit=line.debit,
+                    credit=line.credit,
+                    description=line.description,
+                ))
 
-    db.flush()
-    db.refresh(je)
-    return je
+            db.flush()
+            db.refresh(je)
+            # Record audit log for posting
+            try:
+                db.add(AuditLog(
+                    actor_user_id=user_id,
+                    entity='journal_entry',
+                    action='post',
+                    object_id=je.id,
+                    details=f"Posted JE {je.je_number} by user {user_id}",
+                ))
+                db.flush()
+            except Exception:
+                # Audit failures must not block core flow; log and continue
+                pass
+            return je
+    except IntegrityError as e:
+        # Surface a domain-friendly validation error when JE number uniqueness
+        # or other integrity constraints are violated.
+        msg = str(e.orig) if getattr(e, 'orig', None) is not None else str(e)
+        result = ValidationResult()
+        result.error(
+            code="JE_DB_INTEGRITY",
+            message="Database integrity error while creating journal entry.",
+            source_type="journal_entry",
+            source_id=data.je_number,
+            suggested_resolution="Ensure JE number is unique and referenced accounts exist.",
+        )
+        # If the error appears to be a duplicate JE number, provide a clearer message
+        if "je_number" in msg or "duplicate" in msg.lower() or "unique" in msg.lower():
+            result.error(
+                code="JE_DUPLICATE_NUMBER",
+                message=f"Journal entry number '{data.je_number}' already exists.",
+                source_type="journal_entry",
+                source_id=data.je_number,
+                suggested_resolution="Use a unique JE number or let the system generate one.",
+            )
+        raise JournalEntryValidationError("Database integrity error while creating journal entry.", result=result)
 
 
 def create_draft_journal_entry(
@@ -320,35 +364,69 @@ def create_draft_journal_entry(
     _check_accounts_postable(db, data)
 
     user_id = acting_user.id if acting_user is not None else None
-    je = JournalEntry(
-        je_number=data.je_number,
-        entry_date=data.entry_date,
-        entity_id=data.entity_id,
-        scenario_id=data.scenario_id,
-        description=data.description,
-        source=data.source,
-        source_ref=data.source_ref,
-        created_by=data.created_by,
-        status="draft",
-        created_by_user_id=user_id,
-    )
-    db.add(je)
-    db.flush()
+    try:
+        ctx = db.begin() if not db.in_transaction() else nullcontext()
+        with ctx:
+            je = JournalEntry(
+                je_number=data.je_number,
+                entry_date=data.entry_date,
+                entity_id=data.entity_id,
+                scenario_id=data.scenario_id,
+                description=data.description,
+                source=data.source,
+                source_ref=data.source_ref,
+                created_by=data.created_by,
+                status="draft",
+                created_by_user_id=user_id,
+            )
+            db.add(je)
+            db.flush()
 
-    for line in data.lines:
-        db.add(JournalEntryLine(
-            journal_entry_id=je.id,
-            line_number=line.line_number,
-            account_id=line.account_id,
-            entity_id=line.entity_id,
-            debit=line.debit,
-            credit=line.credit,
-            description=line.description,
-        ))
+            for line in data.lines:
+                db.add(JournalEntryLine(
+                    journal_entry_id=je.id,
+                    line_number=line.line_number,
+                    account_id=line.account_id,
+                    entity_id=line.entity_id,
+                    debit=line.debit,
+                    credit=line.credit,
+                    description=line.description,
+                ))
 
-    db.flush()
-    db.refresh(je)
-    return je
+            db.flush()
+            db.refresh(je)
+            # Record audit log for draft creation
+            try:
+                db.add(AuditLog(
+                    actor_user_id=user_id,
+                    entity='journal_entry',
+                    action='create_draft',
+                    object_id=je.id,
+                    details=f"Created draft JE {je.je_number} by user {user_id}",
+                ))
+                db.flush()
+            except Exception:
+                pass
+            return je
+    except IntegrityError as e:
+        msg = str(e.orig) if getattr(e, 'orig', None) is not None else str(e)
+        result = ValidationResult()
+        result.error(
+            code="JE_DB_INTEGRITY",
+            message="Database integrity error while creating draft journal entry.",
+            source_type="journal_entry",
+            source_id=data.je_number,
+            suggested_resolution="Ensure JE number is unique and referenced accounts exist.",
+        )
+        if "je_number" in msg or "duplicate" in msg.lower() or "unique" in msg.lower():
+            result.error(
+                code="JE_DUPLICATE_NUMBER",
+                message=f"Journal entry number '{data.je_number}' already exists.",
+                source_type="journal_entry",
+                source_id=data.je_number,
+                suggested_resolution="Use a unique JE number or let the system generate one.",
+            )
+        raise JournalEntryValidationError("Database integrity error while creating draft journal entry.", result=result)
 
 
 # ---------------------------------------------------------------------------

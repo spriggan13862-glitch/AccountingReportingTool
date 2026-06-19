@@ -20,6 +20,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
+import { formatCurrency } from '@/lib/format'
 import { pdfImportApi } from '@/api/pdfImport'
 import { entitiesApi } from '@/api/entities'
 import { PageLayout } from '@/components/ui/PageLayout'
@@ -132,9 +133,7 @@ type Phase = 'upload' | 'preview' | 'applied'
 function fmt(amount: string): string {
   const n = parseFloat(amount)
   if (isNaN(n)) return amount
-  const abs = Math.abs(n)
-  const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return n < 0 ? `(${formatted})` : formatted
+  return formatCurrency(n, { decimals: 2 })
 }
 
 function groupLines<T extends { statement_type: string; section: string }>(

@@ -1,3 +1,4 @@
+import { useFormatNumber } from '@/hooks/useFormatCurrency'
 import type { Variance } from '@/types'
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function VarianceIndicator({ variance, size = 'md' }: Props) {
+  const fmtNumber = useFormatNumber()
   const amount = parseFloat(variance.amount)
   const isPositive = amount > 0
   const isNeutral = amount === 0
@@ -15,7 +17,7 @@ export function VarianceIndicator({ variance, size = 'md' }: Props) {
 
   return (
     <span className={`${color} ${textSize} font-medium whitespace-nowrap`}>
-      {arrow} {Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+      {arrow} {fmtNumber(Math.abs(amount))}
       {variance.percentage != null && (
         <span className="ml-1 text-gray-400">
           ({parseFloat(variance.percentage).toFixed(1)}%)

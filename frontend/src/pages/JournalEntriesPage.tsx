@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { AccountSearch } from '@/components/ui/AccountSearch'
 import { useOrg } from '@/providers/OrgProvider'
 import { cn } from '@/utils/cn'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import type { JournalEntry, JELine, JECreate, JELineCreate, Account, User, Signoff } from '@/types'
 import { useToast } from '@/providers/ToastProvider'
@@ -183,6 +184,7 @@ export function JournalEntriesPage() {
   const { org } = useOrg()
   const orgId = org?.id ?? 0
   const toast = useToast()
+  const fmtCurrency = useFormatCurrency()
 
   // URL State integration (if drawer needs to open directly from a URL parameter)
   const { id: urlJeId } = useParams<{ id: string }>()
@@ -840,14 +842,14 @@ export function JournalEntriesPage() {
       header: 'Debit',
       sortable: true,
       sortValue: (r) => r.totalDebit,
-      render: (r) => <span className="font-mono text-slate-750 text-right w-full block pr-1 tabular-nums font-semibold">${r.totalDebit.toFixed(2)}</span>
+      render: (r) => <span className="font-mono text-slate-750 text-right w-full block pr-1 tabular-nums font-semibold">{fmtCurrency(r.totalDebit)}</span>
     },
     {
       key: 'credit',
       header: 'Credit',
       sortable: true,
       sortValue: (r) => r.totalCredit,
-      render: (r) => <span className="font-mono text-slate-750 text-right w-full block pr-1 tabular-nums font-semibold">${r.totalCredit.toFixed(2)}</span>
+      render: (r) => <span className="font-mono text-slate-750 text-right w-full block pr-1 tabular-nums font-semibold">{fmtCurrency(r.totalCredit)}</span>
     },
     {
       key: 'status',
@@ -1465,15 +1467,15 @@ export function JournalEntriesPage() {
                       <div className="flex gap-4">
                         <div>
                           <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Debits</span>
-                          <span className="font-mono font-bold text-slate-700">${totalDebit.toFixed(2)}</span>
+                          <span className="font-mono font-bold text-slate-700">{fmtCurrency(totalDebit)}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Credits</span>
-                          <span className="font-mono font-bold text-slate-700">${totalCredit.toFixed(2)}</span>
+                          <span className="font-mono font-bold text-slate-700">{fmtCurrency(totalCredit)}</span>
                         </div>
                         <div>
                           <span className="text-[10px] text-slate-400 font-bold uppercase block">Variance</span>
-                          <span className="font-mono font-bold text-slate-700">${difference.toFixed(2)}</span>
+                          <span className="font-mono font-bold text-slate-700">{fmtCurrency(difference)}</span>
                         </div>
                       </div>
                       <div>

@@ -4,6 +4,7 @@ import {
   BarChart3, Download, Loader, ChevronDown, ChevronRight,
   TrendingUp, ClipboardCheck, Building2, Calculator,
 } from 'lucide-react'
+import { formatCurrencyCompact } from '@/lib/format'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
@@ -29,17 +30,13 @@ import {
 function fmtAmt(val: string | null | undefined): string {
   const n = parseFloat(String(val ?? '0'))
   if (isNaN(n)) return '—'
-  const abs = Math.abs(n)
-  const sign = n >= 0 ? '+' : '-'
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`
-  return `${sign}$${abs.toFixed(0)}`
+  return formatCurrencyCompact(n)
 }
 
 function fmtDollar(val: string | null | undefined): string {
   const n = parseFloat(String(val ?? '0'))
   if (isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+  return formatCurrencyCompact(n)
 }
 
 type TabId = 'ebitda' | 'qoe' | 'sba' | 'dscr'

@@ -327,33 +327,33 @@ describe('ReportingViewWorkspacePage', () => {
 
   // ── Create view form ──────────────────────────────────────────────────────
 
-  it('shows create view form when + is clicked', async () => {
+  it('shows clone form when copy button is clicked', async () => {
     renderPage()
     await waitFor(() => screen.getByTestId('create-view-btn'))
     fireEvent.click(screen.getByTestId('create-view-btn'))
     await waitFor(() =>
-      expect(screen.getByTestId('view-form')).toBeInTheDocument()
+      expect(screen.getByTestId('clone-form')).toBeInTheDocument()
     )
   })
 
-  it('has save and cancel buttons in create form', async () => {
+  it('has save and cancel buttons in clone form', async () => {
     renderPage()
     await waitFor(() => screen.getByTestId('create-view-btn'))
     fireEvent.click(screen.getByTestId('create-view-btn'))
     await waitFor(() => {
-      expect(screen.getByTestId('view-form-save')).toBeInTheDocument()
-      expect(screen.getByTestId('view-form-cancel')).toBeInTheDocument()
+      expect(screen.getByTestId('clone-form-save')).toBeInTheDocument()
+      expect(screen.getByTestId('clone-form-cancel')).toBeInTheDocument()
     })
   })
 
-  it('closes create form when cancel is clicked', async () => {
+  it('closes clone form when cancel is clicked', async () => {
     renderPage()
     await waitFor(() => screen.getByTestId('create-view-btn'))
     fireEvent.click(screen.getByTestId('create-view-btn'))
-    await waitFor(() => screen.getByTestId('view-form-cancel'))
-    fireEvent.click(screen.getByTestId('view-form-cancel'))
+    await waitFor(() => screen.getByTestId('clone-form-cancel'))
+    fireEvent.click(screen.getByTestId('clone-form-cancel'))
     await waitFor(() =>
-      expect(screen.queryByTestId('view-form')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('clone-form')).not.toBeInTheDocument()
     )
   })
 

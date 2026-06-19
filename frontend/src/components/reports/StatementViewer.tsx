@@ -1,3 +1,5 @@
+import { useFormatNumber } from '@/hooks/useFormatCurrency'
+
 interface FsLine {
   code: string
   name: string
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export function StatementViewer({ lines, title, onLineClick }: Props) {
+  const fmtNumber = useFormatNumber()
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-gray-50 border-b">
@@ -33,10 +36,7 @@ export function StatementViewer({ lines, title, onLineClick }: Props) {
                 {line.name}
               </td>
               <td className={`px-4 py-2 text-right tabular-nums ${line.is_subtotal ? 'font-semibold' : ''}`}>
-                {parseFloat(line.display_balance).toLocaleString('en-US', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                })}
+                {Number.isFinite(parseFloat(line.display_balance)) ? fmtNumber(parseFloat(line.display_balance)) : '—'}
               </td>
             </tr>
           ))}

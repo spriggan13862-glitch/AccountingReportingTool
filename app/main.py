@@ -104,6 +104,23 @@ logger = get_logger(__name__)
 Base.metadata.create_all(bind=engine)
 
 # ---------------------------------------------------------------------------
+# Startup security checks
+# ---------------------------------------------------------------------------
+def _validate_secret_key() -> None:
+    sk = settings.SECRET_KEY
+    dev_placeholder = "dev-secret-key-change-in-production-must-be-32-chars-min"
+    if settings.is_production:
+        if not sk or sk == dev_placeholder or len(sk) < 32:
+            logger.critical("SECRET_KEY is insecure or not set for production")
+            raise RuntimeError("Insecure SECRET_KEY: set a secure 32+ char secret in production.")
+    else:
+        if sk == dev_placeholder or len(sk) < 32:
+            logger.warning("Using development SECRET_KEY. Change for production deployments.")
+
+
+_validate_secret_key()
+
+# ---------------------------------------------------------------------------
 # Application
 # ---------------------------------------------------------------------------
 

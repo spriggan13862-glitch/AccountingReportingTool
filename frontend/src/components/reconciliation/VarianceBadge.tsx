@@ -1,3 +1,4 @@
+import { formatCurrencyCompact } from '@/lib/format'
 import { cn } from '@/utils/cn'
 import type { TieOutStatus } from '@/types'
 
@@ -26,7 +27,7 @@ function fmt(val: string | null) {
   const n = parseFloat(val)
   if (isNaN(n)) return '—'
   const prefix = n > 0.005 ? '+' : ''
-  return prefix + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return prefix + formatCurrencyCompact(n)
 }
 
 export function VarianceBadge({ variance, tieOutStatus, className }: VarianceBadgeProps) {

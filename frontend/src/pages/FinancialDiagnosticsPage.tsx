@@ -10,16 +10,13 @@ import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { PeriodSelect } from '@/components/ui/PeriodSelect'
 import { getDiagnostics, listRepository, type DiagnosticsResult, type IssueTemplate } from '@/api/accountingIntelligence'
+import { formatCurrencyCompact } from '@/lib/format'
 
 function fmtAmt(val: string | null | undefined): string {
   if (!val) return '—'
   const n = parseFloat(val)
   if (isNaN(n)) return val
-  const abs = Math.abs(n)
-  const sign = n < 0 ? '-' : ''
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`
-  return `${sign}$${n.toFixed(0)}`
+  return formatCurrencyCompact(n)
 }
 
 function fmtRatio(val: string | null | undefined, decimals = 2): string {

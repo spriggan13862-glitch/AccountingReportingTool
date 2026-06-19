@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Download, ChevronDown, ChevronRight, ShieldAlert, X, Info } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { formatCurrencyCompact } from '@/lib/format'
 import { overlayApi, downloadPreviewExport } from '@/api/overlay'
 import { accountsApi } from '@/api/accounts'
 import { journalEntriesApi } from '@/api/journalEntries'
@@ -23,7 +24,7 @@ import type { OverlayCalculateRequest, OverlayLineItem, OverlayResult, Reporting
 function fmt(val: string | number) {
   const n = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatCurrencyCompact(n)
 }
 
 function adjColor(val: string | number) {
@@ -1029,7 +1030,7 @@ export function DraftPreviewPage() {
                     </div>
                     <p className="text-xs text-blue-750 font-mono">
                       Draft adjustment: {parseFloat(drilldownItem.draft_signed_adjustment) > 0 ? '+' : ''}
-                      {parseFloat(drilldownItem.draft_signed_adjustment).toFixed(2)}
+                      {fmt(drilldownItem.draft_signed_adjustment)}
                     </p>
                     <p className="text-xs text-blue-600 mt-1">
                       Source JEs: {drilldownItem.source_je_ids.join(', ') || 'none (synthetic)'}

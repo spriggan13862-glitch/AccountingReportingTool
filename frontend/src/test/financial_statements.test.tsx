@@ -1,5 +1,15 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+
+vi.mock('@/hooks/useFormatCurrency', () => ({
+  useFormatCurrency: () => (v: number | null | undefined) =>
+    v == null ? '—' : `$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+  useFormatNumber: () => (v: number | null | undefined) =>
+    v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  useFormatCurrencyCompact: () => (v: number | null | undefined) =>
+    v == null ? '—' : `$${v}`,
+}))
+
 import { VarianceIndicator } from '@/components/reports/VarianceIndicator'
 import { StatementViewer } from '@/components/reports/StatementViewer'
 import { DrilldownPanel } from '@/components/reports/DrilldownPanel'

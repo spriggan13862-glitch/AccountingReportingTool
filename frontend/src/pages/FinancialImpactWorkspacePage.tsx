@@ -13,6 +13,7 @@ import { overlayApi } from '@/api/overlay'
 import { periodGovernanceApi } from '@/api/periodGovernance'
 import { adjustmentWorkspaceApi } from '@/api/adjustmentWorkspace'
 import { reportingViewsApi } from '@/api/reportingViews'
+import { formatCurrencyCompact } from '@/lib/format'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
@@ -41,16 +42,11 @@ const SCENARIO_MODE_OPTIONS: { value: ScenarioMode; label: string; description: 
 function fmt(val: string | number | null | undefined): string {
   const n = typeof val === 'string' ? parseFloat(val) : (val ?? 0)
   if (isNaN(n) || n === 0) return '—'
-  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  return formatCurrencyCompact(n)
 }
 
 function fmtK(n: number): string {
-  const abs = Math.abs(n)
-  const sign = n < 0 ? '(' : ''
-  const end = n < 0 ? ')' : ''
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M${end}`
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K${end}`
-  return `${sign}$${abs.toFixed(0)}${end}`
+  return formatCurrencyCompact(n)
 }
 
 function varianceClass(v: number): string {

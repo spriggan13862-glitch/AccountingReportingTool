@@ -6,6 +6,7 @@ import { reviewApi, type CheckResult, type VarianceRow, type RatioMetric, type R
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { FsLine } from '@/types'
 
 type StatementTab = 'BS' | 'IS' | 'CF' | 'Analysis'
@@ -57,6 +58,7 @@ function VarianceTable({
   rows: VarianceRow[]
   onDrilldown?: (code: string) => void
 }) {
+  const fmtCurrency = useFormatCurrency()
   if (rows.length === 0) return <p className="text-xs text-gray-400 italic py-4 text-center">No data</p>
 
   return (
@@ -87,10 +89,10 @@ function VarianceTable({
                   <ChevronRight className="h-3 w-3 text-gray-300 group-hover:text-blue-400 shrink-0" />
                 </button>
               </td>
-              <td className="py-1.5 text-right tabular-nums text-gray-600">{row.prior_balance.toFixed(2)}</td>
-              <td className="py-1.5 text-right tabular-nums text-gray-800 font-medium">{row.current_balance.toFixed(2)}</td>
+              <td className="py-1.5 text-right tabular-nums text-gray-600">{fmtCurrency(row.prior_balance)}</td>
+              <td className="py-1.5 text-right tabular-nums text-gray-800 font-medium">{fmtCurrency(row.current_balance)}</td>
               <td className={`py-1.5 text-right tabular-nums ${row.amount_delta >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
-                {row.amount_delta >= 0 ? '+' : ''}{row.amount_delta.toFixed(2)}
+                {row.amount_delta >= 0 ? '+' : ''}{fmtCurrency(row.amount_delta)}
               </td>
               <td className={`py-1.5 text-right tabular-nums ${row.flag ? 'font-semibold text-amber-700' : 'text-gray-500'}`}>
                 {row.pct_delta != null
@@ -121,6 +123,7 @@ function buildDepthMap(rows: FsLine[]): Map<number, number> {
 }
 
 function StatementTable({ rows }: { rows: FsLine[] }) {
+  const fmtCurrency = useFormatCurrency()
   if (rows.length === 0) return <p className="text-xs text-gray-400 italic py-4 text-center">No data</p>
   const depths = buildDepthMap(rows)
   return (
@@ -141,7 +144,7 @@ function StatementTable({ rows }: { rows: FsLine[] }) {
                   <span className={`text-gray-700 ${row.is_subtotal ? 'font-semibold' : ''}`}>{row.name}</span>
                 </td>
                 <td className={`py-1.5 pr-1 text-right tabular-nums ${row.is_subtotal ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-                  {Number(row.display_balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {fmtCurrency(Number(row.display_balance))}
                 </td>
               </tr>
             )
@@ -167,9 +170,10 @@ const STATUS_VALUE_COLORS = {
 }
 
 function RatioCard({ m }: { m: RatioMetric }) {
+  const fmtCurrency = useFormatCurrency()
   const formatted = m.value === null ? '—'
     : m.unit === '%' ? `${m.value.toFixed(1)}%`
-    : m.unit === '$' ? `$${m.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    : m.unit === '$' ? fmtCurrency(m.value)
     : `${m.value.toFixed(2)}x`
   return (
     <div className={`rounded-lg border p-3 ${STATUS_COLORS[m.status as keyof typeof STATUS_COLORS] ?? STATUS_COLORS.na}`}>

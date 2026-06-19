@@ -221,7 +221,7 @@ function JELinesTable({ lines, fmt }: { lines: NonNullable<AdjustmentListItem['l
                   <td className="px-3 py-1 text-right font-mono font-semibold">
                     {net !== 0 ? (
                       <span className={net > 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                        {net > 0 ? '+' : ''}{fmt(net)}
+                        {net > 0 ? '+' : '-'}{fmt(Math.abs(net))}
                       </span>
                     ) : (
                       <span className="text-slate-300">—</span>
@@ -558,6 +558,7 @@ export function AdjustmentWorkspacePage() {
                   <SortTh col="materiality" label="Materiality" />
                   <SortTh col="total_debit" label="Total Dr" className="text-right" />
                   <SortTh col="total_credit" label="Total Cr" className="text-right" />
+                  <SortTh col="bs_impact" label="BS Impact" className="text-right" />
                   <SortTh col="ni_impact" label="NI Impact" className="text-right" />
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Source</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
@@ -633,7 +634,17 @@ export function AdjustmentWorkspacePage() {
                         <td className="px-3 py-2 text-right font-mono text-slate-700" data-testid="total-credit">
                           {fmt(item.total_credit)}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right" data-testid={`adj-bs-impact-${item.id}`}>
+                          {item.impact.asset_impact || item.impact.liability_impact || item.impact.equity_impact ? (
+                            <span className={cn('font-semibold', (item.impact.asset_impact + item.impact.liability_impact + item.impact.equity_impact) > 0 ? 'text-emerald-600' : 'text-rose-600')}>
+                              {(item.impact.asset_impact + item.impact.liability_impact + item.impact.equity_impact) > 0 ? '+' : ''}{fmt(Math.abs(item.impact.asset_impact + item.impact.liability_impact + item.impact.equity_impact))}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
+                        </td>
+
+                        <td className="px-3 py-2 text-right" data-testid={`adj-ni-impact-${item.id}`}>
                           {item.impact.ni_impact !== 0 ? (
                             <span className={cn('font-semibold', item.impact.ni_impact > 0 ? 'text-emerald-600' : 'text-rose-600')}>
                               {item.impact.ni_impact > 0 ? '+' : ''}{fmt(Math.abs(item.impact.ni_impact))}

@@ -1,3 +1,4 @@
+import { formatCurrencyCompact } from '@/lib/format'
 import { cn } from '@/utils/cn'
 import type { OverlayResult } from '@/types'
 
@@ -9,7 +10,7 @@ interface OverlaySummaryCardProps {
 function fmt(val: string | number) {
   const n = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 2 }).format(n)
+  return formatCurrencyCompact(n)
 }
 
 export function OverlaySummaryCard({ result, className }: OverlaySummaryCardProps) {

@@ -68,10 +68,12 @@ function AjeCell({ value, fmt }: { value: number; fmt: Fmt }) {
 function AjeSummaryPanel({
   adj,
   fmt,
+  bridge,
   onClose,
 }: {
   adj: BridgeAdjustment
   fmt: Fmt
+  bridge?: BridgeResult | null
   onClose: () => void
 }) {
   return (
@@ -123,6 +125,33 @@ function AjeSummaryPanel({
                 <td className="px-3 py-2 text-slate-500">Total Cr</td>
                 <td className="px-3 py-2 text-right font-mono text-slate-800">{fmt(adj.total_credit)}</td>
               </tr>
+              {bridge && (
+                (() => {
+                  // compute BS vs NI impact for this adjustment by summing impacts across rows
+                  const aid = String(adj.id)
+                  let bs = 0
+                  let ni = 0
+                  for (const r of bridge.rows) {
+                    const amt = r.adjustment_impacts[aid] ?? 0
+                    if (!amt) continue
+                    const at = (r.account_type || '').toLowerCase()
+                    if (['asset', 'liability', 'equity'].includes(at)) bs += amt
+                    else ni += amt
+                  }
+                  return (
+                    <>
+                      <tr>
+                        <td className="px-3 py-2 text-slate-500">NI Impact</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-800">{ni === 0 ? <span className="text-slate-300">—</span> : <span className={ni > 0 ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>{ni > 0 ? '+' : ''}{fmt(Math.abs(ni))}</span>}</td>
+                      </tr>
+                      <tr>
+                        <td className="px-3 py-2 text-slate-500">BS Impact</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-800">{bs === 0 ? <span className="text-slate-300">—</span> : <span className={bs > 0 ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>{bs > 0 ? '+' : ''}{fmt(Math.abs(bs))}</span>}</td>
+                      </tr>
+                    </>
+                  )
+                })()
+              )}
             </tbody>
           </table>
         </div>
@@ -353,6 +382,14 @@ export function AdjustmentBridgePage() {
   // Track which sections have visible account children (for collapse logic)
   const adjCount = bridge?.adjustments.length ?? 0
 
+  function isBsType(t?: string | null) {
+    if (!t) return false
+    const lt = t.toLowerCase()
+    return lt === 'asset' || lt === 'liability' || lt === 'equity'
+  }
+
+  const totalsBsImpact = bridge ? bridge.rows.reduce((s, r) => (isBsType(r.account_type) ? s + (r.total_ajes || 0) : s), 0) : 0
+
   return (
     <PageLayout
       title="Adjustment Bridge"
@@ -369,8 +406,8 @@ export function AdjustmentBridgePage() {
         />
       )}
 
-      {activeAje && (
-        <AjeSummaryPanel adj={activeAje} fmt={fmt} onClose={() => setActiveAje(null)} />
+      {activeAje && bridge && (
+        <AjeSummaryPanel adj={activeAje} fmt={fmt} bridge={bridge} onClose={() => setActiveAje(null)} />
       )}
       {activeAccount && bridge && (
         <AccountDrilldownPanel
@@ -538,6 +575,9 @@ export function AdjustmentBridgePage() {
                       <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide min-w-[110px] border-l border-slate-200">
                         Total AJEs
                       </th>
+                      <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-500 uppercase tracking-wide min-w-[110px]">
+                        BS Impact
+                      </th>
                       <th className="px-3 py-2.5 text-right text-[10px] font-semibold text-slate-800 uppercase tracking-wide min-w-[110px] bg-indigo-50 border-l border-indigo-200">
                         Adjusted
                       </th>
@@ -588,6 +628,18 @@ export function AdjustmentBridgePage() {
                             ))}
                             <td className="px-3 py-2 text-right border-l border-slate-200 font-mono font-semibold text-slate-700">
                               <NumCell value={row.total_ajes} bold fmt={fmt} />
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {/* Section-level BS Impact: sum BS impacts from following account rows until next section */}
+                              {(() => {
+                                let sum = 0
+                                for (let j = idx + 1; j < visibleRows.length; j++) {
+                                  const r2 = visibleRows[j]
+                                  if (r2.row_type === 'section') break
+                                  if (isBsType(r2.account_type)) sum += r2.total_ajes || 0
+                                }
+                                return sum !== 0 ? <NumCell value={sum} fmt={fmt} /> : <span className="text-slate-300">—</span>
+                              })()}
                             </td>
                             <td className="px-3 py-2 text-right bg-indigo-50/60 border-l border-indigo-100 font-mono font-bold text-indigo-900">
                               <NumCell value={row.adjusted_balance} bold highlight fmt={fmt} />
@@ -648,9 +700,17 @@ export function AdjustmentBridgePage() {
                           <td className="px-3 py-1.5 text-right border-l border-slate-100">
                             <NumCell value={row.total_ajes} fmt={fmt} />
                           </td>
-                          <td className="px-3 py-1.5 text-right bg-indigo-50/40 border-l border-indigo-100">
-                            <NumCell value={row.adjusted_balance} highlight fmt={fmt} />
-                          </td>
+                      <td className="px-3 py-1.5 text-right">
+                        {/* BS Impact: if this account is a BS type, show total_ajes as balance-impact */}
+                        {isBsType(row.account_type) ? (
+                          <NumCell value={row.total_ajes} fmt={fmt} />
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right bg-indigo-50/40 border-l border-indigo-100">
+                        <NumCell value={row.adjusted_balance} highlight fmt={fmt} />
+                      </td>
                           {showVariance && (() => {
                             const v = row.as_reported - row.adjusted_balance
                             return (
@@ -694,6 +754,10 @@ export function AdjustmentBridgePage() {
                       ))}
                       <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 border-l border-slate-200">
                         {fmt(bridge.totals.total_ajes)}
+                      </td>
+                      {/* totalsBsImpact should appear before the adjusted balance total */}
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 border-l border-slate-200">
+                        {fmt(totalsBsImpact)}
                       </td>
                       <td className="px-3 py-2.5 text-right font-mono font-bold text-indigo-900 bg-indigo-100 border-l border-indigo-200">
                         {fmt(bridge.totals.adjusted_balance)}

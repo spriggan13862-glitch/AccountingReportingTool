@@ -11,6 +11,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/providers/ToastProvider'
 import { useOrg } from '@/providers/OrgProvider'
+import { useFormatNumber } from '@/hooks/useFormatCurrency'
 import type { Entity } from '@/types'
 
 const ENTITY_TYPES = ['operating', 'consolidation', 'elimination', 'carveout', 'staging']
@@ -58,6 +59,7 @@ export function EntitiesPage() {
   const toast = useToast()
   const { org } = useOrg()
   const orgId = org?.id ?? 0
+  const fmtNumber = useFormatNumber()
   const [searchParams] = useSearchParams()
   const [apiError, setApiError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -258,10 +260,10 @@ export function EntitiesPage() {
                         : <span className="text-red-400">Not set</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-600">
-                      {entity.account_count > 0 ? entity.account_count.toLocaleString() : <span className="text-gray-300">—</span>}
+                      {entity.account_count > 0 ? fmtNumber(entity.account_count) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-600">
-                      {entity.import_count > 0 ? entity.import_count.toLocaleString() : <span className="text-gray-300">—</span>}
+                      {entity.import_count > 0 ? fmtNumber(entity.import_count) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={entity.active ? 'success' : 'default'}>

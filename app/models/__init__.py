@@ -48,6 +48,10 @@ from app.models.issue_template import IssueTemplate
 from app.models.journal_entry_event import JournalEntryEvent
 from app.models.deliverable_snapshot import DeliverableSnapshot
 from app.models.quickbooks_connection import QuickBooksConnection
+from app.models.budget import BudgetVersion, BudgetLine
+from app.models.refresh_token import RefreshToken
+from app.models.idempotency_key import IdempotencyKey
+from app.models.background_job import BackgroundJob
 
 __all__ = [
     "Organization", "User", "Role", "UserRole",
@@ -71,6 +75,10 @@ __all__ = [
     "JournalEntryEvent",
     "DeliverableSnapshot",
     "QuickBooksConnection",
+    "RefreshToken",
+    "IdempotencyKey",
+    "BackgroundJob",
     "ReportingTaxonomyLine", "ReportingTaxonomyView", "ReportingPresentationSettings", "COAImportBatch",
     "PDFImportBatch", "PDFImportLine", "PDFAccountMapping",
+    "BudgetVersion", "BudgetLine",
 ]

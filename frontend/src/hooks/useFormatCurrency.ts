@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { reportingSettingsApi } from '@/api/reportingSettings'
-import { formatCurrency, formatNumber, type FormatOptions } from '@/lib/format'
+import { formatCurrency, formatCurrencyCompact, formatNumber, type FormatOptions } from '@/lib/format'
 
 function useReportingSettings() {
   const { data } = useQuery({
@@ -26,4 +26,10 @@ export function useFormatNumber() {
   const settings = useReportingSettings()
   return (value: number | null | undefined) =>
     formatNumber(value, settings?.decimal_places ?? 0)
+}
+
+export function useFormatCurrencyCompact() {
+  const settings = useReportingSettings()
+  return (value: number | null | undefined) =>
+    formatCurrencyCompact(value, settings?.currency_symbol ?? '$')
 }

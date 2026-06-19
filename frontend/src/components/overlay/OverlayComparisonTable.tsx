@@ -1,5 +1,6 @@
 import { useState, Fragment } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { formatCurrencyCompact } from '@/lib/format'
 import { cn } from '@/utils/cn'
 import type { OverlayLineItem } from '@/types'
 
@@ -12,7 +13,7 @@ interface OverlayComparisonTableProps {
 function fmt(val: string | number) {
   const n = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatCurrencyCompact(n)
 }
 
 function adjColor(val: string) {

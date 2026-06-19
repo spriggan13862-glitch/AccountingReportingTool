@@ -15,6 +15,7 @@ import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
+import { formatCurrencyCompact } from '@/lib/format'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard/types'
@@ -454,8 +455,8 @@ export function GeneralLedgerImportPage() {
                   { key: 'entry_date', header: 'Posting Date', render: (r) => <span className="text-gray-500 font-medium">{r.entry_date}</span> },
                   { key: 'description', header: 'Description', render: (r) => <span className="text-gray-600 truncate max-w-[200px] block">{r.description}</span> },
                   { key: 'line_count', header: 'Lines', render: (r) => <span className="text-slate-500 font-semibold">{r.line_count}</span> },
-                  { key: 'total_debits', header: 'Total Debits', render: (r) => `$${r.total_debits.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
-                  { key: 'total_credits', header: 'Total Credits', render: (r) => `$${r.total_credits.toLocaleString(undefined, {minimumFractionDigits: 2})}` },
+                  { key: 'total_debits', header: 'Total Debits', render: (r) => formatCurrencyCompact(r.total_debits) },
+                  { key: 'total_credits', header: 'Total Credits', render: (r) => formatCurrencyCompact(r.total_credits) },
                   { key: 'status', header: 'Audit Status', render: (r) => r.is_unbalanced ? <span className="text-rose-600 font-semibold">Unbalanced</span> : <span className="text-emerald-600 font-semibold">Balanced</span> },
                 ]}
                 rowKey={(r) => r.je_number}

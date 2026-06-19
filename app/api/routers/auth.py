@@ -46,6 +46,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     expires_in: int          # seconds
+    refresh_token: str | None = None
+    refresh_expires_in: int | None = None
 
 
 class PasswordResetRequest(BaseModel):
@@ -73,7 +75,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         # Generic message — do not reveal whether the email exists
         raise HTTPException(status_code=401, detail=str(exc))
 
-    token_data = create_token_for_user(user)
+    token_data = create_token_for_user(user, db=db)
     return TokenResponse(**token_data)
 
 
@@ -84,6 +86,10 @@ def get_me(current_user=Depends(get_required_user)):
 
 
 @router.post("/logout", status_code=200)
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
 def logout(current_user=Depends(get_required_user)):
     """
     Stateless logout placeholder.
@@ -96,16 +102,31 @@ def logout(current_user=Depends(get_required_user)):
     return {"detail": "Logged out. Discard your token on the client side."}
 
 
-@router.post("/refresh", status_code=200)
-def refresh_token(current_user=Depends(get_required_user)):
-    """
-    Token refresh placeholder.
+@router.post("/logout-refresh", status_code=200)
+def logout_refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+    """Revoke a refresh token so it can no longer be used to obtain new access tokens."""
+    from app.services.auth_service import revoke_refresh_token_by_jti
+    from app.core.security import decode_refresh_token
+    try:
+        payload = decode_refresh_token(body.refresh_token)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Refresh token malformed or expired")
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(status_code=400, detail="Refresh token missing jti")
+    revoke_refresh_token_by_jti(db, jti)
+    return {"detail": "Refresh token revoked"}
 
-    Returns a fresh access token using the current valid token as proof of
-    identity. Full refresh-token rotation (separate refresh token, rotation
-    tracking) is deferred to a future milestone.
-    """
-    token_data = create_token_for_user(current_user)
+
+@router.post("/refresh", status_code=200)
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)):
+    """Exchange a refresh token for a new access token (and rotated refresh token)."""
+    from app.services.auth_service import refresh_access_token
+    try:
+        token_data = refresh_access_token(db, body.refresh_token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
     return TokenResponse(**token_data)
 
 

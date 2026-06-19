@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw, Clock, Upload, Shield, Download } from 'lucide-react'
+import { formatCurrencyCompact } from '@/lib/format'
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
@@ -149,13 +150,13 @@ export function ImportReviewPage() {
         {batch.total_debits && (
           <div>
             <p className="text-xs text-gray-500">Total DR</p>
-            <p className="text-sm font-medium text-gray-700">{Number(batch.total_debits).toLocaleString()}</p>
+            <p className="text-sm font-medium text-gray-700">{formatCurrencyCompact(Number(batch.total_debits))}</p>
           </div>
         )}
         {batch.total_credits && (
           <div>
             <p className="text-xs text-gray-500">Total CR</p>
-            <p className="text-sm font-medium text-gray-700">{Number(batch.total_credits).toLocaleString()}</p>
+            <p className="text-sm font-medium text-gray-700">{formatCurrencyCompact(Number(batch.total_credits))}</p>
           </div>
         )}
 
@@ -311,7 +312,7 @@ export function ImportReviewPage() {
                 className: 'text-right font-mono',
                 render: (l: ImportLine) => (
                   <span>
-                    {Number(l.debit) > 0 ? Number(l.debit).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
+                    {Number(l.debit) > 0 ? formatCurrencyCompact(Number(l.debit)) : '—'}
                   </span>
                 ),
               },
@@ -323,7 +324,7 @@ export function ImportReviewPage() {
                 className: 'text-right font-mono',
                 render: (l: ImportLine) => (
                   <span>
-                    {Number(l.credit) > 0 ? Number(l.credit).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
+                    {Number(l.credit) > 0 ? formatCurrencyCompact(Number(l.credit)) : '—'}
                   </span>
                 ),
               },
@@ -558,7 +559,7 @@ export function ImportReviewPage() {
                 <p className="text-xs font-medium text-gray-700">
                   {batch.status === 'validation_failed' ? 'Validation failed' : 'Validation passed'}
                 </p>
-                <p className="text-xs text-gray-400">DR {Number(batch.total_debits ?? 0).toLocaleString()} / CR {Number(batch.total_credits ?? 0).toLocaleString()}</p>
+                <p className="text-xs text-gray-400">DR {formatCurrencyCompact(Number(batch.total_debits ?? 0))} / CR {formatCurrencyCompact(Number(batch.total_credits ?? 0))}</p>
                 {batch.status === 'validation_failed' && batch.error_message && (
                   <p className="text-xs text-red-600 mt-1 font-medium">{batch.error_message}</p>
                 )}

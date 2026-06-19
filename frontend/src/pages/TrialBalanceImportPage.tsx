@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { formatCurrencyCompact } from '@/lib/format'
+import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -783,8 +784,14 @@ export function TrialBalanceImportPage() {
                 columns={[
                   { key: 'raw_account_number', header: 'Account Number', render: (r: any) => <span className="font-semibold text-gray-800">{r.raw_account_number ?? '—'}</span> },
                   { key: 'raw_account_name', header: 'Account Name', render: (r: any) => <span className="text-gray-600 font-medium">{r.raw_account_name ?? '—'}</span> },
-                  { key: 'debit', header: 'Debit', render: (r: any) => r.debit && parseFloat(r.debit) !== 0 ? formatCurrencyCompact(parseFloat(r.debit)) : '—' },
-                  { key: 'credit', header: 'Credit', render: (r: any) => r.credit && parseFloat(r.credit) !== 0 ? formatCurrencyCompact(parseFloat(r.credit)) : '—' },
+                  { key: 'debit', header: 'Debit', render: (r: any) => {
+                    const fmtCompact = useFormatCurrencyCompact()
+                    return r.debit && parseFloat(r.debit) !== 0 ? fmtCompact(parseFloat(r.debit)) : '—'
+                  } },
+                  { key: 'credit', header: 'Credit', render: (r: any) => {
+                    const fmtCompact = useFormatCurrencyCompact()
+                    return r.credit && parseFloat(r.credit) !== 0 ? fmtCompact(parseFloat(r.credit)) : '—'
+                  } },
                   { key: 'mapping_status', header: 'Status', render: (r: any) => <span className={r.mapping_status === 'mapped' ? 'text-emerald-600 text-[10px] font-semibold' : 'text-amber-600 text-[10px]'}>{r.mapping_status}</span> },
                 ]}
                 rowKey={(r: any) => String(r.line_number ?? Math.random())}

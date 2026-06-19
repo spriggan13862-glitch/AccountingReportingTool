@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, AlertTriangle, ClipboardList, GitBranch, BarChart3, CheckCircle } from 'lucide-react'
+import { formatCurrencyCompact } from '@/lib/format'
 import type { DetectedIssue, IssueStatus } from '@/api/accountingIntelligence'
 import { SeverityBadge } from './SeverityBadge'
 
@@ -29,7 +30,7 @@ function formatMetricValue(key: string, val: string): string {
     return `${num >= 0 ? '+' : ''}${num.toFixed(1)}%`
   }
   if (Math.abs(num) >= 1000) {
-    return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    return formatCurrencyCompact(num)
   }
   return num.toFixed(2)
 }

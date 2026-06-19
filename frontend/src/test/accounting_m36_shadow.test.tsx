@@ -303,7 +303,7 @@ describe('PDFImportPage — preview step (all passing)', () => {
 
   it('formats amounts with commas', async () => {
     await uploadAndPreview()
-    expect(screen.getByText('131,968.80')).toBeInTheDocument()
+    expect(screen.getByText('$131,968.80')).toBeInTheDocument()
   })
 
   it('shows statement filter chips', async () => {

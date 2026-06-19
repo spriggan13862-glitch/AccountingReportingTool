@@ -1,3 +1,4 @@
+import { formatCurrencyCompact } from '@/lib/format'
 import { cn } from '@/utils/cn'
 import type { Reconciliation } from '@/types'
 import { ReconciliationStatusBadge } from './ReconciliationStatusBadge'
@@ -8,7 +9,7 @@ function fmt(val: string | null) {
   if (val === null || val === undefined) return '—'
   const n = parseFloat(val)
   if (isNaN(n)) return '—'
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  return formatCurrencyCompact(n)
 }
 
 interface ReconciliationTableProps {

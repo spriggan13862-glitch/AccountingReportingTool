@@ -16,14 +16,16 @@ import { DrilldownPanel } from '@/components/reports/DrilldownPanel'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { cn } from '@/utils/cn'
+import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { TaxonomyFsLine, CashFlowSection, CashFlowLine, OverlayCalculateRequest, OverlayLineItem, ReportingTaxonomyLine } from '@/types'
 
 type Tab = 'official_tb' | 'draft_tb' | 'BS' | 'IS' | 'CF'
 
-const fmt = (v: string | number) => {
-  const val = typeof v === 'string' ? parseFloat(v) : v
-  if (isNaN(val)) return '—'
-  return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function makeFmt(fmtCurrency: (v: number | null | undefined) => string) {
+  return (v: string | number) => {
+    const val = typeof v === 'string' ? parseFloat(v) : v
+    return isNaN(val) ? '—' : fmtCurrency(val)
+  }
 }
 
 const adjColor = (val: string | number) => {
@@ -63,6 +65,8 @@ export function TaxonomyTable({
   entityId: number | ''
   onDrilldown?: (code: string) => void
 }) {
+  const fmt = makeFmt(useFormatCurrency())
+
   if (isLoading) {
     return (
       <div className="py-12 text-center">
@@ -241,12 +245,14 @@ export function TaxonomyTable({
 // CashFlowStatement
 // ---------------------------------------------------------------------------
 
-function CashFlowStatement({ entityId, asOfDate, scenarioIds }: { entityId: number; asOfDate: string; scenarioIds: number[] }) {
+function CashFlowStatement({ entityId, asOfDate, periodStart, scenarioIds }: { entityId: number; asOfDate: string; periodStart: string; scenarioIds: number[] }) {
+  const fmt = makeFmt(useFormatCurrency())
+  const fromDate = periodStart || asOfDate
   const { data: fsData, isLoading, error } = useQuery({
-    queryKey: ['fs-cf', entityId, asOfDate, scenarioIds],
+    queryKey: ['fs-cf', entityId, asOfDate, fromDate, scenarioIds],
     queryFn: () =>
       financialStatementsApi
-        .getCashFlow(entityId, asOfDate, asOfDate, scenarioIds)
+        .getCashFlow(entityId, fromDate, asOfDate, scenarioIds)
         .then((r) => r.data),
     enabled: !!entityId && !!asOfDate,
   })
@@ -391,6 +397,7 @@ function StatementDebugPanel({
 // ---------------------------------------------------------------------------
 
 export function FinancialStatementsPage() {
+  const fmt = makeFmt(useFormatCurrency())
   const { org } = useOrg()
   const orgId = org?.id ?? 0
   const queryClient = useQueryClient()
@@ -503,8 +510,10 @@ export function FinancialStatementsPage() {
 
   const periodStart = useMemo(() => {
     if (!asOfDate) return ''
+    // Use the loaded period's start date when available (handles non-calendar fiscal years)
+    if (workspace?.activePeriod?.start_date) return workspace.activePeriod.start_date
     return `${asOfDate.slice(0, 4)}-01-01`
-  }, [asOfDate])
+  }, [asOfDate, workspace?.activePeriod?.start_date])
 
   // Queries for calculations & rollup
   const { data: accounts } = useQuery({
@@ -726,9 +735,16 @@ export function FinancialStatementsPage() {
       })
     })
 
+    // Build set of parent IDs so we skip adding direct accounts to aggregate nodes.
+    // Parent nodes collect their value purely from the bottom-up rollup to avoid
+    // double-counting when a multi-level tree is present.
+    const parentIds = new Set<number>()
+    rows.forEach((row) => { if (row.parent_id) parentIds.add(row.parent_id) })
+
     computedItems.forEach((item) => {
       const taxId = accountTaxonomyMap.get(item.account_id)
-      if (taxId && colMap.has(taxId)) {
+      // Only accumulate into leaf nodes (nodes with no children in this statement's row set)
+      if (taxId && colMap.has(taxId) && !parentIds.has(taxId)) {
         const cols = colMap.get(taxId)!
         cols.importedBalance += item.importedBalance
         cols.postedAdjustments += item.postedAdjustments
@@ -1190,6 +1206,7 @@ export function FinancialStatementsPage() {
               <CashFlowStatement
                 entityId={entityId as number}
                 asOfDate={asOfDate}
+                periodStart={periodStart}
                 scenarioIds={scenarioIds}
               />
             )}
@@ -1374,9 +1391,9 @@ export function FinancialStatementsPage() {
                       {drilldownPeriodBalances.map(({ month, debit, credit, net }) => (
                         <tr key={month} className="border-b border-slate-50">
                           <td className="py-1.5 pr-3 font-mono text-slate-600">{month}</td>
-                          <td className="py-1.5 pr-3 text-right font-mono text-emerald-700">{debit > 0 ? fmt(debit.toFixed(2)) : '—'}</td>
-                          <td className="py-1.5 pr-3 text-right font-mono text-rose-700">{credit > 0 ? fmt(credit.toFixed(2)) : '—'}</td>
-                          <td className={`py-1.5 text-right font-mono font-semibold ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(Math.abs(net).toFixed(2))}{net < 0 ? ' Cr' : ' Dr'}</td>
+                          <td className="py-1.5 pr-3 text-right font-mono text-emerald-700">{debit > 0 ? fmt(debit) : '—'}</td>
+                          <td className="py-1.5 pr-3 text-right font-mono text-rose-700">{credit > 0 ? fmt(credit) : '—'}</td>
+                          <td className={`py-1.5 text-right font-mono font-semibold ${net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{fmt(Math.abs(net))}{net < 0 ? ' Cr' : ' Dr'}</td>
                         </tr>
                       ))}
                     </tbody>

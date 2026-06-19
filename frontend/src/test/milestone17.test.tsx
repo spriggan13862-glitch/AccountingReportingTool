@@ -135,8 +135,8 @@ describe('M17 proof points', () => {
   it('totals section shows 0.00 by default for balanced empty lines', () => {
     render(wrap(<JournalEntryCreatePage />))
     const totals = screen.getByTestId('je-totals')
-    // Both debits and credits start at 0.00
-    expect(totals.textContent).toContain('0.00')
+    // Both debits and credits start at 0 (formatted per reporting settings)
+    expect(totals.textContent).toMatch(/\$0|0\.00/)
   })
 
   // 3. Validation errors display via ValidationAlert

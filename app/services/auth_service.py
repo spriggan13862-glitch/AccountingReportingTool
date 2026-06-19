@@ -19,6 +19,8 @@ from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.core.security import (
     create_access_token,
+    create_refresh_token,
+    decode_refresh_token,
     hash_password,
     token_payload_for_user,
     verify_password,
@@ -109,18 +111,115 @@ def authenticate_user(db: Session, email: str, password: str) -> "User":
     return user
 
 
-def create_token_for_user(user: "User") -> dict:
+def create_token_for_user(user: "User", db: Session | None = None) -> dict:
     """
     Build and sign a JWT for an authenticated user.
 
     Returns a dict suitable for the /login response body.
     """
     payload = token_payload_for_user(user)
-    token = create_access_token(payload)
+    access_token = create_access_token(payload)
+
+    # Create a refresh token with a jti for revocation/rotation tracking.
+    import uuid
+    jti = str(uuid.uuid4())
+    refresh_payload = {**payload, "jti": jti}
+    refresh_token = create_refresh_token(refresh_payload)
+
+    # Persist RefreshToken record using provided DB session when available.
+    from app.models.refresh_token import RefreshToken
+    expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    rt = RefreshToken(user_id=user.id, jti=jti, revoked=False, expires_at=expires_at)
+    if db is not None:
+        try:
+            db.add(rt)
+            db.flush()
+        except Exception:
+            logger.warning("refresh_token_persist_failed user_id=%d", user.id)
+    else:
+        # Best-effort persistence when no DB session supplied; use SessionLocal
+        try:
+            from app.database import SessionLocal
+            session = SessionLocal()
+            session.add(rt)
+            session.commit()
+            session.close()
+        except Exception:
+            logger.warning("refresh_token_not_persisted user_id=%d", user.id)
+
     return {
-        "access_token": token,
+        "access_token": access_token,
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "refresh_token": refresh_token,
+        "refresh_expires_in": settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+    }
+
+
+def revoke_refresh_token_by_jti(db: Session, jti: str) -> None:
+    from app.models.refresh_token import RefreshToken
+    rt = db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
+    if rt:
+        rt.revoked = True
+        db.flush()
+
+
+def refresh_access_token(db: Session, refresh_token_str: str) -> dict:
+    """
+    Validate a refresh token, ensure it's not revoked, and issue a new access
+    token. Perform rotation: revoke the used refresh token and issue a new one.
+    """
+    from jose import JWTError
+    from app.models.refresh_token import RefreshToken
+    from app.models.user import User
+    import uuid
+
+    try:
+        payload = decode_refresh_token(refresh_token_str)
+    except Exception:
+        raise AuthenticationError("Refresh token is invalid or expired")
+
+    jti = payload.get('jti')
+    user_id = payload.get('user_id')
+    if not jti or not user_id:
+        raise AuthenticationError("Malformed refresh token")
+
+    rt = db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
+    if rt is None or rt.revoked:
+        raise AuthenticationError("Refresh token is revoked or unknown")
+
+    # Normalize timezone awareness: convert both sides to naive UTC for comparison
+    now = datetime.datetime.now(datetime.UTC)
+    rt_expires = rt.expires_at
+    if getattr(rt_expires, 'tzinfo', None) is not None:
+        # make naive UTC
+        rt_expires = rt_expires.astimezone(datetime.UTC).replace(tzinfo=None)
+    now_naive = now.astimezone(datetime.UTC).replace(tzinfo=None)
+    if rt_expires < now_naive:
+        raise AuthenticationError("Refresh token expired")
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise AuthenticationError("User not found")
+
+    # Revoke the used token and issue a new refresh token (rotation)
+    new_jti = str(uuid.uuid4())
+    new_refresh_payload = {**token_payload_for_user(user), 'jti': new_jti}
+    new_refresh_token = create_refresh_token(new_refresh_payload)
+    new_expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    rt.revoked = True
+    rt.replaced_by = new_jti
+    db.add(RefreshToken(user_id=user.id, jti=new_jti, revoked=False, expires_at=new_expires_at))
+    db.flush()
+
+    access_token = create_access_token(token_payload_for_user(user))
+    return {
+        'access_token': access_token,
+        'token_type': 'bearer',
+        'expires_in': settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        'refresh_token': new_refresh_token,
+        'refresh_expires_in': settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     }
 
 

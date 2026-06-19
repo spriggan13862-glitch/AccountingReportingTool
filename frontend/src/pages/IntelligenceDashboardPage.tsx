@@ -16,6 +16,7 @@ import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { periodsApi } from '@/api/periods'
+import { formatCurrencyCompact } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -35,11 +36,7 @@ function fmt(n: number | undefined | null, unit: 'amount' | 'percent' | 'ratio' 
   if (n == null) return '—'
   if (unit === 'percent') return `${n.toFixed(1)}%`
   if (unit === 'ratio') return `${n.toFixed(2)}x`
-  const abs = Math.abs(n)
-  const sign = n < 0 ? '-' : ''
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`
-  return `${sign}$${abs.toFixed(0)}`
+  return formatCurrencyCompact(n)
 }
 
 // ---------------------------------------------------------------------------
@@ -772,8 +769,8 @@ export function IntelligenceDashboardPage() {
                 {/* Summary */}
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Posted AJEs', value: adjReport.summary.total_posted, sub: `$${(adjReport.summary.total_amount_posted / 1000).toFixed(0)}K total`, color: 'text-gray-900' },
-                    { label: 'Draft / Pending', value: adjReport.summary.total_draft, sub: `$${(adjReport.summary.total_amount_draft / 1000).toFixed(0)}K exposure`, color: adjReport.summary.total_draft > 5 ? 'text-amber-700' : 'text-gray-900' },
+                    { label: 'Posted AJEs', value: adjReport.summary.total_posted, sub: `${formatCurrencyCompact(adjReport.summary.total_amount_posted)} total`, color: 'text-gray-900' },
+                    { label: 'Draft / Pending', value: adjReport.summary.total_draft, sub: `${formatCurrencyCompact(adjReport.summary.total_amount_draft)} exposure`, color: adjReport.summary.total_draft > 5 ? 'text-amber-700' : 'text-gray-900' },
                   ].map(({ label, value, sub, color }) => (
                     <div key={label} className="rounded border border-gray-100 bg-gray-50 p-3">
                       <p className="text-[10px] text-gray-400">{label}</p>

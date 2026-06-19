@@ -9,6 +9,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { adjustmentWorkspaceApi, type AdjustmentPackage } from '@/api/adjustmentWorkspace'
+import { formatCurrencyCompact } from '@/lib/format'
 import {
   listAdvisorScenarios,
   createAdvisorScenario,
@@ -62,11 +63,7 @@ const IMPACT_METRICS = [
 // ---------------------------------------------------------------------------
 
 function fmtImpact(val: number): string {
-  const abs = Math.abs(val)
-  const sign = val >= 0 ? '+' : '-'
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`
-  return `${sign}$${abs.toFixed(0)}`
+  return (val >= 0 ? '+' : '') + formatCurrencyCompact(val)
 }
 
 // ---------------------------------------------------------------------------

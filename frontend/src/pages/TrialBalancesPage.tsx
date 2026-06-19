@@ -2,7 +2,18 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { reportingApi } from '@/api/reporting'
+import { useFormatNumber } from '@/hooks/useFormatCurrency'
 import { PageLayout } from '@/components/ui/PageLayout'
+
+function makeFmtNum(fmtNumber: (v: number | null | undefined) => string) {
+  return (v: string | number | null | undefined, dashForZero = false) => {
+    if (v == null) return '—'
+    const val = typeof v === 'string' ? parseFloat(v) : v
+    if (isNaN(val)) return '—'
+    if (dashForZero && val === 0) return '—'
+    return fmtNumber(val)
+  }
+}
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { ScenarioMultiSelect } from '@/components/ui/ScenarioMultiSelect'
 import { Input } from '@/components/ui/Input'
@@ -12,22 +23,12 @@ import type { TBRow } from '@/types'
 import { cn } from '@/utils/cn'
 import { ArrowUpRight, ArrowDownRight, Scale } from 'lucide-react'
 
-function fmt(val: string) {
-  const n = parseFloat(val)
-  if (isNaN(n) || n === 0) return '—'
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtBalance(val: string) {
-  const n = parseFloat(val)
-  if (isNaN(n)) return '—'
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
 type TBMode = 'cumulative' | 'period'
 
 export function TrialBalancesPage() {
   const { activeEntity } = useWorkspace()
+  const fmtNumber = useFormatNumber()
+  const fmt = makeFmtNum(fmtNumber)
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().slice(0, 10))
   const [fromDate, setFromDate] = useState('')
@@ -94,7 +95,7 @@ export function TrialBalancesPage() {
       header: 'Debits',
       sortable: true,
       sortValue: (row: TBRow) => parseFloat(row.total_debit) || 0,
-      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.total_debit)}</span>,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.total_debit, true)}</span>,
       className: 'text-right',
       headerClassName: 'justify-end',
     },
@@ -103,7 +104,7 @@ export function TrialBalancesPage() {
       header: 'Credits',
       sortable: true,
       sortValue: (row: TBRow) => parseFloat(row.total_credit) || 0,
-      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.total_credit)}</span>,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.total_credit, true)}</span>,
       className: 'text-right',
       headerClassName: 'justify-end',
     },
@@ -114,7 +115,7 @@ export function TrialBalancesPage() {
       sortValue: (row: TBRow) => parseFloat(row.signed_balance) || 0,
       render: (row: TBRow) => (
         <span className="font-mono tabular-nums font-semibold text-gray-900 block text-right pr-2">
-          {fmtBalance(row.signed_balance)}
+          {fmt(row.signed_balance)}
         </span>
       ),
       className: 'text-right',
@@ -156,7 +157,7 @@ export function TrialBalancesPage() {
       header: 'Beg. Balance',
       sortable: true,
       sortValue: (row: TBRow) => parseFloat(row.beginning_balance) || 0,
-      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-600">{fmtBalance(row.beginning_balance)}</span>,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-600">{fmt(row.beginning_balance)}</span>,
       className: 'text-right',
       headerClassName: 'justify-end',
     },
@@ -165,7 +166,7 @@ export function TrialBalancesPage() {
       header: 'Period Debits',
       sortable: true,
       sortValue: (row: TBRow) => parseFloat(row.period_debit) || 0,
-      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.period_debit)}</span>,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.period_debit, true)}</span>,
       className: 'text-right',
       headerClassName: 'justify-end',
     },
@@ -174,7 +175,7 @@ export function TrialBalancesPage() {
       header: 'Period Credits',
       sortable: true,
       sortValue: (row: TBRow) => parseFloat(row.period_credit) || 0,
-      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.period_credit)}</span>,
+      render: (row: TBRow) => <span className="font-mono tabular-nums text-right block pr-2 text-gray-700">{fmt(row.period_credit, true)}</span>,
       className: 'text-right',
       headerClassName: 'justify-end',
     },
@@ -185,7 +186,7 @@ export function TrialBalancesPage() {
       sortValue: (row: TBRow) => parseFloat(row.ending_balance) || 0,
       render: (row: TBRow) => (
         <span className="font-mono tabular-nums font-semibold text-gray-900 block text-right pr-2">
-          {fmtBalance(row.ending_balance)}
+          {fmt(row.ending_balance)}
         </span>
       ),
       className: 'text-right',
@@ -285,7 +286,7 @@ export function TrialBalancesPage() {
               <div>
                 <p className="text-xs text-gray-500 font-medium">{isPeriodMode ? 'Period Debits' : 'Total Debits'}</p>
                 <p className="text-lg font-mono font-bold text-gray-900">
-                  {totalDebit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {fmtNumber(totalDebit)}
                 </p>
               </div>
             </div>
@@ -297,7 +298,7 @@ export function TrialBalancesPage() {
               <div>
                 <p className="text-xs text-gray-500 font-medium">{isPeriodMode ? 'Period Credits' : 'Total Credits'}</p>
                 <p className="text-lg font-mono font-bold text-gray-900">
-                  {totalCredit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {fmtNumber(totalCredit)}
                 </p>
               </div>
             </div>
@@ -318,7 +319,7 @@ export function TrialBalancesPage() {
                   "text-lg font-semibold",
                   Math.abs(totalDebit - totalCredit) < 0.01 ? "text-green-700" : "text-red-700 font-mono font-bold"
                 )}>
-                  {Math.abs(totalDebit - totalCredit) < 0.01 ? 'Balanced' : (totalDebit - totalCredit).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {Math.abs(totalDebit - totalCredit) < 0.01 ? 'Balanced' : fmtNumber(totalDebit - totalCredit)}
                 </p>
               </div>
             </div>
