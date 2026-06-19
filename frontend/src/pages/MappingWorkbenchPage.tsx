@@ -586,6 +586,24 @@ export function MappingWorkbenchPage() {
             onChange={(e) => {
               const val = e.target.value ? Number(e.target.value) : null
               updateFsliMutation.mutate({ accountId: acct.id, taxonomyLineId: val })
+              // Propagate to child accounts (e.g. 1000-01, 1000.1) that have no FSLI yet
+              const parentNum = acct.account_number
+              if (val !== null && parentNum) {
+                const children = Object.values(accountMap).filter((a) =>
+                  a.id !== acct.id &&
+                  !a.reporting_taxonomy_line_id &&
+                  (a.account_number.startsWith(parentNum + '-') ||
+                   a.account_number.startsWith(parentNum + '.') ||
+                   a.account_number.startsWith(parentNum + ':'))
+                )
+                if (children.length > 0) {
+                  Promise.all(children.map((child) => accountsApi.update(child.id, { reporting_taxonomy_line_id: val })))
+                    .then(() => {
+                      queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
+                      toast(`FSLI propagated to ${children.length} child account${children.length === 1 ? '' : 's'}`, 'info')
+                    })
+                }
+              }
             }}
             className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-indigo-700 bg-indigo-50 focus:outline-none focus:ring-1 focus:ring-indigo-300 min-w-[120px] max-w-[180px]"
           >
