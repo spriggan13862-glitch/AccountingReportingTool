@@ -36,6 +36,22 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Agent 3 · Mapping Workbench usability + COA/FSLI logic clarity',
+    date: '2026-06-20',
+    items: [
+      'Zero values now display as "0.00" (not "—"). Dash is reserved for blank / null source cells. Real zero TB balances are no longer hidden.',
+      'Balance column computes Debit minus Credit when the source has no explicit Balance column. Blank DR with $6,656.68 CR renders as −6,656.68; DR 20.16 / blank CR renders as 20.16; DR 0 / blank CR renders as 0.00.',
+      '"Suggestion" column renamed to "FSLI Suggestion" and repositioned next to the FSLI / Reporting Line column so the recommended target sits beside the picker.',
+      'Mapping Workbench column order is now: Source Account · DR · CR · Balance · Matched COA / Status · FSLI Suggestion · FSLI / Reporting Line · Inherited From · Status / Actions.',
+      'FSLI dropdown is sorted alphabetically and grouped by statement section: Assets, Liabilities, Equity, Revenue, Cost of Revenue, Operating Expenses, Other Income / Expense, Income Taxes, Cash Flow, KPI, Disclosure.',
+      'New COA candidate rows ("Will create new COA account") now expose the FSLI picker as disabled with the hint "Map or create COA first" — once the COA is created the picker becomes live, so FSLI can be staged before posting.',
+      'Explanatory banner above the table clarifies the workflow: Source Account → COA Match → FSLI Mapping. New COA accounts can still be mapped to an FSLI before posting.',
+      'Trial Balance column-mapping auto-detection (frontend) now does a second pass over un-matched columns using data shape — combined "1000 · Cash" columns are detected as account_combined; decimal amount columns can never be mistaken for account number even when the header row is generic.',
+      'Phase 1a sticky-header scroll behavior on the column-mapping preview verified — matches the Select Worksheet preview.',
+      'Phase 2 redo collapsible parent grouping verified — auto-defaults to grouped view when ≥3 accounts share a parent.',
+    ],
+  },
+  {
     version: 'Auto-Map Taxonomies — modal now shows real source accounts',
     date: '2026-06-20',
     items: [

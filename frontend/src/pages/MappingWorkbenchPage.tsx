@@ -275,19 +275,80 @@ function guessAccountTypeAndNormal(code: string): { account_type: string; normal
 }
 
 // Flatten taxonomy tree (leaf nodes only) into FSLI options.
-function flattenTaxonomyLeaves(tree: any[]): Array<{ id: number; name: string; code: string }> {
-  const out: Array<{ id: number; name: string; code: string }> = []
-  function walk(node: any) {
+function flattenTaxonomyLeaves(tree: any[]): Array<{ id: number; name: string; code: string; section: string }> {
+  const out: Array<{ id: number; name: string; code: string; section: string }> = []
+  function walk(node: any, inheritedSection: string) {
     if (!node) return
+    const section = node.financial_statement_section ?? inheritedSection ?? ''
     const children = node.children ?? []
     if (children.length === 0) {
-      out.push({ id: node.id, name: node.name, code: node.code })
+      out.push({ id: node.id, name: node.name, code: node.code, section })
     } else {
-      children.forEach(walk)
+      children.forEach((c: any) => walk(c, section))
     }
   }
-  tree.forEach(walk)
+  tree.forEach((n) => walk(n, n.financial_statement_section ?? ''))
   return out
+}
+
+// Agent 3.6: canonical display order for FSLI sections, matching the
+// statement reading order the user expects.
+const FSLI_SECTION_ORDER: string[] = [
+  'Assets',
+  'Liabilities',
+  'Equity',
+  'Revenue',
+  'Cost of Revenue',
+  'Operating Expenses',
+  'Other Income / Expense',
+  'Other Income Expense',
+  'Income Taxes',
+  'Cash Flow Operating',
+  'Cash Flow Investing',
+  'Cash Flow Financing',
+  'KPI',
+  'Disclosure',
+]
+
+function normalizeSectionForOrder(raw: string | null | undefined): string {
+  if (!raw) return ''
+  // Legacy section codes use lowercase + underscores; Sprint O nodes use Title Case.
+  const lower = raw.toLowerCase().replace(/[_\s]+/g, ' ').trim()
+  const map: Record<string, string> = {
+    'assets': 'Assets', 'liabilities': 'Liabilities', 'equity': 'Equity',
+    'revenue': 'Revenue', 'cogs': 'Cost of Revenue', 'cost of revenue': 'Cost of Revenue',
+    'expense': 'Operating Expenses', 'opex': 'Operating Expenses',
+    'operating expenses': 'Operating Expenses',
+    'other income': 'Other Income / Expense', 'other expense': 'Other Income / Expense',
+    'other income / expense': 'Other Income / Expense',
+    'income taxes': 'Income Taxes', 'tax': 'Income Taxes',
+    'cash flow operating': 'Cash Flow Operating',
+    'cash flow investing': 'Cash Flow Investing',
+    'cash flow financing': 'Cash Flow Financing',
+    'kpi': 'KPI', 'disclosure': 'Disclosure',
+  }
+  return map[lower] ?? raw
+}
+
+function groupFsliOptionsBySection(
+  options: Array<{ id: number; name: string; code?: string; section?: string }>,
+): Array<{ section: string; options: Array<{ id: number; name: string; code?: string }> }> {
+  const buckets = new Map<string, Array<{ id: number; name: string; code?: string }>>()
+  for (const opt of options) {
+    const sec = normalizeSectionForOrder(opt.section ?? '') || '— Other —'
+    if (!buckets.has(sec)) buckets.set(sec, [])
+    buckets.get(sec)!.push({ id: opt.id, name: opt.name, code: opt.code })
+  }
+  // Sort each bucket's options alphabetically by name
+  for (const arr of buckets.values()) {
+    arr.sort((a, b) => a.name.localeCompare(b.name))
+  }
+  // Order sections per FSLI_SECTION_ORDER, with unknown sections last alphabetically
+  const known = FSLI_SECTION_ORDER.filter((s) => buckets.has(s))
+  const unknown = Array.from(buckets.keys())
+    .filter((s) => !FSLI_SECTION_ORDER.includes(s))
+    .sort()
+  return [...known, ...unknown].map((section) => ({ section, options: buckets.get(section)! }))
 }
 
 // ---------------------------------------------------------------------------
@@ -451,13 +512,18 @@ export function MappingWorkbenchPage() {
 
   const fallbackFsliOptions = useMemo(() => flattenTaxonomyLeaves(fallbackTree as any[]), [fallbackTree])
 
-  // Unified FSLI option list: prefer legacy, fall back to taxonomy library leaves
-  const fsliOptions: Array<{ id: number; name: string; code?: string }> = useMemo(() => {
+  // Unified FSLI option list: prefer legacy, fall back to taxonomy library leaves.
+  // Agent 3.6: each option carries `section` so the dropdown can group them.
+  const fsliOptions: Array<{ id: number; name: string; code?: string; section?: string }> = useMemo(() => {
     if (legacyTaxonomyLines.length > 0) {
-      return legacyTaxonomyLines.map((t: ReportingTaxonomyLine) => ({ id: t.id, name: t.name, code: t.code }))
+      return legacyTaxonomyLines.map((t: ReportingTaxonomyLine) => ({
+        id: t.id, name: t.name, code: t.code, section: t.section,
+      }))
     }
     return fallbackFsliOptions
   }, [legacyTaxonomyLines, fallbackFsliOptions])
+
+  const fsliOptionsGrouped = useMemo(() => groupFsliOptionsBySection(fsliOptions), [fsliOptions])
 
   const { data: reportingViews = [] } = useQuery({
     queryKey: ['reporting-views'],
@@ -982,11 +1048,10 @@ export function MappingWorkbenchPage() {
       filterable: true,
       filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_debit != null ? parseFloat(line.raw_debit) : 0,
+      // Agent 3.3: dash means blank/null. Zero means a real zero balance.
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600 py-2">
-          {line.raw_debit != null && Number(line.raw_debit) !== 0
-            ? fmtAmount(Number(line.raw_debit))
-            : '—'}
+          {line.raw_debit != null ? fmtAmount(Number(line.raw_debit), { decimals: 2, symbol: '' }) : '—'}
         </div>
       ),
     },
@@ -999,9 +1064,7 @@ export function MappingWorkbenchPage() {
       sortValue: (line: ImportLine) => line.raw_credit != null ? parseFloat(line.raw_credit) : 0,
       render: (line: ImportLine) => (
         <div className="text-right font-mono text-xs text-gray-600 py-2">
-          {line.raw_credit != null && Number(line.raw_credit) !== 0
-            ? fmtAmount(Number(line.raw_credit))
-            : '—'}
+          {line.raw_credit != null ? fmtAmount(Number(line.raw_credit), { decimals: 2, symbol: '' }) : '—'}
         </div>
       ),
     },
@@ -1011,14 +1074,34 @@ export function MappingWorkbenchPage() {
       sortable: true,
       filterable: true,
       filterType: 'numeric' as const,
-      sortValue: (line: ImportLine) => line.raw_balance ? parseFloat(line.raw_balance) : 0,
-      render: (line: ImportLine) => (
-        <div className="text-right font-mono text-xs text-gray-600 py-2">
-          {line.raw_balance != null && Number(line.raw_balance) !== 0
-            ? fmtAmount(Number(line.raw_balance))
-            : '—'}
-        </div>
-      ),
+      // Agent 3.4: Balance = DR − CR. If source provides an explicit balance
+      // column we honor that; otherwise we compute from DR/CR. Blank columns
+      // are treated as 0 only when the other side has a value.
+      sortValue: (line: ImportLine) => {
+        const explicit = line.raw_balance != null ? parseFloat(line.raw_balance) : null
+        if (explicit != null) return explicit
+        const d = line.raw_debit != null ? parseFloat(line.raw_debit) : 0
+        const c = line.raw_credit != null ? parseFloat(line.raw_credit) : 0
+        return d - c
+      },
+      render: (line: ImportLine) => {
+        const explicit = line.raw_balance != null ? Number(line.raw_balance) : null
+        const dr = line.raw_debit != null ? Number(line.raw_debit) : null
+        const cr = line.raw_credit != null ? Number(line.raw_credit) : null
+        let value: number | null = explicit
+        if (value === null) {
+          if (dr === null && cr === null) {
+            value = null
+          } else {
+            value = (dr ?? 0) - (cr ?? 0)
+          }
+        }
+        return (
+          <div className="text-right font-mono text-xs text-gray-600 py-2">
+            {value != null ? fmtAmount(value, { decimals: 2, symbol: '' }) : '—'}
+          </div>
+        )
+      },
     },
     {
       key: 'matched_coa',
@@ -1085,11 +1168,75 @@ export function MappingWorkbenchPage() {
       },
     },
     {
+      // Agent 3.8: FSLI Suggestion moved to be adjacent to the FSLI dropdown.
+      key: 'suggestion',
+      header: 'FSLI Suggestion',
+      sortable: true,
+      sortValue: (line: ImportLine) => suggestMap[line.id]?.suggested_account_number || '',
+      render: (line: ImportLine) => {
+        const suggestion = suggestMap[line.id]
+        if (!suggestion?.suggested_account_id || line.mapping_status !== 'unmapped') return <span className="text-gray-300">—</span>
+
+        const isNumberMatch = !!(line.raw_account_number && suggestion.suggested_account_number?.startsWith(line.raw_account_number))
+        const confidence = isNumberMatch ? 'High' : 'Medium'
+        const evidence = isNumberMatch
+          ? `Prefix match on account number "${line.raw_account_number}"`
+          : `Substring match on account name "${line.raw_account_name}"`
+
+        const confBadgeColor = isNumberMatch
+          ? 'bg-green-50 text-green-700 border-green-200'
+          : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+
+        return (
+          <div className="flex flex-col gap-1 py-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono text-xs font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                {suggestion.suggested_account_number}
+              </span>
+              <span className="text-xs text-gray-800 font-medium whitespace-nowrap" title={suggestion.suggested_account_name ?? ''}>
+                {suggestion.suggested_account_name}
+              </span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${confBadgeColor}`}>
+                {confidence}
+              </span>
+            </div>
+            <span className="text-[10px] text-gray-400 whitespace-nowrap" title={evidence}>
+              {evidence}
+            </span>
+            <div className="mt-0.5">
+              <button
+                type="button"
+                onClick={() => mapMutation.mutate({ lineId: line.id, accountId: suggestion.suggested_account_id! })}
+                className="text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100 transition-colors"
+                data-testid={`accept-suggestion-${line.id}`}
+              >
+                Accept
+              </button>
+            </div>
+          </div>
+        )
+      },
+    },
+    {
       key: 'fsli',
       header: 'FSLI / Reporting Line',
       render: (line: ImportLine) => {
         const acct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
-        if (!acct) return <span className="text-xs text-gray-300 italic">—</span>
+        // Agent 3.9: even for unmatched/new-COA-candidate rows, allow FSLI
+        // selection. The FSLI lives on the entity COA account once created;
+        // until then we stage it pending the create. Show the picker but
+        // disable until the line is mapped/created.
+        if (!acct) {
+          return (
+            <select
+              disabled
+              className="text-xs border rounded px-1.5 py-0.5 bg-gray-50 text-gray-400 italic min-w-[120px] max-w-[180px]"
+              title="Resolve the COA match (or create the new account) before assigning an FSLI"
+            >
+              <option>Map or create COA first</option>
+            </select>
+          )
+        }
         const eff = inheritanceMap[acct.id]
         const isInherited = eff && (eff.mapping_source === 'parent' || eff.mapping_source === 'grandparent')
         const currentValue = eff?.taxonomy_line_id ?? acct.reporting_taxonomy_line_id ?? ''
@@ -1125,8 +1272,12 @@ export function MappingWorkbenchPage() {
               }`}
             >
               <option value="">— Select FSLI —</option>
-              {fsliOptions.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+              {fsliOptionsGrouped.map((group) => (
+                <optgroup key={group.section} label={group.section}>
+                  {group.options.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             <div className="flex items-center gap-1 flex-wrap">
@@ -1175,55 +1326,6 @@ export function MappingWorkbenchPage() {
         }
         return <span className="text-xs text-gray-400 italic">— Unmapped</span>
       },
-    },
-    {
-      key: 'suggestion',
-      header: 'Suggestion',
-      sortable: true,
-      sortValue: (line: ImportLine) => suggestMap[line.id]?.suggested_account_number || '',
-      render: (line: ImportLine) => {
-        const suggestion = suggestMap[line.id]
-        if (!suggestion?.suggested_account_id || line.mapping_status !== 'unmapped') return <span className="text-gray-300">—</span>
-
-        const isNumberMatch = !!(line.raw_account_number && suggestion.suggested_account_number?.startsWith(line.raw_account_number))
-        const confidence = isNumberMatch ? 'High' : 'Medium'
-        const evidence = isNumberMatch
-          ? `Prefix match on account number "${line.raw_account_number}"`
-          : `Substring match on account name "${line.raw_account_name}"`
-
-        const confBadgeColor = isNumberMatch
-          ? 'bg-green-50 text-green-700 border-green-200'
-          : 'bg-yellow-50 text-yellow-700 border-yellow-200'
-
-        return (
-          <div className="flex flex-col gap-1 py-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-mono text-xs font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                {suggestion.suggested_account_number}
-              </span>
-              <span className="text-xs text-gray-800 font-medium whitespace-nowrap" title={suggestion.suggested_account_name ?? ''}>
-                {suggestion.suggested_account_name}
-              </span>
-              <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${confBadgeColor}`}>
-                {confidence}
-              </span>
-            </div>
-            <span className="text-[10px] text-gray-400 whitespace-nowrap" title={evidence}>
-              {evidence}
-            </span>
-            <div className="mt-0.5">
-              <button
-                type="button"
-                onClick={() => mapMutation.mutate({ lineId: line.id, accountId: suggestion.suggested_account_id! })}
-                className="text-[10px] font-semibold px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100 transition-colors"
-                data-testid={`accept-suggestion-${line.id}`}
-              >
-                Accept
-              </button>
-            </div>
-          </div>
-        )
-      }
     },
     {
       key: 'map_to_account',
@@ -1627,19 +1729,20 @@ export function MappingWorkbenchPage() {
         </div>
       )}
 
-      {/* Mapping explanation */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-xs text-blue-800">
+      {/* Mapping explanation — Agent 3.10 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-xs text-blue-800" data-testid="mapping-workflow-explainer">
         <p className="font-semibold mb-1">How mapping works</p>
         <p className="mb-1.5">
-          Each imported source account must be mapped to an account in your entity's Chart of Accounts.
-          COA accounts then link to financial statement reporting lines.
+          Imported source accounts are first matched to your entity Chart of Accounts.
+          Then each COA account is mapped to a financial statement line item using the
+          selected taxonomy. <strong>New COA accounts can still be mapped to an FSLI before posting.</strong>
         </p>
         <div className="flex items-center gap-2 font-mono text-blue-700">
           <span className="bg-blue-100 px-2 py-0.5 rounded">Source Account</span>
           <span>→</span>
-          <span className="bg-blue-100 px-2 py-0.5 rounded">Entity COA Account</span>
+          <span className="bg-blue-100 px-2 py-0.5 rounded">COA Match</span>
           <span>→</span>
-          <span className="bg-blue-100 px-2 py-0.5 rounded">Reporting Line</span>
+          <span className="bg-blue-100 px-2 py-0.5 rounded">FSLI Mapping</span>
         </div>
       </div>
 

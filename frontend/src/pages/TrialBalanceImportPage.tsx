@@ -66,14 +66,55 @@ function matchColumn(header: string): string | null {
   return null
 }
 
-function detectTbMapping(headers: string[]): Record<string, string> {
+// Agent 3.2 + Agent 1: data-driven type inference for columns whose header
+// names don't match a known alias. Mirrors backend infer_column_type_from_data.
+const AMOUNT_RE = /^[\(\-]?\$[\d,]+(\.\d+)?\)?$|^[\(\-]?[\d,]+\.\d+\)?$|^\([\d,]+\.?\d*\)$/
+const COMBINED_RE = /^(\d{3,8}(?:-\d{1,6})*)\s*(?:[-–—·:]\s*|\s+).+$/
+
+function inferColumnType(values: string[]): 'amount' | 'account_combined' | 'account_number' | 'text' | 'empty' {
+  const samples = values.map((v) => (v ?? '').toString().trim()).filter((s) => s.length > 0)
+  if (samples.length === 0) return 'empty'
+  const total = samples.length
+  const amountHits = samples.filter((s) => AMOUNT_RE.test(s)).length
+  const combinedHits = samples.filter((s) => COMBINED_RE.test(s)).length
+  if (amountHits / total >= 0.5) return 'amount'
+  if (combinedHits / total >= 0.5) return 'account_combined'
+  if (samples.every((s) => /^[A-Za-z0-9]{1,12}(?:-[A-Za-z0-9]{1,8})*$/.test(s))) return 'account_number'
+  return 'text'
+}
+
+function detectTbMapping(headers: string[], rows?: string[][]): Record<string, string> {
   const mapping: Record<string, string> = {}
-  headers.forEach(h => {
+  const usedColumns = new Set<string>()
+
+  // First pass: header alias match
+  headers.forEach((h) => {
     const field = matchColumn(h)
     if (field && !mapping[field]) {
       mapping[field] = h
+      usedColumns.add(h)
     }
   })
+
+  // Second pass: data inference for un-matched columns (Agent 3.2)
+  if (rows && rows.length > 0) {
+    const sample = rows.slice(0, 50)
+    headers.forEach((h, colIdx) => {
+      if (usedColumns.has(h)) return
+      const colValues = sample.map((row) => row[colIdx] ?? '')
+      const inferred = inferColumnType(colValues)
+      if (inferred === 'account_combined' && !mapping.account_combined && !mapping.account_number) {
+        mapping.account_combined = h
+        usedColumns.add(h)
+      } else if (inferred === 'account_number' && !mapping.account_number && !mapping.account_combined) {
+        mapping.account_number = h
+        usedColumns.add(h)
+      } else if (inferred === 'amount') {
+        if (!mapping.debit) { mapping.debit = h; usedColumns.add(h) }
+        else if (!mapping.credit) { mapping.credit = h; usedColumns.add(h) }
+      }
+    })
+  }
   return mapping
 }
 
@@ -170,7 +211,9 @@ export function TrialBalanceImportPage() {
       const activeSheet = detected.sheets.find((s: any) => s.name === sheetName)
       if (activeSheet) {
         setHeaderRowIndex(activeSheet.auto_header_row_idx)
-        const autoMapping = detectTbMapping(activeSheet.raw_rows[activeSheet.auto_header_row_idx] || [])
+        const headers = activeSheet.raw_rows[activeSheet.auto_header_row_idx] || []
+        const dataRows = activeSheet.raw_rows.slice(activeSheet.auto_header_row_idx + 1, activeSheet.auto_header_row_idx + 51)
+        const autoMapping = detectTbMapping(headers, dataRows)
         setColMapping(autoMapping)
       }
     }
@@ -181,7 +224,8 @@ export function TrialBalanceImportPage() {
     const activeSheet = detected?.sheets?.find((s: any) => s.name === selectedSheet)
     if (activeSheet) {
       const newHeaders = activeSheet.raw_rows[newIdx] || []
-      const autoMapping = detectTbMapping(newHeaders)
+      const dataRows = activeSheet.raw_rows.slice(newIdx + 1, newIdx + 51)
+      const autoMapping = detectTbMapping(newHeaders, dataRows)
       setColMapping(autoMapping)
     }
   }
@@ -207,12 +251,14 @@ export function TrialBalanceImportPage() {
         const activeSheet = result.sheets.find((s: any) => s.name === result.selected_sheet)
         if (activeSheet) {
           setHeaderRowIndex(activeSheet.auto_header_row_idx)
-          const autoMapping = detectTbMapping(activeSheet.raw_rows[activeSheet.auto_header_row_idx] || [])
+          const headers = activeSheet.raw_rows[activeSheet.auto_header_row_idx] || []
+          const dataRows = activeSheet.raw_rows.slice(activeSheet.auto_header_row_idx + 1, activeSheet.auto_header_row_idx + 51)
+          const autoMapping = detectTbMapping(headers, dataRows)
           setColMapping(autoMapping)
         }
       } else {
         setHeaderRowIndex(0)
-        const autoMapping = detectTbMapping(result.headers || [])
+        const autoMapping = detectTbMapping(result.headers || [], result.preview_rows || result.rows || [])
         setColMapping(autoMapping)
         setStep(2)
       }
