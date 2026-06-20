@@ -36,6 +36,17 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint P1-P4 · Layered Reporting Architecture (backend foundation)',
+    date: '2026-06-20',
+    items: [
+      'Architecture Decision Record published at docs/architecture/LAYERED_REPORTING_ARCHITECTURE.md — clear separation between Source Data, Normalization, Taxonomy (classification), Reporting View (presentation), and Reports.',
+      'New ReportingView + ReportingViewRow models — presentation-only (row ordering, subtotals, calculated rows like EBITDA, column layouts, formatting). Sits alongside the legacy ReportingTaxonomyView, which is now marked DEPRECATED with a removal sprint logged in the Deprecation Register.',
+      'New presentation_service: sign behavior, scaling (actual/thousands/millions), formatting (parentheses/minus/currency), subtotal sum, safe formula evaluation (EBITDA = OI + D&A), variance helpers. Old taxonomy_reporting_service now delegates to it.',
+      'New Import Intelligence Engine: weighted Readiness Score (0-100) with grade (empty/limited/workable/strong/complete), capability rollup (mapping / FS / drilldown / rollforward / reconciliation / consolidation / draft impact / bridge), missing-data list, and recommended next import.',
+      'Legacy reporting behavior is unchanged — Sprint P1-P4 is additive backend preparation. The new chain will be wired into financial-statement endpoints in Sprint P5.',
+    ],
+  },
+  {
     version: 'Sprint O · Taxonomy Depth Expansion + Production Seeding Clarification',
     date: '2026-06-20',
     items: [

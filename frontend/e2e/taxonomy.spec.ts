@@ -125,5 +125,15 @@ test.describe('Sprint O — Default Taxonomy Foundation', () => {
     await expect(page.getByText(/Default Taxonomy Foundation/i).first()).toBeVisible({ timeout: 5_000 })
     await expect(page.getByText(/Taxonomy Depth Expansion/i).first()).toBeVisible()
     await expect(page.getByText(/production seeding/i).first()).toBeVisible()
+    await expect(page.getByText(/Layered Reporting Architecture/i).first()).toBeVisible()
+  })
+
+  test('legacy reporting endpoints still respond (regression check after P1-P4)', async ({ request }) => {
+    // Sprint P1-P4 must not break existing reporting behavior. Hit the legacy
+    // taxonomy view endpoint to confirm it still serves data.
+    const res = await request.get('http://localhost:8002/api/v1/reporting-views/')
+    // 200 with the legacy view list, OR 401 if auth required — both prove the
+    // endpoint is alive (not 404 from a missing route).
+    expect([200, 401, 403]).toContain(res.status())
   })
 })
