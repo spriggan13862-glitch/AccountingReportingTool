@@ -373,7 +373,102 @@
         {"code": "MGMT_BURN_RATE", "name": "Monthly Burn Rate", "description": "Net cash consumed per month", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5090, "kpi_eligible": true},
         {"code": "MGMT_RUNWAY", "name": "Cash Runway (Months)", "description": "Cash / monthly burn", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true},
         {"code": "MGMT_HEADCOUNT", "name": "Headcount", "description": "Total FTE", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5110, "kpi_eligible": true},
-        {"code": "MGMT_REV_PER_EMPLOYEE", "name": "Revenue per Employee", "description": "Revenue / headcount", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5120, "kpi_eligible": true}
+        {"code": "MGMT_REV_PER_EMPLOYEE", "name": "Revenue per Employee", "description": "Revenue / headcount", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5120, "kpi_eligible": true},
+        {"code": "MGMT_REV_PER_CUSTOMER", "name": "Revenue per Customer", "description": "Revenue / customer count", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5130, "kpi_eligible": true},
+        {"code": "MGMT_CUSTOMER_COUNT", "name": "Customer Count", "description": "Total active customers", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5140, "kpi_eligible": true},
+        {"code": "MGMT_ARR", "name": "Annual Recurring Revenue (ARR)", "description": "Annualized run-rate of recurring revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5150, "kpi_eligible": true},
+        {"code": "MGMT_MRR", "name": "Monthly Recurring Revenue (MRR)", "description": "Monthly recurring revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5160, "kpi_eligible": true},
+        {"code": "MGMT_NRR", "name": "Net Revenue Retention %", "description": "Net dollar retention from existing customers", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5170, "kpi_eligible": true},
+        {"code": "MGMT_GRR", "name": "Gross Revenue Retention %", "description": "Gross dollar retention excluding upsell", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5180, "kpi_eligible": true},
+        {"code": "MGMT_CAC", "name": "Customer Acquisition Cost (CAC)", "description": "Sales and marketing spend per new customer", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5190, "kpi_eligible": true},
+        {"code": "MGMT_LTV", "name": "Customer Lifetime Value (LTV)", "description": "Expected gross profit over customer lifetime", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5200, "kpi_eligible": true},
+        {"code": "MGMT_LTV_CAC", "name": "LTV/CAC Ratio", "description": "Lifetime value divided by acquisition cost", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5210, "kpi_eligible": true},
+        {"code": "MGMT_PAYBACK_PERIOD", "name": "Payback Period (months)", "description": "Months to recover CAC", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5220, "kpi_eligible": true},
+        {"code": "MGMT_RULE_OF_40", "name": "Rule of 40", "description": "Growth rate plus EBITDA margin", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5230, "kpi_eligible": true}
+      ]
+    },
+    {
+      "code": "MGMT_DEPT_PL",
+      "name": "Departmental P&L",
+      "description": "Operating expense allocations by department and cost center",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Operating Expenses",
+      "normal_balance": "debit",
+      "sort_order": 6000,
+      "children": [
+        {"code": "MGMT_DEPT_SALES", "name": "Sales Dept Costs", "description": "Direct sales department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6010},
+        {"code": "MGMT_DEPT_MARKETING", "name": "Marketing Dept Costs", "description": "Marketing department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6020},
+        {"code": "MGMT_DEPT_CS", "name": "Customer Success Dept Costs", "description": "Customer success/support department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6030},
+        {"code": "MGMT_DEPT_ENG", "name": "Engineering Dept Costs", "description": "Engineering department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6040},
+        {"code": "MGMT_DEPT_PRODUCT", "name": "Product Dept Costs", "description": "Product management department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6050},
+        {"code": "MGMT_DEPT_FINANCE", "name": "Finance Dept Costs", "description": "Finance/accounting department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6060},
+        {"code": "MGMT_DEPT_HR", "name": "HR Dept Costs", "description": "Human resources department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6070},
+        {"code": "MGMT_DEPT_LEGAL", "name": "Legal Dept Costs", "description": "In-house legal department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6080},
+        {"code": "MGMT_DEPT_IT", "name": "IT Dept Costs", "description": "Internal IT department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6090},
+        {"code": "MGMT_DEPT_OPS", "name": "Operations Dept Costs", "description": "General operations department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6100},
+        {"code": "MGMT_DEPT_EXEC", "name": "Executive Dept Costs", "description": "C-suite and executive office costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6110},
+        {"code": "MGMT_DEPT_FACILITIES", "name": "Facilities Dept Costs", "description": "Facilities management costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6120},
+        {"code": "MGMT_TRAVEL_ALLOC", "name": "Travel Allocations", "description": "Travel costs allocated to departments", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6130},
+        {"code": "MGMT_SHARED_SVCS_ALLOC", "name": "Shared Services Allocations", "description": "Cross-functional shared services allocation", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6140},
+        {"code": "MGMT_CORP_OVERHEAD_ALLOC", "name": "Corporate Overhead Allocation", "description": "Allocated corporate overhead", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6150}
+      ]
+    },
+    {
+      "code": "MGMT_SEGMENT",
+      "name": "Segment Reporting",
+      "description": "Operating segments and geographic breakdowns",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Revenue",
+      "normal_balance": "credit",
+      "sort_order": 6200,
+      "children": [
+        {"code": "MGMT_SEG_A_REV", "name": "Segment A Revenue", "description": "Revenue for segment A", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6210},
+        {"code": "MGMT_SEG_A_COST", "name": "Segment A Direct Costs", "description": "Direct costs of segment A", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6211},
+        {"code": "MGMT_SEG_A_CONTRIB", "name": "Segment A Contribution", "description": "Segment A contribution margin", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6212},
+        {"code": "MGMT_SEG_B_REV", "name": "Segment B Revenue", "description": "Revenue for segment B", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6220},
+        {"code": "MGMT_SEG_B_COST", "name": "Segment B Direct Costs", "description": "Direct costs of segment B", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6221},
+        {"code": "MGMT_SEG_B_CONTRIB", "name": "Segment B Contribution", "description": "Segment B contribution margin", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6222},
+        {"code": "MGMT_GEO_US", "name": "Geographic Segment - US", "description": "United States geographic segment", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6230},
+        {"code": "MGMT_GEO_INTL", "name": "Geographic Segment - International", "description": "International geographic segment", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6240},
+        {"code": "MGMT_INTERSEG_ELIM", "name": "Inter-segment Eliminations", "description": "Eliminations of inter-segment activity", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6250},
+        {"code": "MGMT_UNALLOCATED_CORP", "name": "Unallocated Corporate", "description": "Corporate items not allocated to segments", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6260}
+      ]
+    },
+    {
+      "code": "MGMT_BUDGET_VARIANCE",
+      "name": "Budget vs Actual Variance",
+      "description": "Variance analysis lines comparing actual to budget",
+      "statement_type": "KPI",
+      "financial_statement_section": "KPI",
+      "sort_order": 6400,
+      "kpi_eligible": false,
+      "children": [
+        {"code": "MGMT_VAR_REVENUE", "name": "Revenue Variance", "description": "Actual minus budget revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6410, "kpi_eligible": true},
+        {"code": "MGMT_VAR_COGS", "name": "COGS Variance", "description": "Actual minus budget COGS", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6420, "kpi_eligible": true},
+        {"code": "MGMT_VAR_GROSS_PROFIT", "name": "Gross Profit Variance", "description": "Actual minus budget gross profit", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6430, "kpi_eligible": true},
+        {"code": "MGMT_VAR_OPEX", "name": "OpEx Variance", "description": "Actual minus budget operating expense", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6440, "kpi_eligible": true},
+        {"code": "MGMT_VAR_EBITDA", "name": "EBITDA Variance", "description": "Actual minus budget EBITDA", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6450, "kpi_eligible": true},
+        {"code": "MGMT_VAR_HEADCOUNT", "name": "Headcount Variance", "description": "Actual minus budget headcount", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6460, "kpi_eligible": true},
+        {"code": "MGMT_VAR_FTE", "name": "FTE Variance", "description": "Actual minus budget FTE", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6470, "kpi_eligible": true},
+        {"code": "MGMT_VAR_CAPEX", "name": "Capex Variance", "description": "Actual minus budget capital expenditure", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6480, "kpi_eligible": true},
+        {"code": "MGMT_VAR_CASH", "name": "Cash Variance", "description": "Actual minus budget ending cash", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6490, "kpi_eligible": true},
+        {"code": "MGMT_VAR_WC", "name": "Working Capital Variance", "description": "Actual minus budget working capital", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6500, "kpi_eligible": true}
+      ]
+    },
+    {
+      "code": "MGMT_PLAN_FORECAST",
+      "name": "Plan vs Forecast",
+      "description": "Comparison of current plan to latest forecast",
+      "statement_type": "KPI",
+      "financial_statement_section": "KPI",
+      "sort_order": 6600,
+      "kpi_eligible": false,
+      "children": [
+        {"code": "MGMT_PVF_REVENUE", "name": "Plan vs Forecast Revenue", "description": "Plan minus forecast revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6610, "kpi_eligible": true},
+        {"code": "MGMT_PVF_OPEX", "name": "Plan vs Forecast OpEx", "description": "Plan minus forecast operating expense", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6620, "kpi_eligible": true},
+        {"code": "MGMT_PVF_EBITDA", "name": "Plan vs Forecast EBITDA", "description": "Plan minus forecast EBITDA", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6630, "kpi_eligible": true},
+        {"code": "MGMT_PVF_CASH", "name": "Plan vs Forecast Cash", "description": "Plan minus forecast ending cash", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6640, "kpi_eligible": true},
+        {"code": "MGMT_PVF_HEADCOUNT", "name": "Plan vs Forecast Headcount", "description": "Plan minus forecast headcount", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 6650, "kpi_eligible": true}
       ]
     }
   ]

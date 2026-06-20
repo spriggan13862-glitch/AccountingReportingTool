@@ -355,7 +355,164 @@
         {"code": "HC_PAYOR_MIX_MEDICAID", "name": "Payor Mix - Medicaid %", "description": "Medicaid share of revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5070, "kpi_eligible": true},
         {"code": "HC_PAYOR_MIX_COMMERCIAL", "name": "Payor Mix - Commercial %", "description": "Commercial insurance share", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5080, "kpi_eligible": true},
         {"code": "HC_PAYOR_MIX_SELF_PAY", "name": "Payor Mix - Self Pay %", "description": "Self-pay share", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5090, "kpi_eligible": true},
-        {"code": "HC_LABOR_COST_RATIO", "name": "Labor Cost % of Revenue", "description": "Labor / net revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true}
+        {"code": "HC_LABOR_COST_RATIO", "name": "Labor Cost % of Revenue", "description": "Labor / net revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true},
+        {"code": "HC_PATIENT_DAYS", "name": "Patient Days", "description": "Total inpatient days", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5110, "kpi_eligible": true},
+        {"code": "HC_DISCHARGES", "name": "Discharges", "description": "Total inpatient discharges", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5120, "kpi_eligible": true},
+        {"code": "HC_ALOS", "name": "Average Length of Stay", "description": "Patient days / discharges", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5130, "kpi_eligible": true},
+        {"code": "HC_CMI", "name": "Case Mix Index", "description": "Weighted complexity of treated cases", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5140, "kpi_eligible": true},
+        {"code": "HC_ACUITY", "name": "Patient Acuity Score", "description": "Average patient severity score", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5150, "kpi_eligible": true},
+        {"code": "HC_REV_PER_PATIENT_DAY", "name": "Revenue per Patient Day", "description": "Net patient revenue / patient days", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5160, "kpi_eligible": true},
+        {"code": "HC_COST_PER_PATIENT_DAY", "name": "Cost per Patient Day", "description": "Operating cost / patient days", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5170, "kpi_eligible": true},
+        {"code": "HC_DAYS_CASH_ON_HAND", "name": "Days Cash on Hand", "description": "Cash / average daily operating expense", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5180, "kpi_eligible": true},
+        {"code": "HC_DSO", "name": "DSO - Healthcare", "description": "Days sales outstanding (patient AR)", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5190, "kpi_eligible": true},
+        {"code": "HC_NPR_PER_FTE", "name": "Net Patient Revenue per FTE", "description": "Net patient revenue / FTE", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5200, "kpi_eligible": true},
+        {"code": "HC_OPERATING_MARGIN", "name": "Operating Margin %", "description": "Operating income / total revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5210, "kpi_eligible": true}
+      ]
+    },
+    {
+      "code": "HC_PATIENT_REVENUE_DETAIL",
+      "name": "Patient Revenue Detail",
+      "description": "Detailed patient revenue categories",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Revenue",
+      "normal_balance": "credit",
+      "sort_order": 6000,
+      "children": [
+        {"code": "HC_INPATIENT_REVENUE", "name": "Inpatient Revenue", "description": "Inpatient services revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6010},
+        {"code": "HC_OUTPATIENT_REVENUE", "name": "Outpatient Revenue", "description": "Outpatient services revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6020},
+        {"code": "HC_EMERGENCY_REVENUE", "name": "Emergency Revenue", "description": "Emergency department revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6030},
+        {"code": "HC_SURGICAL_REVENUE", "name": "Surgical Revenue", "description": "Surgical procedure revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6040},
+        {"code": "HC_DIAGNOSTIC_LAB", "name": "Diagnostic Revenue - Lab", "description": "Laboratory diagnostic revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6050},
+        {"code": "HC_DIAGNOSTIC_IMAGING", "name": "Diagnostic Revenue - Imaging", "description": "Imaging diagnostic revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6060},
+        {"code": "HC_DIAGNOSTIC_PATH", "name": "Diagnostic Revenue - Pathology", "description": "Pathology diagnostic revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6070},
+        {"code": "HC_PHARMACY_REVENUE", "name": "Pharmacy Revenue", "description": "Pharmacy services revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6080},
+        {"code": "HC_DME_REVENUE", "name": "DME Revenue", "description": "Durable medical equipment revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6090},
+        {"code": "HC_TELEHEALTH_REVENUE", "name": "Telehealth Revenue", "description": "Telehealth visit revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6100},
+        {"code": "HC_CAPITATED_REVENUE", "name": "Capitated Revenue", "description": "Capitation contract revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6110},
+        {"code": "HC_FFS_REVENUE", "name": "Fee-for-Service Revenue", "description": "Fee-for-service revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6120},
+        {"code": "HC_BUNDLED_PAYMENT", "name": "Bundled Payment Revenue", "description": "Bundled episode-of-care revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6130},
+        {"code": "HC_VBC_INCENTIVES", "name": "Value-Based Care Incentives", "description": "Value-based care bonus revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6140},
+        {"code": "HC_QUALITY_BONUS", "name": "Quality Bonus Revenue", "description": "Quality performance bonuses", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6150},
+        {"code": "HC_RISK_POOL", "name": "Risk Pool Settlements", "description": "Risk pool settlement revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6160},
+        {"code": "HC_STOP_LOSS_RECOVERY", "name": "Stop-Loss Recoveries", "description": "Stop-loss insurance recoveries", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6170}
+      ]
+    },
+    {
+      "code": "HC_CONTRACTUAL_DETAIL",
+      "name": "Contractual Adjustments and Allowances",
+      "description": "Contra-revenue adjustments by payor",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Revenue",
+      "normal_balance": "debit",
+      "sort_order": 6200,
+      "children": [
+        {"code": "HC_MEDICARE_CONTRACTUAL", "name": "Medicare Contractual", "description": "Medicare contractual write-offs", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6210},
+        {"code": "HC_MEDICAID_CONTRACTUAL", "name": "Medicaid Contractual", "description": "Medicaid contractual write-offs", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6220},
+        {"code": "HC_COMMERCIAL_CONTRACTUAL", "name": "Commercial Insurance Contractual", "description": "Commercial insurance contractual write-offs", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6230},
+        {"code": "HC_MANAGED_CARE_CONTRACTUAL", "name": "Managed Care Contractual", "description": "Managed care contractual write-offs", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6240},
+        {"code": "HC_SELF_PAY_DISCOUNTS", "name": "Self-Pay Discounts", "description": "Self-pay discount adjustments", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6250},
+        {"code": "HC_CHARITY_CARE_DETAIL", "name": "Charity Care", "description": "Charity care contra-revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6260},
+        {"code": "HC_BAD_DEBT_PROVISION", "name": "Bad Debt Provision (Healthcare)", "description": "Provision for uncollectible accounts", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6270},
+        {"code": "HC_IMPLICIT_PRICE_CONCESSIONS", "name": "Implicit Price Concessions", "description": "ASC 606 implicit price concessions", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 6280, "gaap_reference": "ASC 606"}
+      ]
+    },
+    {
+      "code": "HC_SUPPLIES_PHARMA",
+      "name": "Medical Supplies and Pharmaceuticals",
+      "description": "Detail under cost of patient services",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Cost of Revenue",
+      "normal_balance": "debit",
+      "sort_order": 6300,
+      "children": [
+        {"code": "HC_SURGICAL_SUPPLIES", "name": "Surgical Supplies", "description": "Surgical disposables and instruments", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6310},
+        {"code": "HC_IMPLANTS", "name": "Implants and Prosthetics", "description": "Implantable devices and prosthetics", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6320},
+        {"code": "HC_IV_SOLUTIONS", "name": "IV Solutions and Tubing", "description": "Intravenous supplies", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6330},
+        {"code": "HC_PHARMA_INPATIENT", "name": "Pharmaceuticals - Inpatient", "description": "Inpatient pharmacy cost", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6340},
+        {"code": "HC_PHARMA_OUTPATIENT", "name": "Pharmaceuticals - Outpatient", "description": "Outpatient pharmacy cost", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6350},
+        {"code": "HC_SPECIALTY_DRUGS", "name": "Specialty Drugs", "description": "High-cost specialty pharmaceuticals", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6360},
+        {"code": "HC_340B_DISCOUNT", "name": "340B Drug Discount", "description": "340B drug discount program savings", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "credit", "sort_order": 6370},
+        {"code": "HC_VACCINES", "name": "Vaccines", "description": "Vaccine costs", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6380},
+        {"code": "HC_BLOOD_PRODUCTS", "name": "Blood Products", "description": "Blood and blood products", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6390},
+        {"code": "HC_MEDICAL_GASES", "name": "Medical Gases", "description": "Oxygen and medical gases", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6400}
+      ]
+    },
+    {
+      "code": "HC_CLINICAL_STAFF",
+      "name": "Clinical Staff Costs",
+      "description": "Clinical staff compensation detail",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Cost of Revenue",
+      "normal_balance": "debit",
+      "sort_order": 6500,
+      "children": [
+        {"code": "HC_PHYSICIAN_SALARIES", "name": "Physician Salaries", "description": "Physician compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6510},
+        {"code": "HC_NURSE_RN", "name": "Nurse Salaries - RN", "description": "Registered nurse compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6520},
+        {"code": "HC_NURSE_LPN", "name": "Nurse Salaries - LPN", "description": "Licensed practical nurse compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6530},
+        {"code": "HC_NURSING_ASSISTANTS", "name": "Nursing Assistants", "description": "CNA and nursing assistant compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6540},
+        {"code": "HC_TECHNICIANS", "name": "Technicians (Lab, Radiology, Pharmacy)", "description": "Clinical technician compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6550},
+        {"code": "HC_THERAPISTS", "name": "Therapists (PT, OT, Speech)", "description": "Therapy staff compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6560},
+        {"code": "HC_RESIDENTS", "name": "Medical Residents", "description": "Resident physician stipends", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6570},
+        {"code": "HC_ON_CALL_PAY", "name": "On-Call Pay", "description": "On-call physician/clinician compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6580},
+        {"code": "HC_LOCUM_TENENS", "name": "Locum Tenens", "description": "Locum tenens physician costs", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6590},
+        {"code": "HC_TRAVEL_NURSES", "name": "Travel Nurses", "description": "Travel nurse staffing costs", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 6600}
+      ]
+    },
+    {
+      "code": "HC_FACILITY_EQUIPMENT",
+      "name": "Facility and Equipment",
+      "description": "Facility and biomedical equipment costs",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Operating Expenses",
+      "normal_balance": "debit",
+      "sort_order": 6700,
+      "children": [
+        {"code": "HC_MED_EQUIP_MAINT", "name": "Medical Equipment Maintenance", "description": "Service contracts on medical equipment", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6710},
+        {"code": "HC_IMAGING_EQUIP", "name": "Imaging Equipment", "description": "Imaging equipment costs and maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6720},
+        {"code": "HC_LAB_EQUIP", "name": "Lab Equipment", "description": "Laboratory equipment and reagents", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6730},
+        {"code": "HC_SURGICAL_EQUIP", "name": "Surgical Equipment", "description": "Surgical equipment costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6740},
+        {"code": "HC_EMR_SYSTEMS", "name": "Medical IT Systems (EMR)", "description": "EMR/clinical IT systems", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6750},
+        {"code": "HC_FACILITY_MAINT", "name": "Facility Maintenance", "description": "Building maintenance costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6760},
+        {"code": "HC_BIOMED_ENG", "name": "Biomedical Engineering", "description": "Biomedical engineering services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6770},
+        {"code": "HC_STERILE_PROCESSING", "name": "Sterile Processing", "description": "Sterile processing/CSSD costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6780}
+      ]
+    },
+    {
+      "code": "HC_INSURANCE_DETAIL",
+      "name": "Healthcare-Specific Insurance",
+      "description": "Healthcare insurance premium categories",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Operating Expenses",
+      "normal_balance": "debit",
+      "sort_order": 6800,
+      "children": [
+        {"code": "HC_MED_MALPRACTICE", "name": "Medical Malpractice Insurance", "description": "Medical malpractice premiums", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6810},
+        {"code": "HC_PROF_LIABILITY", "name": "Professional Liability", "description": "Professional liability premiums", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6820},
+        {"code": "HC_GENERAL_LIABILITY", "name": "General Liability - Healthcare", "description": "General liability premiums", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6830},
+        {"code": "HC_WORKERS_COMP", "name": "Workers Comp - Healthcare", "description": "Workers compensation premiums", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6840},
+        {"code": "HC_CYBER_LIABILITY", "name": "Cyber Liability (HIPAA)", "description": "Cyber liability premiums (HIPAA)", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6850},
+        {"code": "HC_DO_INSURANCE", "name": "D&O Insurance", "description": "Directors and officers insurance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6860},
+        {"code": "HC_STOP_LOSS_INSURANCE", "name": "Stop-Loss Insurance (Self-Insured Plans)", "description": "Stop-loss premiums on self-insured plans", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6870},
+        {"code": "HC_REINSURANCE_PREMIUMS", "name": "Reinsurance Premiums", "description": "Reinsurance premiums", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6880}
+      ]
+    },
+    {
+      "code": "HC_COMPLIANCE",
+      "name": "Compliance and Regulatory",
+      "description": "Compliance and regulatory expense detail",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Operating Expenses",
+      "normal_balance": "debit",
+      "sort_order": 6900,
+      "children": [
+        {"code": "HC_HIPAA_COMPLIANCE", "name": "HIPAA Compliance Costs", "description": "HIPAA program costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6910},
+        {"code": "HC_JCAHO", "name": "Joint Commission Accreditation", "description": "TJC accreditation costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6920},
+        {"code": "HC_CMS_REPORTING", "name": "CMS Reporting Costs", "description": "CMS reporting/quality programs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6930},
+        {"code": "HC_MED_RECORDS_REVIEW", "name": "Medical Records Review", "description": "Medical record review costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6940},
+        {"code": "HC_CODING_COMPLIANCE", "name": "Coding and Billing Compliance", "description": "Coding/billing audit costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6950},
+        {"code": "HC_PRIVACY_OFFICER", "name": "Privacy Officer Costs", "description": "Privacy officer/program costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6960},
+        {"code": "HC_RISK_MGMT", "name": "Risk Management", "description": "Risk management department costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6970},
+        {"code": "HC_QUALITY_IMPROVEMENT", "name": "Quality Improvement Programs", "description": "Quality improvement program costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6980}
       ]
     }
   ]

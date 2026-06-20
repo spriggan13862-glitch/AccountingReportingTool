@@ -413,7 +413,147 @@
         {"code": "FS_TIER_1_CAPITAL_RATIO", "name": "Tier 1 Capital Ratio", "description": "Tier 1 capital / risk-weighted assets", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5070, "kpi_eligible": true},
         {"code": "FS_LOAN_TO_DEPOSIT", "name": "Loan-to-Deposit Ratio", "description": "Loans / deposits", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5080, "kpi_eligible": true},
         {"code": "FS_COST_OF_FUNDS", "name": "Cost of Funds %", "description": "Interest expense / interest-bearing liabilities", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5090, "kpi_eligible": true},
-        {"code": "FS_AUM", "name": "Assets Under Management", "description": "AUM (wealth/trust)", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true}
+        {"code": "FS_AUM", "name": "Assets Under Management", "description": "AUM (wealth/trust)", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true},
+        {"code": "FS_LCR", "name": "Liquidity Coverage Ratio (LCR)", "description": "HQLA / 30-day net cash outflows", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5110, "kpi_eligible": true},
+        {"code": "FS_NSFR", "name": "Net Stable Funding Ratio (NSFR)", "description": "Available stable funding / required stable funding", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5120, "kpi_eligible": true},
+        {"code": "FS_CET1_RATIO", "name": "CET1 Ratio", "description": "Common equity tier 1 / risk-weighted assets", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5130, "kpi_eligible": true},
+        {"code": "FS_LEVERAGE_RATIO", "name": "Leverage Ratio", "description": "Tier 1 capital / total leverage exposure", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5140, "kpi_eligible": true}
+      ]
+    },
+    {
+      "code": "FS_LOAN_PORTFOLIO_DETAIL",
+      "name": "Loan Portfolio Detail",
+      "description": "Loan portfolio by category",
+      "statement_type": "Balance Sheet",
+      "financial_statement_section": "Assets",
+      "normal_balance": "debit",
+      "sort_order": 6000,
+      "children": [
+        {"code": "FS_LP_COMMERCIAL", "name": "Commercial Loans", "description": "C&I loans to businesses", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6010},
+        {"code": "FS_LP_CRE", "name": "Commercial Real Estate Loans", "description": "CRE loan portfolio", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6020},
+        {"code": "FS_LP_RESI_MORTGAGE", "name": "Residential Mortgage", "description": "Residential mortgage loans", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6030},
+        {"code": "FS_LP_CONSTRUCTION", "name": "Construction Loans", "description": "Construction loan portfolio", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6040},
+        {"code": "FS_LP_CONSUMER", "name": "Consumer Loans", "description": "Consumer loan portfolio", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6050},
+        {"code": "FS_LP_AUTO", "name": "Auto Loans", "description": "Auto loan portfolio", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6060},
+        {"code": "FS_LP_CREDIT_CARD", "name": "Credit Card Receivables", "description": "Credit card receivables", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6070},
+        {"code": "FS_LP_STUDENT", "name": "Student Loans", "description": "Student loan portfolio", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6080},
+        {"code": "FS_LP_BUSINESS_LOC", "name": "Business Lines of Credit", "description": "Drawn business credit lines", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6090},
+        {"code": "FS_LP_EQUIPMENT_FIN", "name": "Equipment Financing", "description": "Equipment finance loans/leases", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6100}
+      ]
+    },
+    {
+      "code": "FS_CECL_DETAIL",
+      "name": "Credit Loss Reserves (CECL)",
+      "description": "CECL allowance components",
+      "statement_type": "Balance Sheet",
+      "financial_statement_section": "Assets",
+      "normal_balance": "credit",
+      "sort_order": 6150,
+      "gaap_reference": "ASC 326",
+      "children": [
+        {"code": "FS_ALLL_COMMERCIAL", "name": "ALLL - Commercial", "description": "Allowance for commercial loan losses", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6160, "gaap_reference": "ASC 326"},
+        {"code": "FS_ALLL_CRE", "name": "ALLL - CRE", "description": "Allowance for CRE loan losses", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6170, "gaap_reference": "ASC 326"},
+        {"code": "FS_ALLL_RESIDENTIAL", "name": "ALLL - Residential", "description": "Allowance for residential mortgage losses", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6180, "gaap_reference": "ASC 326"},
+        {"code": "FS_ALLL_CONSUMER", "name": "ALLL - Consumer", "description": "Allowance for consumer loan losses", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6190, "gaap_reference": "ASC 326"},
+        {"code": "FS_ALLL_SPECIFIC_RESERVES", "name": "Specific Reserves", "description": "Reserves on specifically identified loans", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6200, "gaap_reference": "ASC 326"},
+        {"code": "FS_ALLL_UNALLOCATED", "name": "Unallocated Reserve", "description": "Unallocated portion of allowance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6210, "gaap_reference": "ASC 326"},
+        {"code": "FS_CHARGE_OFFS", "name": "Charge-offs", "description": "Gross charge-offs", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6220, "gaap_reference": "ASC 326"},
+        {"code": "FS_RECOVERIES", "name": "Recoveries", "description": "Recoveries on previously charged-off loans", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 6230, "gaap_reference": "ASC 326"}
+      ]
+    },
+    {
+      "code": "FS_TRADING_INVEST_DETAIL",
+      "name": "Trading and Investment Detail",
+      "description": "Trading and investment securities detail",
+      "statement_type": "Balance Sheet",
+      "financial_statement_section": "Assets",
+      "normal_balance": "debit",
+      "sort_order": 6300,
+      "children": [
+        {"code": "FS_TRADING_AT_FV", "name": "Trading Securities at FV", "description": "Trading account securities at fair value", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6310, "gaap_reference": "ASC 320"},
+        {"code": "FS_AFS_AT_FV", "name": "AFS Securities at FV", "description": "Available-for-sale securities at fair value", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6320, "gaap_reference": "ASC 320"},
+        {"code": "FS_HTM_AT_AC", "name": "HTM Securities at AC", "description": "Held-to-maturity securities at amortized cost", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6330, "gaap_reference": "ASC 320"},
+        {"code": "FS_EQUITY_AT_FV", "name": "Equity Securities at FV", "description": "Equity securities measured at fair value", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6340, "gaap_reference": "ASC 321"},
+        {"code": "FS_DERIVATIVE_HEDGING", "name": "Derivative Assets - Hedging", "description": "Hedging derivative assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6350, "gaap_reference": "ASC 815"},
+        {"code": "FS_DERIVATIVE_TRADING", "name": "Derivative Assets - Trading", "description": "Trading derivative assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6360, "gaap_reference": "ASC 815"},
+        {"code": "FS_SECURITIES_LENDING", "name": "Securities Lending", "description": "Securities lending receivables", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6370},
+        {"code": "FS_REPO_DETAIL", "name": "Repurchase Agreements", "description": "Repurchase agreement receivables", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6380},
+        {"code": "FS_REVERSE_REPOS", "name": "Reverse Repos", "description": "Reverse repurchase agreements", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 6390}
+      ]
+    },
+    {
+      "code": "FS_DEPOSIT_DETAIL",
+      "name": "Deposit Liabilities Detail",
+      "description": "Deposit liabilities by category",
+      "statement_type": "Balance Sheet",
+      "financial_statement_section": "Liabilities",
+      "normal_balance": "credit",
+      "sort_order": 6500,
+      "children": [
+        {"code": "FS_DDA", "name": "Demand Deposits (DDA)", "description": "Demand deposit accounts", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6510},
+        {"code": "FS_SAVINGS", "name": "Savings Deposits", "description": "Savings deposits", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6520},
+        {"code": "FS_MMDA", "name": "Money Market Deposits", "description": "Money market deposit accounts", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6530},
+        {"code": "FS_CD_UNDER_100K", "name": "Time Deposits (CDs) <100k", "description": "CDs under $100,000", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6540},
+        {"code": "FS_CD_OVER_100K", "name": "Time Deposits >100k", "description": "CDs over $100,000", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6550},
+        {"code": "FS_BROKERED_DEP_DETAIL", "name": "Brokered Deposits", "description": "Brokered deposit balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6560},
+        {"code": "FS_PUBLIC_FUNDS", "name": "Public Funds Deposits", "description": "Government/public funds deposits", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6570},
+        {"code": "FS_FOREIGN_DEPOSITS", "name": "Foreign Deposits", "description": "Foreign currency/branch deposits", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 6580}
+      ]
+    },
+    {
+      "code": "FS_BANK_INCOME_DETAIL",
+      "name": "Bank-Specific Income Detail",
+      "description": "Detailed banking income categories",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Revenue",
+      "normal_balance": "credit",
+      "sort_order": 6700,
+      "children": [
+        {"code": "FS_II_LOANS_DETAIL", "name": "Interest Income on Loans", "description": "Interest income on loan portfolio", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6710},
+        {"code": "FS_II_SECURITIES_DETAIL", "name": "Interest Income on Securities", "description": "Interest income on investment securities", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6720},
+        {"code": "FS_II_FED_FUNDS_DETAIL", "name": "Interest Income on Fed Funds", "description": "Interest income on fed funds sold", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6730},
+        {"code": "FS_ORIGINATION_FEES", "name": "Loan Origination Fees", "description": "Loan origination fee income", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6740},
+        {"code": "FS_SERVICE_CHARGE_INCOME", "name": "Service Charge Income", "description": "Account and service charge income", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6750},
+        {"code": "FS_TRUST_WEALTH_FEES", "name": "Trust and Wealth Management Fees", "description": "Trust and wealth management fee income", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6760},
+        {"code": "FS_MORTGAGE_BANKING_INCOME", "name": "Mortgage Banking Income", "description": "Mortgage banking gains and fees", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6770},
+        {"code": "FS_CARD_INTERCHANGE", "name": "Card Interchange Income", "description": "Card interchange revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 6780}
+      ]
+    },
+    {
+      "code": "FS_BANK_EXPENSE_DETAIL",
+      "name": "Bank-Specific Expense Detail",
+      "description": "Detailed banking expense categories",
+      "statement_type": "Income Statement",
+      "financial_statement_section": "Operating Expenses",
+      "normal_balance": "debit",
+      "sort_order": 6900,
+      "children": [
+        {"code": "FS_IE_DEPOSITS_DETAIL", "name": "Interest Expense on Deposits", "description": "Interest expense on deposit liabilities", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6910},
+        {"code": "FS_IE_BORROWINGS_DETAIL", "name": "Interest Expense on Borrowings", "description": "Interest expense on borrowings", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6920},
+        {"code": "FS_FDIC_DETAIL", "name": "FDIC Insurance", "description": "FDIC insurance assessment", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6930},
+        {"code": "FS_PROVISION_DETAIL", "name": "Provision for Loan Losses", "description": "CECL provision expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6940, "gaap_reference": "ASC 326"},
+        {"code": "FS_OREO_OPERATING", "name": "OREO Operating Costs", "description": "Operating costs of foreclosed real estate", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6950},
+        {"code": "FS_COMPLIANCE_DETAIL", "name": "Compliance and Regulatory Costs", "description": "Compliance and regulatory expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6960},
+        {"code": "FS_ATM_NETWORK", "name": "ATM Network Fees", "description": "ATM network fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6970},
+        {"code": "FS_CARD_PROCESSING", "name": "Card Processing Costs", "description": "Card processing/issuer costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 6980}
+      ]
+    },
+    {
+      "code": "FS_REGULATORY_CAPITAL",
+      "name": "Regulatory and Capital",
+      "description": "Regulatory capital components and ratios",
+      "statement_type": "Disclosure",
+      "financial_statement_section": "Disclosure",
+      "sort_order": 7100,
+      "children": [
+        {"code": "FS_TIER_1_CAPITAL", "name": "Tier 1 Capital", "description": "Tier 1 regulatory capital", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7110},
+        {"code": "FS_TIER_2_CAPITAL", "name": "Tier 2 Capital", "description": "Tier 2 regulatory capital", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7120},
+        {"code": "FS_RWA", "name": "Risk-Weighted Assets", "description": "Risk-weighted asset balance", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7130},
+        {"code": "FS_CET1_RATIO_DISCLOSURE", "name": "CET1 Ratio (Disclosure)", "description": "Common equity tier 1 ratio disclosure", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7140},
+        {"code": "FS_LEVERAGE_RATIO_DISCLOSURE", "name": "Leverage Ratio (Disclosure)", "description": "Leverage ratio disclosure", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7150},
+        {"code": "FS_LCR_DISCLOSURE", "name": "LCR (Liquidity Coverage Ratio)", "description": "Liquidity coverage ratio disclosure", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7160},
+        {"code": "FS_NSFR_DISCLOSURE", "name": "NSFR", "description": "Net stable funding ratio disclosure", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7170},
+        {"code": "FS_STRESS_TEST", "name": "Stress Testing Adjustments", "description": "DFAST/CCAR stress test adjustments", "statement_type": "Disclosure", "financial_statement_section": "Disclosure", "sort_order": 7180}
       ]
     }
   ]
