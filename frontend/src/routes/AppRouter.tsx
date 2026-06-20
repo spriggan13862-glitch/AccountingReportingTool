@@ -44,6 +44,7 @@ import { COAImportPage } from '@/pages/COAImportPage'
 import { PDFImportPage } from '@/pages/PDFImportPage'
 import { ChartOfAccountsPage } from '@/pages/ChartOfAccountsPage'
 import { TaxonomyAdminPage } from '@/pages/TaxonomyAdminPage'
+import { TaxonomyLibraryPage } from '@/pages/TaxonomyLibraryPage'
 import { ReportingSettingsPage } from '@/pages/ReportingSettingsPage'
 import { FSBuilderPage } from '@/pages/FSBuilderPage'
 import { AdjustmentBridgePage } from '@/pages/AdjustmentBridgePage'
@@ -125,6 +126,7 @@ export function AppRouter() {
           <Route path="client-data/documents" element={<DocumentsPage />} />
           <Route path="client-data/chart-of-accounts" element={<ChartOfAccountsPage />} />
           <Route path="client-data/taxonomy-mapping" element={<TaxonomyAdminPage />} />
+          <Route path="taxonomy/library" element={<TaxonomyLibraryPage />} />
           <Route path="client-data/entities" element={<EntitiesPage />} />
           <Route path="client-data/periods/:id" element={<PeriodDetailPage />} />
           <Route path="client-data/periods" element={<PeriodsPage />} />

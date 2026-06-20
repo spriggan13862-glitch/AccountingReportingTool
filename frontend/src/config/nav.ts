@@ -9,6 +9,7 @@ import {
   GitMerge,
   LayoutDashboard,
   Layers,
+  Library,
   Link2,
   Map,
   Package,
@@ -93,6 +94,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { id: 'admin-periods', label: 'Periods', to: '/admin/periods', icon: Calendar },
       { id: 'admin-documents', label: 'Documents', to: '/admin/documents', icon: FolderOpen },
       { id: 'admin-settings', label: 'Settings', to: '/admin/settings', icon: Settings2 },
+      { id: 'taxonomy-library', label: 'Taxonomy Library', to: '/taxonomy/library', icon: Library },
     ],
   },
 ]
