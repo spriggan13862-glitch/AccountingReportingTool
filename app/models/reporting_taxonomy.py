@@ -44,10 +44,17 @@ class ReportingTaxonomyLine(Base):
 
 class ReportingTaxonomyView(Base):
     """
-    Named reporting views (e.g., GAAP, Management, SBA Lender, QoE).
+    DEPRECATED — use ReportingView (app/models/reporting_view.py) for new
+    presentation-layer work.
 
-    The same account can map to different taxonomy lines depending on which
-    reporting view is active.
+    This legacy model conflates classification ("which FSLI") with view
+    selection ("which named lens"). Existing consumers (FSLI mapping
+    workflows, ViewAccountOverride, financial_statements router) continue
+    to use it; new code should target ReportingView, which is purely
+    presentational and consumes Taxonomy/TaxonomyNode classification.
+
+    Removal is deferred until all reporting endpoints have been migrated
+    (planned for Sprint P5).
     """
     __tablename__ = "reporting_taxonomy_views"
     __table_args__ = (

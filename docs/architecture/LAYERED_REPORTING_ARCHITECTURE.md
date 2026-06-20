@@ -150,6 +150,18 @@ Sprints P2–P7 deliver this architecture without breaking existing functionalit
 - **P6** — Frontend: ReportingView selector + builder. Update Financial Statements page to use new view selector backed by `ReportingView`.
 - **P7** — Changelog, Playwright spec, push. Legacy `ReportingTaxonomyView` marked deprecated in docstring; removal deferred to a future sprint after consumers migrate.
 
+## Deprecation Register
+
+| Symbol | Status | Replacement | Removal Sprint |
+|--------|--------|-------------|----------------|
+| `ReportingTaxonomyView` | DEPRECATED (Sprint P1) | `ReportingView` (Sprint P2) | Sprint P5+ after FS endpoints migrate |
+| `ReportingTaxonomyLine.sort_order` | DEPRECATED | `ReportingViewRow.sort_order` | Sprint P5+ |
+| `ReportingTaxonomyLine.is_subtotal` | DEPRECATED | `ReportingViewRow.row_type='subtotal'` | Sprint P5+ |
+| `ReportingTaxonomyLine.sign_behavior` | DEPRECATED | `presentation_service.apply_sign_for_display()` | Sprint P5+ |
+| Inline `sign_flip` / `display_balance` in `taxonomy_reporting_service.py` | DEPRECATED (Sprint P3) | `presentation_service.py` | Sprint P5+ |
+
+Deprecation is signal-only during P2–P4: code still compiles and runs. Callers see `DeprecationWarning` only in P5+ when migration begins.
+
 ## Acceptance Criteria (mapping to original spec)
 
 | # | Criterion | Sprint that satisfies it |
