@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint B · Import Source Logic & Readiness Matrix',
+    date: '2026-06-19',
+    items: [
+      'Import system now understands COA, TB, GL, and Financial Statement imports as distinct source types with different behaviors',
+      'COA import: creates accounts and hierarchy, no balances required',
+      'Trial Balance import: creates accounts and period balances, suggests FSLI',
+      'GL import: imports transactions, derives period activity, requires opening balances',
+      'Financial Statement import: maps presentation-line items to taxonomy, no account-level detail',
+      'New Import Readiness Matrix: shows COA/TB/GL/FS availability and readiness for Accounting View, FS Presentation, Bridge, and Drilldown',
+    ],
+  },
+  {
     version: 'Sprint A · Domain Model Correction',
     date: '2026-06-19',
     items: [

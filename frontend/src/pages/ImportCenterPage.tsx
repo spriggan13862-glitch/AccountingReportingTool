@@ -59,9 +59,10 @@ export function ImportCenterPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
   const [showFormatHelp, setShowFormatHelp] = useState(false)
-  const { activeEntity } = useWorkspace()
+  const { activeEntity, activePeriod } = useWorkspace()
 
   const entityId: number | '' = activeEntity?.id ?? ''
+  const periodId: number | undefined = activePeriod?.id ?? undefined
   const [asOfDate, setAsOfDate] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -629,7 +630,7 @@ export function ImportCenterPage() {
       </div>
 
       {entityId && registryEntries && registryEntries.length > 0 && (
-        <ImportReadinessMatrix entityId={Number(entityId)} />
+        <ImportReadinessMatrix entityId={Number(entityId)} periodId={periodId} />
       )}
       {entityId && !isRegistryLoading && registryEntries !== undefined && registryEntries.length === 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">

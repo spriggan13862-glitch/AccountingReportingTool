@@ -164,6 +164,7 @@ export function ImportWizardPage() {
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null)
   const [headerRowIdx, setHeaderRowIdx] = useState<number | null>(null)
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
+  const [importSourceType, setImportSourceType] = useState<'tb' | 'gl' | 'coa' | 'fs'>('tb')
   const [apiError, setApiError] = useState<string | null>(null)
   const [duplicateWarning, setDuplicateWarning] = useState<{ existingBatchId: number; existingStatus: string } | null>(null)
 
@@ -379,6 +380,142 @@ export function ImportWizardPage() {
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
               <span>Import one trial balance per period. Each import creates a posted journal entry in the ledger tagged as "As Reported."</span>
             </div>
+          </div>
+
+          {/* Import source type selector */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-2">Import File Type</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                {
+                  key: 'tb' as const,
+                  label: 'Trial Balance',
+                  desc: 'Creates accounts & period balances, suggests FSLI',
+                  requires: 'Requires period/date',
+                  provides: ['account_number', 'account_name', 'period_balance', 'fsli_suggestion'],
+                  after: 'Next: Map accounts to FSLI taxonomy',
+                },
+                {
+                  key: 'gl' as const,
+                  label: 'General Ledger',
+                  desc: 'Imports transactions, derives period activity',
+                  requires: 'Requires period/date + opening balances',
+                  provides: ['transactions', 'account_activity', 'journal_entries'],
+                  after: 'Next: Verify opening balance import',
+                },
+                {
+                  key: 'coa' as const,
+                  label: 'Chart of Accounts',
+                  desc: 'Creates accounts & hierarchy, no balances',
+                  requires: 'No period required',
+                  provides: ['account_number', 'account_name', 'account_type', 'parent_account_id'],
+                  after: 'Next: Upload a Trial Balance to add balances',
+                },
+                {
+                  key: 'fs' as const,
+                  label: 'Financial Statement',
+                  desc: 'Maps presentation lines to taxonomy, no account detail',
+                  requires: 'No period required',
+                  provides: ['fs_line_items', 'presentation_amounts'],
+                  after: 'Next: Upload via PDF Import for AI extraction',
+                },
+              ] as const).map(({ key, label, desc, requires, provides, after }) => {
+                const selected = importSourceType === key
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setImportSourceType(key)}
+                    className={`text-left p-3 rounded-lg border-2 transition-all ${
+                      selected
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <div className={`text-xs font-bold mb-0.5 ${selected ? 'text-indigo-800' : 'text-gray-800'}`}>{label}</div>
+                    <div className="text-[10px] text-gray-500 leading-snug">{desc}</div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Source type detail panel */}
+            {(() => {
+              const INFO = {
+                tb: {
+                  label: 'Trial Balance',
+                  desc: 'Creates accounts and period balances. Matches rows to existing COA accounts or creates new ones. Suggests FSLI taxonomy line assignment for each account.',
+                  requires: ['entity_id', 'period / as-of date'],
+                  provides: ['account_number', 'account_name', 'period_balance', 'fsli_suggestion'],
+                  after: 'After import: map unmapped accounts to FSLI taxonomy in the Mapping Workbench.',
+                  color: 'indigo',
+                },
+                gl: {
+                  label: 'General Ledger',
+                  desc: 'Imports individual transactions and derives period activity. Creates accounts if they don\'t exist. Requires opening balances to compute ending balances.',
+                  requires: ['entity_id', 'period / as-of date', 'opening balance import'],
+                  provides: ['transactions', 'account_activity', 'journal_entries'],
+                  after: 'After import: verify opening balance import is present to compute ending balances.',
+                  color: 'emerald',
+                },
+                coa: {
+                  label: 'Chart of Accounts',
+                  desc: 'Creates or updates Account records with full hierarchy (parent_account_id). Sets account_type, normal_balance, and account_number. Does NOT create balances.',
+                  requires: ['entity_id'],
+                  provides: ['account_number', 'account_name', 'account_type', 'normal_balance', 'parent_account_id'],
+                  after: 'After import: upload a Trial Balance to add period balances to the account hierarchy.',
+                  color: 'blue',
+                },
+                fs: {
+                  label: 'Financial Statement (PDF/Excel)',
+                  desc: 'Imports presentation-level line items, not raw accounts. Maps to taxonomy/FSLI lines. Useful for building comparisons or seeding FSLI structure. Use the PDF Import page for AI extraction.',
+                  requires: ['entity_id'],
+                  provides: ['fs_line_items', 'presentation_amounts'],
+                  after: 'After import: use the PDF Import page (/pdf-import) for AI-powered extraction from PDF statements.',
+                  color: 'orange',
+                },
+              }[importSourceType]
+
+              return (
+                <div className={`mt-3 rounded-lg border border-${INFO.color}-200 bg-${INFO.color}-50/40 p-3`}>
+                  <div className="flex items-start gap-2">
+                    <Layers className={`h-4 w-4 text-${INFO.color}-600 shrink-0 mt-0.5`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-800 mb-1">{INFO.label}</p>
+                      <p className="text-xs text-gray-600 mb-2">{INFO.desc}</p>
+                      <div className="grid grid-cols-2 gap-3 text-[10px]">
+                        <div>
+                          <span className="font-semibold text-gray-500 uppercase tracking-wide">Requires</span>
+                          <ul className="mt-1 space-y-0.5">
+                            {INFO.requires.map(r => (
+                              <li key={r} className="flex items-center gap-1 text-gray-600">
+                                <span className="w-1 h-1 rounded-full bg-gray-400 shrink-0" />
+                                {r}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-500 uppercase tracking-wide">Provides</span>
+                          <ul className="mt-1 space-y-0.5">
+                            {INFO.provides.map(p => (
+                              <li key={p} className="flex items-center gap-1 text-gray-600">
+                                <span className="w-1 h-1 rounded-full bg-gray-400 shrink-0" />
+                                {p}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-start gap-1 text-[10px] text-amber-700">
+                        <ArrowRight className="h-3 w-3 shrink-0 mt-0.5" />
+                        {INFO.after}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* File dropzone */}

@@ -941,6 +941,23 @@ export interface ImportReadiness {
   warnings: string[]
 }
 
+export interface ImportReadinessStatus {
+  coa_available: boolean
+  coa_account_count: number
+  tb_available: boolean
+  tb_has_balances: boolean
+  gl_available: boolean
+  fs_available: boolean
+  taxonomy_mapped_pct: number
+  unmapped_account_count: number
+  ready_for_accounting_view: boolean
+  ready_for_fs_presentation: boolean
+  ready_for_bridge: boolean
+  ready_for_drilldown: boolean
+  missing_for_accounting_view: string[]
+  missing_for_fs_presentation: string[]
+}
+
 // ---------------------------------------------------------------------------
 // M24: Close Management
 // ---------------------------------------------------------------------------

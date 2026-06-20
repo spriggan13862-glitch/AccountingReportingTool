@@ -1573,6 +1573,23 @@ class ImportReadinessOut(BaseModel):
     warnings: list[str] = []
 
 
+class ImportReadinessStatus(BaseModel):
+    coa_available: bool
+    coa_account_count: int
+    tb_available: bool
+    tb_has_balances: bool
+    gl_available: bool
+    fs_available: bool
+    taxonomy_mapped_pct: float
+    unmapped_account_count: int
+    ready_for_accounting_view: bool
+    ready_for_fs_presentation: bool
+    ready_for_bridge: bool
+    ready_for_drilldown: bool
+    missing_for_accounting_view: list[str]
+    missing_for_fs_presentation: list[str]
+
+
 
 # ---------------------------------------------------------------------------
 # M24: Close Management
