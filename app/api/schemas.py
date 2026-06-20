@@ -2588,3 +2588,35 @@ class AccountingWorkingViewResponse(BaseModel):
     view_id: int | None
     as_of_date: str | None
     net_income: float
+
+
+# ---------------------------------------------------------------------------
+# Sprint F — Financial Statement Presentation View
+# ---------------------------------------------------------------------------
+
+class IncomeStatementSummary(BaseModel):
+    revenue: float
+    cogs: float
+    gross_profit: float
+    total_expenses: float
+    operating_income: float
+    other_income: float
+    other_expenses: float
+    net_income: float
+
+
+class BalanceSheetSummary(BaseModel):
+    total_assets: float
+    total_liabilities: float
+    total_equity: float
+    balanced: bool
+
+
+class PresentationViewResponse(BaseModel):
+    sections: list[AwvSection]
+    income_statement: IncomeStatementSummary
+    balance_sheet: BalanceSheetSummary
+    entity_id: int
+    period_id: int | None
+    view_id: int | None
+    as_of_date: str | None

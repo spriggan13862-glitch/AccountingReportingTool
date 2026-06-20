@@ -9,6 +9,35 @@ import type {
   ReportDefinitionCreate,
   AccountingWorkingViewResponse,
 } from '@/types'
+import type { AwvSection } from '@/types'
+
+export interface IncomeStatementSummary {
+  revenue: number
+  cogs: number
+  gross_profit: number
+  total_expenses: number
+  operating_income: number
+  other_income: number
+  other_expenses: number
+  net_income: number
+}
+
+export interface BalanceSheetSummary {
+  total_assets: number
+  total_liabilities: number
+  total_equity: number
+  balanced: boolean
+}
+
+export interface PresentationViewResponse {
+  sections: AwvSection[]
+  income_statement: IncomeStatementSummary
+  balance_sheet: BalanceSheetSummary
+  entity_id: number
+  period_id: number | null
+  view_id: number | null
+  as_of_date: string | null
+}
 
 export const financialStatementsApi = {
   getCashFlow: (entityId: number, periodStart: string, periodEnd: string, scenarioIds: number[]) =>
@@ -66,6 +95,24 @@ export const financialStatementsApi = {
       qp.scenario_ids = params.scenarioIds.join(',')
     }
     return apiClient.get<AccountingWorkingViewResponse>('/financial-statements/accounting-view', { params: qp })
+      .then((r) => r.data)
+  },
+
+  getPresentationView: (params: {
+    entityId: number
+    periodId?: number
+    viewId?: number
+    scenarioIds?: number[]
+  }): Promise<PresentationViewResponse> => {
+    const qp: Record<string, string> = {
+      entity_id: String(params.entityId),
+    }
+    if (params.periodId !== undefined) qp.period_id = String(params.periodId)
+    if (params.viewId !== undefined) qp.view_id = String(params.viewId)
+    if (params.scenarioIds && params.scenarioIds.length > 0) {
+      qp.scenario_ids = params.scenarioIds.join(',')
+    }
+    return apiClient.get<PresentationViewResponse>('/financial-statements/presentation-view', { params: qp })
       .then((r) => r.data)
   },
 }

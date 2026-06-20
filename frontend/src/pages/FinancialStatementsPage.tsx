@@ -14,6 +14,7 @@ import { EntitySelect } from '@/components/ui/EntitySelect'
 import { ScenarioSelect } from '@/components/ui/ScenarioSelect'
 import { DrilldownPanel } from '@/components/reports/DrilldownPanel'
 import { AccountingWorkingView } from '@/components/financial/AccountingWorkingView'
+import { FinancialStatementPresentationView } from '@/components/financial/FinancialStatementPresentationView'
 import { useOrg } from '@/providers/OrgProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { cn } from '@/utils/cn'
@@ -21,7 +22,7 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { TaxonomyFsLine, CashFlowSection, CashFlowLine, OverlayCalculateRequest, OverlayLineItem, ReportingTaxonomyLine } from '@/types'
 import { type BalanceView, getAccountingSignedBalance, getAwvDisplayAmount, getPresentationAmount } from '@/lib/balanceEngine'
 
-type Tab = 'official_tb' | 'draft_tb' | 'BS' | 'IS' | 'CF' | 'AWV'
+type Tab = 'official_tb' | 'draft_tb' | 'BS' | 'IS' | 'CF' | 'AWV' | 'FSP'
 
 function makeFmt(fmtCurrency: (v: number | null | undefined) => string) {
   return (v: string | number) => {
@@ -632,6 +633,17 @@ export function FinancialStatementsPage() {
     enabled: ready && tab === 'AWV',
   })
 
+  const { data: fspData, isLoading: fspLoading } = useQuery({
+    queryKey: ['fsp', entityId, periodId, scenarioIds],
+    queryFn: () =>
+      financialStatementsApi.getPresentationView({
+        entityId: entityId as number,
+        periodId: periodId ?? undefined,
+        scenarioIds: scenarioIds.length > 0 ? scenarioIds : undefined,
+      }),
+    enabled: ready && tab === 'FSP',
+  })
+
   const handleExport = () => {
     if (!ready) return
     const url = financialStatementsApi.getClosePackageUrl(entityId as number, asOfDate, scenarioIds)
@@ -933,7 +945,8 @@ export function FinancialStatementsPage() {
     { key: 'BS', label: 'Balance Sheet' },
     { key: 'IS', label: 'Income Statement' },
     { key: 'CF', label: 'Cash Flow' },
-    { key: 'AWV', label: 'Accounting View' },
+    { key: 'AWV', label: 'Working View' },
+    { key: 'FSP', label: 'Financial Statements' },
   ]
 
   // Renders the flat Trial Balance sheet
@@ -1281,6 +1294,12 @@ export function FinancialStatementsPage() {
               <AccountingWorkingView
                 data={awvData ?? { sections: [], entity_id: entityId as number, period_id: null, view_id: null, as_of_date: null, net_income: 0 }}
                 isLoading={awvLoading}
+              />
+            )}
+            {tab === 'FSP' && (
+              <FinancialStatementPresentationView
+                data={fspData ?? { sections: [], income_statement: { revenue: 0, cogs: 0, gross_profit: 0, total_expenses: 0, operating_income: 0, other_income: 0, other_expenses: 0, net_income: 0 }, balance_sheet: { total_assets: 0, total_liabilities: 0, total_equity: 0, balanced: true }, entity_id: entityId as number, period_id: null, view_id: null, as_of_date: null }}
+                isLoading={fspLoading}
               />
             )}
           </div>

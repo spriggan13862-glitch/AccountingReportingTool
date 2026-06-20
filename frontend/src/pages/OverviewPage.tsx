@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint F · Financial Statement Presentation View',
+    date: '2026-06-19',
+    items: [
+      'New Financial Statement Presentation tab: client-ready output with all amounts positive',
+      'Income Statement: Revenue, COGS, Gross Profit, Expenses, Operating Income, Net Income',
+      'Balance Sheet: Assets, Liabilities, Equity with total verification (Assets = L + E)',
+      'Dot leaders and bold subtotals for professional presentation',
+      'Print button for direct client delivery',
+      'Toggle between Working View (accounting signs) and Financial Statements (presentation)',
+    ],
+  },
+  {
     version: 'Sprint E · Accounting Working View',
     date: '2026-06-19',
     items: [
