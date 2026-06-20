@@ -4,6 +4,7 @@ from app.models.role import Role, UserRole
 from app.models.entity import Entity
 from app.models.account import Account
 from app.models.reporting_taxonomy import ReportingTaxonomyLine, ReportingTaxonomyView, ReportingPresentationSettings
+from app.models.taxonomy import Taxonomy, TaxonomyNode, AccountTaxonomyMapping
 from app.models.coa_import_batch import COAImportBatch
 from app.models.pdf_import_batch import PDFImportBatch
 from app.models.pdf_import_line import PDFImportLine
