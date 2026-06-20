@@ -33,12 +33,20 @@ test.describe('Sprint O — Default Taxonomy Foundation', () => {
     expect(codes).toContain('spac_public')
   })
 
-  test('US GAAP taxonomy has substantial node count', async ({ request }) => {
+  test('expanded taxonomies hit their target node depth', async ({ request }) => {
     const list = await (await request.get('http://localhost:8002/api/v1/taxonomies')).json()
-    const usgaap = list.find((t: { code: string }) => t.code === 'us_gaap')
-    expect(usgaap).toBeTruthy()
-    const detail = await (await request.get(`http://localhost:8002/api/v1/taxonomies/${usgaap.id}`)).json()
-    expect(detail.node_count).toBeGreaterThanOrEqual(100)
+    const byCode = Object.fromEntries(list.map((t: { code: string; id: number }) => [t.code, t.id]))
+    const targets: Record<string, number> = {
+      us_gaap: 400,
+      ifrs: 300,
+      management: 200,
+      healthcare: 200,
+      financial_services: 200,
+    }
+    for (const [code, minNodes] of Object.entries(targets)) {
+      const detail = await (await request.get(`http://localhost:8002/api/v1/taxonomies/${byCode[code]}`)).json()
+      expect.soft(detail.node_count, `${code} expected >= ${minNodes} nodes, got ${detail.node_count}`).toBeGreaterThanOrEqual(minNodes)
+    }
   })
 
   test('CSV export endpoint returns CSV content', async ({ request }) => {
@@ -108,14 +116,14 @@ test.describe('Sprint O — Default Taxonomy Foundation', () => {
     ).toBeVisible({ timeout: 5_000 })
   })
 
-  test('What\'s New section announces taxonomy foundation', async ({ page }) => {
+  test('What\'s New section announces taxonomy foundation and depth expansion', async ({ page }) => {
     await login(page)
     await page.goto('/overview')
-    // What's New panel is collapsed by default — click the header to expand.
     const toggle = page.getByRole('button', { name: /what's new/i })
     await toggle.scrollIntoViewIfNeeded()
     await toggle.click()
-    const entry = page.getByText(/Default Taxonomy Foundation/i).first()
-    await expect(entry).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(/Default Taxonomy Foundation/i).first()).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(/Taxonomy Depth Expansion/i).first()).toBeVisible()
+    await expect(page.getByText(/production seeding/i).first()).toBeVisible()
   })
 })
