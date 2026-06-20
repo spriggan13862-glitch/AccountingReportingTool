@@ -35,7 +35,30 @@ export interface ConsolidatedTBResult {
   }
 }
 
+export interface ConsolidatedStatementsResult {
+  entity_balances: Record<number, Record<string, number>>
+  consolidated: Record<string, number>
+  eliminated: Record<string, number>
+}
+
 export const consolidationApi = {
+  statements: (params: {
+    entity_ids: number[]
+    period_id: number
+    view_id: number
+    include_eliminations?: boolean
+  }): Promise<ConsolidatedStatementsResult> =>
+    api
+      .get('/consolidation/statements', {
+        params: {
+          entity_ids: params.entity_ids.join(','),
+          period_id: params.period_id,
+          view_id: params.view_id,
+          include_eliminations: params.include_eliminations ?? true,
+        },
+      })
+      .then((r) => r.data),
+
   trialBalance: (
     consolidationEntityId: number,
     asOfDate: string,

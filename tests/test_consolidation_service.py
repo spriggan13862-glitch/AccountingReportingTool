@@ -52,7 +52,11 @@ from app.models.fs_line_item import FsLineItem
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.models.scenario import Scenario
+from app.models.accounting_period import AccountingPeriod
+from app.models.reporting_taxonomy import ReportingTaxonomyLine, ReportingTaxonomyView
+from app.models.view_account_override import ViewAccountOverride
 from app.services.consolidation_service import (
+    build_consolidated_statements,
     get_consolidated_fs_statement,
     get_consolidated_trial_balance,
     get_consolidation_members,
@@ -500,3 +504,157 @@ class TestGetSubgroupTrialBalance:
         rows_s1_only = get_subgroup_trial_balance(seeded_session, [2], AS_OF, [1])
         rows_s1_s2   = get_subgroup_trial_balance(seeded_session, [2, 3], AS_OF, [1])
         assert _net(rows_s1_only, "3000") != _net(rows_s1_s2, "3000")
+
+
+# ---------------------------------------------------------------------------
+# build_consolidated_statements (Sprint M — view-mapping consolidation)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def statements_session(db_engine):
+    """
+    Separate session with minimal data for build_consolidated_statements tests.
+
+    Entities:
+      E1 (id=101, operating)
+      E2 (id=102, operating)
+      EL (id=103, elimination)
+
+    Accounts:
+      A1 (id=201, entity=101, asset, debit-normal)  → taxonomy line 301
+      A2 (id=202, entity=102, revenue, credit-normal) → taxonomy line 302
+
+    Period:
+      P1 (id=401, entity=101, 2024-01-01 to 2024-12-31)
+
+    Reporting taxonomy view: V1 (id=501)
+    Taxonomy lines: TL301 (id=301), TL302 (id=302)
+
+    JE data:
+      JE1: entity=101, posted, 2024-06-01 — Dr A1 1000
+      JE2: entity=102, posted, 2024-06-01 — Cr A2 500
+    """
+    with Session(db_engine) as s:
+        e1 = Entity(id=101, code="E1M", name="Entity One",  entity_type="operating",    currency="USD")
+        e2 = Entity(id=102, code="E2M", name="Entity Two",  entity_type="operating",    currency="USD")
+        el = Entity(id=103, code="ELM", name="Elim Entity", entity_type="elimination",  currency="USD")
+        s.add_all([e1, e2, el])
+        s.flush()
+
+        scen = Scenario(id=51, code="ACT_M", name="Actual M", scenario_type="actual")
+        s.add(scen)
+        s.flush()
+
+        tl301 = ReportingTaxonomyLine(
+            id=301, code="TL301", name="Cash Line",    section="assets",
+            sort_order=1, hierarchy_depth=0, is_subtotal=False,
+        )
+        tl302 = ReportingTaxonomyLine(
+            id=302, code="TL302", name="Revenue Line", section="revenue",
+            sort_order=2, hierarchy_depth=0, is_subtotal=False,
+        )
+        s.add_all([tl301, tl302])
+        s.flush()
+
+        view = ReportingTaxonomyView(id=501, code="VIEW_M", name="Test View M")
+        s.add(view)
+        s.flush()
+
+        a1 = Account(
+            id=201, entity_id=101, account_number="1001", account_name="Cash M",
+            account_type="asset", normal_balance="debit",
+            reporting_taxonomy_line_id=301,
+        )
+        a2 = Account(
+            id=202, entity_id=102, account_number="4001", account_name="Revenue M",
+            account_type="revenue", normal_balance="credit",
+            reporting_taxonomy_line_id=302,
+        )
+        s.add_all([a1, a2])
+        s.flush()
+
+        period = AccountingPeriod(
+            id=401,
+            entity_id=101,
+            period_name="FY2024",
+            start_date=datetime.date(2024, 1, 1),
+            end_date=datetime.date(2024, 12, 31),
+            fiscal_year=2024,
+            fiscal_period=1,
+            period_type="annual",
+        )
+        s.add(period)
+        s.flush()
+
+        je1 = JournalEntry(
+            id=101, je_number="JE-M-1", entry_date=datetime.date(2024, 6, 1),
+            entity_id=101, scenario_id=51, status="posted", description="E1 cash",
+        )
+        s.add(je1)
+        s.flush()
+        s.add(JournalEntryLine(journal_entry_id=101, line_number=1, account_id=201, entity_id=101, debit=Decimal("1000"), credit=Decimal("0")))
+
+        je2 = JournalEntry(
+            id=102, je_number="JE-M-2", entry_date=datetime.date(2024, 6, 1),
+            entity_id=102, scenario_id=51, status="posted", description="E2 revenue",
+        )
+        s.add(je2)
+        s.flush()
+        s.add(JournalEntryLine(journal_entry_id=102, line_number=1, account_id=202, entity_id=102, debit=Decimal("0"), credit=Decimal("500")))
+
+        s.commit()
+        yield s
+
+
+class TestBuildConsolidatedStatements:
+    def test_single_entity_consolidation(self, statements_session):
+        result = build_consolidated_statements(
+            entity_ids=[101],
+            period_id=401,
+            view_id=501,
+            db=statements_session,
+        )
+        assert "101" in {str(k) for k in result["entity_balances"]}
+        entity_bal = result["entity_balances"].get(101, {})
+        assert entity_bal.get("301") == 1000.0
+
+    def test_multi_entity_consolidation(self, statements_session):
+        result = build_consolidated_statements(
+            entity_ids=[101, 102],
+            period_id=401,
+            view_id=501,
+            db=statements_session,
+        )
+        consolidated = result["consolidated"]
+        assert consolidated.get("301") == 1000.0
+        assert consolidated.get("302") == 500.0
+
+    def test_elimination_entity_negates(self, statements_session):
+        result_without = build_consolidated_statements(
+            entity_ids=[101],
+            period_id=401,
+            view_id=501,
+            db=statements_session,
+            include_eliminations=False,
+        )
+        result_with = build_consolidated_statements(
+            entity_ids=[101, 103],
+            period_id=401,
+            view_id=501,
+            db=statements_session,
+            include_eliminations=True,
+        )
+        assert result_with["entity_balances"].get(103) is None
+        assert result_without["entity_balances"].get(103) is None
+        assert result_with["consolidated"].get("301") == result_without["consolidated"].get("301")
+
+    def test_empty_returns_zeros(self, statements_session):
+        result = build_consolidated_statements(
+            entity_ids=[101],
+            period_id=9999,
+            view_id=501,
+            db=statements_session,
+        )
+        assert result["entity_balances"] == {}
+        assert result["consolidated"] == {}
+        assert result["eliminated"] == {}

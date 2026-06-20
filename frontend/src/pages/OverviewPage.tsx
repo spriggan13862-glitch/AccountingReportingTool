@@ -36,6 +36,16 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint M · Consolidation Model Update',
+    date: '2026-06-19',
+    items: [
+      'Consolidation now uses per-entity FSLI view mappings (Sprint A ViewAccountOverride)',
+      'Multi-entity selector: pick any combination of entities for consolidation',
+      'Elimination entities automatically netted in consolidated column',
+      'Results table: entity | eliminations | consolidated per taxonomy line',
+    ],
+  },
+  {
     version: 'Sprint L · Chart of Accounts Management',
     date: '2026-06-19',
     items: [

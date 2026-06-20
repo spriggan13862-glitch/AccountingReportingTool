@@ -60,6 +60,7 @@ import { AdvisoryAnalysisPage } from '@/pages/AdvisoryAnalysisPage'
 import { ReviewWorkspacePage } from '@/pages/ReviewWorkspacePage'
 import { OverviewPage } from '@/pages/OverviewPage'
 import { AdjustmentsPage } from '@/pages/AdjustmentsPage'
+import { ConsolidationPage } from '@/pages/ConsolidationPage'
 import { SetupPage } from '@/pages/SetupPage'
 import { QuickBooksConnectPage } from '@/pages/QuickBooksConnectPage'
 import { QuickBooksCallbackPage } from '@/pages/QuickBooksCallbackPage'
@@ -155,6 +156,7 @@ export function AppRouter() {
           <Route path="adjustments/journal-entries/:id" element={<JournalEntryDetailPage />} />
           <Route path="adjustments/journal-entries" element={<JournalEntriesPage />} />
           <Route path="adjustments/consolidations" element={<ConsolidationsPage />} />
+          <Route path="consolidation" element={<ConsolidationPage />} />
 
           {/* ── INTELLIGENCE ──────────────────────────────────────────────── */}
           <Route path="intelligence" element={<IntelligenceDashboardPage />} />

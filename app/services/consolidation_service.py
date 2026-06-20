@@ -37,8 +37,14 @@ from typing import Sequence
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.models.account import Account
 from app.models.entity import Entity
 from app.models.entity_group_member import EntityGroupMember
+from app.models.journal_entry import JournalEntry
+from app.models.journal_entry_line import JournalEntryLine
+from app.models.accounting_period import AccountingPeriod
+from app.models.reporting_taxonomy import ReportingTaxonomyLine
+from app.models.view_account_override import ViewAccountOverride
 from app.services.fs_reporting_service import FsLineBalance, build_fs_from_tb_rows
 from app.services.reporting_service import TrialBalanceRow, get_trial_balance
 from app.services.validation import ValidationResult
@@ -277,6 +283,207 @@ def validate_consolidated_tb(tb_rows: list[TrialBalanceRow]) -> ValidationResult
         )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# View-mapping consolidation (Sprint M)
+# ---------------------------------------------------------------------------
+
+def _get_effective_fsli_for_all_accounts(
+    entity_id: int,
+    view_id: int,
+    db: Session,
+) -> dict[int, int | None]:
+    """
+    Returns {account_id: taxonomy_line_id} for all accounts belonging to entity_id.
+
+    Resolution chain:
+      1. ViewAccountOverride for this view (view-specific override)
+      2. Account.reporting_taxonomy_line_id (legacy fallback)
+    """
+    accounts = db.query(Account).filter(Account.entity_id == entity_id).all()
+    if not accounts:
+        return {}
+
+    account_ids = [a.id for a in accounts]
+
+    overrides = (
+        db.query(ViewAccountOverride)
+        .filter(
+            ViewAccountOverride.view_id == view_id,
+            ViewAccountOverride.account_id.in_(account_ids),
+        )
+        .all()
+    )
+    override_map: dict[int, int | None] = {ov.account_id: ov.taxonomy_line_id for ov in overrides}
+
+    result: dict[int, int | None] = {}
+    for acct in accounts:
+        if acct.id in override_map:
+            result[acct.id] = override_map[acct.id]
+        else:
+            result[acct.id] = acct.reporting_taxonomy_line_id
+    return result
+
+
+def _get_accounting_signed_balance(
+    account: Account,
+    total_debit: Decimal,
+    total_credit: Decimal,
+) -> Decimal:
+    """Returns the signed balance per normal_balance convention."""
+    net = total_debit - total_credit
+    return net if account.normal_balance == "debit" else -net
+
+
+def build_consolidated_statements(
+    entity_ids: list[int],
+    period_id: int,
+    view_id: int,
+    db: Session,
+    include_eliminations: bool = True,
+) -> dict:
+    """
+    Build consolidated financial statements grouped by taxonomy_line_id.
+
+    For each entity, resolves FSLI mappings via the ViewAccountOverride chain,
+    then queries posted JE lines within the given period, computes signed balances,
+    and groups them by taxonomy line.
+
+    Returns:
+        {
+            "entity_balances": {entity_id: {taxonomy_line_id: balance}},
+            "consolidated": {taxonomy_line_id: balance},
+            "eliminated": {taxonomy_line_id: balance},
+        }
+    """
+    period = db.query(AccountingPeriod).filter(AccountingPeriod.id == period_id).first()
+    if period is None:
+        return {"entity_balances": {}, "consolidated": {}, "eliminated": {}}
+
+    entities = db.query(Entity).filter(Entity.id.in_(entity_ids)).all()
+    entity_map = {e.id: e for e in entities}
+
+    operating_entity_ids = [
+        e.id for e in entities if e.entity_type != "elimination"
+    ]
+    elimination_entity_ids = [
+        e.id for e in entities if e.entity_type == "elimination"
+    ]
+
+    entity_balances: dict[int, dict[int, Decimal]] = {}
+
+    for eid in operating_entity_ids:
+        fsli_map = _get_effective_fsli_for_all_accounts(eid, view_id, db)
+        if not fsli_map:
+            entity_balances[eid] = {}
+            continue
+
+        lines = (
+            db.query(JournalEntryLine)
+            .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+            .filter(
+                JournalEntry.entity_id == eid,
+                JournalEntry.status == "posted",
+                JournalEntry.entry_date >= period.start_date,
+                JournalEntry.entry_date <= period.end_date,
+                JournalEntryLine.account_id.in_(list(fsli_map.keys())),
+            )
+            .all()
+        )
+
+        debit_by_account: dict[int, Decimal] = {}
+        credit_by_account: dict[int, Decimal] = {}
+        for line in lines:
+            aid = line.account_id
+            debit_by_account[aid] = debit_by_account.get(aid, Decimal("0")) + Decimal(str(line.debit))
+            credit_by_account[aid] = credit_by_account.get(aid, Decimal("0")) + Decimal(str(line.credit))
+
+        accounts_in_use = (
+            db.query(Account)
+            .filter(Account.id.in_(list(debit_by_account.keys()) + list(credit_by_account.keys())))
+            .all()
+        )
+        acct_lookup = {a.id: a for a in accounts_in_use}
+
+        line_balances: dict[int, Decimal] = {}
+        for aid in set(list(debit_by_account.keys()) + list(credit_by_account.keys())):
+            taxonomy_line_id = fsli_map.get(aid)
+            if taxonomy_line_id is None:
+                continue
+            acct = acct_lookup.get(aid)
+            if acct is None:
+                continue
+            signed = _get_accounting_signed_balance(
+                acct,
+                debit_by_account.get(aid, Decimal("0")),
+                credit_by_account.get(aid, Decimal("0")),
+            )
+            line_balances[taxonomy_line_id] = line_balances.get(taxonomy_line_id, Decimal("0")) + signed
+
+        entity_balances[eid] = line_balances
+
+    consolidated: dict[int, Decimal] = {}
+    for lb in entity_balances.values():
+        for tlid, bal in lb.items():
+            consolidated[tlid] = consolidated.get(tlid, Decimal("0")) + bal
+
+    eliminated: dict[int, Decimal] = {}
+
+    if include_eliminations and elimination_entity_ids:
+        for eid in elimination_entity_ids:
+            fsli_map = _get_effective_fsli_for_all_accounts(eid, view_id, db)
+            if not fsli_map:
+                continue
+
+            lines = (
+                db.query(JournalEntryLine)
+                .join(JournalEntry, JournalEntry.id == JournalEntryLine.journal_entry_id)
+                .filter(
+                    JournalEntry.entity_id == eid,
+                    JournalEntry.status == "posted",
+                    JournalEntry.entry_date >= period.start_date,
+                    JournalEntry.entry_date <= period.end_date,
+                    JournalEntryLine.account_id.in_(list(fsli_map.keys())),
+                )
+                .all()
+            )
+
+            debit_by_account = {}
+            credit_by_account = {}
+            for line in lines:
+                aid = line.account_id
+                debit_by_account[aid] = debit_by_account.get(aid, Decimal("0")) + Decimal(str(line.debit))
+                credit_by_account[aid] = credit_by_account.get(aid, Decimal("0")) + Decimal(str(line.credit))
+
+            accounts_in_use = (
+                db.query(Account)
+                .filter(Account.id.in_(list(debit_by_account.keys()) + list(credit_by_account.keys())))
+                .all()
+            )
+            acct_lookup = {a.id: a for a in accounts_in_use}
+
+            for aid in set(list(debit_by_account.keys()) + list(credit_by_account.keys())):
+                taxonomy_line_id = fsli_map.get(aid)
+                if taxonomy_line_id is None:
+                    continue
+                acct = acct_lookup.get(aid)
+                if acct is None:
+                    continue
+                signed = _get_accounting_signed_balance(
+                    acct,
+                    debit_by_account.get(aid, Decimal("0")),
+                    credit_by_account.get(aid, Decimal("0")),
+                )
+                negated = -signed
+                eliminated[taxonomy_line_id] = eliminated.get(taxonomy_line_id, Decimal("0")) + negated
+                consolidated[taxonomy_line_id] = consolidated.get(taxonomy_line_id, Decimal("0")) + negated
+
+    return {
+        "entity_balances": {eid: {str(tlid): float(bal) for tlid, bal in lb.items()} for eid, lb in entity_balances.items()},
+        "consolidated": {str(tlid): float(bal) for tlid, bal in consolidated.items()},
+        "eliminated": {str(tlid): float(bal) for tlid, bal in eliminated.items()},
+    }
 
 
 # ---------------------------------------------------------------------------

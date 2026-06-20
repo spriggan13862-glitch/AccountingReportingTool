@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.api.schemas import FsLineOut, SubgroupTBRequest, TBRowOut, ValidationIssueOut
 from app.services.consolidation_service import (
+    build_consolidated_statements,
     get_consolidated_fs_statement,
     get_consolidated_trial_balance,
     get_subgroup_trial_balance,
@@ -126,6 +127,24 @@ def consolidated_income_statement(
 # ---------------------------------------------------------------------------
 # Subgroup trial balance  (POST — caller provides arbitrary entity list)
 # ---------------------------------------------------------------------------
+
+@router.get("/statements")
+def consolidated_statements(
+    entity_ids: str = Query(..., description="Comma-separated entity IDs"),
+    period_id: int = Query(...),
+    view_id: int = Query(...),
+    include_eliminations: bool = Query(default=True),
+    db: Session = Depends(get_db),
+):
+    parsed_entity_ids = [int(x.strip()) for x in entity_ids.split(",") if x.strip()]
+    return build_consolidated_statements(
+        entity_ids=parsed_entity_ids,
+        period_id=period_id,
+        view_id=view_id,
+        db=db,
+        include_eliminations=include_eliminations,
+    )
+
 
 @router.post("/subgroup-trial-balance", response_model=list[TBRowOut])
 def subgroup_trial_balance(body: SubgroupTBRequest, db: Session = Depends(get_db)):
