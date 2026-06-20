@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from app.models.account import Account
 from app.models.reporting_taxonomy import ReportingTaxonomyLine
 from app.services.reporting_service import get_trial_balance
+from app.services import presentation_service
 
 
 @dataclass
@@ -53,12 +54,11 @@ class TaxonomyFsRow:
 
 
 def _sign_flip(line: ReportingTaxonomyLine) -> bool:
-    """Credit-normal lines are flipped for display so they show as positive."""
-    if line.normal_balance == "credit":
-        return True
-    if line.sign_behavior == "negative":
-        return True
-    return False
+    """
+    DEPRECATED — delegates to presentation_service.should_sign_flip().
+    Sprint P3 moved presentation logic out of this classification service.
+    """
+    return presentation_service.should_sign_flip(line.normal_balance, line.sign_behavior)
 
 
 def _compute_depths(lines_by_id: dict[int, ReportingTaxonomyLine]) -> dict[int, int]:
@@ -216,11 +216,13 @@ def get_taxonomy_fs_statement(
     # Compute hierarchy depths
     depths = _compute_depths(lines_in_scope)
 
-    # Build output rows
+    # Build output rows. Presentation transforms (sign flip, display balance)
+    # are delegated to presentation_service (Sprint P3 extraction).
     result: list[TaxonomyFsRow] = []
     for line in sorted(lines_in_scope.values(), key=lambda l: (l.sort_order, l.id)):
-        flip = _sign_flip(line)
+        flip = presentation_service.should_sign_flip(line.normal_balance, line.sign_behavior)
         total = totals[line.id]
+        display = presentation_service.apply_sign_for_display(total, line.normal_balance, line.sign_behavior)
         result.append(TaxonomyFsRow(
             taxonomy_id=line.id,
             code=line.code,
@@ -235,7 +237,7 @@ def get_taxonomy_fs_statement(
             sign_flip=flip,
             own_balance=own.get(line.id, Decimal("0")),
             total_balance=total,
-            display_balance=(-total if flip else total),
+            display_balance=display,
             account_count=account_counts.get(line.id, 0),
         ))
     return result
