@@ -36,6 +36,24 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Workflow Stabilization · Import, Mapping, Scenario, Taxonomy fixes',
+    date: '2026-06-20',
+    items: [
+      'Scenarios global: every dropdown (JE, draft, TB import, GL import, reporting views, draft impact, pro forma) reads from the shared scenarios API — no hardcoded lists. Admin-created scenarios show up everywhere.',
+      'TB column-mapping preview now has a sticky header and 480px scroll area on step 2 (matches step 3).',
+      'Import validation: only true data-integrity errors render line-by-line. Missing mappings are summarized with a “Resolve in Mapping Workbench” shortcut (IssuesPanel already grouped by severity).',
+      'Mapping Workbench: parent-account grouping with expand/collapse all + grouped counts; new column filters (FSLI / inherited / suggestion / COA / taxonomy / confidence / mapped-unmapped / parent / account type); resizable layout with horizontal scroll and tooltip on long names.',
+      'Mapping Workbench: delete row, bulk-delete selected, delete entire batch — with confirm and posted-batch guard.',
+      'Mapping Workbench: matched-COA override editor (change match, reset to system suggestion) and inline edit of imported account values before posting.',
+      'FSLI dropdown: when the legacy reporting taxonomy is empty, falls back to Sprint O system taxonomy nodes (US GAAP by default). Top-of-page taxonomy selector lets the user switch the FSLI source.',
+      'Auto-map taxonomy: now invalidates seven downstream queries so the FSLI column, mapping status, inheritance, and Import Center readiness all update immediately after apply — no more silent runs.',
+      'Auto-Map modal redesign: separate columns for account #, name, taxonomy, suggested node, confidence, reason; select-all checkbox; sortable by confidence / account / taxonomy; column filters; threshold-based apply-all.',
+      'Import wizard now asks which taxonomy basis (US GAAP / IFRS / Management / Industry — multi-select) should drive FSLI suggestions, with a Skip-to-Mapping-Workbench escape.',
+      'Backend: new DELETE /tb-imports/batches/{id}/lines/{lineId} and POST .../bulk-delete-lines endpoints, both refuse 409 on posted batches.',
+      'Parent / subaccount FSLI inheritance still wired (Sprint G) — now clearly labeled as Explicit / Parent / Grandparent / Legacy in the Mapping Workbench, with Sprint-O vs Legacy badges to clarify which mapping system stored the value.',
+    ],
+  },
+  {
     version: 'Sprint P1-P4 · Layered Reporting Architecture (backend foundation)',
     date: '2026-06-20',
     items: [

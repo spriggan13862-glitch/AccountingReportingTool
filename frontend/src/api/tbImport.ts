@@ -207,6 +207,26 @@ export const tbImportApi = {
   deleteBatch: (batchId: number) =>
     api.delete(`/tb-imports/batches/${batchId}`).then(() => undefined),
 
+  // Phase 2 workflow stabilization — granular delete + matched-COA swap.
+  deleteLine: (batchId: number, lineId: number) =>
+    api.delete(`/tb-imports/batches/${batchId}/lines/${lineId}`).then(() => undefined),
+
+  bulkDeleteLines: (batchId: number, lineIds: number[]) =>
+    api
+      .post<{ deleted: number; requested: number }>(
+        `/tb-imports/batches/${batchId}/bulk-delete-lines`,
+        { line_ids: lineIds },
+      )
+      .then((r) => r.data),
+
+  swapMatchedAccount: (batchId: number, lineId: number, newAccountId: number) =>
+    api
+      .post<unknown>(`/tb-imports/batches/${batchId}/map-line/${lineId}`, {
+        account_id: newAccountId,
+        manual: true,
+      })
+      .then((r) => r.data),
+
   listTemplates: (organizationId: number) =>
     api
       .get<ImportTemplate[]>('/tb-imports/templates/', { params: { organization_id: organizationId } })
