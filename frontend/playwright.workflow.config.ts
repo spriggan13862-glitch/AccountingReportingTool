@@ -73,6 +73,11 @@ export default defineConfig({
       testMatch: '**/workflow_fixes.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'tb-regression',
+      testMatch: '**/tb_import_regression.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {

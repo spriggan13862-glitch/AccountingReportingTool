@@ -36,6 +36,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'TB Import Column Mapping Regression — fixed',
+    date: '2026-06-20',
+    items: [
+      'Hard fix: Trial Balance imports no longer treat Debit/Credit amount columns as Account Numbers. The Mapping Workbench now shows the real source accounts (1000 Cash, 1000-01 FHB - MLI Operating, etc.) instead of fake rows like "0 Imported Account 1" or "20.16".',
+      'New column-mapping field: "Account # + Name (combined)". Select this when one source column holds both the account number and name (e.g. "1000 · Cash" or "1000-01 · FHB - MLI Operating") — the parser splits it into account_number + account_name automatically.',
+      'Auto-detection now inspects column data, not just header text. Amount-shaped values (decimals, currency, parentheses) are never classified as Account Number; combined "1000 · Cash" patterns are detected even when headers are generic.',
+      'New validation guardrail rejects bad column mappings before processing: warns when an amount-shaped column is mapped as Account Number, or when an account-shaped column is mapped as Debit/Credit/Balance.',
+      'Process & Validate button now accepts either Account Number or Account # + Name (combined) as the required field.',
+      'Demo DB cleanup: 128 fake "Imported Account N" accounts produced by the prior bad import were removed (no journal entry history was affected). Bad import batch deleted.',
+      'Backed by 23 regression tests in tests/test_tb_import_column_regression.py, including the exact user-reported fixture row-by-row plus hard-stop assertions that the parser cannot produce 0, 20.16, 2.38, or 745.33 as an account number.',
+      'Root cause documented in docs/qa/TB_IMPORT_REGRESSION_ROOT_CAUSE.md.',
+    ],
+  },
+  {
     version: 'Workflow Stabilization · Import, Mapping, Scenario, Taxonomy fixes',
     date: '2026-06-20',
     items: [

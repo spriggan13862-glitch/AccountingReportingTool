@@ -74,9 +74,16 @@ class ImportBatchStateError(ImportBatchError):
 # Maps every known source-column variant to a canonical standard field name.
 # Matching is case-insensitive with whitespace normalization.
 
-STANDARD_FIELDS = ("account_number", "account_name", "debit", "credit", "balance", "description", "entity")
+STANDARD_FIELDS = (
+    "account_number", "account_name", "account_combined",
+    "debit", "credit", "balance", "description", "entity",
+)
 
 COLUMN_ALIASES: dict[str, list[str]] = {
+    "account_combined": [
+        "account", "account / name", "account name / number",
+        "account_combined", "account # / name", "account number / name",
+    ],
     "account_number": [
         "account_number", "account #", "account no", "account no.", "account number",
         "acct #", "acct no", "acct", "num", "gl account", "gl #", "code",
@@ -154,17 +161,151 @@ def detect_source_format(filename: str, headers: list[str]) -> str:
     return "csv"
 
 
-def auto_detect_column_mapping(headers: list[str]) -> dict[str, str]:
+def auto_detect_column_mapping(
+    headers: list[str],
+    rows: list[dict[str, str]] | None = None,
+) -> dict[str, str]:
     """
     Auto-map source column headers to standard field names.
     Returns {standard_field: source_column_header}.
+
+    When `rows` is provided, falls back to data inspection for columns whose
+    headers don't match any known alias. This catches the case where headers
+    are generic (e.g. "B", "C") or absent and we need to look at the values.
     """
     mapping: dict[str, str] = {}
+    matched_columns: set[str] = set()
+
+    # First pass: exact header alias match (preserves existing behavior).
     for header in headers:
         field = _match_column(header)
         if field and field not in mapping:
             mapping[field] = header
+            matched_columns.add(header)
+
+    if not rows:
+        return mapping
+
+    # Second pass: for unmapped fields, look at column data.
+    sample = rows[: min(50, len(rows))]
+    for header in headers:
+        if header in matched_columns:
+            continue
+        sample_values = [r.get(header, "") for r in sample]
+        inferred = infer_column_type_from_data(sample_values)
+        if inferred == "account_combined" and "account_combined" not in mapping and "account_number" not in mapping:
+            mapping["account_combined"] = header
+            matched_columns.add(header)
+        elif inferred == "account_number" and "account_number" not in mapping and "account_combined" not in mapping:
+            mapping["account_number"] = header
+            matched_columns.add(header)
+        elif inferred == "amount":
+            # Only auto-assign to debit/credit if neither already mapped
+            if "debit" not in mapping:
+                mapping["debit"] = header
+                matched_columns.add(header)
+            elif "credit" not in mapping:
+                mapping["credit"] = header
+                matched_columns.add(header)
+
     return mapping
+
+
+def infer_column_type_from_data(values: list[str]) -> str:
+    """
+    Sniff likely field type from a column's sample values.
+
+    Returns one of:
+      "amount"            — mostly numeric, decimals, currency-like
+      "account_combined"  — strings like "1000 · Cash" or "1000-01 Operating"
+      "account_number"    — short alphanumeric codes (mostly digits, sometimes dashes)
+      "text"              — everything else (description / name)
+      "empty"             — no non-blank values
+    """
+    samples = [v.strip() for v in values if v and v.strip()]
+    if not samples:
+        return "empty"
+    total = len(samples)
+
+    # Amount = a decimal (must have a dot or currency symbol or parentheses).
+    # Pure integers like "1000" are deliberately NOT amounts — they're more
+    # likely short account codes. The reported regression had decimals
+    # (0.16, 2.38, 745.33), all caught here.
+    amount_re = re.compile(r"^[\(\-]?\$[\d,]+(\.\d+)?\)?$|^[\(\-]?[\d,]+\.\d+\)?$|^\([\d,]+\.?\d*\)$")
+    combined_re = _COMBINED_PATTERN
+    short_code_re = re.compile(r"^[A-Za-z0-9]{1,12}(?:-[A-Za-z0-9]{1,8})*$")
+    pure_zero_re = re.compile(r"^[\(\-]?0+(\.0+)?\)?$")
+
+    amount_hits = sum(1 for s in samples if amount_re.match(s))
+    combined_hits = sum(1 for s in samples if combined_re.match(s))
+    code_hits = sum(1 for s in samples if short_code_re.match(s) and not amount_re.match(s))
+    # Zeros are ambiguous (could be either) — count them toward amount only if
+    # other amount-shaped values are also present.
+    zero_hits = sum(1 for s in samples if pure_zero_re.match(s))
+    if amount_hits >= 1 and zero_hits > 0:
+        amount_hits += zero_hits
+
+    if amount_hits / total >= 0.5:
+        return "amount"
+    if combined_hits / total >= 0.5:
+        return "account_combined"
+    if code_hits / total >= 0.6:
+        return "account_number"
+    return "text"
+
+
+def validate_column_mapping_against_data(
+    col_map: dict[str, str],
+    rows: list[dict[str, str]],
+) -> list[str]:
+    """
+    Sanity-check a user-supplied column mapping against the actual data.
+
+    Returns a list of warning strings (empty when clean). Caller decides
+    whether to surface as a blocking error or a soft warning.
+
+    Catches the specific regression that hit the user:
+      - Mapping an amount-shaped column as account_number
+      - Mapping an account-like column as debit/credit
+    """
+    warnings: list[str] = []
+    sample_rows = rows[: min(50, len(rows))]
+
+    def sample(col: str) -> list[str]:
+        return [r.get(col, "") for r in sample_rows]
+
+    acct_col = col_map.get("account_number")
+    if acct_col:
+        inferred = infer_column_type_from_data(sample(acct_col))
+        if inferred == "amount":
+            warnings.append(
+                f"Column '{acct_col}' is mapped as Account Number but contains amount-like "
+                f"values (decimals/currency). It looks like Debit or Credit data."
+            )
+
+    for amount_field in ("debit", "credit", "balance"):
+        col = col_map.get(amount_field)
+        if not col:
+            continue
+        inferred = infer_column_type_from_data(sample(col))
+        if inferred in ("account_combined", "account_number"):
+            warnings.append(
+                f"Column '{col}' is mapped as {amount_field.capitalize()} but its values "
+                f"look like account codes/names. Did you swap a column?"
+            )
+
+    combined_col = col_map.get("account_combined")
+    if combined_col:
+        vals = [v.strip() for v in sample(combined_col) if v and v.strip()]
+        if vals:
+            parseable = sum(1 for v in vals if _COMBINED_PATTERN.match(v))
+            if parseable / len(vals) < 0.3:
+                warnings.append(
+                    f"Column '{combined_col}' is mapped as Account Number + Name but most "
+                    f"values do not parse into a number + name pair. Try separate columns."
+                )
+
+    return warnings
 
 
 def parse_combined_account_field(raw: str) -> tuple[str, str]:
@@ -314,7 +455,17 @@ def _interpret_row(
 
     raw_acct_num = get("account_number")
     raw_acct_name = get("account_name")
+    raw_combined = get("account_combined")
     raw_desc = get("description")
+
+    # Explicit combined field takes precedence — user told us this one column
+    # holds both number and name (e.g. "1000 · Cash" or "1000-01 - FHB Operating").
+    if raw_combined and not (raw_acct_num and raw_acct_name):
+        parsed_num, parsed_name = parse_combined_account_field(raw_combined)
+        if not raw_acct_num:
+            raw_acct_num = parsed_num
+        if not raw_acct_name and parsed_name:
+            raw_acct_name = parsed_name
 
     # If account_number is the only field and looks combined, split it
     if raw_acct_num and not raw_acct_name:

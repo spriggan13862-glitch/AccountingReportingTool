@@ -568,21 +568,23 @@ export function TrialBalanceImportPage() {
         {/* Step 2: Column Mapping — spreadsheet-style column picker */}
         {step === 2 && detected && (() => {
           const FIELD_OPTIONS = [
-            { value: '',               label: '— Ignore —' },
-            { value: 'account_number', label: 'Account Number ✱' },
-            { value: 'account_name',   label: 'Account Name' },
-            { value: 'debit',          label: 'Debit' },
-            { value: 'credit',         label: 'Credit' },
-            { value: 'balance',        label: 'Net Balance' },
-            { value: 'description',    label: 'Description' },
+            { value: '',                 label: '— Ignore —' },
+            { value: 'account_combined', label: 'Account # + Name (combined)' },
+            { value: 'account_number',   label: 'Account Number ✱' },
+            { value: 'account_name',     label: 'Account Name' },
+            { value: 'debit',            label: 'Debit' },
+            { value: 'credit',           label: 'Credit' },
+            { value: 'balance',          label: 'Net Balance' },
+            { value: 'description',      label: 'Description' },
           ]
           const FIELD_COLORS: Record<string, string> = {
-            account_number: 'bg-indigo-50 border-indigo-300',
-            account_name:   'bg-blue-50 border-blue-300',
-            debit:          'bg-emerald-50 border-emerald-300',
-            credit:         'bg-rose-50 border-rose-300',
-            balance:        'bg-amber-50 border-amber-300',
-            description:    'bg-purple-50 border-purple-300',
+            account_combined: 'bg-violet-50 border-violet-300',
+            account_number:   'bg-indigo-50 border-indigo-300',
+            account_name:     'bg-blue-50 border-blue-300',
+            debit:            'bg-emerald-50 border-emerald-300',
+            credit:           'bg-rose-50 border-rose-300',
+            balance:          'bg-amber-50 border-amber-300',
+            description:      'bg-purple-50 border-purple-300',
           }
           // Invert mapping: column_header_or_letter → field_key
           const colToField: Record<string, string> = {}
@@ -690,9 +692,10 @@ export function TrialBalanceImportPage() {
                 </table>
               </div>
 
-              {!colMapping['account_number'] && (
+              {!(colMapping['account_number'] || colMapping['account_combined']) && (
                 <p className="text-xs text-red-600">
-                  ✱ <span className="font-semibold">Account Number</span> must be mapped before proceeding.
+                  ✱ Map either <span className="font-semibold">Account Number</span> or{' '}
+                  <span className="font-semibold">Account # + Name (combined)</span> before proceeding.
                 </p>
               )}
 
@@ -706,7 +709,7 @@ export function TrialBalanceImportPage() {
                 </button>
                 <button
                   type="button"
-                  disabled={!colMapping['account_number'] || uploadMutation.isPending}
+                  disabled={!(colMapping['account_number'] || colMapping['account_combined']) || uploadMutation.isPending}
                   onClick={() => uploadMutation.mutate(false)}
                   className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer"
                 >
