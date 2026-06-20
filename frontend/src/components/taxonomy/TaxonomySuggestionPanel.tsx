@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, Loader2, AlertCircle } from 'lucide-react'
+import { Sparkles, Loader2, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react'
 import { taxonomyLibraryApi, type MappingSuggestion } from '@/api/taxonomyLibrary'
+import { accountsApi } from '@/api/accounts'
 import { useToast } from '@/providers/ToastProvider'
+import type { Account } from '@/types'
 
 interface Props {
   accountIds: number[]
   taxonomyIds: number[]
+  entityId?: number
   onApplied?: (count: number) => void
   defaultApplyThreshold?: number
 }
@@ -16,6 +19,9 @@ interface FlatSuggestion {
   account_id: number
   suggestion: MappingSuggestion
 }
+
+type SortKey = 'account_number' | 'taxonomy' | 'confidence' | 'suggested_node'
+type SortDir = 'asc' | 'desc'
 
 function confidenceClass(score: number): string {
   if (score >= 0.85) return 'bg-emerald-100 text-emerald-700'
@@ -30,6 +36,7 @@ function confidenceLabel(score: number): string {
 export function TaxonomySuggestionPanel({
   accountIds,
   taxonomyIds,
+  entityId,
   onApplied,
   defaultApplyThreshold = 0.7,
 }: Props) {
@@ -39,11 +46,30 @@ export function TaxonomySuggestionPanel({
   const [threshold, setThreshold] = useState<number>(defaultApplyThreshold)
   const [lastSummary, setLastSummary] = useState<{ applied: number; skipped: number } | null>(null)
 
+  const [accountFilter, setAccountFilter] = useState('')
+  const [nameFilter, setNameFilter] = useState('')
+  const [taxonomyFilter, setTaxonomyFilter] = useState<string>('')
+  const [confidenceMinPct, setConfidenceMinPct] = useState<number>(0)
+  const [sortKey, setSortKey] = useState<SortKey>('confidence')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['taxonomy-bulk-suggest', accountIds.slice().sort().join(','), taxonomyIds.slice().sort().join(',')],
     queryFn: () => taxonomyLibraryApi.bulkSuggest({ account_ids: accountIds, taxonomy_ids: taxonomyIds }),
     enabled: accountIds.length > 0 && taxonomyIds.length > 0,
   })
+
+  const { data: accountsData = [] } = useQuery({
+    queryKey: ['accounts-all', entityId],
+    queryFn: () => accountsApi.list(entityId),
+    enabled: entityId !== undefined,
+  })
+
+  const accountMap = useMemo(() => {
+    const map = new Map<number, Account>()
+    for (const a of accountsData) map.set(a.id, a)
+    return map
+  }, [accountsData])
 
   const flatSuggestions: FlatSuggestion[] = useMemo(() => {
     if (!data?.suggestions) return []
@@ -60,6 +86,61 @@ export function TaxonomySuggestionPanel({
     }
     return out
   }, [data])
+
+  const distinctTaxonomyCodes = useMemo(() => {
+    const set = new Set<string>()
+    for (const f of flatSuggestions) set.add(f.suggestion.taxonomy_code)
+    return Array.from(set).sort()
+  }, [flatSuggestions])
+
+  const filteredSuggestions = useMemo(() => {
+    const minScore = confidenceMinPct / 100
+    const accFilter = accountFilter.trim().toLowerCase()
+    const nameF = nameFilter.trim().toLowerCase()
+    return flatSuggestions.filter((f) => {
+      if (f.suggestion.confidence_score < minScore) return false
+      if (taxonomyFilter && f.suggestion.taxonomy_code !== taxonomyFilter) return false
+      const acct = accountMap.get(f.account_id)
+      const acctNum = acct?.account_number ?? String(f.account_id)
+      const acctName = acct?.account_name ?? ''
+      if (accFilter && !acctNum.toLowerCase().includes(accFilter)) return false
+      if (nameF && !acctName.toLowerCase().includes(nameF)) return false
+      return true
+    })
+  }, [flatSuggestions, accountFilter, nameFilter, taxonomyFilter, confidenceMinPct, accountMap])
+
+  const sortedSuggestions = useMemo(() => {
+    const arr = filteredSuggestions.slice()
+    const dir = sortDir === 'asc' ? 1 : -1
+    arr.sort((a, b) => {
+      let av: string | number = ''
+      let bv: string | number = ''
+      if (sortKey === 'confidence') {
+        av = a.suggestion.confidence_score
+        bv = b.suggestion.confidence_score
+      } else if (sortKey === 'account_number') {
+        av = accountMap.get(a.account_id)?.account_number ?? String(a.account_id)
+        bv = accountMap.get(b.account_id)?.account_number ?? String(b.account_id)
+      } else if (sortKey === 'taxonomy') {
+        av = a.suggestion.taxonomy_code
+        bv = b.suggestion.taxonomy_code
+      } else if (sortKey === 'suggested_node') {
+        av = a.suggestion.node_code
+        bv = b.suggestion.node_code
+      }
+      if (av < bv) return -1 * dir
+      if (av > bv) return 1 * dir
+      return 0
+    })
+    return arr
+  }, [filteredSuggestions, sortKey, sortDir, accountMap])
+
+  const visibleKeys = useMemo(() => new Set(sortedSuggestions.map((s) => s.key)), [sortedSuggestions])
+  const selectedCount = useMemo(
+    () => sortedSuggestions.filter((s) => checked[s.key]).length,
+    [sortedSuggestions, checked]
+  )
+  const allVisibleSelected = sortedSuggestions.length > 0 && selectedCount === sortedSuggestions.length
 
   const applyMutation = useMutation({
     mutationFn: (toApply: FlatSuggestion[]) =>
@@ -95,8 +176,33 @@ export function TaxonomySuggestionPanel({
     setChecked((p) => ({ ...p, [key]: !p[key] }))
   }
 
+  function toggleAllVisible() {
+    if (allVisibleSelected) {
+      setChecked((prev) => {
+        const next = { ...prev }
+        for (const k of visibleKeys) delete next[k]
+        return next
+      })
+    } else {
+      setChecked((prev) => {
+        const next = { ...prev }
+        for (const k of visibleKeys) next[k] = true
+        return next
+      })
+    }
+  }
+
+  function setSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir(key === 'confidence' ? 'desc' : 'asc')
+    }
+  }
+
   function applySelected() {
-    const toApply = flatSuggestions.filter((f) => checked[f.key])
+    const toApply = sortedSuggestions.filter((f) => checked[f.key])
     if (toApply.length === 0) {
       toast('Select at least one suggestion to apply', 'info')
       return
@@ -105,7 +211,7 @@ export function TaxonomySuggestionPanel({
   }
 
   function applyAll() {
-    const toApply = flatSuggestions.filter((f) => f.suggestion.confidence_score >= threshold)
+    const toApply = sortedSuggestions.filter((f) => f.suggestion.confidence_score >= threshold)
     if (toApply.length === 0) {
       toast(`No suggestions meet the ${Math.round(threshold * 100)}% threshold`, 'info')
       return
@@ -137,36 +243,205 @@ export function TaxonomySuggestionPanel({
     )
   }
 
+  const sortIcon = (key: SortKey) => {
+    if (sortKey !== key) return null
+    return sortDir === 'asc' ? <ArrowUp className="inline w-3 h-3 ml-0.5" /> : <ArrowDown className="inline w-3 h-3 ml-0.5" />
+  }
+
   return (
     <div className="flex flex-col gap-3" data-testid="taxonomy-suggestion-panel">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <div className="flex items-center gap-2 text-xs text-gray-600">
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          {flatSuggestions.length} suggestion{flatSuggestions.length !== 1 ? 's' : ''} ready
+          {flatSuggestions.length} suggestion{flatSuggestions.length !== 1 ? 's' : ''} total · {sortedSuggestions.length} shown
+        </div>
+      </div>
+
+      <div className="overflow-auto border border-gray-200 rounded-lg">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="px-3 py-2 text-left w-8">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleAllVisible}
+                  data-testid="suggestion-select-all"
+                  aria-label="Select all visible suggestions"
+                />
+              </th>
+              <th
+                className="px-3 py-2 text-left cursor-pointer select-none"
+                onClick={() => setSort('account_number')}
+                data-testid="sort-account-number"
+              >
+                Account # {sortIcon('account_number')}
+              </th>
+              <th className="px-3 py-2 text-left">Account Name</th>
+              <th
+                className="px-3 py-2 text-left cursor-pointer select-none"
+                onClick={() => setSort('taxonomy')}
+                data-testid="sort-taxonomy"
+              >
+                Taxonomy {sortIcon('taxonomy')}
+              </th>
+              <th
+                className="px-3 py-2 text-left cursor-pointer select-none"
+                onClick={() => setSort('suggested_node')}
+                data-testid="sort-suggested-node"
+              >
+                Suggested Node {sortIcon('suggested_node')}
+              </th>
+              <th
+                className="px-3 py-2 text-left cursor-pointer select-none"
+                onClick={() => setSort('confidence')}
+                data-testid="sort-confidence"
+              >
+                Confidence {sortIcon('confidence')}
+              </th>
+              <th className="px-3 py-2 text-left">Reason</th>
+            </tr>
+            <tr className="bg-white border-t border-gray-100">
+              <th className="px-3 py-1.5"></th>
+              <th className="px-3 py-1.5">
+                <input
+                  type="text"
+                  value={accountFilter}
+                  onChange={(e) => setAccountFilter(e.target.value)}
+                  placeholder="Filter…"
+                  className="w-full border border-gray-300 rounded px-1.5 py-0.5 text-xs"
+                  data-testid="filter-account-number"
+                />
+              </th>
+              <th className="px-3 py-1.5">
+                <input
+                  type="text"
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  placeholder="Filter…"
+                  className="w-full border border-gray-300 rounded px-1.5 py-0.5 text-xs"
+                  data-testid="filter-account-name"
+                />
+              </th>
+              <th className="px-3 py-1.5">
+                <select
+                  value={taxonomyFilter}
+                  onChange={(e) => setTaxonomyFilter(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-1.5 py-0.5 text-xs"
+                  data-testid="filter-taxonomy"
+                >
+                  <option value="">All</option>
+                  {distinctTaxonomyCodes.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              </th>
+              <th className="px-3 py-1.5"></th>
+              <th className="px-3 py-1.5">
+                <label className="flex items-center gap-1 text-[10px] text-gray-500">
+                  Min
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={confidenceMinPct}
+                    onChange={(e) => setConfidenceMinPct(Number(e.target.value))}
+                    className="flex-1"
+                    data-testid="filter-confidence-range"
+                  />
+                  <span className="font-mono w-8 text-right">{confidenceMinPct}%</span>
+                </label>
+              </th>
+              <th className="px-3 py-1.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedSuggestions.map((f) => {
+              const acct = accountMap.get(f.account_id)
+              const acctNumber = acct?.account_number ?? `#${f.account_id}`
+              const acctName = acct?.account_name ?? ''
+              return (
+                <tr
+                  key={f.key}
+                  className="border-t border-gray-100 hover:bg-gray-50"
+                  data-testid={`suggestion-row-${f.key}`}
+                >
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={!!checked[f.key]}
+                      onChange={() => toggle(f.key)}
+                      data-testid={`suggestion-checkbox-${f.key}`}
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-mono text-gray-700" data-testid={`suggestion-account-number-${f.key}`}>
+                    {acctNumber}
+                  </td>
+                  <td
+                    className="px-3 py-2 text-gray-800 max-w-[16rem] truncate"
+                    title={acctName}
+                    data-testid={`suggestion-account-name-${f.key}`}
+                  >
+                    {acctName}
+                  </td>
+                  <td className="px-3 py-2 text-gray-700">{f.suggestion.taxonomy_code}</td>
+                  <td className="px-3 py-2 text-gray-800">
+                    <span className="font-mono text-[11px] text-gray-500 mr-1">{f.suggestion.node_code}</span>
+                    <span>{f.suggestion.node_name}</span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${confidenceClass(f.suggestion.confidence_score)}`}
+                      data-testid={`confidence-chip-${f.key}`}
+                    >
+                      {confidenceLabel(f.suggestion.confidence_score)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-gray-500 italic">{f.suggestion.reason}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        className="flex flex-wrap items-center justify-between gap-2 px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg"
+        data-testid="suggestion-footer"
+      >
+        <div className="text-xs text-gray-700" data-testid="selected-count">
+          {selectedCount} of {sortedSuggestions.length} selected
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-600">
-          <label className="flex items-center gap-1">
-            Confidence threshold:
-            <input
-              type="number"
-              min={0}
-              max={1}
-              step={0.05}
-              value={threshold}
-              onChange={(e) => setThreshold(Math.max(0, Math.min(1, Number(e.target.value))))}
-              className="w-16 border border-gray-300 rounded px-1.5 py-0.5 text-xs"
-              data-testid="confidence-threshold-input"
-            />
-          </label>
           <button
             type="button"
             onClick={applySelected}
-            disabled={applyMutation.isPending}
+            disabled={selectedCount === 0 || applyMutation.isPending}
             className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 disabled:opacity-50 font-medium"
             data-testid="apply-selected-btn"
           >
-            Apply Selected
+            Apply Selected ({selectedCount})
           </button>
+          <label className="flex items-center gap-1">
+            Threshold
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round(threshold * 100)}
+              onChange={(e) => {
+                const pct = Math.max(0, Math.min(100, Number(e.target.value)))
+                setThreshold(pct / 100)
+              }}
+              className="w-14 border border-gray-300 rounded px-1.5 py-0.5 text-xs"
+              data-testid="confidence-threshold-input"
+            />
+            %
+          </label>
           <button
             type="button"
             onClick={applyAll}
@@ -187,56 +462,6 @@ export function TaxonomySuggestionPanel({
           Applied {lastSummary.applied}, skipped {lastSummary.skipped} (existing mapping preserved)
         </div>
       )}
-
-      <div className="overflow-auto border border-gray-200 rounded-lg">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="px-3 py-2 text-left w-8"></th>
-              <th className="px-3 py-2 text-left">Account</th>
-              <th className="px-3 py-2 text-left">Taxonomy</th>
-              <th className="px-3 py-2 text-left">Suggested Node</th>
-              <th className="px-3 py-2 text-left">Confidence</th>
-              <th className="px-3 py-2 text-left">Reason</th>
-            </tr>
-          </thead>
-          <tbody>
-            {flatSuggestions.map((f) => (
-              <tr
-                key={f.key}
-                className="border-t border-gray-100 hover:bg-gray-50"
-                data-testid={`suggestion-row-${f.key}`}
-              >
-                <td className="px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={!!checked[f.key]}
-                    onChange={() => toggle(f.key)}
-                    data-testid={`suggestion-checkbox-${f.key}`}
-                  />
-                </td>
-                <td className="px-3 py-2 font-mono text-gray-700">#{f.account_id}</td>
-                <td className="px-3 py-2 text-gray-700">{f.suggestion.taxonomy_code}</td>
-                <td className="px-3 py-2 text-gray-800">
-                  <div className="flex flex-col">
-                    <span className="font-mono text-[11px] text-gray-500">{f.suggestion.node_code}</span>
-                    <span>{f.suggestion.node_name}</span>
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded font-medium ${confidenceClass(f.suggestion.confidence_score)}`}
-                    data-testid={`confidence-chip-${f.key}`}
-                  >
-                    {confidenceLabel(f.suggestion.confidence_score)}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-gray-500 italic">{f.suggestion.reason}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }

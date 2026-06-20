@@ -9,6 +9,7 @@ import {
 import { tbImportApi } from '@/api/tbImport'
 import { entitiesApi } from '@/api/entities'
 import { periodsApi } from '@/api/periods'
+import { taxonomyLibraryApi } from '@/api/taxonomyLibrary'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { ImportReadinessMatrix } from '@/components/ui/ImportReadinessMatrix'
@@ -22,10 +23,14 @@ const STEPS = [
   { label: 'Upload', desc: 'Select file and period' },
   { label: 'Sheet', desc: 'Choose worksheet' },
   { label: 'Columns', desc: 'Confirm column mapping' },
+  { label: 'Mapping Basis', desc: 'Choose taxonomies to drive FSLI suggestions' },
   { label: 'Preview', desc: 'Review detected data' },
   { label: 'Accounts', desc: 'Mapping preview' },
   { label: 'Confirm', desc: 'Upload and begin' },
 ]
+
+const TAXONOMY_STORAGE_KEY = 'import-wizard-taxonomy-ids'
+const DEFAULT_TAXONOMY_CODES = ['us-gaap', 'us_gaap', 'usgaap', 'management', 'mgmt']
 
 const STANDARD_FIELDS = [
   { key: 'account_number', label: 'Account Number', required: true },
@@ -167,6 +172,8 @@ export function ImportWizardPage() {
   const [importSourceType, setImportSourceType] = useState<'tb' | 'gl' | 'coa' | 'fs'>('tb')
   const [apiError, setApiError] = useState<string | null>(null)
   const [duplicateWarning, setDuplicateWarning] = useState<{ existingBatchId: number; existingStatus: string } | null>(null)
+  const [selectedTaxonomyIds, setSelectedTaxonomyIds] = useState<number[]>([])
+  const [taxonomyDefaultsInitialized, setTaxonomyDefaultsInitialized] = useState(false)
 
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -209,6 +216,23 @@ export function ImportWizardPage() {
   })
   const sortedPeriods = [...periodsData].sort((a, b) => b.end_date.localeCompare(a.end_date))
 
+  const { data: taxonomiesData = [] } = useQuery({
+    queryKey: ['wizard-taxonomies'],
+    queryFn: () => taxonomyLibraryApi.list(),
+    staleTime: 60_000,
+  })
+  const systemTaxonomies = taxonomiesData.filter((t) => t.is_system && t.is_active)
+
+  useEffect(() => {
+    if (taxonomyDefaultsInitialized) return
+    if (systemTaxonomies.length === 0) return
+    const defaults = systemTaxonomies.filter((t) =>
+      DEFAULT_TAXONOMY_CODES.some((code) => t.code.toLowerCase() === code || t.name.toLowerCase() === code)
+    )
+    setSelectedTaxonomyIds(defaults.map((t) => t.id))
+    setTaxonomyDefaultsInitialized(true)
+  }, [systemTaxonomies, taxonomyDefaultsInitialized])
+
   const detectMutation = useMutation({
     mutationFn: () => {
       if (!file) throw new Error('No file selected')
@@ -247,6 +271,15 @@ export function ImportWizardPage() {
       toast(`Import started: ${batch.row_count ?? 0} rows parsed — ${batch.unmapped_row_count ?? 0} need mapping`, 'success')
       setApiError(null)
       setDuplicateWarning(null)
+      try {
+        if (selectedTaxonomyIds.length > 0) {
+          window.localStorage.setItem(TAXONOMY_STORAGE_KEY, JSON.stringify(selectedTaxonomyIds))
+        } else {
+          window.localStorage.removeItem(TAXONOMY_STORAGE_KEY)
+        }
+      } catch {
+        // ignore storage failures (private mode etc)
+      }
       if ((batch.unmapped_row_count ?? 0) > 0) {
         navigate(`/import/${batch.id}/mapping`)
       } else {
@@ -918,17 +951,100 @@ export function ImportWizardPage() {
               disabled={!colMapping.account_number}
               onClick={() => setStep(3)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+              data-testid="continue-to-mapping-basis-btn"
             >
-              Preview Data <ChevronRight className="w-4 h-4" />
+              Choose Mapping Basis <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Step 3: Data preview */}
+      {/* Step 3: Choose Mapping Basis */}
       {step === 3 && detected && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5" data-testid="mapping-basis-step">
+          <h2 className="text-sm font-semibold text-gray-800">Step 4 — Choose mapping basis</h2>
+          <p className="text-xs text-gray-500">
+            Which taxonomy should drive FSLI suggestions for these accounts? Selected taxonomies will be
+            available in the Mapping Workbench after import.
+          </p>
+
+          {systemTaxonomies.length === 0 ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3" data-testid="no-system-taxonomies-warning">
+              <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">No system taxonomies seeded</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  No system taxonomies seeded. Run <code className="font-mono bg-amber-100 px-1 rounded">python scripts/seed_taxonomies.py</code> first.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2" data-testid="taxonomy-checkbox-list">
+              {systemTaxonomies.map((tax) => {
+                const checked = selectedTaxonomyIds.includes(tax.id)
+                return (
+                  <label
+                    key={tax.id}
+                    htmlFor={`taxonomy-checkbox-${tax.id}`}
+                    className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                      checked ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      id={`taxonomy-checkbox-${tax.id}`}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        setSelectedTaxonomyIds((prev) =>
+                          prev.includes(tax.id) ? prev.filter((id) => id !== tax.id) : [...prev, tax.id]
+                        )
+                      }}
+                      className="mt-1 text-indigo-600"
+                      data-testid={`taxonomy-checkbox-${tax.id}`}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-800">{tax.name}</p>
+                      <p className="text-xs text-gray-500 font-mono">{tax.code}</p>
+                      {tax.description && (
+                        <p className="text-xs text-gray-500 mt-0.5">{tax.description}</p>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="flex justify-between">
+            <button type="button" onClick={() => setStep(2)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+              <ChevronLeft className="w-4 h-4" /> Back
+            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setSelectedTaxonomyIds([]); setStep(4) }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                data-testid="skip-taxonomy-btn"
+              >
+                Skip — choose later in Mapping Workbench
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
+                data-testid="continue-taxonomy-btn"
+              >
+                Continue <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Data preview */}
+      {step === 4 && detected && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-800">Step 4 — Data preview</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Step 5 — Data preview</h2>
           <p className="text-xs text-gray-500">
             First {detected.preview_rows.length} row{detected.preview_rows.length !== 1 ? 's' : ''} from the file
             {selectedSheet ? ` (sheet: ${selectedSheet})` : ''}.
@@ -989,12 +1105,12 @@ export function ImportWizardPage() {
           )}
 
           <div className="flex justify-between">
-            <button type="button" onClick={() => setStep(2)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
             <button
               type="button"
-              onClick={() => setStep(4)}
+              onClick={() => setStep(5)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
             >
               Continue <ChevronRight className="w-4 h-4" />
@@ -1003,10 +1119,10 @@ export function ImportWizardPage() {
         </div>
       )}
 
-      {/* Step 4: Account mapping summary */}
-      {step === 4 && detected && (
+      {/* Step 5: Account mapping summary */}
+      {step === 5 && detected && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-800">Step 5 — Account mapping summary</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Step 6 — Account mapping summary</h2>
           <p className="text-xs text-gray-500">
             After upload, the system will try to auto-match source accounts to your Chart of Accounts.
             Any unmatched accounts will go to the Mapping Workbench.
@@ -1039,12 +1155,12 @@ export function ImportWizardPage() {
           </div>
 
           <div className="flex justify-between">
-            <button type="button" onClick={() => setStep(3)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => setStep(4)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
             <button
               type="button"
-              onClick={() => setStep(5)}
+              onClick={() => setStep(6)}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700"
             >
               Review & Confirm <ChevronRight className="w-4 h-4" />
@@ -1053,10 +1169,10 @@ export function ImportWizardPage() {
         </div>
       )}
 
-      {/* Step 5: Final confirmation */}
-      {step === 5 && detected && (
+      {/* Step 6: Final confirmation */}
+      {step === 6 && detected && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-5">
-          <h2 className="text-sm font-semibold text-gray-800">Step 6 — Confirm and upload</h2>
+          <h2 className="text-sm font-semibold text-gray-800">Step 7 — Confirm and upload</h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3">
@@ -1110,7 +1226,7 @@ export function ImportWizardPage() {
           </div>
 
           <div className="flex justify-between">
-            <button type="button" onClick={() => setStep(4)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => setStep(5)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
               <ChevronLeft className="w-4 h-4" /> Back
             </button>
             <button
