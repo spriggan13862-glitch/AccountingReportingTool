@@ -85,6 +85,12 @@ export interface Entity {
   import_count: number
 }
 
+export interface BalanceSummary {
+  total_debit: number
+  total_credit: number
+  net_balance: number
+}
+
 export interface Account {
   id: number
   entity_id: number | null
@@ -111,6 +117,8 @@ export interface Account {
   account_path: string | null
   depth_level: number | null
   sort_order: number | null
+  children?: Account[]
+  balance_summary?: BalanceSummary | null
 }
 
 export interface AccountNode extends Account {

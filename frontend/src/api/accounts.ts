@@ -73,16 +73,32 @@ export const accountsApi = {
     return api.get<AccountPage>('/accounts/', { params }).then((r) => r.data)
   },
 
+  listWithHierarchy: (entityId?: number, page = 1, pageSize = 500) => {
+    const params: Record<string, string | number | boolean> = {
+      page, page_size: pageSize, include_hierarchy: true,
+    }
+    if (entityId !== undefined) params.entity_id = entityId
+    return api.get<AccountPage>('/accounts/', { params }).then((r) => r.data)
+  },
+
   tree: (entityId: number) =>
     api.get<AccountNode[]>('/accounts/tree', { params: { entity_id: entityId } }).then((r) => r.data),
 
   get: (id: number) => api.get<Account>(`/accounts/${id}`).then((r) => r.data),
+
+  getById: (id: number) => api.get<Account>(`/accounts/${id}`).then((r) => r.data),
 
   create: (body: AccountCreate) =>
     api.post<Account>('/accounts/', body).then((r) => r.data),
 
   update: (id: number, body: AccountUpdate) =>
     api.patch<Account>(`/accounts/${id}`, body).then((r) => r.data),
+
+  deactivate: (id: number) =>
+    api.post<Account>(`/accounts/${id}/deactivate`).then((r) => r.data),
+
+  delete: (id: number) =>
+    api.delete(`/accounts/${id}`).then((r) => r.data),
 
   reparent: (id: number, parentAccountId: number | null) =>
     api.post<AccountReparentResult>(`/accounts/${id}/reparent`, { parent_account_id: parentAccountId }).then((r) => r.data),

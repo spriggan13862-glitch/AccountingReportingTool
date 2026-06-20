@@ -7,7 +7,8 @@ import {
   GripVertical, Undo2, Redo2, ChevronsDownUp, ChevronsUpDown, ArrowRightToLine,
   Archive, Eye, Copy, Lock, Unlock, Tag, History, SlidersHorizontal,
   AlignJustify, AlignLeft, AlignCenter, ChevronLeft,
-  AlertCircle, AlertTriangle, Building2
+  AlertCircle, AlertTriangle, Building2, Layers, List, Trash2, PowerOff, Power,
+  DollarSign,
 } from 'lucide-react'
 import { accountsApi } from '@/api/accounts'
 import type { AccountUpdate, AccountReparentResult } from '@/api/accounts'
@@ -339,6 +340,9 @@ interface AccountPreviewSidebarProps {
   onClose: () => void
   onEdit: () => void
   onAddChild: () => void
+  onDeactivate?: (account: AccountNode) => void
+  onReactivate?: (account: AccountNode) => void
+  onDelete?: (account: AccountNode) => void
 }
 
 function AccountPreviewSidebar({
@@ -348,8 +352,27 @@ function AccountPreviewSidebar({
   onClose,
   onEdit,
   onAddChild,
+  onDeactivate,
+  onReactivate,
+  onDelete,
 }: AccountPreviewSidebarProps) {
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const { data: accountDetail } = useQuery({
+    queryKey: ['account-detail', account?.id],
+    queryFn: () => accountsApi.getById(account!.id),
+    enabled: !!account,
+  })
+
   if (!account) return null
+
+  const detail = accountDetail
+  const balanceSummary = detail?.balance_summary
+  const detailChildren = detail?.children ?? []
+  const hasJeLines = balanceSummary && (Number(balanceSummary.total_debit) !== 0 || Number(balanceSummary.total_credit) !== 0)
+  const hasChildren = (detailChildren.length ?? 0) > 0
+  const canDelete = !hasJeLines && !hasChildren
+  const isActive = account.active && account.account_status === 'active'
 
   const parent = allAccounts.find((a) => a.id === account.parent_account_id)
 
@@ -450,6 +473,71 @@ function AccountPreviewSidebar({
               <Plus className="w-3.5 h-3.5" /> Add Child
             </button>
           </div>
+
+          {/* Deactivate / Reactivate / Delete */}
+          <div className="flex gap-2 flex-wrap">
+            {isActive ? (
+              confirmDeactivate ? (
+                <div className="flex-1 flex items-center gap-1">
+                  <span className="text-xs text-gray-600">Deactivate?</span>
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmDeactivate(false); onDeactivate?.(account) }}
+                    className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700"
+                  >Yes</button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeactivate(false)}
+                    className="px-2 py-1 text-xs border rounded hover:bg-gray-50"
+                  >No</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeactivate(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-amber-300 text-amber-700 rounded-md hover:bg-amber-50 transition-colors"
+                  data-testid="deactivate-btn"
+                >
+                  <PowerOff className="w-3 h-3" /> Deactivate
+                </button>
+              )
+            ) : (
+              <button
+                type="button"
+                onClick={() => onReactivate?.(account)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-emerald-300 text-emerald-700 rounded-md hover:bg-emerald-50 transition-colors"
+                data-testid="reactivate-btn"
+              >
+                <Power className="w-3 h-3" /> Reactivate
+              </button>
+            )}
+            {canDelete && (
+              confirmDelete ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-600">Delete?</span>
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmDelete(false); onDelete?.(account) }}
+                    className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                  >Yes</button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="px-2 py-1 text-xs border rounded hover:bg-gray-50"
+                  >No</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                  data-testid="delete-btn"
+                >
+                  <Trash2 className="w-3 h-3" /> Delete
+                </button>
+              )
+            )}
+          </div>
         </div>
 
         {/* Details Card */}
@@ -515,6 +603,31 @@ function AccountPreviewSidebar({
             )}
           </dl>
         </div>
+
+        {/* Balance Summary */}
+        {balanceSummary && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Balance Summary</p>
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2" data-testid="balance-summary">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Total Debit</span>
+                <span className="font-semibold text-gray-800">{Number(balanceSummary.total_debit).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Total Credit</span>
+                <span className="font-semibold text-gray-800">{Number(balanceSummary.total_credit).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs border-t border-gray-200 pt-2">
+                <span className="text-gray-700 font-semibold">Net Balance</span>
+                <span className={cn(
+                  "font-bold",
+                  Number(balanceSummary.net_balance) > 0 ? "text-emerald-700" :
+                  Number(balanceSummary.net_balance) < 0 ? "text-red-700" : "text-gray-600"
+                )}>{Number(balanceSummary.net_balance).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Hierarchy Connection */}
         <div className="space-y-3">
@@ -1706,6 +1819,7 @@ export function ChartOfAccountsPage() {
     })
   }, [])
   const [conflictAccount, setConflictAccount] = useState<AccountNode | null>(null)
+  const [hierarchyView, setHierarchyView] = useState(false)
 
   // Undo/redo
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([])
@@ -1792,6 +1906,34 @@ export function ChartOfAccountsPage() {
       toast(`${ids.length} account${ids.length > 1 ? 's' : ''} ${label}`, 'success')
     },
     onError: (err: Error) => setApiError(err.message),
+  })
+
+  const deactivateMutation = useMutation({
+    mutationFn: (id: number) => accountsApi.deactivate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['account-detail'] })
+      toast('Account deactivated', 'success')
+    },
+    onError: (err: Error) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? err.message
+      toast(detail, 'error')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => accountsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'tree', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['accounts', 'list', entityId] })
+      setPreviewAccountId(null)
+      toast('Account deleted', 'success')
+    },
+    onError: (err: Error) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? err.message
+      toast(detail, 'error')
+    },
   })
 
   const reparentMutation = useMutation({
@@ -2179,6 +2321,14 @@ export function ChartOfAccountsPage() {
   }
 
   const filteredTree = sortNodes(filterTree(tree))
+
+  const flatListNodes = useMemo((): AccountNode[] => {
+    if (!hierarchyView) return []
+    return buildFlatOrder(filteredTree).map((n) => ({ ...n, children: [] }))
+  }, [hierarchyView, filteredTree])
+
+  const displayNodes = hierarchyView ? flatListNodes : filteredTree
+
   const contextMenuAccount = contextMenu ? flatOrder.find((n) => n.id === contextMenu.accountId) ?? null : null
   const lastUndo = undoStack[undoStack.length - 1]
   const lastRedo = redoStack[redoStack.length - 1]
@@ -2296,25 +2446,42 @@ export function ChartOfAccountsPage() {
 
               {/* Expand / Collapse */}
               <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
-                <button 
-                  type="button" 
-                  onClick={expandAll} 
-                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-750 hover:bg-slate-50 border-r border-slate-150 transition-colors cursor-pointer" 
-                  title="Expand all" 
+                <button
+                  type="button"
+                  onClick={expandAll}
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-750 hover:bg-slate-50 border-r border-slate-150 transition-colors cursor-pointer"
+                  title="Expand all"
                   data-testid="expand-all-btn"
                 >
                   <ChevronsUpDown className="w-4 h-4" />
                 </button>
-                <button 
-                  type="button" 
-                  onClick={collapseAll} 
-                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-750 hover:bg-slate-50 transition-colors cursor-pointer" 
-                  title="Collapse all" 
+                <button
+                  type="button"
+                  onClick={collapseAll}
+                  className="flex items-center justify-center w-9 h-9 text-slate-500 hover:text-slate-750 hover:bg-slate-50 transition-colors cursor-pointer"
+                  title="Collapse all"
                   data-testid="collapse-all-btn"
                 >
                   <ChevronsDownUp className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Hierarchy tree view toggle */}
+              <button
+                type="button"
+                onClick={() => setHierarchyView((v) => !v)}
+                className={cn(
+                  'flex items-center gap-1.5 h-9 px-3 border rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer',
+                  hierarchyView
+                    ? 'border-indigo-400 bg-indigo-50 text-indigo-700'
+                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                )}
+                title={hierarchyView ? 'Switch to flat list' : 'Switch to hierarchy tree'}
+                data-testid="hierarchy-toggle-btn"
+              >
+                {hierarchyView ? <List className="w-4 h-4" /> : <Layers className="w-4 h-4" />}
+                {hierarchyView ? 'Flat' : 'Tree'}
+              </button>
 
               {/* Settings */}
               <div className="relative">
@@ -2574,7 +2741,7 @@ export function ChartOfAccountsPage() {
                       <th className="px-3 py-3 w-8 text-left">
                         <input
                           type="checkbox"
-                          checked={filteredTree.length > 0 && buildFlatOrder(filteredTree).every((n) => selectedIds.has(n.id))}
+                          checked={displayNodes.length > 0 && buildFlatOrder(filteredTree).every((n) => selectedIds.has(n.id))}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setSelectedIds(new Set(buildFlatOrder(filteredTree).map((n) => n.id)))
@@ -2622,18 +2789,18 @@ export function ChartOfAccountsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredTree.length === 0 ? (
+                    {displayNodes.length === 0 ? (
                       <tr>
                         <td colSpan={7 + visibleColumns.size} className="px-4 py-8 text-center text-xs text-slate-400">
                           No accounts match the current filter
                         </td>
                       </tr>
                     ) : (
-                      filteredTree.map((node) => (
+                      displayNodes.map((node) => (
                         <AccountRow
                           key={node.id}
                           node={node}
-                          depth={0}
+                          depth={hierarchyView ? (node.depth_level ?? 0) : 0}
                           density={density}
                           taxonomyLines={taxonomyLines}
                           flatAccounts={flatAccounts}
@@ -2667,6 +2834,9 @@ export function ChartOfAccountsPage() {
                 onClose={() => setPreviewAccountId(null)}
                 onEdit={() => handleEdit(previewAccount)}
                 onAddChild={() => handleAddChild(previewAccount)}
+                onDeactivate={(acct) => deactivateMutation.mutate(acct.id)}
+                onReactivate={(acct) => updateMutation.mutate({ id: acct.id, patch: { account_status: 'active', active: true } })}
+                onDelete={(acct) => deleteMutation.mutate(acct.id)}
               />
             )}
           </div>

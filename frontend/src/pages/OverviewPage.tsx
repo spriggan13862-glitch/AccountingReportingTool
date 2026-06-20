@@ -36,6 +36,17 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint L · Chart of Accounts Management',
+    date: '2026-06-19',
+    items: [
+      'Account detail panel: click any account to view balance summary, children, and FSLI assignment',
+      'Edit account inline: rename, retype, reassign parent, update FSLI',
+      'Deactivate account: blocked if non-zero balance; reactivate at any time',
+      'Delete safety: blocked if account has posted JE lines or child accounts',
+      'Hierarchy tree view: toggle flat list to parent→children nested tree',
+    ],
+  },
+  {
     version: 'Sprint K · Adjustment & Bridge Integration',
     date: '2026-06-19',
     items: [

@@ -1,11 +1,27 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.api.schemas import AccountBulkUpdate, AccountCreate, AccountOut, AccountReparentBody, AccountReparentResult, AccountUpdate, Page
 from app.models.account import Account
+from app.models.journal_entry_line import JournalEntryLine
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
+
+
+class BalanceSummary(BaseModel):
+    total_debit: Decimal
+    total_credit: Decimal
+    net_balance: Decimal
+
+
+class AccountDetail(AccountOut):
+    model_config = ConfigDict(from_attributes=True)
+    children: list[AccountOut] = []
+    balance_summary: BalanceSummary | None = None
 
 
 def _set_path_and_depth(db: Session, account: Account) -> None:
@@ -77,6 +93,7 @@ def list_accounts(
     account_status: str | None = None,
     active: bool | None = None,
     search: str | None = None,
+    include_hierarchy: bool = False,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: Session = Depends(get_db),
@@ -97,6 +114,26 @@ def list_accounts(
         )
     total = q.count()
     items = q.order_by(Account.account_number).offset((page - 1) * page_size).limit(page_size).all()
+
+    if include_hierarchy:
+        id_to_item: dict[int, AccountOut] = {}
+        for item in items:
+            id_to_item[item.id] = AccountOut.model_validate(item)
+        roots: list[AccountOut] = []
+        for item in items:
+            node = id_to_item[item.id]
+            if item.parent_account_id and item.parent_account_id in id_to_item:
+                pass
+            else:
+                roots.append(node)
+        return Page(
+            items=roots,
+            total=total,
+            page=page,
+            page_size=page_size,
+            pages=max(1, -(-total // page_size)),
+        )
+
     return Page(
         items=items,
         total=total,
@@ -165,12 +202,64 @@ def bulk_update_accounts(body: AccountBulkUpdate, db: Session = Depends(get_db))
     return accounts
 
 
-@router.get("/{account_id}", response_model=AccountOut)
+@router.get("/{account_id}", response_model=AccountDetail)
 def get_account(account_id: int, db: Session = Depends(get_db)):
     account = db.get(Account, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
+    children = db.query(Account).filter(Account.parent_account_id == account_id).all()
+    lines = db.query(JournalEntryLine).filter(JournalEntryLine.account_id == account_id).all()
+    total_debit = sum(Decimal(str(l.debit)) for l in lines)
+    total_credit = sum(Decimal(str(l.credit)) for l in lines)
+    if account.normal_balance == "debit":
+        net_balance = total_debit - total_credit
+    else:
+        net_balance = total_credit - total_debit
+    balance_summary = BalanceSummary(
+        total_debit=total_debit,
+        total_credit=total_credit,
+        net_balance=net_balance,
+    )
+    detail = AccountDetail.model_validate(account)
+    detail.children = [AccountOut.model_validate(c) for c in children]
+    detail.balance_summary = balance_summary
+    return detail
+
+
+@router.post("/{account_id}/deactivate", response_model=AccountOut)
+def deactivate_account(account_id: int, db: Session = Depends(get_db)):
+    account = db.get(Account, account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
+    lines = db.query(JournalEntryLine).filter(JournalEntryLine.account_id == account_id).all()
+    total_debit = sum(Decimal(str(l.debit)) for l in lines)
+    total_credit = sum(Decimal(str(l.credit)) for l in lines)
+    if account.normal_balance == "debit":
+        net_balance = total_debit - total_credit
+    else:
+        net_balance = total_credit - total_debit
+    if net_balance != Decimal("0"):
+        raise HTTPException(status_code=409, detail="Cannot deactivate account with non-zero balance")
+    account.active = False
+    account.account_status = "inactive"
+    db.flush()
+    db.refresh(account)
     return account
+
+
+@router.delete("/{account_id}", status_code=204)
+def delete_account(account_id: int, db: Session = Depends(get_db)):
+    account = db.get(Account, account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail=f"Account {account_id} not found")
+    je_lines = db.query(JournalEntryLine).filter(JournalEntryLine.account_id == account_id).first()
+    if je_lines is not None:
+        raise HTTPException(status_code=409, detail="Cannot delete account with posted journal entry lines")
+    child = db.query(Account).filter(Account.parent_account_id == account_id).first()
+    if child is not None:
+        raise HTTPException(status_code=409, detail="Cannot delete account with child accounts — reassign children first")
+    db.delete(account)
+    db.flush()
 
 
 def propagate_taxonomy_to_children(parent_id: int, old_taxonomy_id: int | None, new_taxonomy_id: int | None, db: Session):
