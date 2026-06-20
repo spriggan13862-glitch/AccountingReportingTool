@@ -31,6 +31,7 @@ from app.api.schemas import (
     AdjustmentPackageOut,
     AdjustmentPackageUpdate,
     ImpactPreviewRequest,
+    JeImpactResult,
     MaterialityUpdate,
     PackageToggleIn,
     PACKAGE_TYPES_EXTENDED,
@@ -38,6 +39,7 @@ from app.api.schemas import (
     ScenarioComparisonResult,
     ScenarioImpactResult,
 )
+from app.services.je_impact_service import compute_je_impact
 from app.models.account import Account
 from app.models.adjustment_workspace import (
     AdjustmentAdvisorNote,
@@ -50,40 +52,16 @@ from app.models.journal_entry_line import JournalEntryLine
 
 router = APIRouter(prefix="/adjustment-workspace", tags=["adjustment-workspace"])
 
-_INCOME_TYPES = {"revenue", "other_income"}
-_EXPENSE_TYPES = {"cogs", "expense", "other_expense", "tax"}
-_ASSET_TYPES = {"asset"}
-_LIABILITY_TYPES = {"liability", "intercompany"}
-_EQUITY_TYPES = {"equity"}
-
 
 def _compute_impact(db: Session, je_id: int) -> AdjustmentImpact:
-    lines = (
-        db.query(JournalEntryLine, Account)
-        .join(Account, JournalEntryLine.account_id == Account.id)
-        .filter(JournalEntryLine.journal_entry_id == je_id)
-        .all()
-    )
-    ni = asset = liability = equity = Decimal("0")
-    for line, acct in lines:
-        net = Decimal(str(line.debit)) - Decimal(str(line.credit))
-        t = acct.account_type
-        if t in _INCOME_TYPES:
-            ni -= net
-        elif t in _EXPENSE_TYPES:
-            ni += net
-        if t in _ASSET_TYPES:
-            asset += net
-        elif t in _LIABILITY_TYPES:
-            liability += net
-        elif t in _EQUITY_TYPES:
-            equity += net
+    result = compute_je_impact(je_id, db)
+    ni = Decimal(str(result['ni_impact']))
     return AdjustmentImpact(
         ni_impact=ni,
         ebitda_impact=ni,
-        asset_impact=asset,
-        liability_impact=liability,
-        equity_impact=equity,
+        asset_impact=Decimal(str(result['asset_impact'])),
+        liability_impact=Decimal(str(result['liability_impact'])),
+        equity_impact=Decimal(str(result['equity_impact'])),
     )
 
 
@@ -468,35 +446,9 @@ def impact_preview(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    ni = asset = liability = equity = Decimal("0")
     if not body.journal_entry_ids:
         return AdjustmentImpact()
-    lines = (
-        db.query(JournalEntryLine, Account)
-        .join(Account, JournalEntryLine.account_id == Account.id)
-        .filter(JournalEntryLine.journal_entry_id.in_(body.journal_entry_ids))
-        .all()
-    )
-    for line, acct in lines:
-        net = Decimal(str(line.debit)) - Decimal(str(line.credit))
-        t = acct.account_type
-        if t in _INCOME_TYPES:
-            ni -= net
-        elif t in _EXPENSE_TYPES:
-            ni += net
-        if t in _ASSET_TYPES:
-            asset += net
-        elif t in _LIABILITY_TYPES:
-            liability += net
-        elif t in _EQUITY_TYPES:
-            equity += net
-    return AdjustmentImpact(
-        ni_impact=ni,
-        ebitda_impact=ni,
-        asset_impact=asset,
-        liability_impact=liability,
-        equity_impact=equity,
-    )
+    return _compute_impact_for_jes(db, body.journal_entry_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +520,21 @@ def rollforward(
     return rows
 
 # ---------------------------------------------------------------------------
+# Sprint K — JE impact endpoint (live computation from lines)
+# ---------------------------------------------------------------------------
+
+@router.get("/journal-entries/{je_id}/impact", response_model=JeImpactResult)
+def get_je_impact(
+    je_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    if db.get(JournalEntry, je_id) is None:
+        raise HTTPException(status_code=404, detail="Journal entry not found")
+    return compute_je_impact(je_id, db)
+
+
+# ---------------------------------------------------------------------------
 # Sprint 3.15 — Advisor Scenarios
 # ---------------------------------------------------------------------------
 
@@ -599,32 +566,19 @@ def _scenario_to_out(db: Session, scen: AdvisorScenario) -> AdvisorScenarioOut:
 def _compute_impact_for_jes(db: Session, je_ids: list[int]) -> AdjustmentImpact:
     if not je_ids:
         return AdjustmentImpact()
-    ni = asset = liability = equity = Decimal("0")
-    lines = (
-        db.query(JournalEntryLine, Account)
-        .join(Account, JournalEntryLine.account_id == Account.id)
-        .filter(JournalEntryLine.journal_entry_id.in_(je_ids))
-        .all()
-    )
-    for line, acct in lines:
-        net = Decimal(str(line.debit)) - Decimal(str(line.credit))
-        t = acct.account_type
-        if t in _INCOME_TYPES:
-            ni -= net
-        elif t in _EXPENSE_TYPES:
-            ni += net
-        if t in _ASSET_TYPES:
-            asset += net
-        elif t in _LIABILITY_TYPES:
-            liability += net
-        elif t in _EQUITY_TYPES:
-            equity += net
+    total_ni = total_asset = total_liability = total_equity = Decimal("0")
+    for je_id in je_ids:
+        result = compute_je_impact(je_id, db)
+        total_ni += Decimal(str(result['ni_impact']))
+        total_asset += Decimal(str(result['asset_impact']))
+        total_liability += Decimal(str(result['liability_impact']))
+        total_equity += Decimal(str(result['equity_impact']))
     return AdjustmentImpact(
-        ni_impact=ni,
-        ebitda_impact=ni,
-        asset_impact=asset,
-        liability_impact=liability,
-        equity_impact=equity,
+        ni_impact=total_ni,
+        ebitda_impact=total_ni,
+        asset_impact=total_asset,
+        liability_impact=total_liability,
+        equity_impact=total_equity,
     )
 
 

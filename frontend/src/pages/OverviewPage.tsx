@@ -36,6 +36,17 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint K · Adjustment & Bridge Integration',
+    date: '2026-06-19',
+    items: [
+      'AJE NI and BS impact now computed from actual JE lines using the balance engine — no hardcoded maps',
+      'Revenue credit → positive NI impact; Expense debit → negative NI impact',
+      'Bridge view: columnar format showing As Reported / AJE-1 / AJE-2 / Total AJEs / Adjusted per FSLI line',
+      'New GET /journal-entries/{id}/impact endpoint returns live JE impact computation',
+      'Adjustment Workbench: grand total row impact derived from live JE line computation',
+    ],
+  },
+  {
     version: 'Sprint I · Import Review & Mapping Workflow',
     date: '2026-06-19',
     items: [

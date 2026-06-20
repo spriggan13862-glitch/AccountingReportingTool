@@ -2533,6 +2533,44 @@ class ScenarioComparisonResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Sprint K — JE Impact and Bridge schemas
+# ---------------------------------------------------------------------------
+
+class JeImpactResult(BaseModel):
+    ni_impact: float
+    bs_impact: float
+    asset_impact: float
+    liability_impact: float
+    equity_impact: float
+    line_details: list[dict]
+
+
+class BridgeAdjustmentItem(BaseModel):
+    je_id: int
+    description: str
+    amount: float
+
+
+class BridgeRow(BaseModel):
+    taxonomy_line_id: int | None
+    line_name: str
+    section: str
+    as_reported: float
+    adjustments: list[BridgeAdjustmentItem]
+    total_adj: float
+    adjusted: float
+
+
+class BridgeResponse(BaseModel):
+    rows: list[BridgeRow]
+    entity_id: int
+    period_id: int | None
+    net_income_as_reported: float
+    total_adjustments_ni: float
+    net_income_adjusted: float
+
+
+# ---------------------------------------------------------------------------
 # Budgets
 # ---------------------------------------------------------------------------
 

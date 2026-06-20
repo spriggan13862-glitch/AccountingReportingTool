@@ -249,6 +249,11 @@ function AccountDrilldownPanel({
 
 // ---------------------------------------------------------------------------
 // Main page
+// Sprint J note: Column filter bar skipped for this page. The bridge table has
+// dynamic per-adjustment columns (one column per AJE), making static column
+// filters impractical. The existing text-search input (bridge-search) already
+// filters account rows. Adding a filter bar would require filtering across
+// dynamically generated column data which is complex and low-value here.
 // ---------------------------------------------------------------------------
 
 export function AdjustmentBridgePage() {

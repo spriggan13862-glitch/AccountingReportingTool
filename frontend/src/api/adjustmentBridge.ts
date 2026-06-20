@@ -1,5 +1,23 @@
 import api from './client'
 
+export interface JeImpactResult {
+  ni_impact: number
+  bs_impact: number
+  asset_impact: number
+  liability_impact: number
+  equity_impact: number
+  line_details: Array<{
+    account_id: number
+    account_number: string
+    account_name: string
+    account_type: string
+    debit: number
+    credit: number
+    accounting_balance: number
+    presentation_amount: number
+  }>
+}
+
 export interface AdjustmentBridgeRow {
   id: number
   entity_id: number
@@ -168,4 +186,7 @@ export const adjustmentBridgeApi = {
       params: { entity_id: entityId, period_end: periodEnd, scenario_id: scenarioId, reporting_basis: reportingBasis },
       responseType: 'blob',
     }).then((r) => r.data),
+
+  getJeImpact: (jeId: number): Promise<JeImpactResult> =>
+    api.get<JeImpactResult>(`/adjustment-workspace/journal-entries/${jeId}/impact`).then((r) => r.data),
 }
