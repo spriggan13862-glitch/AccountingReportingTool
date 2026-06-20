@@ -785,6 +785,66 @@ def delete_batch(
         raise HTTPException(status_code=409, detail=str(exc))
 
 
+@router.delete("/batches/{batch_id}/lines/{line_id}", status_code=204)
+def delete_line(
+    batch_id: int,
+    line_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+):
+    """
+    Remove a single import line from a batch. Refuses if the batch is
+    already posted (use rollback instead).
+    """
+    from app.models.import_batch import ImportBatch
+    from app.models.import_line import ImportLine
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(
+            status_code=409,
+            detail="Batch is posted — rollback the batch instead of deleting individual lines",
+        )
+    line = db.query(ImportLine).filter_by(id=line_id, batch_id=batch_id).first()
+    if not line:
+        raise HTTPException(status_code=404, detail=f"Line {line_id} not found in batch {batch_id}")
+    db.delete(line)
+    db.commit()
+
+
+@router.post("/batches/{batch_id}/bulk-delete-lines", status_code=200)
+def bulk_delete_lines(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Bulk delete import lines. Body: {"line_ids": [int, ...]}. Refuses if
+    the batch is posted.
+    """
+    from app.models.import_batch import ImportBatch
+    from app.models.import_line import ImportLine
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted — rollback instead")
+    line_ids = body.get("line_ids", [])
+    if not isinstance(line_ids, list):
+        raise HTTPException(status_code=400, detail="line_ids must be a list")
+    deleted = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id, ImportLine.id.in_(line_ids))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"deleted": deleted, "requested": len(line_ids)}
+
+
 # ---------------------------------------------------------------------------
 # Import Readiness Matrix
 # ---------------------------------------------------------------------------

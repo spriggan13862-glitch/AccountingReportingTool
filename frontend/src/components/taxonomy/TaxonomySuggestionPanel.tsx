@@ -75,7 +75,15 @@ export function TaxonomySuggestionPanel({
     onSuccess: (result) => {
       setLastSummary(result)
       toast(`Applied ${result.applied}, skipped ${result.skipped} (existing mapping preserved)`, 'success')
+      // Invalidate every query that may render mapping state so the UI updates
+      // immediately (issue 9 + issue 15: silent auto-map → visible mapping refresh).
       queryClient.invalidateQueries({ queryKey: ['account-mappings'] })
+      queryClient.invalidateQueries({ queryKey: ['taxonomy-account-mappings'] })
+      queryClient.invalidateQueries({ queryKey: ['import-lines'] })
+      queryClient.invalidateQueries({ queryKey: ['import-suggestions'] })
+      queryClient.invalidateQueries({ queryKey: ['fsli-inheritance'] })
+      queryClient.invalidateQueries({ queryKey: ['import-readiness'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts-all'] })
       onApplied?.(result.applied)
     },
     onError: (err: Error) => {

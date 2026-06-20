@@ -610,9 +610,9 @@ export function TrialBalanceImportPage() {
                 </p>
               </div>
 
-              <div className="rounded-lg border border-gray-200 overflow-auto max-h-80">
+              <div className="rounded-lg border border-gray-200 overflow-auto max-h-[480px]">
                 <table className="text-xs border-collapse">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-white shadow-sm">
                     {/* Row 1: Column letters */}
                     <tr className="bg-gray-100 border-b border-gray-200 font-mono text-[11px]">
                       {headers.map((h: string, ci: number) => {
