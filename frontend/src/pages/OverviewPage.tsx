@@ -36,6 +36,16 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Auto-Map Taxonomies — modal now shows real source accounts',
+    date: '2026-06-20',
+    items: [
+      'MappingSuggestionOut now embeds account_id / account_number / account_name from the backend, so the Auto-Map modal renders "1000 · Cash" and "1000-01 · FHB - MLI Operating" directly — never "#277" or similar internal IDs.',
+      'TaxonomySuggestionPanel prefers the API-embedded source values; the separate accountsApi.list lookup remains as a fallback for older suggestion records.',
+      'Apply-suggestions cascade still invalidates the seven downstream queries (account-mappings, taxonomy-account-mappings, import-lines, import-suggestions, fsli-inheritance, import-readiness, accounts-all) so the Mapping Workbench FSLI column refreshes immediately after Apply Selected / Apply All.',
+      'New backend regression test tests/test_taxonomy_suggestions_account_context.py asserts the API can never return a suggestion with null account_number when the source account exists.',
+    ],
+  },
+  {
     version: 'TB Import Column Mapping Regression — fixed',
     date: '2026-06-20',
     items: [

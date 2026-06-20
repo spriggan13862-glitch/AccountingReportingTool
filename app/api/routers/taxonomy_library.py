@@ -393,7 +393,12 @@ def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
 # Sprint O6 — Mapping suggestions (rule engine driven)
 # ---------------------------------------------------------------------------
 
-def _to_suggestion_out(s) -> MappingSuggestionOut:
+def _to_suggestion_out(s, account=None) -> MappingSuggestionOut:
+    """
+    Convert a rule-engine MappingSuggestion to the API output, embedding the
+    source account number/name when an Account is provided. Agent 2: prevents
+    the frontend from showing internal row IDs in place of real source data.
+    """
     return MappingSuggestionOut(
         taxonomy_id=s.taxonomy_id,
         taxonomy_code=s.taxonomy_code,
@@ -402,6 +407,9 @@ def _to_suggestion_out(s) -> MappingSuggestionOut:
         node_name=s.node_name,
         confidence_score=s.confidence_score,
         reason=s.reason,
+        account_id=account.id if account else None,
+        account_number=account.account_number if account else None,
+        account_name=account.account_name if account else None,
     )
 
 
@@ -417,7 +425,7 @@ def suggest_mappings(
         raise HTTPException(status_code=404, detail="Account not found")
     tx_ids = [int(x) for x in taxonomy_ids.split(",") if x.strip()]
     suggestions = suggest_mappings_for_taxonomies(account, tx_ids, db)
-    return [_to_suggestion_out(s) for s in suggestions]
+    return [_to_suggestion_out(s, account) for s in suggestions]
 
 
 @router.post("/suggest/bulk", response_model=BulkSuggestResult)
@@ -427,10 +435,11 @@ def bulk_suggest(
 ):
     """Suggest mappings for many accounts x many taxonomies. Returns {account_id: [suggestions]}."""
     accounts = db.query(Account).filter(Account.id.in_(body.account_ids)).all()
+    account_by_id = {a.id: a for a in accounts}
     result = bulk_suggest_mappings(accounts, body.taxonomy_ids, db)
     return BulkSuggestResult(
         suggestions={
-            aid: [_to_suggestion_out(s) for s in sugs]
+            aid: [_to_suggestion_out(s, account_by_id.get(aid)) for s in sugs]
             for aid, sugs in result.items()
         }
     )

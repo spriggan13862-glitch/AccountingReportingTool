@@ -100,9 +100,11 @@ export function TaxonomySuggestionPanel({
     return flatSuggestions.filter((f) => {
       if (f.suggestion.confidence_score < minScore) return false
       if (taxonomyFilter && f.suggestion.taxonomy_code !== taxonomyFilter) return false
+      // Agent 2: prefer values embedded in the suggestion (from the API)
+      // over the accountMap fallback. Never fall back to the bare ID.
       const acct = accountMap.get(f.account_id)
-      const acctNum = acct?.account_number ?? String(f.account_id)
-      const acctName = acct?.account_name ?? ''
+      const acctNum = f.suggestion.account_number ?? acct?.account_number ?? ''
+      const acctName = f.suggestion.account_name ?? acct?.account_name ?? ''
       if (accFilter && !acctNum.toLowerCase().includes(accFilter)) return false
       if (nameF && !acctName.toLowerCase().includes(nameF)) return false
       return true
@@ -119,8 +121,8 @@ export function TaxonomySuggestionPanel({
         av = a.suggestion.confidence_score
         bv = b.suggestion.confidence_score
       } else if (sortKey === 'account_number') {
-        av = accountMap.get(a.account_id)?.account_number ?? String(a.account_id)
-        bv = accountMap.get(b.account_id)?.account_number ?? String(b.account_id)
+        av = a.suggestion.account_number ?? accountMap.get(a.account_id)?.account_number ?? ''
+        bv = b.suggestion.account_number ?? accountMap.get(b.account_id)?.account_number ?? ''
       } else if (sortKey === 'taxonomy') {
         av = a.suggestion.taxonomy_code
         bv = b.suggestion.taxonomy_code
@@ -360,9 +362,14 @@ export function TaxonomySuggestionPanel({
           </thead>
           <tbody>
             {sortedSuggestions.map((f) => {
+              // Agent 2: prefer the API-embedded source values; fall back to
+              // the accountsApi.list() result only if the suggestion was
+              // produced by an older backend that didn't populate them. The
+              // bare "#<id>" placeholder is gone — if both sources are null
+              // we render a plain dash, never the internal row ID.
               const acct = accountMap.get(f.account_id)
-              const acctNumber = acct?.account_number ?? `#${f.account_id}`
-              const acctName = acct?.account_name ?? ''
+              const acctNumber = f.suggestion.account_number ?? acct?.account_number ?? '—'
+              const acctName = f.suggestion.account_name ?? acct?.account_name ?? ''
               return (
                 <tr
                   key={f.key}

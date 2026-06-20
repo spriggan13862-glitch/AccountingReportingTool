@@ -1,5 +1,9 @@
 import api from './client'
 
+// Agent 2: MappingSuggestion now embeds source account context so the
+// Auto-Map modal can render real account_number / account_name without a
+// separate accounts lookup.
+
 export interface Taxonomy {
   id: number
   code: string
@@ -62,6 +66,11 @@ export interface MappingSuggestion {
   node_name: string
   confidence_score: number
   reason: string
+  // Agent 2: source account context embedded by the backend so the modal
+  // never has to render an internal #ID in place of real account data.
+  account_id: number | null
+  account_number: string | null
+  account_name: string | null
 }
 
 export const taxonomyLibraryApi = {

@@ -2852,6 +2852,10 @@ class MappingSuggestionOut(BaseModel):
     node_name: str
     confidence_score: float
     reason: str
+    # Agent 2: source account context so the modal never shows internal IDs.
+    account_id: int | None = None
+    account_number: str | None = None
+    account_name: str | None = None
 
 
 class BulkSuggestRequest(BaseModel):
