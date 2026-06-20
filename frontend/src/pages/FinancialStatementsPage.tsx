@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -18,6 +18,7 @@ import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { cn } from '@/utils/cn'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import type { TaxonomyFsLine, CashFlowSection, CashFlowLine, OverlayCalculateRequest, OverlayLineItem, ReportingTaxonomyLine } from '@/types'
+import { type BalanceView, getAccountingSignedBalance, getAwvDisplayAmount, getPresentationAmount } from '@/lib/balanceEngine'
 
 type Tab = 'official_tb' | 'draft_tb' | 'BS' | 'IS' | 'CF'
 
@@ -504,6 +505,8 @@ export function FinancialStatementsPage() {
     }
   })
 
+  const [balanceView, setBalanceView] = useState<BalanceView>('presentation')
+
   const [tab, setTab] = useState<Tab>('BS')
   const [drilldownCode, setDrilldownCode] = useState<string | null>(null)
 
@@ -784,6 +787,9 @@ export function FinancialStatementsPage() {
         draftAdjustments: 0,
         adjustedBalance: 0,
       }
+
+      // sign_flip from taxonomy (existing behaviour for FSP).
+      // In AWV we instead flip credit-normal sections to show them negative.
       const factor = row.sign_flip ? -1 : 1
 
       const draftAdj = includeDrafts && !officialOnly ? cols.draftAdjustments : 0
@@ -791,12 +797,21 @@ export function FinancialStatementsPage() {
       const importedBal = cols.importedBalance
       const adjustedBalance = importedBal + postedAdj + draftAdj
 
+      // Apply balance view: presentation uses existing sign_flip factor;
+      // accounting view flips credit-normal sections (revenue, liabilities, equity)
+      // to show them negative in the debit-dominant working view.
+      const section = row.section?.toLowerCase() ?? ''
+      const awvFactor = (balanceView === 'accounting' && (section.includes('revenue') || section.includes('liabilit') || section.includes('equity')))
+        ? -1
+        : 1
+      const viewFactor = balanceView === 'accounting' ? awvFactor : factor
+
       return {
         ...row,
-        importedBalance: importedBal * factor,
-        postedAdjustments: postedAdj * factor,
-        draftAdjustments: draftAdj * factor,
-        adjustedBalance: adjustedBalance * factor,
+        importedBalance: importedBal * viewFactor,
+        postedAdjustments: postedAdj * viewFactor,
+        draftAdjustments: draftAdj * viewFactor,
+        adjustedBalance: adjustedBalance * viewFactor,
       }
     })
   }
@@ -804,11 +819,11 @@ export function FinancialStatementsPage() {
   // Rolled-up Statements
   const computedBsRows = useMemo(() => {
     return computeTaxonomyColumns(bsRows)
-  }, [bsRows, computedItems, accounts, taxonomyLines, includeDrafts, officialOnly])
+  }, [bsRows, computedItems, accounts, taxonomyLines, includeDrafts, officialOnly, balanceView])
 
   const computedIsRows = useMemo(() => {
     return computeTaxonomyColumns(isRows)
-  }, [isRows, computedItems, accounts, taxonomyLines, includeDrafts, officialOnly])
+  }, [isRows, computedItems, accounts, taxonomyLines, includeDrafts, officialOnly, balanceView])
 
   // Drilldown enrichment — taxonomy path and period balances
   const drilldownAccount = useMemo(() => {
@@ -1139,7 +1154,7 @@ export function FinancialStatementsPage() {
       {/* Toggles & Inherit Feedback Toolbar */}
       {ready && (
         <div className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-4 items-center justify-between shadow-sm">
-          <div className="flex items-center gap-4 py-1.5">
+          <div className="flex items-center gap-4 py-1.5 flex-wrap">
             <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -1160,6 +1175,31 @@ export function FinancialStatementsPage() {
               />
               Include Draft Adjustments
             </label>
+
+            <div className="flex items-center gap-1 border border-slate-200 rounded-lg overflow-hidden" data-testid="balance-view-toggle">
+              <button
+                onClick={() => setBalanceView('presentation')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold transition-colors',
+                  balanceView === 'presentation'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                FS Presentation
+              </button>
+              <button
+                onClick={() => setBalanceView('accounting')}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-semibold transition-colors',
+                  balanceView === 'accounting'
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                Accounting View
+              </button>
+            </div>
           </div>
 
           {/* Inherit feedback */}

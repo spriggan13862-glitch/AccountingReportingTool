@@ -32,6 +32,7 @@ from app.api.schemas import (
     DrilldownJeOut,
     TrendReportOut,
     TrendRowOut,
+    BalanceComputeResult,
 )
 from app.models.report_definition import ReportDefinition, ReportLine, ReportColumn
 from app.services.financial_statement_service import (
@@ -50,6 +51,39 @@ from app.services.export_service import (
 )
 
 router = APIRouter(prefix="/financial-statements", tags=["financial-statements"])
+
+
+# ---------------------------------------------------------------------------
+# Balance Engine — compute-balance utility endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/compute-balance", response_model=BalanceComputeResult)
+def compute_balance(
+    account_type: str = Query(...),
+    debit: float = Query(...),
+    credit: float = Query(...),
+    view: str = Query("accounting", description="accounting or presentation"),
+):
+    from app.services.balance_engine import (
+        get_normal_balance,
+        get_accounting_signed_balance,
+        get_presentation_amount,
+        get_awv_display_amount,
+    )
+    normal = get_normal_balance(account_type)
+    accounting_balance = get_accounting_signed_balance(account_type, debit, credit)
+    presentation_amount = get_presentation_amount(account_type, accounting_balance)
+    is_normal = accounting_balance >= 0
+    return BalanceComputeResult(
+        account_type=account_type,
+        debit=debit,
+        credit=credit,
+        normal_balance=normal,
+        accounting_balance=accounting_balance,
+        presentation_amount=presentation_amount,
+        is_normal=is_normal,
+        view=view,
+    )
 
 
 # ---------------------------------------------------------------------------

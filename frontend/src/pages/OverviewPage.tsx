@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint D · Accounting Balance Engine',
+    date: '2026-06-19',
+    items: [
+      'New definitive balance engine: single source of truth for all signed balance computations',
+      'Accounting Working View: debit-normal signs — assets/expenses positive, revenue shows negative (credit balance in debit-dominant view)',
+      'Financial Statement Presentation: revenue/expenses/COGS shown positive, conventional FS format',
+      'View toggle on Financial Statements page: switch between Accounting View and FS Presentation',
+      'Balance engine applied consistently across Financial Statements, Trial Balance, and Adjustments',
+      'Net Income = Revenue − COGS − Expenses (all positive in FSP)',
+    ],
+  },
+  {
     version: 'Sprint C · Account Parsing & Matching Engine',
     date: '2026-06-19',
     items: [

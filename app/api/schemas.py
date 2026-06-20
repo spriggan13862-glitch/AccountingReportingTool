@@ -2510,3 +2510,32 @@ class BudgetVersionOut(BaseModel):
     status: str
     created_at: datetime.datetime
     lines: list[BudgetLineOut] = []
+
+
+# ---------------------------------------------------------------------------
+# Sprint D — Balance Engine
+# ---------------------------------------------------------------------------
+
+class BalanceComputeResult(BaseModel):
+    account_type: str
+    debit: float
+    credit: float
+    normal_balance: str
+    accounting_balance: float
+    presentation_amount: float
+    is_normal: bool
+    view: str
+
+
+class FsLineBalanceOut(BaseModel):
+    taxonomy_line_id: int | None = None
+    line_name: str
+    section: str
+    statement_type: str | None = None
+    accounting_balance: float
+    presentation_amount: float
+    account_count: int
+    imported_balance: float
+    posted_adj: float
+    draft_adj: float
+    adjusted_balance: float
