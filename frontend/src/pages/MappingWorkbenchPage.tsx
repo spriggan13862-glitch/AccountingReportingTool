@@ -4,7 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Check, SkipForward, ArrowLeft, Lightbulb, Search,
-  Filter, Download, ChevronDown, Plus, X, AlertTriangle, GitBranch,
+  Filter, Download, ChevronDown, ChevronRight, Plus, X, AlertTriangle, GitBranch,
+  Trash2, Pencil, RotateCcw,
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { accountsApi } from '@/api/accounts'
@@ -15,7 +16,8 @@ import { taxonomyLibraryApi } from '@/api/taxonomyLibrary'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
-import { AccountingDataGrid } from '@/components/data-grid'
+import { AccountingDataGrid, FilterBar } from '@/components/data-grid'
+import type { FilterBarFilterDef } from '@/components/data-grid'
 import { TaxonomySuggestionPanel } from '@/components/taxonomy/TaxonomySuggestionPanel'
 import type { GridColumn, BatchAction, RowAction } from '@/components/data-grid/types'
 import type { ImportLine, ImportSuggestion, Account, AccountMatchResult, ReportingTaxonomyLine, FsliEffectiveMapping } from '@/types'
@@ -238,7 +240,7 @@ function getMappingStatusLabel(
       <div className="text-xs flex flex-col gap-0.5">
         <div>
           <span className="font-mono text-gray-700 font-semibold">{acct.account_number}</span>
-          <span className="ml-1 text-gray-500">{acct.account_name}</span>
+          <span className="ml-1 text-gray-500 whitespace-nowrap" title={acct.account_name}>{acct.account_name}</span>
         </div>
         {isNameOnly && (
           <span className="inline-flex items-center gap-1 text-[10px] text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded w-max" data-testid="name-match-chip">
@@ -272,6 +274,65 @@ function guessAccountTypeAndNormal(code: string): { account_type: string; normal
   return { account_type: 'asset', normal_balance: 'debit' }
 }
 
+// Flatten taxonomy tree (leaf nodes only) into FSLI options.
+function flattenTaxonomyLeaves(tree: any[]): Array<{ id: number; name: string; code: string }> {
+  const out: Array<{ id: number; name: string; code: string }> = []
+  function walk(node: any) {
+    if (!node) return
+    const children = node.children ?? []
+    if (children.length === 0) {
+      out.push({ id: node.id, name: node.name, code: node.code })
+    } else {
+      children.forEach(walk)
+    }
+  }
+  tree.forEach(walk)
+  return out
+}
+
+// ---------------------------------------------------------------------------
+// Inline COA swap editor — Issue 12
+// ---------------------------------------------------------------------------
+
+interface MatchedCoaEditorProps {
+  entityId: number
+  currentAcct: Account
+  onSelect: (acct: Account) => void
+  onCancel: () => void
+  pending: boolean
+}
+
+function MatchedCoaEditor({ entityId, currentAcct, onSelect, onCancel, pending }: MatchedCoaEditorProps) {
+  const [picked, setPicked] = useState<Account | null>(null)
+  return (
+    <div className="flex items-center gap-1" data-testid={`coa-override-editor-${currentAcct.id}`}>
+      <div className="flex-1 min-w-[180px]">
+        <AccountSearch
+          entityId={entityId}
+          value={picked?.id ?? null}
+          onChange={setPicked}
+          placeholder="Search COA…"
+        />
+      </div>
+      <button
+        type="button"
+        disabled={!picked || pending}
+        onClick={() => picked && onSelect(picked)}
+        className="px-2 py-1 bg-indigo-600 text-white text-[11px] rounded hover:bg-indigo-700 disabled:opacity-50"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="px-2 py-1 border border-gray-300 text-gray-600 text-[11px] rounded hover:bg-gray-50"
+      >
+        Cancel
+      </button>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -288,14 +349,38 @@ export function MappingWorkbenchPage() {
   // Active reporting view for FSLI assignments
   const [activeViewId, setActiveViewId] = useState<number | null>(null)
 
-  // Filters
+  // Filters — Sprint G base + Issue 6 expanded
   const [showMapped, setShowMapped] = useState(false)
   const [colFilters, setColFilters] = useState({ sourceAccount: '', fsliText: '', status: 'all' })
+  const [extFilters, setExtFilters] = useState({
+    statusChips: [] as string[],
+    accountType: 'all',
+    coaMatchState: 'all',
+    taxonomyAssignment: 'all',
+    confidenceMin: 0,
+    confidenceMax: 100,
+    parentContains: '',
+    inheritedFromContains: '',
+  })
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
+
+  // Issue 4 — grouping
+  const [viewMode, setViewMode] = useState<'flat' | 'grouped'>('flat')
+  const [viewModeAutoSet, setViewModeAutoSet] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
   // Per-line state
   const [selectedAccounts, setSelectedAccounts] = useState<Record<number, Account | null>>({})
   const [createLineId, setCreateLineId] = useState<number | null>(null)
   const [editingLines, setEditingLines] = useState<Record<number, boolean>>({})
+
+  // Issue 12 — matched COA override
+  const [overrideEditing, setOverrideEditing] = useState<Record<number, boolean>>({})
+  const [overriddenLines, setOverriddenLines] = useState<Record<number, boolean>>({})
+
+  // Issue 5 — delete confirmation state
+  const [deleteConfirmLineId, setDeleteConfirmLineId] = useState<number | null>(null)
+  const [deleteBatchConfirmOpen, setDeleteBatchConfirmOpen] = useState(false)
 
   // Batch mapping state
   const [isBatchMapOpen, setIsBatchMapOpen] = useState(false)
@@ -306,6 +391,9 @@ export function MappingWorkbenchPage() {
   const [isAutoMapOpen, setIsAutoMapOpen] = useState(false)
   const [autoMapTaxonomyIds, setAutoMapTaxonomyIds] = useState<number[]>([])
   const [autoMapRunning, setAutoMapRunning] = useState(false)
+
+  // Issue 7 — FSLI source taxonomy (override fallback)
+  const [fsliSourceTaxonomyId, setFsliSourceTaxonomyId] = useState<number | null>(null)
 
   const { data: availableTaxonomies = [] } = useQuery({
     queryKey: ['taxonomies-list'],
@@ -339,10 +427,37 @@ export function MappingWorkbenchPage() {
     enabled: !!batchId,
   })
 
-  const { data: taxonomyLines = [] } = useQuery({
+  const { data: legacyTaxonomyLines = [] } = useQuery({
     queryKey: ['reporting-taxonomy'],
     queryFn: () => reportingTaxonomyApi.list(),
   })
+
+  // Issue 7 — fallback taxonomy resolution
+  const fallbackTaxonomy = useMemo(() => {
+    if (!availableTaxonomies || availableTaxonomies.length === 0) return null
+    const systemActive = availableTaxonomies.filter((t) => t.is_system && t.is_active)
+    const gaap = systemActive.find((t) => t.code === 'us_gaap')
+    return gaap ?? systemActive[0] ?? availableTaxonomies[0] ?? null
+  }, [availableTaxonomies])
+
+  const usingFallback = legacyTaxonomyLines.length === 0 && fallbackTaxonomy != null
+  const resolvedSourceTaxonomyId = fsliSourceTaxonomyId ?? (usingFallback ? fallbackTaxonomy?.id ?? null : null)
+
+  const { data: fallbackTree = [] } = useQuery({
+    queryKey: ['taxonomy-tree-fallback', resolvedSourceTaxonomyId],
+    queryFn: () => taxonomyLibraryApi.tree(resolvedSourceTaxonomyId!),
+    enabled: !!resolvedSourceTaxonomyId && usingFallback,
+  })
+
+  const fallbackFsliOptions = useMemo(() => flattenTaxonomyLeaves(fallbackTree as any[]), [fallbackTree])
+
+  // Unified FSLI option list: prefer legacy, fall back to taxonomy library leaves
+  const fsliOptions: Array<{ id: number; name: string; code?: string }> = useMemo(() => {
+    if (legacyTaxonomyLines.length > 0) {
+      return legacyTaxonomyLines.map((t: ReportingTaxonomyLine) => ({ id: t.id, name: t.name, code: t.code }))
+    }
+    return fallbackFsliOptions
+  }, [legacyTaxonomyLines, fallbackFsliOptions])
 
   const { data: reportingViews = [] } = useQuery({
     queryKey: ['reporting-views'],
@@ -398,6 +513,20 @@ export function MappingWorkbenchPage() {
   ).length
   const conflictCount = lines.filter((l) => matchMap[l.id]?.match_status === 'conflict').length
 
+  // Issue 4 — auto-default to grouped if ≥3 accounts share a parent
+  useEffect(() => {
+    if (viewModeAutoSet || lines.length === 0 || Object.keys(accountMap).length === 0) return
+    const parentCounts: Record<string, number> = {}
+    lines.forEach((l) => {
+      const acct = l.resolved_account_id ? accountMap[l.resolved_account_id] : null
+      const key = acct?.parent_account_id != null ? String(acct.parent_account_id) : '__none__'
+      parentCounts[key] = (parentCounts[key] ?? 0) + 1
+    })
+    const hasBigGroup = Object.entries(parentCounts).some(([k, n]) => k !== '__none__' && n >= 3)
+    if (hasBigGroup) setViewMode('grouped')
+    setViewModeAutoSet(true)
+  }, [lines, accountMap, viewModeAutoSet])
+
   // Mutations
   const mapMutation = useMutation({
     mutationFn: ({ lineId, accountId }: { lineId: number; accountId: number }) =>
@@ -445,6 +574,72 @@ export function MappingWorkbenchPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
       toast('FSLI mapping updated', 'success')
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  // Issue 5 — delete mutations
+  const deleteLineMutation = useMutation({
+    mutationFn: (lineId: number) => tbImportApi.deleteLine(batchId, lineId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+      setDeleteConfirmLineId(null)
+      toast('Line deleted', 'success')
+    },
+    onError: (err: any) => {
+      const status = err?.response?.status ?? err?.status
+      if (status === 409) {
+        toast('Batch is posted — rollback instead', 'error')
+      } else {
+        setApiError(err?.message ?? 'Failed to delete line')
+      }
+    },
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (lineIds: number[]) => tbImportApi.bulkDeleteLines(batchId, lineIds),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+      toast(`${res.deleted} line${res.deleted === 1 ? '' : 's'} deleted`, 'success')
+    },
+    onError: (err: any) => {
+      const status = err?.response?.status ?? err?.status
+      if (status === 409) {
+        toast('Batch is posted — rollback instead', 'error')
+      } else {
+        setApiError(err?.message ?? 'Failed to delete lines')
+      }
+    },
+  })
+
+  const deleteBatchMutation = useMutation({
+    mutationFn: () => tbImportApi.deleteBatch(batchId),
+    onSuccess: () => {
+      toast('Batch deleted', 'success')
+      navigate('/import')
+    },
+    onError: (err: any) => {
+      const status = err?.response?.status ?? err?.status
+      if (status === 409) {
+        toast('Batch is posted — rollback instead', 'error')
+      } else {
+        setApiError(err?.message ?? 'Failed to delete batch')
+      }
+    },
+  })
+
+  // Issue 12 — swap matched COA
+  const swapCoaMutation = useMutation({
+    mutationFn: ({ lineId, accountId }: { lineId: number; accountId: number }) =>
+      tbImportApi.swapMatchedAccount(batchId, lineId, accountId),
+    onSuccess: (_, { lineId }) => {
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['import-match-results', batchId] })
+      setOverrideEditing((p) => { const n = { ...p }; delete n[lineId]; return n })
+      setOverriddenLines((p) => ({ ...p, [lineId]: true }))
+      toast('Matched COA updated', 'success')
     },
     onError: (err: Error) => setApiError(err.message),
   })
@@ -513,8 +708,16 @@ export function MappingWorkbenchPage() {
     }
   }
 
+  // Account type options for Issue 6 dropdown
+  const accountTypeOptions = useMemo(() => {
+    const set = new Set<string>()
+    Object.values(accountMap).forEach((a) => { if (a.account_type) set.add(a.account_type) })
+    return Array.from(set).sort()
+  }, [accountMap])
+
   const gridData = useMemo(() => {
     return lines.filter((l) => {
+      // Original status toggle
       if (!showMapped && l.mapping_status !== 'unmapped' && colFilters.status !== 'conflict') return false
       if (colFilters.status === 'conflict') {
         if (matchMap[l.id]?.match_status !== 'conflict') return false
@@ -529,16 +732,134 @@ export function MappingWorkbenchPage() {
       if (colFilters.fsliText) {
         const acct = l.resolved_account_id ? accountMap[l.resolved_account_id] : null
         const taxLine = acct?.reporting_taxonomy_line_id
-          ? taxonomyLines.find((t: ReportingTaxonomyLine) => t.id === acct.reporting_taxonomy_line_id)
+          ? fsliOptions.find((t) => t.id === acct.reporting_taxonomy_line_id)
           : null
         if (!taxLine?.name.toLowerCase().includes(colFilters.fsliText.toLowerCase())) return false
       }
+
+      // Issue 6 — extended filters
+      const acct = l.resolved_account_id ? accountMap[l.resolved_account_id] : null
+      const eff = acct ? inheritanceMap[acct.id] : undefined
+
+      // Status chips
+      if (extFilters.statusChips.length > 0) {
+        const chips = new Set(extFilters.statusChips)
+        let match = false
+        if (chips.has('mapped') && l.mapping_status === 'mapped') match = true
+        if (chips.has('unmapped') && l.mapping_status === 'unmapped') match = true
+        if (chips.has('conflict') && matchMap[l.id]?.match_status === 'conflict') match = true
+        if (chips.has('inherited') && eff && (eff.mapping_source === 'parent' || eff.mapping_source === 'grandparent')) match = true
+        if (!match) return false
+      }
+
+      // Account type
+      if (extFilters.accountType !== 'all') {
+        if (!acct || acct.account_type !== extFilters.accountType) return false
+      }
+
+      // COA match state
+      if (extFilters.coaMatchState !== 'all') {
+        const m = matchMap[l.id]
+        const matched = !!l.resolved_account_id
+        if (extFilters.coaMatchState === 'matched' && !matched) return false
+        if (extFilters.coaMatchState === 'unmatched' && (matched || (m && m.match_status !== 'not_found'))) return false
+        if (extFilters.coaMatchState === 'will-create') {
+          if (matched || looksLikeTotalRow(l) || !l.raw_account_number?.trim()) return false
+        }
+      }
+
+      // Taxonomy assignment
+      if (extFilters.taxonomyAssignment !== 'all') {
+        const hasFsli = !!(eff?.taxonomy_line_id || acct?.reporting_taxonomy_line_id)
+        if (extFilters.taxonomyAssignment === 'has-fsli' && !hasFsli) return false
+        if (extFilters.taxonomyAssignment === 'no-fsli' && hasFsli) return false
+      }
+
+      // Confidence range — applies only when there's a suggestion
+      const sug = suggestMap[l.id]
+      if (sug?.suggested_account_id) {
+        const isNumberMatch = !!(l.raw_account_number && sug.suggested_account_number?.startsWith(l.raw_account_number))
+        const conf = isNumberMatch ? 95 : 60
+        if (conf < extFilters.confidenceMin || conf > extFilters.confidenceMax) return false
+      }
+
+      // Parent account contains
+      if (extFilters.parentContains && acct?.parent_account_id != null) {
+        const parent = accountMap[acct.parent_account_id]
+        const q = extFilters.parentContains.toLowerCase()
+        const matches = !!parent && (
+          parent.account_number.toLowerCase().includes(q) ||
+          parent.account_name.toLowerCase().includes(q)
+        )
+        if (!matches) return false
+      } else if (extFilters.parentContains) {
+        return false
+      }
+
+      // Inherited from contains
+      if (extFilters.inheritedFromContains) {
+        const q = extFilters.inheritedFromContains.toLowerCase()
+        const inheritedFrom = eff?.inherited_from_account_number ?? ''
+        if (!inheritedFrom.toLowerCase().includes(q)) return false
+      }
+
       return true
     })
-  }, [lines, showMapped, colFilters, accountMap, taxonomyLines])
+  }, [lines, showMapped, colFilters, extFilters, accountMap, fsliOptions, inheritanceMap, matchMap, suggestMap])
+
+  // Issue 4 — group data by parent
+  const groupedData = useMemo(() => {
+    if (viewMode !== 'grouped') return null
+    const groups: Record<string, { parent: Account | null; key: string; lines: ImportLine[] }> = {}
+    gridData.forEach((l) => {
+      const acct = l.resolved_account_id ? accountMap[l.resolved_account_id] : null
+      const parentId = acct?.parent_account_id
+      const parent = parentId != null ? accountMap[parentId] ?? null : null
+      const key = parent ? `p-${parent.id}` : '__ungrouped__'
+      if (!groups[key]) groups[key] = { parent, key, lines: [] }
+      groups[key].lines.push(l)
+    })
+    return Object.values(groups).sort((a, b) => {
+      if (a.key === '__ungrouped__') return 1
+      if (b.key === '__ungrouped__') return -1
+      return (a.parent?.account_number ?? '').localeCompare(b.parent?.account_number ?? '')
+    })
+  }, [gridData, viewMode, accountMap])
+
+  const parentChildSummary = useMemo(() => {
+    if (!groupedData) return { parents: 0, children: 0 }
+    const parents = groupedData.filter((g) => g.parent != null).length
+    const children = groupedData.reduce((s, g) => s + g.lines.length, 0)
+    return { parents, children }
+  }, [groupedData])
+
+  // For grouped flat view, ensure when a group is collapsed, its children are removed.
+  const visibleGridData = useMemo(() => {
+    if (viewMode !== 'grouped' || !groupedData) return gridData
+    const out: ImportLine[] = []
+    groupedData.forEach((g) => {
+      const expanded = expandedGroups[g.key] ?? true
+      if (expanded) out.push(...g.lines)
+    })
+    return out
+  }, [viewMode, groupedData, expandedGroups, gridData])
+
+  const expandAll = useCallback(() => {
+    if (!groupedData) return
+    const all: Record<string, boolean> = {}
+    groupedData.forEach((g) => { all[g.key] = true })
+    setExpandedGroups(all)
+  }, [groupedData])
+
+  const collapseAll = useCallback(() => {
+    if (!groupedData) return
+    const all: Record<string, boolean> = {}
+    groupedData.forEach((g) => { all[g.key] = false })
+    setExpandedGroups(all)
+  }, [groupedData])
 
   const toolbarLeft = (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-4 flex-wrap">
       <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
         <div
           onClick={() => setShowMapped((v) => !v)}
@@ -549,6 +870,48 @@ export function MappingWorkbenchPage() {
         </div>
         Show all (including mapped)
       </label>
+
+      {/* Issue 4 — view mode toggle */}
+      <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-0.5 bg-white">
+        <button
+          type="button"
+          onClick={() => setViewMode('flat')}
+          data-testid="view-mode-flat"
+          className={`px-2 py-1 text-xs rounded ${viewMode === 'flat' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+        >
+          Flat
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('grouped')}
+          data-testid="view-mode-grouped"
+          className={`px-2 py-1 text-xs rounded ${viewMode === 'grouped' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+        >
+          Grouped
+        </button>
+      </div>
+
+      {viewMode === 'grouped' && (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={expandAll}
+            data-testid="expand-all-btn"
+            className="text-xs px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+          >
+            Expand all
+          </button>
+          <button
+            type="button"
+            onClick={collapseAll}
+            data-testid="collapse-all-btn"
+            className="text-xs px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+          >
+            Collapse all
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 text-xs text-gray-500 border-l pl-4 border-gray-200 animate-in fade-in duration-300">
         <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full font-medium">
           {unmappedCount} unmapped
@@ -600,12 +963,13 @@ export function MappingWorkbenchPage() {
       render: (line: ImportLine) => {
         const num = line.raw_account_number || ''
         const isSub = num.includes('-') || num.includes('.') || num.includes(':')
+        const name = line.raw_account_name ?? ''
         return (
-          <div style={isSub ? { paddingLeft: '1.25rem' } : undefined}>
+          <div style={isSub ? { paddingLeft: '1.25rem' } : undefined} className="py-2">
             {isSub && <span className="text-gray-400 font-mono text-xs select-none mr-1">└─</span>}
-            <span className="font-mono text-xs font-semibold text-gray-700">{num || '—'}</span>
-            {line.raw_account_name && (
-              <span className="ml-2 text-gray-500 text-xs">{line.raw_account_name}</span>
+            <span className="font-mono text-xs font-semibold text-gray-700 whitespace-nowrap">{num || '—'}</span>
+            {name && (
+              <span className="ml-2 text-gray-500 text-xs whitespace-nowrap" title={name}>{name}</span>
             )}
           </div>
         )
@@ -619,7 +983,7 @@ export function MappingWorkbenchPage() {
       filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_debit != null ? parseFloat(line.raw_debit) : 0,
       render: (line: ImportLine) => (
-        <div className="text-right font-mono text-xs text-gray-600">
+        <div className="text-right font-mono text-xs text-gray-600 py-2">
           {line.raw_debit != null && Number(line.raw_debit) !== 0
             ? fmtAmount(Number(line.raw_debit))
             : '—'}
@@ -634,7 +998,7 @@ export function MappingWorkbenchPage() {
       filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_credit != null ? parseFloat(line.raw_credit) : 0,
       render: (line: ImportLine) => (
-        <div className="text-right font-mono text-xs text-gray-600">
+        <div className="text-right font-mono text-xs text-gray-600 py-2">
           {line.raw_credit != null && Number(line.raw_credit) !== 0
             ? fmtAmount(Number(line.raw_credit))
             : '—'}
@@ -649,7 +1013,7 @@ export function MappingWorkbenchPage() {
       filterType: 'numeric' as const,
       sortValue: (line: ImportLine) => line.raw_balance ? parseFloat(line.raw_balance) : 0,
       render: (line: ImportLine) => (
-        <div className="text-right font-mono text-xs text-gray-600">
+        <div className="text-right font-mono text-xs text-gray-600 py-2">
           {line.raw_balance != null && Number(line.raw_balance) !== 0
             ? fmtAmount(Number(line.raw_balance))
             : '—'}
@@ -671,7 +1035,54 @@ export function MappingWorkbenchPage() {
         }
         return looksLikeTotalRow(line) ? 'total header row' : 'will create new'
       },
-      render: (line: ImportLine) => getMappingStatusLabel(line, accountMap, matchMap[line.id]),
+      render: (line: ImportLine) => {
+        const editing = overrideEditing[line.id]
+        const mappedAcct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
+        if (editing && mappedAcct) {
+          return (
+            <MatchedCoaEditor
+              entityId={entityId}
+              currentAcct={mappedAcct}
+              pending={swapCoaMutation.isPending}
+              onSelect={(acct) => swapCoaMutation.mutate({ lineId: line.id, accountId: acct.id })}
+              onCancel={() => setOverrideEditing((p) => { const n = { ...p }; delete n[line.id]; return n })}
+            />
+          )
+        }
+        return (
+          <div className="flex items-center gap-1.5 py-2">
+            <div className="flex-1 min-w-0">{getMappingStatusLabel(line, accountMap, matchMap[line.id])}</div>
+            {mappedAcct && (
+              <button
+                type="button"
+                onClick={() => setOverrideEditing((p) => ({ ...p, [line.id]: true }))}
+                className="shrink-0 text-gray-400 hover:text-indigo-600"
+                title="Override matched COA"
+                data-testid={`override-coa-btn-${line.id}`}
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+            {overriddenLines[line.id] && (
+              <button
+                type="button"
+                onClick={() => {
+                  const sug = suggestMap[line.id]
+                  if (sug?.suggested_account_id) {
+                    swapCoaMutation.mutate({ lineId: line.id, accountId: sug.suggested_account_id })
+                  }
+                  setOverriddenLines((p) => { const n = { ...p }; delete n[line.id]; return n })
+                }}
+                className="shrink-0 text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-0.5"
+                title="Reset to system suggestion"
+                data-testid={`reset-coa-btn-${line.id}`}
+              >
+                <RotateCcw className="w-3 h-3" /> Reset
+              </button>
+            )}
+          </div>
+        )
+      },
     },
     {
       key: 'fsli',
@@ -682,8 +1093,13 @@ export function MappingWorkbenchPage() {
         const eff = inheritanceMap[acct.id]
         const isInherited = eff && (eff.mapping_source === 'parent' || eff.mapping_source === 'grandparent')
         const currentValue = eff?.taxonomy_line_id ?? acct.reporting_taxonomy_line_id ?? ''
+
+        // Issue 13 — badge source
+        const isSprintO = !!eff?.taxonomy_line_id
+        const isLegacy = !eff?.taxonomy_line_id && acct.reporting_taxonomy_line_id != null
+
         return (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-0.5 py-2">
             <select
               value={currentValue}
               onChange={(e) => {
@@ -709,13 +1125,21 @@ export function MappingWorkbenchPage() {
               }`}
             >
               <option value="">— Select FSLI —</option>
-              {taxonomyLines.map((t: ReportingTaxonomyLine) => (
+              {fsliOptions.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
-            {isInherited && (
-              <span className="text-[10px] text-gray-400 italic">inherited</span>
-            )}
+            <div className="flex items-center gap-1 flex-wrap">
+              {isInherited && (
+                <span className="text-[10px] text-gray-400 italic">inherited</span>
+              )}
+              {isSprintO && (
+                <span className="text-[9px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded" data-testid={`sprint-o-badge-${line.id}`}>Sprint O</span>
+              )}
+              {isLegacy && (
+                <span className="text-[9px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded" data-testid={`legacy-badge-${line.id}`}>Legacy</span>
+              )}
+            </div>
           </div>
         )
       },
@@ -772,19 +1196,19 @@ export function MappingWorkbenchPage() {
           : 'bg-yellow-50 text-yellow-700 border-yellow-200'
 
         return (
-          <div className="flex flex-col gap-1 py-1">
+          <div className="flex flex-col gap-1 py-2">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-mono text-xs font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
                 {suggestion.suggested_account_number}
               </span>
-              <span className="text-xs text-gray-800 font-medium truncate max-w-[120px]" title={suggestion.suggested_account_name ?? ''}>
+              <span className="text-xs text-gray-800 font-medium whitespace-nowrap" title={suggestion.suggested_account_name ?? ''}>
                 {suggestion.suggested_account_name}
               </span>
               <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${confBadgeColor}`}>
                 {confidence}
               </span>
             </div>
-            <span className="text-[10px] text-gray-400 truncate max-w-[200px]" title={evidence}>
+            <span className="text-[10px] text-gray-400 whitespace-nowrap" title={evidence}>
               {evidence}
             </span>
             <div className="mt-0.5">
@@ -814,13 +1238,13 @@ export function MappingWorkbenchPage() {
 
         if (isMapped && !isEditing) {
           const mappedAcct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
-          const displayName = mappedAcct 
+          const displayName = mappedAcct
             ? `${mappedAcct.account_number} — ${mappedAcct.account_name}`
             : 'Mapped'
 
           return (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-green-700 flex items-center gap-1 bg-green-50 border border-green-200 px-2 py-0.5 rounded max-w-[220px] truncate animate-in fade-in" title={displayName}>
+            <div className="flex items-center gap-2 py-2">
+              <span className="text-xs font-medium text-green-700 flex items-center gap-1 bg-green-50 border border-green-200 px-2 py-0.5 rounded whitespace-nowrap animate-in fade-in" title={displayName}>
                 <Check className="w-3.5 h-3.5 shrink-0" /> {displayName}
               </span>
               <button
@@ -851,7 +1275,7 @@ export function MappingWorkbenchPage() {
               defaultNumber={line.raw_account_number ?? ''}
               defaultName={line.raw_account_name ?? ''}
               isPending={createMutation.isPending}
-              taxonomyLines={taxonomyLines}
+              taxonomyLines={legacyTaxonomyLines}
               onSubmit={(data) => createMutation.mutate({ lineId: line.id, data })}
               onCancel={() => setCreateLineId(null)}
             />
@@ -859,7 +1283,7 @@ export function MappingWorkbenchPage() {
         }
 
         return (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 py-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex-1 min-w-[160px]">
               <AccountSearch
                 entityId={entityId}
@@ -959,6 +1383,13 @@ export function MappingWorkbenchPage() {
           .catch((err: Error) => setApiError(err.message))
       },
     },
+    {
+      key: 'delete_row',
+      label: 'Delete row',
+      icon: Trash2,
+      variant: 'danger',
+      onClick: (row) => setDeleteConfirmLineId(row.id),
+    },
   ]
 
   const batchActions: BatchAction<ImportLine>[] = [
@@ -1018,7 +1449,80 @@ export function MappingWorkbenchPage() {
         }
       }
     },
+    {
+      key: 'batch_delete',
+      label: 'Delete selected',
+      icon: Trash2,
+      variant: 'danger',
+      onClick: async (rows) => {
+        if (rows.length === 0) return
+        const ok = typeof window !== 'undefined' ? window.confirm(`Delete ${rows.length} line${rows.length === 1 ? '' : 's'}? This cannot be undone.`) : true
+        if (!ok) return
+        bulkDeleteMutation.mutate(rows.map((r) => r.id))
+      },
+    },
   ]
+
+  // Issue 6 — FilterBar definitions
+  const filterBarDefs: FilterBarFilterDef[] = [
+    {
+      key: 'filter-status-chips',
+      label: 'Status',
+      type: 'checklist',
+      value: extFilters.statusChips,
+      onChange: (v: string[]) => setExtFilters((p) => ({ ...p, statusChips: v })),
+      options: ['mapped', 'unmapped', 'conflict', 'inherited'],
+    },
+    {
+      key: 'filter-parent-contains',
+      label: 'Parent contains',
+      type: 'text',
+      value: extFilters.parentContains,
+      onChange: (v: string) => setExtFilters((p) => ({ ...p, parentContains: v })),
+    },
+    {
+      key: 'filter-inherited-from',
+      label: 'Inherited from',
+      type: 'text',
+      value: extFilters.inheritedFromContains,
+      onChange: (v: string) => setExtFilters((p) => ({ ...p, inheritedFromContains: v })),
+    },
+    {
+      key: 'filter-confidence',
+      label: 'Confidence %',
+      type: 'numeric-range',
+      value: { min: String(extFilters.confidenceMin), max: String(extFilters.confidenceMax) },
+      onChange: (v: { min?: string; max?: string }) =>
+        setExtFilters((p) => ({
+          ...p,
+          confidenceMin: Number(v.min ?? 0) || 0,
+          confidenceMax: Number(v.max ?? 100) || 100,
+        })),
+    },
+  ]
+
+  const activeExtFilterCount = (
+    (extFilters.statusChips.length > 0 ? 1 : 0) +
+    (extFilters.accountType !== 'all' ? 1 : 0) +
+    (extFilters.coaMatchState !== 'all' ? 1 : 0) +
+    (extFilters.taxonomyAssignment !== 'all' ? 1 : 0) +
+    (extFilters.confidenceMin !== 0 || extFilters.confidenceMax !== 100 ? 1 : 0) +
+    (extFilters.parentContains ? 1 : 0) +
+    (extFilters.inheritedFromContains ? 1 : 0)
+  )
+
+  function clearExtFilters() {
+    setExtFilters({
+      statusChips: [],
+      accountType: 'all',
+      coaMatchState: 'all',
+      taxonomyAssignment: 'all',
+      confidenceMin: 0,
+      confidenceMax: 100,
+      parentContains: '',
+      inheritedFromContains: '',
+    })
+  }
 
   return (
     <PageLayout
@@ -1055,6 +1559,14 @@ export function MappingWorkbenchPage() {
           </button>
           <button
             type="button"
+            onClick={() => setDeleteBatchConfirmOpen(true)}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 border border-rose-300 text-rose-600 rounded hover:bg-rose-50 font-medium"
+            data-testid="delete-batch-btn"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete entire batch
+          </button>
+          <button
+            type="button"
             onClick={() => navigate(`/import/${batchId}`)}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 font-medium"
           >
@@ -1064,6 +1576,33 @@ export function MappingWorkbenchPage() {
       }
     >
       {apiError && <ErrorBanner message={apiError} />}
+
+      {/* Issue 7 — FSLI source banner + selector */}
+      {usingFallback && fallbackTaxonomy && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-3 text-xs text-amber-800 flex items-center gap-3 flex-wrap" data-testid="fsli-fallback-banner">
+          <span>
+            Using <strong>{fallbackTaxonomy.name}</strong> as FSLI source. Pick a different taxonomy above.
+          </span>
+        </div>
+      )}
+      {(usingFallback || availableTaxonomies.length > 0) && (
+        <div className="flex items-center gap-3 mb-3">
+          <label className="text-xs font-medium text-gray-600 whitespace-nowrap">FSLI Source Taxonomy:</label>
+          <select
+            value={resolvedSourceTaxonomyId ?? ''}
+            onChange={(e) => setFsliSourceTaxonomyId(e.target.value ? Number(e.target.value) : null)}
+            className="text-xs border border-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            data-testid="fsli-source-selector"
+          >
+            <option value="">— Use legacy reporting taxonomy —</option>
+            {availableTaxonomies.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} {t.is_system ? '(system)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Reporting view selector */}
       <div className="flex items-center gap-3 mb-3">
@@ -1140,6 +1679,21 @@ export function MappingWorkbenchPage() {
               onChange={(e) => setColFilters((p) => ({ ...p, fsliText: e.target.value }))}
               className="text-xs border border-gray-200 rounded px-2.5 py-1.5 w-36 focus:outline-none focus:ring-1 focus:ring-indigo-300"
             />
+            <button
+              type="button"
+              onClick={() => setFilterPanelOpen((v) => !v)}
+              className={`text-xs border rounded px-2.5 py-1.5 flex items-center gap-1 ${filterPanelOpen ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              data-testid="toggle-advanced-filters"
+            >
+              <Filter className="w-3 h-3" />
+              Advanced filters
+              {activeExtFilterCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-bold">
+                  {activeExtFilterCount}
+                </span>
+              )}
+              <ChevronDown className={`w-3 h-3 transition-transform ${filterPanelOpen ? 'rotate-180' : ''}`} />
+            </button>
             {(colFilters.sourceAccount || colFilters.fsliText || colFilters.status !== 'all') && (
               <button
                 type="button"
@@ -1150,20 +1704,116 @@ export function MappingWorkbenchPage() {
               </button>
             )}
           </div>
-          <AccountingDataGrid
-          columns={gridColumns}
-          data={gridData}
-          rowKey={(l) => l.id}
-          rowActions={rowActions}
-          batchActions={batchActions}
-          selectionEnabled={true}
-          toolbarLeft={toolbarLeft}
-          toolbarRight={toolbarRight}
-          searchPlaceholder="Filter by account # or name…"
-          exportFilename={`mapping_workbench_${batchId}`}
-          pageSize={50}
-          data-testid="mapping-workbench-grid"
-        />
+
+          {filterPanelOpen && (
+            <div className="mb-3 space-y-2" data-testid="advanced-filter-panel">
+              <FilterBar
+                data-testid="mapping-filter-bar"
+                filters={filterBarDefs}
+                activeCount={activeExtFilterCount}
+                onClearAll={clearExtFilters}
+              />
+              <div className="flex flex-wrap gap-3 px-2 text-xs">
+                <label className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Account type:</span>
+                  <select
+                    value={extFilters.accountType}
+                    onChange={(e) => setExtFilters((p) => ({ ...p, accountType: e.target.value }))}
+                    className="border border-gray-200 rounded px-2 py-1"
+                    data-testid="filter-account-type"
+                  >
+                    <option value="all">All</option>
+                    {accountTypeOptions.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <span className="text-gray-500">COA match:</span>
+                  <select
+                    value={extFilters.coaMatchState}
+                    onChange={(e) => setExtFilters((p) => ({ ...p, coaMatchState: e.target.value }))}
+                    className="border border-gray-200 rounded px-2 py-1"
+                    data-testid="filter-coa-match"
+                  >
+                    <option value="all">All</option>
+                    <option value="matched">Matched</option>
+                    <option value="unmatched">Unmatched</option>
+                    <option value="will-create">Will create</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Taxonomy:</span>
+                  <select
+                    value={extFilters.taxonomyAssignment}
+                    onChange={(e) => setExtFilters((p) => ({ ...p, taxonomyAssignment: e.target.value }))}
+                    className="border border-gray-200 rounded px-2 py-1"
+                    data-testid="filter-taxonomy"
+                  >
+                    <option value="all">All</option>
+                    <option value="has-fsli">Has FSLI</option>
+                    <option value="no-fsli">No FSLI</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'grouped' && groupedData && (
+            <div className="mb-2 text-xs text-gray-500" data-testid="grouped-summary">
+              {parentChildSummary.parents} parent accounts · {parentChildSummary.children} child accounts
+            </div>
+          )}
+
+          {/* Grouped header rows rendered above grid */}
+          {viewMode === 'grouped' && groupedData && (
+            <div className="mb-2 space-y-1" data-testid="grouped-headers">
+              {groupedData.map((g) => {
+                const expanded = expandedGroups[g.key] ?? true
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    onClick={() => setExpandedGroups((p) => ({ ...p, [g.key]: !(p[g.key] ?? true) }))}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-xs"
+                    data-testid={`group-header-${g.key}`}
+                  >
+                    {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    {g.parent ? (
+                      <>
+                        <span className="font-mono font-semibold text-gray-700">{g.parent.account_number}</span>
+                        <span className="text-gray-600">{g.parent.account_name}</span>
+                      </>
+                    ) : (
+                      <span className="italic text-gray-500">Ungrouped</span>
+                    )}
+                    <span className="ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px]">
+                      {g.lines.length}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <div className="min-w-[1400px]">
+              <AccountingDataGrid
+                columns={gridColumns}
+                data={visibleGridData}
+                rowKey={(l) => l.id}
+                rowActions={rowActions}
+                batchActions={batchActions}
+                selectionEnabled={true}
+                toolbarLeft={toolbarLeft}
+                toolbarRight={toolbarRight}
+                searchPlaceholder="Filter by account # or name…"
+                exportFilename={`mapping_workbench_${batchId}`}
+                pageSize={50}
+                data-testid="mapping-workbench-grid"
+              />
+            </div>
+          </div>
         </>
       )}
 
@@ -1181,6 +1831,68 @@ export function MappingWorkbenchPage() {
           </button>
         </div>
       )}
+
+      {/* Issue 5 — single-line delete confirm */}
+      {deleteConfirmLineId != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4" data-testid="delete-line-confirm">
+            <h3 className="text-lg font-semibold text-gray-800">Delete line</h3>
+            <p className="text-sm text-gray-600">
+              Permanently remove line #{lines.find((l) => l.id === deleteConfirmLineId)?.line_number ?? deleteConfirmLineId} from this batch? This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmLineId(null)}
+                className="px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteLineMutation.isPending}
+                onClick={() => deleteLineMutation.mutate(deleteConfirmLineId)}
+                className="px-3 py-1.5 bg-rose-600 text-white text-sm rounded hover:bg-rose-700 disabled:opacity-50"
+                data-testid="confirm-delete-line-btn"
+              >
+                {deleteLineMutation.isPending ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Issue 5 — delete entire batch confirm */}
+      {deleteBatchConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4" data-testid="delete-batch-confirm">
+            <h3 className="text-lg font-semibold text-gray-800">Delete entire batch</h3>
+            <p className="text-sm text-gray-600">
+              This will permanently delete the batch <strong>{batch?.filename ?? batchId}</strong> and all its lines.
+              Posted batches must be rolled back first.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteBatchConfirmOpen(false)}
+                className="px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteBatchMutation.isPending}
+                onClick={() => deleteBatchMutation.mutate()}
+                className="px-3 py-1.5 bg-rose-600 text-white text-sm rounded hover:bg-rose-700 disabled:opacity-50"
+                data-testid="confirm-delete-batch-btn"
+              >
+                {deleteBatchMutation.isPending ? 'Deleting…' : 'Delete batch'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isBatchMapOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full space-y-4">
