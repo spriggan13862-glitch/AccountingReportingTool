@@ -19,6 +19,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { CreateAccountModal } from '@/components/ui/CreateAccountModal'
 import { BatchActionBar, FilterBar } from '@/components/data-grid'
+import { AccountTaxonomyMappingsPanel } from '@/components/taxonomy/AccountTaxonomyMappingsPanel'
 import { useToast } from '@/providers/ToastProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import type { Account, AccountNode, ReportingTaxonomyLine } from '@/types'
@@ -747,6 +748,12 @@ function AccountPreviewSidebar({
           ) : (
             <p className="text-xs text-gray-400 italic pl-1">Manually created account</p>
           )}
+        </div>
+
+        {/* Multi-Taxonomy Mappings */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Multi-Taxonomy Mappings</p>
+          <AccountTaxonomyMappingsPanel accountId={account.id} />
         </div>
 
         {/* Source System */}
