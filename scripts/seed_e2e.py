@@ -160,6 +160,12 @@ def seed() -> None:
         seed_views(db)
         print("[seed_e2e] Taxonomy and views seeded.")
 
+        # System taxonomy library (Sprint O)
+        from app.services.taxonomy_library_service import seed_system_taxonomies
+        results = seed_system_taxonomies(db)
+        total_nodes = sum(results.values())
+        print(f"[seed_e2e] System taxonomies seeded: {len(results)} taxonomies, {total_nodes} nodes.")
+
         db.commit()
         print("[seed_e2e] Seed complete.")
         print(f"[seed_e2e]   Credentials: admin@livemarketing.test / Test1234!")

@@ -63,6 +63,11 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['pdf-import'],
     },
+    {
+      name: 'taxonomy',
+      testMatch: '**/taxonomy.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {

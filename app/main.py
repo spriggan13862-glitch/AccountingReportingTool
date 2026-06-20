@@ -354,7 +354,7 @@ app.include_router(advisory_analysis.router, prefix=API_PREFIX)
 app.include_router(deliverable_workspace.router, prefix=API_PREFIX)
 app.include_router(quickbooks.router, prefix=API_PREFIX)
 app.include_router(dev.router, prefix=API_PREFIX)
-app.include_router(taxonomy_library.router, prefix="/taxonomies", tags=["taxonomies"])
+app.include_router(taxonomy_library.router, prefix=f"{API_PREFIX}/taxonomies", tags=["taxonomies"])
 
 
 # ---------------------------------------------------------------------------
