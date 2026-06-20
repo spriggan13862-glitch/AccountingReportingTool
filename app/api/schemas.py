@@ -2718,3 +2718,123 @@ class PresentationViewResponse(BaseModel):
     period_id: int | None
     view_id: int | None
     as_of_date: str | None
+
+
+# ---------------------------------------------------------------------------
+# Sprint O3 — Taxonomy Library API
+# ---------------------------------------------------------------------------
+
+class TaxonomyOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: str | None = None
+    industry: str | None = None
+    version: str | None = None
+    is_system: bool
+    parent_taxonomy_id: int | None = None
+    is_active: bool
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaxonomyDetailOut(TaxonomyOut):
+    node_count: int
+
+
+class TaxonomyNodeOut(BaseModel):
+    id: int
+    taxonomy_id: int
+    parent_id: int | None = None
+    code: str
+    name: str
+    description: str | None = None
+    statement_type: str | None = None
+    financial_statement_section: str | None = None
+    normal_balance: str | None = None
+    sort_order: int
+    level: int
+    is_active: bool
+    is_system: bool
+    gaap_reference: str | None = None
+    ifrs_reference: str | None = None
+    xbrl_tag: str | None = None
+    cash_flow_classification: str | None = None
+    consolidation_treatment: str | None = None
+    kpi_eligible: bool
+    industry: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TaxonomyNodeTreeOut(TaxonomyNodeOut):
+    children: list["TaxonomyNodeTreeOut"] = []
+
+
+class TaxonomyNodeCreate(BaseModel):
+    parent_id: int | None = None
+    code: str
+    name: str
+    description: str | None = None
+    statement_type: str | None = None
+    financial_statement_section: str | None = None
+    normal_balance: str | None = None
+    sort_order: int = 0
+    level: int = 0
+    gaap_reference: str | None = None
+    ifrs_reference: str | None = None
+    xbrl_tag: str | None = None
+    cash_flow_classification: str | None = None
+    consolidation_treatment: str | None = None
+    kpi_eligible: bool = False
+    industry: str | None = None
+
+
+class TaxonomyNodeUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    statement_type: str | None = None
+    financial_statement_section: str | None = None
+    normal_balance: str | None = None
+    sort_order: int | None = None
+    gaap_reference: str | None = None
+    ifrs_reference: str | None = None
+    xbrl_tag: str | None = None
+    cash_flow_classification: str | None = None
+    consolidation_treatment: str | None = None
+    kpi_eligible: bool | None = None
+    industry: str | None = None
+    is_active: bool | None = None
+
+
+class TaxonomyCloneRequest(BaseModel):
+    name: str
+    code: str | None = None
+
+
+class AccountTaxonomyMappingOut(BaseModel):
+    id: int
+    account_id: int
+    taxonomy_id: int
+    taxonomy_node_id: int
+    mapping_type: str
+    confidence_score: float | None = None
+    mapped_by: int | None = None
+    mapping_source: str
+    is_primary: bool
+    effective_date: datetime.datetime | None = None
+    end_date: datetime.datetime | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AccountTaxonomyMappingCreate(BaseModel):
+    account_id: int
+    taxonomy_id: int
+    taxonomy_node_id: int
+    mapping_type: str = "manual"
+    mapping_source: str = "user_selected"
+    confidence_score: float | None = None
+    is_primary: bool = False
+    mapped_by: int | None = None
+
+
+class AccountTaxonomyMappingBulkRequest(BaseModel):
+    mappings: list[AccountTaxonomyMappingCreate]
