@@ -68,6 +68,11 @@ export default defineConfig({
       testMatch: '**/taxonomy.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'workflow-fixes',
+      testMatch: '**/workflow_fixes.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {
