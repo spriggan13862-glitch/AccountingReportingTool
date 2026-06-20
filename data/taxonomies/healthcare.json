@@ -1,0 +1,362 @@
+{
+  "code": "healthcare",
+  "name": "Healthcare",
+  "description": "Healthcare provider industry reporting taxonomy",
+  "industry": "healthcare",
+  "version": "2026",
+  "nodes": [
+    {
+      "code": "BS",
+      "name": "Balance Sheet",
+      "description": "Financial position",
+      "statement_type": "Balance Sheet",
+      "sort_order": 1000,
+      "children": [
+        {
+          "code": "ASSETS",
+          "name": "Assets",
+          "description": "Total assets",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Assets",
+          "normal_balance": "debit",
+          "sort_order": 1100,
+          "children": [
+            {
+              "code": "CURRENT_ASSETS",
+              "name": "Current Assets",
+              "description": "Short-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1110,
+              "children": [
+                {"code": "CASH", "name": "Cash", "description": "Operating cash", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1111},
+                {"code": "CASH_EQUIV", "name": "Cash Equivalents", "description": "Short-term liquid", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1112},
+                {"code": "RESTRICTED_CASH", "name": "Restricted Cash (Donor/Grant)", "description": "Cash restricted by donors or grantors", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1113},
+                {"code": "AR", "name": "Patient Accounts Receivable", "description": "Amounts due from patients and insurers", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1120},
+                {"code": "AR_ALLOWANCE", "name": "Allowance for Contractual Adjustments and Doubtful Accounts", "description": "Patient AR allowance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1121},
+                {"code": "HC_THIRD_PARTY_PAYOR_RECEIVABLE", "name": "Third-Party Payor Receivables", "description": "Medicare/Medicaid/commercial payor settlements", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1122},
+                {"code": "HC_GRANT_RECEIVABLE", "name": "Grant Receivable", "description": "Promised grant funds", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1123},
+                {"code": "INVENTORY", "name": "Medical and Pharmaceutical Supplies", "description": "Medical supplies inventory", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1130},
+                {"code": "INVENTORY_RAW", "name": "Raw Materials", "description": "Pharma compounding raw", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1131},
+                {"code": "INVENTORY_WIP", "name": "Work in Process", "description": "WIP for lab/pharma", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1132},
+                {"code": "INVENTORY_FG", "name": "Finished Goods", "description": "Finished pharma/device inventory", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1133},
+                {"code": "PREPAID", "name": "Prepaid Expenses", "description": "Prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1140},
+                {"code": "PREPAID_INSURANCE", "name": "Prepaid Insurance (Malpractice/General)", "description": "Insurance prepaid", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1141},
+                {"code": "PREPAID_RENT", "name": "Prepaid Rent", "description": "Office/facility rent prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1142},
+                {"code": "OTHER_CURRENT_ASSET", "name": "Other Current Assets", "description": "Misc current assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1150}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_ASSETS",
+              "name": "Non-Current Assets",
+              "description": "Long-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1200,
+              "children": [
+                {"code": "PPE", "name": "Property, Plant and Equipment", "description": "PPE total", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1210},
+                {"code": "PPE_LAND", "name": "Land", "description": "Land", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1211},
+                {"code": "PPE_BUILDINGS", "name": "Buildings and Clinic Improvements", "description": "Buildings", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1212},
+                {"code": "PPE_EQUIPMENT", "name": "Medical Equipment", "description": "Imaging, exam, lab equipment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1213},
+                {"code": "PPE_FURNITURE", "name": "Furniture and Fixtures", "description": "Office furniture", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1214},
+                {"code": "PPE_VEHICLES", "name": "Vehicles", "description": "Ambulances/service vehicles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1215},
+                {"code": "PPE_LEASEHOLD", "name": "Leasehold Improvements", "description": "Clinic build-outs", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1216},
+                {"code": "PPE_ACCUM_DEPR", "name": "Accumulated Depreciation", "description": "PPE accumulated depreciation", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1217},
+                {"code": "INTANGIBLE", "name": "Intangible Assets (Certificates of Need, Licenses)", "description": "Healthcare-related intangibles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1220},
+                {"code": "GOODWILL", "name": "Goodwill", "description": "Practice acquisition goodwill", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1221},
+                {"code": "ROU_ASSET", "name": "Right-of-Use Asset", "description": "Clinic/office lease ROU", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1230},
+                {"code": "DEFERRED_TAX_ASSET", "name": "Deferred Tax Asset", "description": "DTA", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1240},
+                {"code": "HC_PROFESSIONAL_LIABILITY_RECEIVABLE", "name": "Estimated Insurance Recoveries", "description": "Recoveries on professional liability claims", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1250},
+                {"code": "OTHER_LT_ASSET", "name": "Other Non-Current Assets", "description": "Other LT assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1260}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "LIABILITIES",
+          "name": "Liabilities",
+          "description": "Total liabilities",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Liabilities",
+          "normal_balance": "credit",
+          "sort_order": 1300,
+          "children": [
+            {
+              "code": "CURRENT_LIABILITIES",
+              "name": "Current Liabilities",
+              "description": "Short-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1310,
+              "children": [
+                {"code": "AP", "name": "Accounts Payable", "description": "Vendor AP", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1311},
+                {"code": "ACCRUED_LIABILITIES", "name": "Accrued Liabilities", "description": "General accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1312},
+                {"code": "ACCRUED_PAYROLL", "name": "Accrued Payroll - Clinical and Admin", "description": "Comp accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1313},
+                {"code": "CREDIT_CARD", "name": "Credit Card Payable", "description": "Card balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1314},
+                {"code": "HC_THIRD_PARTY_PAYOR_LIABILITY", "name": "Third-Party Payor Settlements Payable", "description": "Amounts owed back to Medicare/Medicaid/payors", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1315},
+                {"code": "HC_PROFESSIONAL_LIABILITY_CURRENT", "name": "Professional Liability Claims - Current", "description": "Current portion of malpractice claims", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1316},
+                {"code": "SALES_TAX_PAYABLE", "name": "Sales Tax Payable", "description": "Sales tax on retail/pharmacy sales", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1317},
+                {"code": "PAYROLL_TAX_PAYABLE", "name": "Payroll Tax Payable", "description": "Payroll taxes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1318},
+                {"code": "INCOME_TAX_PAYABLE", "name": "Income Tax Payable", "description": "Current tax owed", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1319},
+                {"code": "DEFERRED_REVENUE", "name": "Deferred Revenue (Capitation Advance)", "description": "Capitation advances or prepaid service plans", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1320},
+                {"code": "CUSTOMER_DEPOSITS", "name": "Patient Prepayments", "description": "Patient prepayments for elective procedures", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1321},
+                {"code": "CURRENT_LEASE_LIABILITY", "name": "Lease Liability - Current", "description": "Current lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1322},
+                {"code": "CURRENT_LTD", "name": "Current Portion of Long-Term Debt", "description": "Current portion of term loans", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1323},
+                {"code": "LINE_OF_CREDIT", "name": "Line of Credit", "description": "Revolver drawn", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1324},
+                {"code": "NOTES_PAYABLE", "name": "Notes Payable", "description": "Notes payable - current", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1325},
+                {"code": "OTHER_CURRENT_LIABILITY", "name": "Other Current Liabilities", "description": "Other short-term", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1330}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_LIABILITIES",
+              "name": "Non-Current Liabilities",
+              "description": "Long-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1400,
+              "children": [
+                {"code": "LONG_TERM_DEBT", "name": "Long-Term Debt", "description": "Term loans, equipment financing", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1410},
+                {"code": "LEASE_LIABILITY", "name": "Lease Liability - Non-Current", "description": "Non-current lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1420},
+                {"code": "HC_PROFESSIONAL_LIABILITY_NC", "name": "Professional Liability Claims - Non-Current", "description": "Reserves for malpractice claims beyond 12 months", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1425},
+                {"code": "HC_ASSET_RETIREMENT", "name": "Asset Retirement Obligations", "description": "Medical waste/decommissioning", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1430},
+                {"code": "DEFERRED_TAX_LIABILITY", "name": "Deferred Tax Liability", "description": "DTL", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1440},
+                {"code": "OTHER_LT_LIABILITY", "name": "Other Non-Current Liabilities", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1460}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "EQUITY",
+          "name": "Equity / Net Assets",
+          "description": "Stockholders' equity or net assets",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Equity",
+          "normal_balance": "credit",
+          "sort_order": 1500,
+          "children": [
+            {"code": "COMMON_STOCK", "name": "Common Stock", "description": "Common shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1510},
+            {"code": "PREFERRED_STOCK", "name": "Preferred Stock", "description": "Preferred equity", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1520},
+            {"code": "APIC", "name": "Additional Paid-In Capital", "description": "APIC", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1530},
+            {"code": "RETAINED_EARNINGS", "name": "Retained Earnings", "description": "Accumulated earnings", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1540},
+            {"code": "TREASURY_STOCK", "name": "Treasury Stock", "description": "Repurchased shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1550},
+            {"code": "MEMBER_EQUITY", "name": "Members' Equity (PLLC)", "description": "Members' equity for professional LLCs", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1570},
+            {"code": "OWNER_EQUITY", "name": "Owner's Equity (Sole Practitioner)", "description": "Sole practitioner equity", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1580},
+            {"code": "OWNER_DRAW", "name": "Owner's Draw", "description": "Practitioner draws", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1581},
+            {"code": "DISTRIBUTIONS", "name": "Distributions", "description": "Partner/member distributions", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1590}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "IS",
+      "name": "Income Statement",
+      "description": "Statement of Operations",
+      "statement_type": "Income Statement",
+      "sort_order": 2000,
+      "children": [
+        {
+          "code": "REVENUE",
+          "name": "Net Patient Service Revenue",
+          "description": "Revenue from healthcare services",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Revenue",
+          "normal_balance": "credit",
+          "sort_order": 2100,
+          "children": [
+            {"code": "HC_PATIENT_REVENUE", "name": "Patient Service Revenue (Gross)", "description": "Gross charges for patient services", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2110},
+            {"code": "HC_CONTRACTUAL_ADJUSTMENTS", "name": "Contractual Adjustments", "description": "Contra-revenue for payor contractual write-offs", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 2115},
+            {"code": "HC_CHARITY_CARE", "name": "Charity Care Adjustments", "description": "Charity care contra-revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 2118},
+            {"code": "BAD_DEBT_EXPENSE", "name": "Provision for Bad Debts (Contra-Revenue)", "description": "Implicit price concession per ASC 606", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "debit", "sort_order": 2119, "gaap_reference": "ASC 606"},
+            {"code": "HC_CAPITATION_REVENUE", "name": "Capitation Revenue", "description": "Per-member-per-month payment revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2120},
+            {"code": "HC_GRANT_REVENUE", "name": "Grant and Contract Revenue", "description": "Grants and contracts revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2130},
+            {"code": "REVENUE_SALES", "name": "Pharmacy/Retail Sales", "description": "Retail pharmacy/product sales", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2140},
+            {"code": "REVENUE_SERVICE", "name": "Other Service Revenue", "description": "Lab/imaging/ancillary service revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2150},
+            {"code": "REVENUE_SUBSCRIPTION", "name": "Membership/Concierge Fees", "description": "Membership-based recurring revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2160},
+            {"code": "REVENUE_PROF_SERVICES", "name": "Professional Services Revenue", "description": "Consulting/professional services", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2170},
+            {"code": "REVENUE_LICENSE", "name": "License Revenue", "description": "Intellectual property licensing", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2180}
+          ]
+        },
+        {
+          "code": "COGS_SECTION",
+          "name": "Cost of Patient Services",
+          "description": "Direct costs of patient care",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Cost of Revenue",
+          "normal_balance": "debit",
+          "sort_order": 2200,
+          "children": [
+            {"code": "HC_CLINICAL_SALARIES", "name": "Clinical Staff Salaries", "description": "Physician, nurse, tech salaries", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2210},
+            {"code": "HC_MEDICAL_SUPPLIES", "name": "Medical Supplies", "description": "Disposables, instruments, supplies", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2220},
+            {"code": "HC_PHARMACEUTICALS", "name": "Pharmaceuticals", "description": "Drug cost", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2230},
+            {"code": "HC_LAB_PURCHASED_SERVICES", "name": "Purchased Lab/Imaging Services", "description": "Outsourced clinical services", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2240},
+            {"code": "HC_MALPRACTICE_INSURANCE", "name": "Malpractice/Professional Liability Insurance", "description": "Professional liability premiums", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2250},
+            {"code": "COGS", "name": "Cost of Pharmacy Goods", "description": "COGS for pharmacy/retail products", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2260},
+            {"code": "COGS_MATERIALS", "name": "Direct Materials", "description": "Direct materials for any production", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2261},
+            {"code": "COGS_LABOR", "name": "Direct Labor", "description": "Direct labor not captured in clinical salaries", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2262},
+            {"code": "COGS_OVERHEAD", "name": "Overhead", "description": "Allocated overhead", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2263},
+            {"code": "COGS_HOSTING", "name": "Telehealth Platform Costs", "description": "Telehealth hosting infrastructure", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2264},
+            {"code": "PAYMENT_PROCESSING_FEES", "name": "Payment Processing Fees", "description": "Card and patient payment fees", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2265}
+          ]
+        },
+        {"code": "GROSS_PROFIT", "name": "Gross Profit", "description": "Revenue less cost of services", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2300},
+        {
+          "code": "OPEX_FACILITIES",
+          "name": "Facility Operating Costs",
+          "description": "Building and facility operating costs",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2400,
+          "children": [
+            {"code": "RENT_EXPENSE", "name": "Clinic Rent", "description": "Office and clinic rent", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2410},
+            {"code": "UTILITIES", "name": "Utilities", "description": "Power, water, internet", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2420},
+            {"code": "REPAIRS_MAINTENANCE", "name": "Equipment Maintenance and Repairs", "description": "Medical equipment maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2430},
+            {"code": "INSURANCE_EXPENSE", "name": "General/Property Insurance", "description": "Non-malpractice business insurance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2440}
+          ]
+        },
+        {
+          "code": "OPEX_GA",
+          "name": "General and Administrative",
+          "description": "Administrative overhead",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2500,
+          "children": [
+            {"code": "SALARIES_WAGES", "name": "Administrative Salaries", "description": "Front-desk, billing, admin compensation", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2510},
+            {"code": "PAYROLL_TAXES", "name": "Payroll Taxes", "description": "Employer payroll taxes", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2511},
+            {"code": "EMPLOYEE_BENEFITS", "name": "Employee Benefits", "description": "Health/retirement benefits", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2512},
+            {"code": "TELECOM", "name": "Telecommunications", "description": "Phone/internet", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2520},
+            {"code": "SOFTWARE_EXPENSE", "name": "EHR/Practice Management Software", "description": "EHR/PM software subscriptions", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2530},
+            {"code": "OFFICE_SUPPLIES", "name": "Office Supplies", "description": "Non-clinical supplies", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2540},
+            {"code": "PROFESSIONAL_FEES", "name": "Professional Fees (Billing, Coding, Consulting)", "description": "Outsourced billing/coding/consulting", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2550},
+            {"code": "LEGAL_FEES", "name": "Legal Fees", "description": "Legal services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2551},
+            {"code": "TRAVEL_EXPENSE", "name": "Travel and Continuing Education", "description": "CME and travel", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2560},
+            {"code": "MEALS_ENTERTAINMENT", "name": "Meals", "description": "Staff/business meals", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2561},
+            {"code": "MARKETING_EXPENSE", "name": "Marketing", "description": "Marketing/patient acquisition", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2570},
+            {"code": "BANK_FEES", "name": "Bank Fees", "description": "Banking fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2580},
+            {"code": "RD_EXPENSE", "name": "Clinical Research Expense", "description": "Investigator and trial costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2590}
+          ]
+        },
+        {"code": "DEPRECIATION_EXPENSE", "name": "Depreciation of Medical Equipment and PPE", "description": "Depreciation expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2700},
+        {"code": "AMORTIZATION_EXPENSE", "name": "Amortization", "description": "Intangible amortization", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2710},
+        {"code": "OTHER_EXPENSE", "name": "Other Operating Expenses", "description": "Misc opex", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2720},
+        {"code": "OPERATING_INCOME", "name": "Operating Income (Loss)", "description": "Operating result", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "credit", "sort_order": 2800},
+        {
+          "code": "OTHER_INCOME_EXPENSE",
+          "name": "Non-Operating Items",
+          "description": "Non-operating items",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Other Income Expense",
+          "normal_balance": "credit",
+          "sort_order": 2900,
+          "children": [
+            {"code": "INTEREST_INCOME", "name": "Interest and Investment Income", "description": "Investment income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2910},
+            {"code": "INTEREST_EXPENSE", "name": "Interest Expense", "description": "Debt interest", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "debit", "sort_order": 2920},
+            {"code": "GAIN_ON_SALE", "name": "Gain on Sale of Assets", "description": "Asset disposal gains", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2930},
+            {"code": "OTHER_INCOME", "name": "Other Income (Cafeteria, Parking, Misc)", "description": "Cafeteria, parking, misc", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2940},
+            {"code": "RENTAL_INCOME", "name": "Rental Income (Subleased Space)", "description": "Sublease rental", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2950}
+          ]
+        },
+        {"code": "INCOME_TAX_EXPENSE", "name": "Income Tax Expense", "description": "Tax provision", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "debit", "sort_order": 2970},
+        {"code": "NET_INCOME", "name": "Net Income (Loss)", "description": "Bottom line", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "credit", "sort_order": 2980}
+      ]
+    },
+    {
+      "code": "CF",
+      "name": "Cash Flow Statement",
+      "description": "Cash flow",
+      "statement_type": "Cash Flow",
+      "sort_order": 3000,
+      "children": [
+        {
+          "code": "CF_OPERATING",
+          "name": "Operating Cash Flow",
+          "description": "Cash from operations",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Operating",
+          "normal_balance": "credit",
+          "sort_order": 3100,
+          "cash_flow_classification": "operating",
+          "children": [
+            {"code": "CF_NET_INCOME", "name": "Net Income", "description": "Starting line", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3110, "cash_flow_classification": "operating"},
+            {"code": "CF_DEPRECIATION", "name": "Depreciation and Amortization", "description": "D&A add-back", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3120, "cash_flow_classification": "operating"},
+            {"code": "CF_AR_CHANGE", "name": "Change in Patient AR", "description": "Patient AR WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3140, "cash_flow_classification": "operating"},
+            {"code": "CF_INV_CHANGE", "name": "Change in Supplies Inventory", "description": "Supplies WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3150, "cash_flow_classification": "operating"},
+            {"code": "CF_AP_CHANGE", "name": "Change in AP", "description": "AP WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3160, "cash_flow_classification": "operating"},
+            {"code": "CF_PAYOR_SETTLEMENT_CHANGE", "name": "Change in Third-Party Settlement Liability", "description": "Payor settlement WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3170, "cash_flow_classification": "operating"}
+          ]
+        },
+        {
+          "code": "CF_INVESTING",
+          "name": "Investing Cash Flow",
+          "description": "Investing activity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Investing",
+          "normal_balance": "credit",
+          "sort_order": 3200,
+          "cash_flow_classification": "investing",
+          "children": [
+            {"code": "CF_PPE_PURCHASE", "name": "Purchases of Medical Equipment", "description": "Equipment capex", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3210, "cash_flow_classification": "investing"},
+            {"code": "CF_PPE_SALE", "name": "Proceeds from Sale of Equipment", "description": "Equipment disposals", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "credit", "sort_order": 3220, "cash_flow_classification": "investing"},
+            {"code": "CF_ACQUISITION", "name": "Practice Acquisitions", "description": "M&A spend", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3230, "cash_flow_classification": "investing"}
+          ]
+        },
+        {
+          "code": "CF_FINANCING",
+          "name": "Financing Cash Flow",
+          "description": "Financing activity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Financing",
+          "normal_balance": "credit",
+          "sort_order": 3300,
+          "cash_flow_classification": "financing",
+          "children": [
+            {"code": "CF_DEBT_PROCEEDS", "name": "Proceeds from Debt", "description": "New borrowings", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3310, "cash_flow_classification": "financing"},
+            {"code": "CF_DEBT_REPAYMENT", "name": "Repayment of Debt", "description": "Debt principal payments", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3320, "cash_flow_classification": "financing"},
+            {"code": "CF_DISTRIBUTIONS", "name": "Partner Distributions", "description": "Partner/member distributions", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3330, "cash_flow_classification": "financing"},
+            {"code": "CF_STOCK_ISSUANCE", "name": "Equity Contributions", "description": "New equity capital", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3340, "cash_flow_classification": "financing"}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "EQUITY_STMT",
+      "name": "Statement of Changes in Equity",
+      "description": "Equity roll-forward",
+      "statement_type": "Equity",
+      "sort_order": 4000,
+      "children": [
+        {"code": "EQ_BEGINNING", "name": "Beginning Equity", "description": "Opening equity", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4010},
+        {"code": "EQ_NET_INCOME", "name": "Net Income", "description": "Period earnings", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4020},
+        {"code": "EQ_DIVIDENDS", "name": "Partner Distributions", "description": "Distributions", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 4030},
+        {"code": "EQ_STOCK_ISSUED", "name": "Capital Contributions", "description": "Capital contributions", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4040},
+        {"code": "EQ_ENDING", "name": "Ending Equity", "description": "Closing equity", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4050}
+      ]
+    },
+    {
+      "code": "HC_KPI",
+      "name": "Healthcare KPIs",
+      "description": "Healthcare operating metrics",
+      "statement_type": "KPI",
+      "financial_statement_section": "KPI",
+      "sort_order": 5000,
+      "children": [
+        {"code": "HC_PATIENT_VISITS", "name": "Patient Visits", "description": "Total patient encounters", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5010, "kpi_eligible": true},
+        {"code": "HC_REVENUE_PER_VISIT", "name": "Revenue per Visit", "description": "Net revenue / visits", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5020, "kpi_eligible": true},
+        {"code": "HC_COLLECTION_RATE", "name": "Net Collection Rate %", "description": "Collected / billable", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5030, "kpi_eligible": true},
+        {"code": "HC_DAYS_IN_AR", "name": "Days in AR", "description": "Average days from service to collection", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5040, "kpi_eligible": true},
+        {"code": "HC_OCCUPANCY_RATE", "name": "Bed/Chair Occupancy Rate", "description": "Utilization metric", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5050, "kpi_eligible": true},
+        {"code": "HC_PAYOR_MIX_MEDICARE", "name": "Payor Mix - Medicare %", "description": "Medicare share of revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5060, "kpi_eligible": true},
+        {"code": "HC_PAYOR_MIX_MEDICAID", "name": "Payor Mix - Medicaid %", "description": "Medicaid share of revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5070, "kpi_eligible": true},
+        {"code": "HC_PAYOR_MIX_COMMERCIAL", "name": "Payor Mix - Commercial %", "description": "Commercial insurance share", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5080, "kpi_eligible": true},
+        {"code": "HC_PAYOR_MIX_SELF_PAY", "name": "Payor Mix - Self Pay %", "description": "Self-pay share", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5090, "kpi_eligible": true},
+        {"code": "HC_LABOR_COST_RATIO", "name": "Labor Cost % of Revenue", "description": "Labor / net revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true}
+      ]
+    }
+  ]
+}

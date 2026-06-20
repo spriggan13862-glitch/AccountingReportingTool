@@ -1,0 +1,379 @@
+{
+  "code": "ifrs",
+  "name": "IFRS",
+  "description": "International Financial Reporting Standards reporting taxonomy",
+  "industry": null,
+  "version": "2026",
+  "nodes": [
+    {
+      "code": "SFP",
+      "name": "Statement of Financial Position",
+      "description": "IFRS Balance Sheet",
+      "statement_type": "Balance Sheet",
+      "sort_order": 1000,
+      "children": [
+        {
+          "code": "ASSETS",
+          "name": "Assets",
+          "description": "Resources controlled by the entity",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Assets",
+          "normal_balance": "debit",
+          "sort_order": 1100,
+          "ifrs_reference": "IAS 1",
+          "children": [
+            {
+              "code": "CURRENT_ASSETS",
+              "name": "Current Assets",
+              "description": "Assets expected to be realized within 12 months",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1110,
+              "ifrs_reference": "IAS 1.66",
+              "children": [
+                {"code": "CASH", "name": "Cash", "description": "Cash on hand", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1111, "ifrs_reference": "IAS 7"},
+                {"code": "CASH_EQUIV", "name": "Cash Equivalents", "description": "Short-term liquid investments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1112, "ifrs_reference": "IAS 7"},
+                {"code": "RESTRICTED_CASH", "name": "Restricted Cash", "description": "Cash with usage restrictions", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1113, "ifrs_reference": "IAS 7"},
+                {"code": "AR", "name": "Trade Receivables", "description": "Amounts due from customers", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1120, "ifrs_reference": "IFRS 9"},
+                {"code": "AR_ALLOWANCE", "name": "Loss Allowance on Trade Receivables", "description": "Expected credit loss allowance (ECL)", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1121, "ifrs_reference": "IFRS 9"},
+                {"code": "CONTRACT_ASSET", "name": "Contract Assets", "description": "Unconditional rights to consideration", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1125, "ifrs_reference": "IFRS 15"},
+                {"code": "INVENTORY", "name": "Inventories", "description": "Goods held for sale", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1130, "ifrs_reference": "IAS 2"},
+                {"code": "INVENTORY_RAW", "name": "Raw Materials", "description": "Unprocessed materials", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1131, "ifrs_reference": "IAS 2"},
+                {"code": "INVENTORY_WIP", "name": "Work in Progress", "description": "Partially completed goods", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1132, "ifrs_reference": "IAS 2"},
+                {"code": "INVENTORY_FG", "name": "Finished Goods", "description": "Completed goods ready for sale", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1133, "ifrs_reference": "IAS 2"},
+                {"code": "PREPAID", "name": "Prepayments", "description": "Expenses paid in advance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1140},
+                {"code": "PREPAID_INSURANCE", "name": "Prepaid Insurance", "description": "Insurance premiums paid in advance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1141},
+                {"code": "PREPAID_RENT", "name": "Prepaid Rent", "description": "Rent paid in advance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1142},
+                {"code": "BIOLOGICAL_ASSETS_CURRENT", "name": "Biological Assets - Current", "description": "Living animals or plants harvested within 12 months", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1145, "ifrs_reference": "IAS 41"},
+                {"code": "ASSETS_HELD_FOR_SALE", "name": "Assets Held for Sale", "description": "Non-current assets classified as held for sale", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1148, "ifrs_reference": "IFRS 5"},
+                {"code": "OTHER_CURRENT_ASSET", "name": "Other Current Assets", "description": "Miscellaneous current assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1150}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_ASSETS",
+              "name": "Non-Current Assets",
+              "description": "Assets not expected to be realized within 12 months",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1200,
+              "ifrs_reference": "IAS 1.66",
+              "children": [
+                {"code": "PPE", "name": "Property, Plant and Equipment", "description": "Tangible non-current assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1210, "ifrs_reference": "IAS 16"},
+                {"code": "PPE_LAND", "name": "Land", "description": "Land held for use", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1211, "ifrs_reference": "IAS 16"},
+                {"code": "PPE_BUILDINGS", "name": "Buildings", "description": "Buildings and structures", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1212, "ifrs_reference": "IAS 16"},
+                {"code": "PPE_EQUIPMENT", "name": "Plant and Machinery", "description": "Production machinery", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1213, "ifrs_reference": "IAS 16"},
+                {"code": "PPE_FURNITURE", "name": "Furniture and Fixtures", "description": "Office furniture and fixtures", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1214, "ifrs_reference": "IAS 16"},
+                {"code": "PPE_VEHICLES", "name": "Vehicles", "description": "Transportation equipment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1215, "ifrs_reference": "IAS 16"},
+                {"code": "PPE_LEASEHOLD", "name": "Leasehold Improvements", "description": "Improvements to leased property", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1216},
+                {"code": "PPE_ACCUM_DEPR", "name": "Accumulated Depreciation", "description": "Accumulated PPE depreciation", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1217, "ifrs_reference": "IAS 16"},
+                {"code": "INVESTMENT_PROPERTY", "name": "Investment Property", "description": "Property held for rental/capital appreciation", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1218, "ifrs_reference": "IAS 40"},
+                {"code": "INTANGIBLE", "name": "Intangible Assets", "description": "Identifiable non-monetary non-physical assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1220, "ifrs_reference": "IAS 38"},
+                {"code": "GOODWILL", "name": "Goodwill", "description": "Goodwill from business combinations", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1221, "ifrs_reference": "IFRS 3"},
+                {"code": "DEVELOPMENT_COSTS", "name": "Development Costs", "description": "Capitalized development expenditures", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1222, "ifrs_reference": "IAS 38"},
+                {"code": "ROU_ASSET", "name": "Right-of-Use Asset", "description": "Lessee right-of-use asset", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1230, "ifrs_reference": "IFRS 16"},
+                {"code": "DEFERRED_TAX_ASSET", "name": "Deferred Tax Assets", "description": "Future deductible amounts", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1240, "ifrs_reference": "IAS 12"},
+                {"code": "EQUITY_METHOD_INVESTMENTS", "name": "Investments in Associates", "description": "Equity-accounted investments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1250, "ifrs_reference": "IAS 28"},
+                {"code": "BIOLOGICAL_ASSETS_NC", "name": "Biological Assets - Non-Current", "description": "Long-lived biological assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1255, "ifrs_reference": "IAS 41"},
+                {"code": "OTHER_LT_ASSET", "name": "Other Non-Current Assets", "description": "Miscellaneous long-term assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1260}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "LIABILITIES",
+          "name": "Liabilities",
+          "description": "Present obligations",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Liabilities",
+          "normal_balance": "credit",
+          "sort_order": 1300,
+          "ifrs_reference": "IAS 1",
+          "children": [
+            {
+              "code": "CURRENT_LIABILITIES",
+              "name": "Current Liabilities",
+              "description": "Obligations due within 12 months",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1310,
+              "ifrs_reference": "IAS 1.69",
+              "children": [
+                {"code": "AP", "name": "Trade Payables", "description": "Amounts owed to suppliers", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1311},
+                {"code": "ACCRUED_LIABILITIES", "name": "Accrued Liabilities", "description": "Expenses incurred not yet invoiced", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1312},
+                {"code": "ACCRUED_PAYROLL", "name": "Employee Benefits Payable", "description": "Short-term employee benefits", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1313, "ifrs_reference": "IAS 19"},
+                {"code": "CREDIT_CARD", "name": "Credit Card Payables", "description": "Outstanding card balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1314},
+                {"code": "LINE_OF_CREDIT", "name": "Bank Overdrafts", "description": "Bank overdraft balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1315},
+                {"code": "NOTES_PAYABLE", "name": "Notes Payable - Current", "description": "Short-term notes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1316},
+                {"code": "SALES_TAX_PAYABLE", "name": "VAT/Sales Tax Payable", "description": "VAT/GST/sales tax collected", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1317},
+                {"code": "PAYROLL_TAX_PAYABLE", "name": "Payroll Tax Payable", "description": "Withheld and employer payroll taxes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1318},
+                {"code": "INCOME_TAX_PAYABLE", "name": "Current Tax Liability", "description": "Income taxes currently payable", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1319, "ifrs_reference": "IAS 12"},
+                {"code": "DEFERRED_REVENUE", "name": "Contract Liabilities", "description": "Performance obligations not yet fulfilled", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1320, "ifrs_reference": "IFRS 15"},
+                {"code": "CUSTOMER_DEPOSITS", "name": "Customer Deposits", "description": "Advance customer payments", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1321},
+                {"code": "CURRENT_LEASE_LIABILITY", "name": "Lease Liability - Current", "description": "Current portion of lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1322, "ifrs_reference": "IFRS 16"},
+                {"code": "CURRENT_LTD", "name": "Current Portion of Borrowings", "description": "Current portion of long-term debt", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1323},
+                {"code": "PROVISIONS_CURRENT", "name": "Current Provisions", "description": "Short-term provisions (IAS 37)", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1324, "ifrs_reference": "IAS 37"},
+                {"code": "OTHER_CURRENT_LIABILITY", "name": "Other Current Liabilities", "description": "Miscellaneous short-term liabilities", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1330}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_LIABILITIES",
+              "name": "Non-Current Liabilities",
+              "description": "Obligations due beyond 12 months",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1400,
+              "children": [
+                {"code": "LONG_TERM_DEBT", "name": "Long-Term Borrowings", "description": "Long-term loans and financing", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1410, "ifrs_reference": "IFRS 9"},
+                {"code": "BONDS_PAYABLE", "name": "Bonds Issued", "description": "Outstanding bond obligations", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1411},
+                {"code": "LEASE_LIABILITY", "name": "Lease Liability - Non-Current", "description": "Non-current lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1420, "ifrs_reference": "IFRS 16"},
+                {"code": "DEFERRED_TAX_LIABILITY", "name": "Deferred Tax Liabilities", "description": "Future taxable amounts", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1430, "ifrs_reference": "IAS 12"},
+                {"code": "PROVISIONS_NC", "name": "Non-Current Provisions", "description": "Long-term provisions for warranties/restructuring", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1440, "ifrs_reference": "IAS 37"},
+                {"code": "POST_EMPLOYMENT_LIABILITY", "name": "Post-Employment Benefit Obligation", "description": "Defined benefit pension liability", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1445, "ifrs_reference": "IAS 19"},
+                {"code": "DECOMMISSIONING_PROVISION", "name": "Decommissioning Provisions", "description": "Provisions for site restoration", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1450, "ifrs_reference": "IAS 37"},
+                {"code": "OTHER_LT_LIABILITY", "name": "Other Non-Current Liabilities", "description": "Miscellaneous long-term liabilities", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1460}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "EQUITY",
+          "name": "Equity",
+          "description": "Residual interest in assets after liabilities",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Equity",
+          "normal_balance": "credit",
+          "sort_order": 1500,
+          "children": [
+            {"code": "COMMON_STOCK", "name": "Share Capital", "description": "Issued share capital", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1510},
+            {"code": "PREFERRED_STOCK", "name": "Preference Shares", "description": "Issued preference shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1520},
+            {"code": "APIC", "name": "Share Premium", "description": "Amounts paid in excess of par value", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1530},
+            {"code": "RETAINED_EARNINGS", "name": "Retained Earnings", "description": "Accumulated profits not distributed", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1540},
+            {"code": "TREASURY_STOCK", "name": "Treasury Shares", "description": "Reacquired own shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1550},
+            {"code": "REVALUATION_RESERVE", "name": "Revaluation Reserve", "description": "PPE revaluation gains held in equity", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1555, "ifrs_reference": "IAS 16"},
+            {"code": "AOCI", "name": "Other Comprehensive Income Reserves", "description": "Translation, hedging, FVOCI reserves", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1560},
+            {"code": "MINORITY_INTEREST", "name": "Non-Controlling Interest", "description": "Equity attributable to minority interests", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1565, "ifrs_reference": "IFRS 10"},
+            {"code": "MEMBER_EQUITY", "name": "Members' Equity", "description": "Members' capital for non-corporate entities", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1570},
+            {"code": "OWNER_EQUITY", "name": "Owner's Equity", "description": "Sole proprietor capital", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1580},
+            {"code": "OWNER_DRAW", "name": "Owner Withdrawals", "description": "Sole proprietor withdrawals", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1581},
+            {"code": "DISTRIBUTIONS", "name": "Distributions to Owners", "description": "Distributions to members/shareholders", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1590}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "SOCI",
+      "name": "Statement of Profit or Loss",
+      "description": "IFRS Income Statement",
+      "statement_type": "Income Statement",
+      "sort_order": 2000,
+      "children": [
+        {
+          "code": "REVENUE",
+          "name": "Revenue",
+          "description": "Revenue from contracts with customers",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Revenue",
+          "normal_balance": "credit",
+          "sort_order": 2100,
+          "ifrs_reference": "IFRS 15",
+          "children": [
+            {"code": "REVENUE_SALES", "name": "Sale of Goods", "description": "Revenue from goods", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2110, "ifrs_reference": "IFRS 15"},
+            {"code": "REVENUE_SERVICE", "name": "Rendering of Services", "description": "Service revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2120, "ifrs_reference": "IFRS 15"},
+            {"code": "REVENUE_SUBSCRIPTION", "name": "Subscription Revenue", "description": "Recurring subscription fees", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2130, "ifrs_reference": "IFRS 15"},
+            {"code": "REVENUE_LICENSE", "name": "Royalties and License Revenue", "description": "IP licensing revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2140, "ifrs_reference": "IFRS 15"},
+            {"code": "REVENUE_PROF_SERVICES", "name": "Professional Services Revenue", "description": "Consulting and implementation revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2150}
+          ]
+        },
+        {
+          "code": "COGS_SECTION",
+          "name": "Cost of Sales",
+          "description": "Direct costs of revenue",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Cost of Revenue",
+          "normal_balance": "debit",
+          "sort_order": 2200,
+          "children": [
+            {"code": "COGS", "name": "Cost of Goods Sold", "description": "Cost of inventory sold", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2210},
+            {"code": "COGS_MATERIALS", "name": "Direct Materials", "description": "Materials consumed", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2220},
+            {"code": "COGS_LABOR", "name": "Direct Labor", "description": "Labor in production", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2230},
+            {"code": "COGS_OVERHEAD", "name": "Production Overhead", "description": "Indirect production costs", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2240},
+            {"code": "COGS_HOSTING", "name": "Hosting and Infrastructure", "description": "Hosting costs", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2250},
+            {"code": "PAYMENT_PROCESSING_FEES", "name": "Payment Processing Fees", "description": "Merchant fees", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2260}
+          ]
+        },
+        {
+          "code": "GROSS_PROFIT", "name": "Gross Profit", "description": "Revenue less cost of sales", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2300
+        },
+        {
+          "code": "OPEX",
+          "name": "Operating Expenses",
+          "description": "Selling, administrative and other operating costs",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2400,
+          "children": [
+            {"code": "SALARIES_WAGES", "name": "Employee Benefits Expense", "description": "Salaries, wages and benefits", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2410, "ifrs_reference": "IAS 19"},
+            {"code": "PAYROLL_TAXES", "name": "Social Security Costs", "description": "Employer payroll tax/social charges", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2411},
+            {"code": "EMPLOYEE_BENEFITS", "name": "Pension and Other Benefits", "description": "Post-employment benefits cost", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2412, "ifrs_reference": "IAS 19"},
+            {"code": "RENT_EXPENSE", "name": "Short-Term/Low-Value Lease Expense", "description": "Lease expense not capitalized under IFRS 16", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2420, "ifrs_reference": "IFRS 16"},
+            {"code": "UTILITIES", "name": "Utilities", "description": "Power, water, communications", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2421},
+            {"code": "TELECOM", "name": "Telecommunications", "description": "Phone, data services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2422},
+            {"code": "SOFTWARE_EXPENSE", "name": "Software and IT Costs", "description": "SaaS subscriptions and IT services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2423},
+            {"code": "OFFICE_SUPPLIES", "name": "Office Supplies", "description": "Office consumables", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2424},
+            {"code": "TRAVEL_EXPENSE", "name": "Travel Costs", "description": "Business travel expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2430},
+            {"code": "MEALS_ENTERTAINMENT", "name": "Hospitality and Entertainment", "description": "Business meals and entertainment", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2431},
+            {"code": "PROFESSIONAL_FEES", "name": "Professional Fees", "description": "External advisory fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2440},
+            {"code": "LEGAL_FEES", "name": "Legal Fees", "description": "Legal services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2441},
+            {"code": "MARKETING_EXPENSE", "name": "Marketing and Advertising", "description": "Marketing spend", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2450},
+            {"code": "RD_EXPENSE", "name": "Research Expenditures", "description": "Research costs not capitalized", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2460, "ifrs_reference": "IAS 38"},
+            {"code": "DEPRECIATION_EXPENSE", "name": "Depreciation Expense", "description": "Depreciation of PPE and ROU assets", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2470, "ifrs_reference": "IAS 16"},
+            {"code": "AMORTIZATION_EXPENSE", "name": "Amortization Expense", "description": "Amortization of intangibles", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2471, "ifrs_reference": "IAS 38"},
+            {"code": "IMPAIRMENT_LOSSES", "name": "Impairment Losses", "description": "Asset impairment under IAS 36", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2472, "ifrs_reference": "IAS 36"},
+            {"code": "INSURANCE_EXPENSE", "name": "Insurance", "description": "Insurance premiums expensed", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2480},
+            {"code": "BAD_DEBT_EXPENSE", "name": "Expected Credit Losses", "description": "ECL movements per IFRS 9", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2481, "ifrs_reference": "IFRS 9"},
+            {"code": "REPAIRS_MAINTENANCE", "name": "Repairs and Maintenance", "description": "Routine maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2482},
+            {"code": "BANK_FEES", "name": "Bank Charges", "description": "Banking fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2483},
+            {"code": "OTHER_EXPENSE", "name": "Other Operating Expenses", "description": "Miscellaneous operating costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2490}
+          ]
+        },
+        {
+          "code": "OPERATING_INCOME", "name": "Operating Profit", "description": "Operating profit/(loss)", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "credit", "sort_order": 2500
+        },
+        {
+          "code": "OTHER_INCOME_EXPENSE",
+          "name": "Finance Income and Expense",
+          "description": "Finance and other non-operating items",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Other Income Expense",
+          "normal_balance": "credit",
+          "sort_order": 2600,
+          "children": [
+            {"code": "INTEREST_INCOME", "name": "Finance Income", "description": "Interest and dividend income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2610},
+            {"code": "INTEREST_EXPENSE", "name": "Finance Costs", "description": "Interest on borrowings and lease liabilities", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "debit", "sort_order": 2620},
+            {"code": "FX_GAIN_LOSS", "name": "Foreign Exchange Gain/Loss", "description": "FX translation impacts", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2625, "ifrs_reference": "IAS 21"},
+            {"code": "GAIN_ON_SALE", "name": "Gain on Disposal of Assets", "description": "Net gains on asset disposals", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2630},
+            {"code": "OTHER_INCOME", "name": "Other Income", "description": "Miscellaneous non-operating income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2640},
+            {"code": "RENTAL_INCOME", "name": "Rental Income", "description": "Investment property rental income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2650, "ifrs_reference": "IAS 40"},
+            {"code": "SHARE_OF_PROFIT_ASSOCIATES", "name": "Share of Profit of Associates", "description": "Equity method income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2660, "ifrs_reference": "IAS 28"}
+          ]
+        },
+        {
+          "code": "TAX_SECTION",
+          "name": "Income Tax Expense",
+          "description": "Current and deferred tax",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Income Taxes",
+          "normal_balance": "debit",
+          "sort_order": 2700,
+          "ifrs_reference": "IAS 12",
+          "children": [
+            {"code": "INCOME_TAX_EXPENSE", "name": "Income Tax Expense", "description": "Total tax expense for the period", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "debit", "sort_order": 2710, "ifrs_reference": "IAS 12"}
+          ]
+        },
+        {
+          "code": "NET_INCOME", "name": "Profit for the Period", "description": "Net profit/(loss)", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "credit", "sort_order": 2800
+        },
+        {
+          "code": "OCI_SECTION",
+          "name": "Other Comprehensive Income",
+          "description": "Items recognized outside profit or loss",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Other Income Expense",
+          "normal_balance": "credit",
+          "sort_order": 2900,
+          "children": [
+            {"code": "OCI_FX_TRANSLATION", "name": "FX Translation of Foreign Operations", "description": "Translation differences on subsidiaries", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2910, "ifrs_reference": "IAS 21"},
+            {"code": "OCI_FVOCI", "name": "FVOCI Reserve Movements", "description": "Fair value movements on FVOCI instruments", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2920, "ifrs_reference": "IFRS 9"},
+            {"code": "OCI_HEDGE", "name": "Cash Flow Hedge Movements", "description": "Effective portion of hedges", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2930, "ifrs_reference": "IFRS 9"},
+            {"code": "OCI_REMEASUREMENT", "name": "Remeasurements of Defined Benefit Plans", "description": "Actuarial gains/losses on DB pensions", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2940, "ifrs_reference": "IAS 19"}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "CF",
+      "name": "Statement of Cash Flows",
+      "description": "Cash inflows and outflows",
+      "statement_type": "Cash Flow",
+      "sort_order": 3000,
+      "ifrs_reference": "IAS 7",
+      "children": [
+        {
+          "code": "CF_OPERATING",
+          "name": "Operating Activities",
+          "description": "Cash from operations",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Operating",
+          "normal_balance": "credit",
+          "sort_order": 3100,
+          "cash_flow_classification": "operating",
+          "children": [
+            {"code": "CF_NET_INCOME", "name": "Profit before Tax", "description": "Starting point for indirect method", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3110, "cash_flow_classification": "operating"},
+            {"code": "CF_DEPRECIATION", "name": "Depreciation and Amortization", "description": "Non-cash D&A", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3120, "cash_flow_classification": "operating"},
+            {"code": "CF_AR_CHANGE", "name": "Change in Trade Receivables", "description": "Working capital change in AR", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3140, "cash_flow_classification": "operating"},
+            {"code": "CF_INV_CHANGE", "name": "Change in Inventories", "description": "Working capital change in inventory", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3150, "cash_flow_classification": "operating"},
+            {"code": "CF_AP_CHANGE", "name": "Change in Trade Payables", "description": "Working capital change in AP", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3160, "cash_flow_classification": "operating"},
+            {"code": "CF_TAX_PAID", "name": "Income Taxes Paid", "description": "Cash taxes paid in period", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "debit", "sort_order": 3170, "cash_flow_classification": "operating"},
+            {"code": "CF_INTEREST_PAID", "name": "Interest Paid", "description": "Cash interest paid", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "debit", "sort_order": 3180, "cash_flow_classification": "operating"}
+          ]
+        },
+        {
+          "code": "CF_INVESTING",
+          "name": "Investing Activities",
+          "description": "Cash from investments and asset purchases",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Investing",
+          "normal_balance": "credit",
+          "sort_order": 3200,
+          "cash_flow_classification": "investing",
+          "children": [
+            {"code": "CF_PPE_PURCHASE", "name": "Purchases of PPE", "description": "Capital expenditures", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3210, "cash_flow_classification": "investing"},
+            {"code": "CF_PPE_SALE", "name": "Proceeds from Disposal of PPE", "description": "Cash from disposals", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "credit", "sort_order": 3220, "cash_flow_classification": "investing"},
+            {"code": "CF_INVESTMENT_PURCHASE", "name": "Purchases of Investments", "description": "Cash for new investments", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3230, "cash_flow_classification": "investing"},
+            {"code": "CF_INVESTMENT_SALE", "name": "Proceeds from Investments", "description": "Cash from investment sales", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "credit", "sort_order": 3240, "cash_flow_classification": "investing"},
+            {"code": "CF_ACQUISITION", "name": "Acquisitions, Net of Cash", "description": "Business combinations", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3250, "cash_flow_classification": "investing"}
+          ]
+        },
+        {
+          "code": "CF_FINANCING",
+          "name": "Financing Activities",
+          "description": "Cash from debt and equity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Financing",
+          "normal_balance": "credit",
+          "sort_order": 3300,
+          "cash_flow_classification": "financing",
+          "children": [
+            {"code": "CF_DEBT_PROCEEDS", "name": "Proceeds from Borrowings", "description": "Cash from new borrowings", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3310, "cash_flow_classification": "financing"},
+            {"code": "CF_DEBT_REPAYMENT", "name": "Repayment of Borrowings", "description": "Cash repayments", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3320, "cash_flow_classification": "financing"},
+            {"code": "CF_LEASE_PAYMENTS", "name": "Lease Payments", "description": "Lease liability principal payments", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3325, "cash_flow_classification": "financing", "ifrs_reference": "IFRS 16"},
+            {"code": "CF_STOCK_ISSUANCE", "name": "Proceeds from Share Issuance", "description": "Equity raises", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3330, "cash_flow_classification": "financing"},
+            {"code": "CF_DIVIDENDS_PAID", "name": "Dividends Paid", "description": "Cash dividends", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3350, "cash_flow_classification": "financing"},
+            {"code": "CF_DISTRIBUTIONS", "name": "Distributions to Owners", "description": "Cash distributed to members", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3360, "cash_flow_classification": "financing"}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "EQUITY_STMT",
+      "name": "Statement of Changes in Equity",
+      "description": "Roll-forward of equity",
+      "statement_type": "Equity",
+      "sort_order": 4000,
+      "children": [
+        {"code": "EQ_BEGINNING", "name": "Balance at Beginning of Period", "description": "Opening equity", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4010},
+        {"code": "EQ_NET_INCOME", "name": "Profit for the Period", "description": "Net income for period", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4020},
+        {"code": "EQ_OCI", "name": "Other Comprehensive Income", "description": "Period OCI", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4030},
+        {"code": "EQ_DIVIDENDS", "name": "Dividends Declared", "description": "Dividends declared", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 4040},
+        {"code": "EQ_STOCK_ISSUED", "name": "Issue of Share Capital", "description": "Equity issuance", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4050},
+        {"code": "EQ_STOCK_REPURCHASED", "name": "Treasury Share Repurchases", "description": "Buybacks", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 4060},
+        {"code": "EQ_ENDING", "name": "Balance at End of Period", "description": "Closing equity", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4080}
+      ]
+    }
+  ]
+}

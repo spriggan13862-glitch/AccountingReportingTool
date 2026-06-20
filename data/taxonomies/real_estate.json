@@ -1,0 +1,350 @@
+{
+  "code": "real_estate",
+  "name": "Real Estate",
+  "description": "Real estate investment and property management taxonomy",
+  "industry": "real_estate",
+  "version": "2026",
+  "nodes": [
+    {
+      "code": "BS",
+      "name": "Balance Sheet",
+      "description": "Financial position",
+      "statement_type": "Balance Sheet",
+      "sort_order": 1000,
+      "children": [
+        {
+          "code": "ASSETS",
+          "name": "Assets",
+          "description": "Total assets",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Assets",
+          "normal_balance": "debit",
+          "sort_order": 1100,
+          "children": [
+            {
+              "code": "CURRENT_ASSETS",
+              "name": "Current Assets",
+              "description": "Short-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1110,
+              "children": [
+                {"code": "CASH", "name": "Operating Cash", "description": "Property operating cash", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1111},
+                {"code": "CASH_EQUIV", "name": "Cash Equivalents", "description": "Short-term liquid", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1112},
+                {"code": "RESTRICTED_CASH", "name": "Restricted Cash (Reserves/Escrows)", "description": "Reserves for taxes, insurance, replacements", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1113},
+                {"code": "RE_TENANT_SECURITY_DEPOSITS_HELD", "name": "Tenant Security Deposits - Held in Trust", "description": "Tenant deposits held in segregated accounts", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1114},
+                {"code": "AR", "name": "Tenant Receivables", "description": "Amounts due from tenants", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1120},
+                {"code": "AR_ALLOWANCE", "name": "Allowance for Doubtful Tenant Receivables", "description": "Tenant AR allowance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1121},
+                {"code": "RE_STRAIGHT_LINE_RENT_RECEIVABLE", "name": "Straight-Line Rent Receivable", "description": "Straight-line rent timing differences", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1122, "gaap_reference": "ASC 842"},
+                {"code": "RE_TENANT_REIMBURSEMENT_RECEIVABLE", "name": "Tenant Reimbursement Receivable", "description": "Owed CAM/tax/insurance reimbursements", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1123},
+                {"code": "PREPAID", "name": "Prepaid Expenses", "description": "Prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1140},
+                {"code": "PREPAID_INSURANCE", "name": "Prepaid Property Insurance", "description": "Insurance prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1141},
+                {"code": "PREPAID_RENT", "name": "Prepaid Office Rent", "description": "Management office rent prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1142},
+                {"code": "INVENTORY", "name": "Supplies Inventory", "description": "Maintenance supplies", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1145},
+                {"code": "INVENTORY_RAW", "name": "Raw Materials", "description": "Construction materials for redevelopment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1146},
+                {"code": "INVENTORY_WIP", "name": "Properties Under Development - Held for Sale", "description": "Properties under development for sale", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1147},
+                {"code": "INVENTORY_FG", "name": "Completed Properties Held for Sale", "description": "Inventory of completed units for sale", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1148},
+                {"code": "OTHER_CURRENT_ASSET", "name": "Other Current Assets", "description": "Misc current assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1150}
+              ]
+            },
+            {
+              "code": "REAL_ESTATE_INVESTMENTS",
+              "name": "Real Estate Investments",
+              "description": "Investment in real property",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1200,
+              "children": [
+                {"code": "PPE", "name": "Real Estate Held for Investment", "description": "Real estate investment property total", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1210},
+                {"code": "PPE_LAND", "name": "Land - Investment Property", "description": "Land held for investment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1211},
+                {"code": "PPE_BUILDINGS", "name": "Buildings - Investment Property", "description": "Investment property buildings", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1212},
+                {"code": "RE_BUILDING_IMPROVEMENTS", "name": "Building Improvements", "description": "Capitalized building improvements", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1213},
+                {"code": "RE_TENANT_IMPROVEMENTS", "name": "Tenant Improvements (TI)", "description": "Capitalized TI allowances", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1214},
+                {"code": "RE_CIP", "name": "Construction in Progress", "description": "Development CIP", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1215},
+                {"code": "PPE_EQUIPMENT", "name": "Property Equipment (HVAC, Elevators)", "description": "Property-specific equipment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1216},
+                {"code": "PPE_FURNITURE", "name": "Furniture and Fixtures (Office)", "description": "Management office furniture", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1218},
+                {"code": "PPE_VEHICLES", "name": "Vehicles", "description": "Maintenance/property vehicles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1219},
+                {"code": "PPE_LEASEHOLD", "name": "Leasehold Improvements", "description": "Leasehold improvements for management office", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1220},
+                {"code": "PPE_ACCUM_DEPR", "name": "Accumulated Depreciation - Real Estate", "description": "Accumulated property depreciation", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1221},
+                {"code": "RE_DEFERRED_LEASING_COSTS", "name": "Deferred Leasing Costs", "description": "Capitalized leasing commissions and costs", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1225, "gaap_reference": "ASC 842"},
+                {"code": "RE_ABOVE_BELOW_MARKET_LEASE", "name": "Above/Below Market Lease Intangibles", "description": "Intangibles from acquired leases", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1226, "gaap_reference": "ASC 805"},
+                {"code": "INTANGIBLE", "name": "Other Intangible Assets", "description": "Other intangibles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1230},
+                {"code": "GOODWILL", "name": "Goodwill", "description": "Acquisition goodwill", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1231},
+                {"code": "ROU_ASSET", "name": "Right-of-Use Asset - Office", "description": "Office lease ROU asset", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1240},
+                {"code": "DEFERRED_TAX_ASSET", "name": "Deferred Tax Asset", "description": "DTA", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1250},
+                {"code": "OTHER_LT_ASSET", "name": "Other Non-Current Assets", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1260}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "LIABILITIES",
+          "name": "Liabilities",
+          "description": "Total liabilities",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Liabilities",
+          "normal_balance": "credit",
+          "sort_order": 1300,
+          "children": [
+            {
+              "code": "CURRENT_LIABILITIES",
+              "name": "Current Liabilities",
+              "description": "Short-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1310,
+              "children": [
+                {"code": "AP", "name": "Accounts Payable", "description": "Vendor AP", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1311},
+                {"code": "ACCRUED_LIABILITIES", "name": "Accrued Property Expenses", "description": "Property-related accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1312},
+                {"code": "ACCRUED_PAYROLL", "name": "Accrued Payroll", "description": "Comp accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1313},
+                {"code": "RE_ACCRUED_PROPERTY_TAX", "name": "Accrued Property Taxes", "description": "Property tax accrual", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1314},
+                {"code": "RE_TENANT_SECURITY_DEPOSITS", "name": "Tenant Security Deposits Liability", "description": "Tenant deposits liability", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1315},
+                {"code": "RE_PREPAID_TENANT_RENT", "name": "Prepaid Tenant Rent", "description": "Rent received before earned period", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1316},
+                {"code": "CREDIT_CARD", "name": "Credit Card Payable", "description": "Card balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1317},
+                {"code": "SALES_TAX_PAYABLE", "name": "Sales Tax Payable", "description": "Sales tax (if applicable)", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1318},
+                {"code": "PAYROLL_TAX_PAYABLE", "name": "Payroll Tax Payable", "description": "Payroll taxes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1319},
+                {"code": "INCOME_TAX_PAYABLE", "name": "Income Tax Payable", "description": "Current tax owed", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1320},
+                {"code": "DEFERRED_REVENUE", "name": "Deferred Rental Income", "description": "Deferred rent income", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1321},
+                {"code": "CUSTOMER_DEPOSITS", "name": "Tenant Application/Holding Fees", "description": "Tenant deposits held", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1322},
+                {"code": "CURRENT_LEASE_LIABILITY", "name": "Lease Liability - Current", "description": "Current portion of office lease", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1323},
+                {"code": "CURRENT_LTD", "name": "Current Portion of Mortgages", "description": "Current portion of property mortgages", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1324},
+                {"code": "LINE_OF_CREDIT", "name": "Line of Credit", "description": "Revolver drawn", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1325},
+                {"code": "NOTES_PAYABLE", "name": "Notes Payable", "description": "Short-term notes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1326},
+                {"code": "OTHER_CURRENT_LIABILITY", "name": "Other Current Liabilities", "description": "Other short-term", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1330}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_LIABILITIES",
+              "name": "Non-Current Liabilities",
+              "description": "Long-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1400,
+              "children": [
+                {"code": "LONG_TERM_DEBT", "name": "Mortgages Payable - Long Term", "description": "Property mortgages", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1410},
+                {"code": "RE_MEZZANINE_DEBT", "name": "Mezzanine Debt", "description": "Subordinated property financing", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1415},
+                {"code": "LEASE_LIABILITY", "name": "Lease Liability - Non-Current", "description": "Long-term office lease", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1420},
+                {"code": "DEFERRED_TAX_LIABILITY", "name": "Deferred Tax Liability", "description": "DTL", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1430},
+                {"code": "OTHER_LT_LIABILITY", "name": "Other Non-Current Liabilities", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1460}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "EQUITY",
+          "name": "Equity / Partners' Capital",
+          "description": "Partners' capital",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Equity",
+          "normal_balance": "credit",
+          "sort_order": 1500,
+          "children": [
+            {"code": "COMMON_STOCK", "name": "Common Stock / Member Units", "description": "Common shares or member units", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1510},
+            {"code": "PREFERRED_STOCK", "name": "Preferred Equity", "description": "Preferred capital", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1520},
+            {"code": "APIC", "name": "Additional Paid-In Capital", "description": "APIC", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1530},
+            {"code": "RETAINED_EARNINGS", "name": "Retained Earnings / Accumulated Distributions", "description": "Accumulated earnings", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1540},
+            {"code": "TREASURY_STOCK", "name": "Treasury Stock", "description": "Repurchased shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1550},
+            {"code": "MEMBER_EQUITY", "name": "Members' Equity", "description": "Members' equity", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1570},
+            {"code": "OWNER_EQUITY", "name": "Owner's Equity", "description": "Owner capital", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1580},
+            {"code": "OWNER_DRAW", "name": "Owner Draws", "description": "Owner withdrawals", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1581},
+            {"code": "DISTRIBUTIONS", "name": "Distributions to Partners", "description": "Partner distributions", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1590}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "IS",
+      "name": "Income Statement",
+      "description": "Property operations P&L",
+      "statement_type": "Income Statement",
+      "sort_order": 2000,
+      "children": [
+        {
+          "code": "REVENUE",
+          "name": "Rental Revenue",
+          "description": "Property revenue",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Revenue",
+          "normal_balance": "credit",
+          "sort_order": 2100,
+          "children": [
+            {"code": "RENTAL_INCOME", "name": "Base Rental Income", "description": "Base rent from tenants", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2110, "gaap_reference": "ASC 842"},
+            {"code": "RE_PERCENTAGE_RENT", "name": "Percentage Rent", "description": "Tenant sales-based rent overage", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2115},
+            {"code": "RE_TENANT_REIMBURSEMENTS", "name": "Tenant Reimbursements (CAM/Tax/Insurance)", "description": "Recoveries of CAM, property tax, insurance", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2120},
+            {"code": "RE_PARKING_REVENUE", "name": "Parking Revenue", "description": "Parking fees", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2130},
+            {"code": "RE_OTHER_PROPERTY_REVENUE", "name": "Other Property Revenue", "description": "Laundry, vending, other ancillary", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2140},
+            {"code": "REVENUE_SERVICE", "name": "Property Management Fees Earned", "description": "Third-party management fees", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2150},
+            {"code": "REVENUE_SUBSCRIPTION", "name": "Service Plan Revenue", "description": "Recurring service plans", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2160},
+            {"code": "REVENUE_SALES", "name": "Property Sale Revenue", "description": "Property unit sales", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2170},
+            {"code": "REVENUE_LICENSE", "name": "License/Franchise Revenue", "description": "Licensing or franchise income", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2180},
+            {"code": "REVENUE_PROF_SERVICES", "name": "Consulting Services Revenue", "description": "Property advisory services", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2190}
+          ]
+        },
+        {
+          "code": "COGS_SECTION",
+          "name": "Cost of Services (Property Sales)",
+          "description": "Cost of property sales (if applicable)",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Cost of Revenue",
+          "normal_balance": "debit",
+          "sort_order": 2200,
+          "children": [
+            {"code": "COGS", "name": "Cost of Property Sales", "description": "Carrying cost of properties sold", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2210},
+            {"code": "COGS_MATERIALS", "name": "Construction Materials Cost (For-Sale Units)", "description": "Materials in sold inventory", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2220},
+            {"code": "COGS_LABOR", "name": "Direct Labor (For-Sale Units)", "description": "Labor in sold inventory", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2230},
+            {"code": "COGS_OVERHEAD", "name": "Allocated Overhead (For-Sale Units)", "description": "Allocated overhead", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2240},
+            {"code": "COGS_HOSTING", "name": "Tenant Portal Hosting", "description": "Tenant portal infrastructure", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2250},
+            {"code": "PAYMENT_PROCESSING_FEES", "name": "Rent Payment Processing Fees", "description": "Tenant rent processing fees", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2260}
+          ]
+        },
+        {"code": "GROSS_PROFIT", "name": "Gross Profit", "description": "Net of cost of services", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2300},
+        {
+          "code": "OPEX_PROPERTY",
+          "name": "Property Operating Expenses",
+          "description": "Direct property operating costs",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2400,
+          "children": [
+            {"code": "RE_PROPERTY_TAXES", "name": "Property Taxes", "description": "Real property tax expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2410},
+            {"code": "RE_PROPERTY_INSURANCE", "name": "Property Insurance", "description": "Real property insurance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2415},
+            {"code": "RE_PROPERTY_MANAGEMENT_FEE", "name": "Property Management Fees Paid", "description": "Outside property management fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2420},
+            {"code": "RE_UTILITIES_PROPERTY", "name": "Property Utilities", "description": "Common area utilities", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2425},
+            {"code": "RE_CLEANING_JANITORIAL", "name": "Cleaning and Janitorial", "description": "Common area cleaning", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2430},
+            {"code": "RE_REPAIRS_PROPERTY", "name": "Property Repairs and Maintenance", "description": "Repairs and routine maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2435},
+            {"code": "RE_LANDSCAPING", "name": "Landscaping and Grounds", "description": "Grounds and landscaping", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2440},
+            {"code": "RE_SECURITY", "name": "Property Security", "description": "Security services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2445},
+            {"code": "RE_LEASING_COMMISSIONS_EXPENSED", "name": "Leasing Commissions (Expensed)", "description": "Leasing commissions not capitalized", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2450}
+          ]
+        },
+        {
+          "code": "OPEX_GA",
+          "name": "General and Administrative",
+          "description": "G&A expenses",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2500,
+          "children": [
+            {"code": "SALARIES_WAGES", "name": "Office Salaries", "description": "Office compensation", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2510},
+            {"code": "PAYROLL_TAXES", "name": "Payroll Taxes", "description": "Employer payroll taxes", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2511},
+            {"code": "EMPLOYEE_BENEFITS", "name": "Employee Benefits", "description": "Benefits", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2512},
+            {"code": "RENT_EXPENSE", "name": "Office Rent", "description": "Office space rent", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2520},
+            {"code": "UTILITIES", "name": "Office Utilities", "description": "Office utilities", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2521},
+            {"code": "TELECOM", "name": "Telecommunications", "description": "Phone/data", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2522},
+            {"code": "SOFTWARE_EXPENSE", "name": "Property Management Software", "description": "PM software subscriptions", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2523},
+            {"code": "OFFICE_SUPPLIES", "name": "Office Supplies", "description": "Office consumables", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2524},
+            {"code": "PROFESSIONAL_FEES", "name": "Professional Fees", "description": "Audit/consulting", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2525},
+            {"code": "LEGAL_FEES", "name": "Legal Fees", "description": "Legal services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2526},
+            {"code": "MARKETING_EXPENSE", "name": "Marketing and Advertising", "description": "Listing/marketing spend", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2530},
+            {"code": "TRAVEL_EXPENSE", "name": "Travel", "description": "Business travel", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2540},
+            {"code": "MEALS_ENTERTAINMENT", "name": "Meals and Entertainment", "description": "Business meals", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2541},
+            {"code": "BANK_FEES", "name": "Bank Fees", "description": "Banking fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2550},
+            {"code": "INSURANCE_EXPENSE", "name": "Office Insurance", "description": "Non-property insurance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2551},
+            {"code": "BAD_DEBT_EXPENSE", "name": "Bad Debt Expense", "description": "Tenant write-offs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2552},
+            {"code": "REPAIRS_MAINTENANCE", "name": "Office Repairs and Maintenance", "description": "Non-property maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2553},
+            {"code": "RD_EXPENSE", "name": "Research and Development", "description": "Property tech / PropTech R&D", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2560}
+          ]
+        },
+        {"code": "DEPRECIATION_EXPENSE", "name": "Depreciation - Real Estate", "description": "Real estate depreciation", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2700},
+        {"code": "AMORTIZATION_EXPENSE", "name": "Amortization of Deferred Leasing Costs and Intangibles", "description": "Amortization expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2710},
+        {"code": "OTHER_EXPENSE", "name": "Other Operating Expenses", "description": "Misc opex", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2720},
+        {"code": "OPERATING_INCOME", "name": "Net Operating Income (NOI)", "description": "Property NOI", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "credit", "sort_order": 2800},
+        {
+          "code": "OTHER_INCOME_EXPENSE",
+          "name": "Other Income and Expense",
+          "description": "Below-the-line items",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Other Income Expense",
+          "normal_balance": "credit",
+          "sort_order": 2900,
+          "children": [
+            {"code": "INTEREST_INCOME", "name": "Interest Income", "description": "Interest earned", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2910},
+            {"code": "INTEREST_EXPENSE", "name": "Interest Expense - Mortgages", "description": "Mortgage interest", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "debit", "sort_order": 2920},
+            {"code": "GAIN_ON_SALE", "name": "Gain on Sale of Real Estate", "description": "Property disposition gains", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2930},
+            {"code": "OTHER_INCOME", "name": "Other Income", "description": "Misc non-op income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2940}
+          ]
+        },
+        {"code": "INCOME_TAX_EXPENSE", "name": "Income Tax Expense", "description": "Tax provision", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "debit", "sort_order": 2960},
+        {"code": "NET_INCOME", "name": "Net Income", "description": "Bottom line", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "credit", "sort_order": 2980}
+      ]
+    },
+    {
+      "code": "CF",
+      "name": "Cash Flow Statement",
+      "description": "Cash flow",
+      "statement_type": "Cash Flow",
+      "sort_order": 3000,
+      "children": [
+        {
+          "code": "CF_OPERATING",
+          "name": "Operating Cash Flow",
+          "description": "Cash from operations",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Operating",
+          "normal_balance": "credit",
+          "sort_order": 3100,
+          "cash_flow_classification": "operating",
+          "children": [
+            {"code": "CF_NET_INCOME", "name": "Net Income", "description": "Starting line", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3110, "cash_flow_classification": "operating"},
+            {"code": "CF_DEPRECIATION", "name": "Depreciation and Amortization", "description": "D&A add-back", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3120, "cash_flow_classification": "operating"},
+            {"code": "CF_STRAIGHT_LINE_RENT", "name": "Straight-Line Rent Adjustment", "description": "Non-cash SL rent", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3130, "cash_flow_classification": "operating"},
+            {"code": "CF_AR_CHANGE", "name": "Change in Tenant Receivables", "description": "Tenant AR WC", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3140, "cash_flow_classification": "operating"},
+            {"code": "CF_AP_CHANGE", "name": "Change in AP", "description": "AP WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3160, "cash_flow_classification": "operating"},
+            {"code": "CF_PREPAID_RENT_CHANGE", "name": "Change in Prepaid Tenant Rent", "description": "Tenant prepaid rent WC", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3170, "cash_flow_classification": "operating"}
+          ]
+        },
+        {
+          "code": "CF_INVESTING",
+          "name": "Investing Cash Flow",
+          "description": "Property investments",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Investing",
+          "normal_balance": "credit",
+          "sort_order": 3200,
+          "cash_flow_classification": "investing",
+          "children": [
+            {"code": "CF_PPE_PURCHASE", "name": "Property Acquisitions and Capex", "description": "Real estate capex", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3210, "cash_flow_classification": "investing"},
+            {"code": "CF_PPE_SALE", "name": "Proceeds from Property Sales", "description": "Property disposition proceeds", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "credit", "sort_order": 3220, "cash_flow_classification": "investing"},
+            {"code": "CF_TI_LEASING_COSTS", "name": "Tenant Improvements and Leasing Costs", "description": "TI and leasing capex", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3230, "cash_flow_classification": "investing"}
+          ]
+        },
+        {
+          "code": "CF_FINANCING",
+          "name": "Financing Cash Flow",
+          "description": "Debt and equity financing",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Financing",
+          "normal_balance": "credit",
+          "sort_order": 3300,
+          "cash_flow_classification": "financing",
+          "children": [
+            {"code": "CF_DEBT_PROCEEDS", "name": "Proceeds from Mortgages and Debt", "description": "New mortgage proceeds", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3310, "cash_flow_classification": "financing"},
+            {"code": "CF_DEBT_REPAYMENT", "name": "Mortgage Principal Payments", "description": "Mortgage principal", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3320, "cash_flow_classification": "financing"},
+            {"code": "CF_STOCK_ISSUANCE", "name": "Equity Capital Contributions", "description": "Partner capital contributions", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3330, "cash_flow_classification": "financing"},
+            {"code": "CF_DISTRIBUTIONS", "name": "Distributions to Partners", "description": "Partner distributions", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3340, "cash_flow_classification": "financing"}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "EQUITY_STMT",
+      "name": "Statement of Partners' Capital",
+      "description": "Equity roll-forward",
+      "statement_type": "Equity",
+      "sort_order": 4000,
+      "children": [
+        {"code": "EQ_BEGINNING", "name": "Beginning Partners' Capital", "description": "Opening capital", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4010},
+        {"code": "EQ_NET_INCOME", "name": "Net Income Allocated", "description": "Allocated earnings", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4020},
+        {"code": "EQ_DIVIDENDS", "name": "Distributions to Partners", "description": "Distributions", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 4030},
+        {"code": "EQ_STOCK_ISSUED", "name": "Capital Contributions", "description": "Capital contributions", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4040},
+        {"code": "EQ_ENDING", "name": "Ending Partners' Capital", "description": "Closing capital", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4050}
+      ]
+    }
+  ]
+}

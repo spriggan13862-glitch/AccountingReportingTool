@@ -1,0 +1,380 @@
+{
+  "code": "saas",
+  "name": "SaaS",
+  "description": "Software-as-a-Service industry reporting taxonomy",
+  "industry": "saas",
+  "version": "2026",
+  "nodes": [
+    {
+      "code": "BS",
+      "name": "Balance Sheet",
+      "description": "Financial position",
+      "statement_type": "Balance Sheet",
+      "sort_order": 1000,
+      "children": [
+        {
+          "code": "ASSETS",
+          "name": "Assets",
+          "description": "Total assets",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Assets",
+          "normal_balance": "debit",
+          "sort_order": 1100,
+          "children": [
+            {
+              "code": "CURRENT_ASSETS",
+              "name": "Current Assets",
+              "description": "Short-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1110,
+              "children": [
+                {"code": "CASH", "name": "Cash", "description": "Operating cash", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1111},
+                {"code": "CASH_EQUIV", "name": "Cash Equivalents", "description": "Money market funds", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1112},
+                {"code": "RESTRICTED_CASH", "name": "Restricted Cash", "description": "Cash with usage restrictions", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1113},
+                {"code": "SHORT_TERM_INVESTMENTS", "name": "Short-Term Investments", "description": "Treasuries, marketable securities", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1114},
+                {"code": "AR", "name": "Accounts Receivable", "description": "Customer invoices outstanding", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1120},
+                {"code": "AR_ALLOWANCE", "name": "Allowance for Doubtful Accounts", "description": "AR contra-allowance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1121},
+                {"code": "SAAS_UNBILLED_AR", "name": "Unbilled Receivables", "description": "Revenue recognized not yet invoiced", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1122},
+                {"code": "SAAS_DEFERRED_COMMISSIONS_CURRENT", "name": "Deferred Commissions - Current", "description": "Current portion of capitalized commissions (ASC 340-40)", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1125, "gaap_reference": "ASC 340-40"},
+                {"code": "PREPAID", "name": "Prepaid Expenses", "description": "Prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1140},
+                {"code": "PREPAID_INSURANCE", "name": "Prepaid Insurance", "description": "Prepaid insurance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1141},
+                {"code": "PREPAID_RENT", "name": "Prepaid Rent", "description": "Prepaid rent", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1142},
+                {"code": "SAAS_PREPAID_SOFTWARE", "name": "Prepaid Software Subscriptions", "description": "Annual SaaS prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1143},
+                {"code": "OTHER_CURRENT_ASSET", "name": "Other Current Assets", "description": "Misc current assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1150}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_ASSETS",
+              "name": "Non-Current Assets",
+              "description": "Long-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1200,
+              "children": [
+                {"code": "PPE", "name": "Property and Equipment", "description": "PPE total", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1210},
+                {"code": "PPE_EQUIPMENT", "name": "Computer Equipment", "description": "Servers and laptops", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1213},
+                {"code": "PPE_FURNITURE", "name": "Furniture and Fixtures", "description": "Office furniture", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1214},
+                {"code": "PPE_LEASEHOLD", "name": "Leasehold Improvements", "description": "Office build-outs", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1216},
+                {"code": "PPE_ACCUM_DEPR", "name": "Accumulated Depreciation", "description": "PPE accumulated depreciation", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1217},
+                {"code": "SAAS_CAPITALIZED_SOFTWARE", "name": "Capitalized Internal-Use Software", "description": "Capitalized software development per ASC 350-40", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1219, "gaap_reference": "ASC 350-40"},
+                {"code": "INTANGIBLE", "name": "Intangible Assets", "description": "Acquired intangibles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1220},
+                {"code": "GOODWILL", "name": "Goodwill", "description": "Acquisition goodwill", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1221},
+                {"code": "ROU_ASSET", "name": "Right-of-Use Asset", "description": "Operating lease ROU asset", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1230},
+                {"code": "SAAS_DEFERRED_COMMISSIONS_NC", "name": "Deferred Commissions - Non-Current", "description": "Non-current capitalized commissions", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1235, "gaap_reference": "ASC 340-40"},
+                {"code": "DEFERRED_TAX_ASSET", "name": "Deferred Tax Asset", "description": "DTA", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1240},
+                {"code": "OTHER_LT_ASSET", "name": "Other Non-Current Assets", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1260},
+                {"code": "INVENTORY", "name": "Inventory", "description": "Hardware inventory if applicable", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1280},
+                {"code": "INVENTORY_RAW", "name": "Raw Materials", "description": "If hybrid SaaS+hardware", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1281},
+                {"code": "INVENTORY_WIP", "name": "Work in Process", "description": "If hybrid SaaS+hardware", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1282},
+                {"code": "INVENTORY_FG", "name": "Finished Goods", "description": "If hybrid SaaS+hardware", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1283}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "LIABILITIES",
+          "name": "Liabilities",
+          "description": "Total liabilities",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Liabilities",
+          "normal_balance": "credit",
+          "sort_order": 1300,
+          "children": [
+            {
+              "code": "CURRENT_LIABILITIES",
+              "name": "Current Liabilities",
+              "description": "Short-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1310,
+              "children": [
+                {"code": "AP", "name": "Accounts Payable", "description": "Vendor AP", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1311},
+                {"code": "ACCRUED_LIABILITIES", "name": "Accrued Liabilities", "description": "Accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1312},
+                {"code": "ACCRUED_PAYROLL", "name": "Accrued Payroll and Bonus", "description": "Comp accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1313},
+                {"code": "SAAS_ACCRUED_COMMISSIONS", "name": "Accrued Commissions", "description": "Sales commission accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1314},
+                {"code": "CREDIT_CARD", "name": "Credit Card Payable", "description": "Card balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1315},
+                {"code": "SALES_TAX_PAYABLE", "name": "Sales Tax Payable", "description": "Multi-state sales tax collected", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1317},
+                {"code": "PAYROLL_TAX_PAYABLE", "name": "Payroll Tax Payable", "description": "Withheld and employer taxes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1318},
+                {"code": "INCOME_TAX_PAYABLE", "name": "Income Tax Payable", "description": "Current tax owed", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1319},
+                {"code": "DEFERRED_REVENUE", "name": "Deferred Revenue - Current", "description": "Subscriptions billed in advance, current portion", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1320, "gaap_reference": "ASC 606"},
+                {"code": "CUSTOMER_DEPOSITS", "name": "Customer Deposits", "description": "Implementation deposits", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1321},
+                {"code": "CURRENT_LEASE_LIABILITY", "name": "Lease Liability - Current", "description": "Current portion of lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1322},
+                {"code": "OTHER_CURRENT_LIABILITY", "name": "Other Current Liabilities", "description": "Other short-term", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1330},
+                {"code": "LINE_OF_CREDIT", "name": "Line of Credit", "description": "Revolver drawn", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1340},
+                {"code": "NOTES_PAYABLE", "name": "Notes Payable - Current", "description": "Short-term notes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1341}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_LIABILITIES",
+              "name": "Non-Current Liabilities",
+              "description": "Long-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1400,
+              "children": [
+                {"code": "SAAS_DEFERRED_REVENUE_NC", "name": "Deferred Revenue - Non-Current", "description": "Multi-year subscriptions billed in advance", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1405, "gaap_reference": "ASC 606"},
+                {"code": "LONG_TERM_DEBT", "name": "Long-Term Debt", "description": "Term loans and venture debt", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1410},
+                {"code": "LEASE_LIABILITY", "name": "Lease Liability - Non-Current", "description": "Office lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1420},
+                {"code": "DEFERRED_TAX_LIABILITY", "name": "Deferred Tax Liability", "description": "DTL", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1430},
+                {"code": "OTHER_LT_LIABILITY", "name": "Other Non-Current Liabilities", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1460}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "EQUITY",
+          "name": "Equity",
+          "description": "Stockholders' equity",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Equity",
+          "normal_balance": "credit",
+          "sort_order": 1500,
+          "children": [
+            {"code": "COMMON_STOCK", "name": "Common Stock", "description": "Common shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1510},
+            {"code": "PREFERRED_STOCK", "name": "Preferred Stock", "description": "Series A/B/C preferred", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1520},
+            {"code": "APIC", "name": "Additional Paid-In Capital", "description": "APIC", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1530},
+            {"code": "RETAINED_EARNINGS", "name": "Accumulated Deficit", "description": "Retained earnings/accumulated deficit", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1540},
+            {"code": "TREASURY_STOCK", "name": "Treasury Stock", "description": "Repurchased shares", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1550},
+            {"code": "MEMBER_EQUITY", "name": "Members' Equity", "description": "LLC members' equity", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1570},
+            {"code": "OWNER_EQUITY", "name": "Owner's Equity", "description": "Owner capital", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1580},
+            {"code": "OWNER_DRAW", "name": "Owner's Draw", "description": "Owner withdrawals", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1581},
+            {"code": "DISTRIBUTIONS", "name": "Distributions", "description": "Distributions paid", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1590}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "IS",
+      "name": "Income Statement",
+      "description": "P&L statement",
+      "statement_type": "Income Statement",
+      "sort_order": 2000,
+      "children": [
+        {
+          "code": "REVENUE",
+          "name": "Revenue",
+          "description": "SaaS revenue split",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Revenue",
+          "normal_balance": "credit",
+          "sort_order": 2100,
+          "children": [
+            {"code": "REVENUE_SUBSCRIPTION", "name": "Subscription Revenue", "description": "Recurring SaaS subscription fees", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2110, "gaap_reference": "ASC 606"},
+            {"code": "SAAS_USAGE_REVENUE", "name": "Usage-Based Revenue", "description": "Consumption-based revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2115, "gaap_reference": "ASC 606"},
+            {"code": "SAAS_IMPLEMENTATION_REVENUE", "name": "Implementation Revenue", "description": "Initial setup/onboarding revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2120, "gaap_reference": "ASC 606"},
+            {"code": "REVENUE_PROF_SERVICES", "name": "Professional Services Revenue", "description": "Consulting and training", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2130, "gaap_reference": "ASC 606"},
+            {"code": "REVENUE_LICENSE", "name": "License Revenue", "description": "Term/perpetual license revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2140},
+            {"code": "REVENUE_SERVICE", "name": "Other Service Revenue", "description": "Other professional services", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2150},
+            {"code": "REVENUE_SALES", "name": "Hardware/Product Revenue", "description": "Optional hardware product revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2160}
+          ]
+        },
+        {
+          "code": "COGS_SECTION",
+          "name": "Cost of Revenue",
+          "description": "Direct costs of serving customers",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Cost of Revenue",
+          "normal_balance": "debit",
+          "sort_order": 2200,
+          "children": [
+            {"code": "COGS_HOSTING", "name": "Cloud Hosting", "description": "AWS/GCP/Azure infrastructure", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2210},
+            {"code": "SAAS_CUSTOMER_SUCCESS", "name": "Customer Success Salaries", "description": "Support and CSM team compensation", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2220},
+            {"code": "SAAS_THIRD_PARTY_SOFTWARE", "name": "Third-Party Software (COGS)", "description": "Embedded SaaS in product delivery", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2230},
+            {"code": "PAYMENT_PROCESSING_FEES", "name": "Payment Processing Fees", "description": "Stripe, gateway fees", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2240},
+            {"code": "SAAS_AMORTIZATION_CAPSW", "name": "Amortization of Capitalized Software", "description": "Amort of internal-use software included in COGS", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2250},
+            {"code": "SAAS_PROF_SERVICES_COSTS", "name": "Professional Services Costs", "description": "Costs to deliver implementation/PS", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2260},
+            {"code": "COGS", "name": "Cost of Goods Sold (Hardware)", "description": "Hardware cost if applicable", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2270},
+            {"code": "COGS_MATERIALS", "name": "Materials", "description": "Hardware materials", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2271},
+            {"code": "COGS_LABOR", "name": "Direct Labor", "description": "If hardware", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2272},
+            {"code": "COGS_OVERHEAD", "name": "Overhead", "description": "If hardware", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2273}
+          ]
+        },
+        {"code": "GROSS_PROFIT", "name": "Gross Profit", "description": "Revenue - Cost of Revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2300},
+        {
+          "code": "OPEX_RD",
+          "name": "Research and Development",
+          "description": "Engineering and product spend",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2400,
+          "children": [
+            {"code": "SAAS_ENGINEERING_SALARIES", "name": "Engineering Salaries", "description": "Engineering team compensation", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2410},
+            {"code": "RD_EXPENSE", "name": "R&D - Other", "description": "Other R&D costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2420}
+          ]
+        },
+        {
+          "code": "OPEX_SM",
+          "name": "Sales and Marketing",
+          "description": "Customer acquisition spend",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2430,
+          "children": [
+            {"code": "SAAS_SALES_SALARIES", "name": "Sales Salaries", "description": "Sales team comp", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2431},
+            {"code": "SAAS_SALES_COMMISSIONS", "name": "Sales Commissions", "description": "Variable sales comp (excl. capitalized portion)", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2432},
+            {"code": "MARKETING_EXPENSE", "name": "Marketing and Advertising", "description": "Demand-gen spend", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2433}
+          ]
+        },
+        {
+          "code": "OPEX_GA",
+          "name": "General and Administrative",
+          "description": "G&A overhead",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2440,
+          "children": [
+            {"code": "SALARIES_WAGES", "name": "G&A Salaries", "description": "G&A team comp", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2441},
+            {"code": "PAYROLL_TAXES", "name": "Payroll Taxes", "description": "Employer payroll tax", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2442},
+            {"code": "EMPLOYEE_BENEFITS", "name": "Employee Benefits", "description": "Health/401k", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2443},
+            {"code": "RENT_EXPENSE", "name": "Rent", "description": "Office rent", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2444},
+            {"code": "UTILITIES", "name": "Utilities", "description": "Office utilities", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2445},
+            {"code": "TELECOM", "name": "Telecommunications", "description": "Phone/internet", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2446},
+            {"code": "SOFTWARE_EXPENSE", "name": "Software Subscriptions (G&A)", "description": "Internal SaaS tools", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2447},
+            {"code": "OFFICE_SUPPLIES", "name": "Office Supplies", "description": "Supplies", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2448},
+            {"code": "PROFESSIONAL_FEES", "name": "Professional Fees", "description": "Audit/accounting/consulting", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2449},
+            {"code": "LEGAL_FEES", "name": "Legal Fees", "description": "Legal services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2450},
+            {"code": "TRAVEL_EXPENSE", "name": "Travel", "description": "Business travel", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2451},
+            {"code": "MEALS_ENTERTAINMENT", "name": "Meals and Entertainment", "description": "Business meals", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2452},
+            {"code": "BANK_FEES", "name": "Bank Fees", "description": "Banking fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2453},
+            {"code": "BAD_DEBT_EXPENSE", "name": "Bad Debt Expense", "description": "Customer write-offs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2454},
+            {"code": "INSURANCE_EXPENSE", "name": "Insurance", "description": "Business insurance (D&O, E&O, etc.)", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2455},
+            {"code": "REPAIRS_MAINTENANCE", "name": "Repairs and Maintenance", "description": "Office maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2456}
+          ]
+        },
+        {"code": "DEPRECIATION_EXPENSE", "name": "Depreciation Expense", "description": "PPE depreciation", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2470},
+        {"code": "AMORTIZATION_EXPENSE", "name": "Amortization of Intangibles", "description": "Acquired intangible amort", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2471},
+        {"code": "OTHER_EXPENSE", "name": "Other Operating Expenses", "description": "Misc opex", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2490},
+        {"code": "OPERATING_INCOME", "name": "Operating Income (Loss)", "description": "GP less OpEx", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "credit", "sort_order": 2500},
+        {
+          "code": "OTHER_INCOME_EXPENSE",
+          "name": "Other Income and Expense",
+          "description": "Non-operating items",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Other Income Expense",
+          "normal_balance": "credit",
+          "sort_order": 2600,
+          "children": [
+            {"code": "INTEREST_INCOME", "name": "Interest Income", "description": "Interest on cash balances", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2610},
+            {"code": "INTEREST_EXPENSE", "name": "Interest Expense", "description": "Debt interest", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "debit", "sort_order": 2620},
+            {"code": "GAIN_ON_SALE", "name": "Gain on Sale of Assets", "description": "Disposal gains", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2630},
+            {"code": "OTHER_INCOME", "name": "Other Income", "description": "Misc non-op income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2640},
+            {"code": "RENTAL_INCOME", "name": "Sublease Income", "description": "Office sublease", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2650}
+          ]
+        },
+        {"code": "INCOME_TAX_EXPENSE", "name": "Income Tax Expense", "description": "Tax provision", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "debit", "sort_order": 2710},
+        {"code": "NET_INCOME", "name": "Net Income (Loss)", "description": "Bottom line", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "credit", "sort_order": 2800}
+      ]
+    },
+    {
+      "code": "CF",
+      "name": "Cash Flow Statement",
+      "description": "Cash flow",
+      "statement_type": "Cash Flow",
+      "sort_order": 3000,
+      "children": [
+        {
+          "code": "CF_OPERATING",
+          "name": "Operating Cash Flow",
+          "description": "Cash from operations",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Operating",
+          "normal_balance": "credit",
+          "sort_order": 3100,
+          "cash_flow_classification": "operating",
+          "children": [
+            {"code": "CF_NET_INCOME", "name": "Net Loss", "description": "Net income starting line", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3110, "cash_flow_classification": "operating"},
+            {"code": "CF_DEPRECIATION", "name": "Depreciation and Amortization", "description": "D&A add-back", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3120, "cash_flow_classification": "operating"},
+            {"code": "CF_STOCK_COMP", "name": "Stock-Based Compensation", "description": "Non-cash SBC", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3130, "cash_flow_classification": "operating"},
+            {"code": "CF_AR_CHANGE", "name": "Change in AR", "description": "AR WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3140, "cash_flow_classification": "operating"},
+            {"code": "CF_DEFREV_CHANGE", "name": "Change in Deferred Revenue", "description": "Deferred revenue WC", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3145, "cash_flow_classification": "operating"},
+            {"code": "CF_AP_CHANGE", "name": "Change in AP", "description": "AP WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3160, "cash_flow_classification": "operating"},
+            {"code": "CF_ACCRUED_CHANGE", "name": "Change in Accrued Liabilities", "description": "Accruals WC", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3170, "cash_flow_classification": "operating"}
+          ]
+        },
+        {
+          "code": "CF_INVESTING",
+          "name": "Investing Cash Flow",
+          "description": "Investing activity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Investing",
+          "normal_balance": "credit",
+          "sort_order": 3200,
+          "cash_flow_classification": "investing",
+          "children": [
+            {"code": "CF_PPE_PURCHASE", "name": "Capex", "description": "PPE purchases", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3210, "cash_flow_classification": "investing"},
+            {"code": "CF_CAPITALIZED_SW", "name": "Capitalized Software Development", "description": "Internal-use software capitalized", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3215, "cash_flow_classification": "investing"},
+            {"code": "CF_INVESTMENT_PURCHASE", "name": "Purchases of Investments", "description": "Treasuries/securities", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3230, "cash_flow_classification": "investing"},
+            {"code": "CF_INVESTMENT_SALE", "name": "Proceeds from Investments", "description": "Maturities/sales", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "credit", "sort_order": 3240, "cash_flow_classification": "investing"},
+            {"code": "CF_ACQUISITION", "name": "Acquisitions, Net of Cash", "description": "M&A spend", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3250, "cash_flow_classification": "investing"}
+          ]
+        },
+        {
+          "code": "CF_FINANCING",
+          "name": "Financing Cash Flow",
+          "description": "Financing activity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Financing",
+          "normal_balance": "credit",
+          "sort_order": 3300,
+          "cash_flow_classification": "financing",
+          "children": [
+            {"code": "CF_STOCK_ISSUANCE", "name": "Proceeds from Equity Financing", "description": "Series funding rounds", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3330, "cash_flow_classification": "financing"},
+            {"code": "CF_DEBT_PROCEEDS", "name": "Proceeds from Venture Debt", "description": "Venture debt drawdowns", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3310, "cash_flow_classification": "financing"},
+            {"code": "CF_DEBT_REPAYMENT", "name": "Debt Repayment", "description": "Debt principal payments", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3320, "cash_flow_classification": "financing"},
+            {"code": "CF_STOCK_REPURCHASE", "name": "Stock Repurchases", "description": "Buybacks", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3340, "cash_flow_classification": "financing"},
+            {"code": "CF_DIVIDENDS_PAID", "name": "Dividends Paid", "description": "Cash dividends", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3350, "cash_flow_classification": "financing"}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "EQUITY_STMT",
+      "name": "Statement of Stockholders' Equity",
+      "description": "Equity roll-forward",
+      "statement_type": "Equity",
+      "sort_order": 4000,
+      "children": [
+        {"code": "EQ_BEGINNING", "name": "Beginning Equity", "description": "Opening equity", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4010},
+        {"code": "EQ_NET_INCOME", "name": "Net Loss", "description": "Period net loss", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4020},
+        {"code": "EQ_STOCK_ISSUED", "name": "Stock Issued", "description": "Series funding", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4050},
+        {"code": "EQ_STOCK_COMP", "name": "Stock-Based Compensation", "description": "SBC expense", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4060},
+        {"code": "EQ_STOCK_REPURCHASED", "name": "Stock Repurchases", "description": "Buybacks", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 4070},
+        {"code": "EQ_ENDING", "name": "Ending Equity", "description": "Closing equity", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4080}
+      ]
+    },
+    {
+      "code": "SAAS_KPI",
+      "name": "SaaS KPIs",
+      "description": "Subscription business metrics",
+      "statement_type": "KPI",
+      "financial_statement_section": "KPI",
+      "sort_order": 5000,
+      "children": [
+        {"code": "SAAS_ARR", "name": "Annual Recurring Revenue (ARR)", "description": "Annualized run-rate subscription revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5010, "kpi_eligible": true},
+        {"code": "SAAS_MRR", "name": "Monthly Recurring Revenue (MRR)", "description": "Monthly run-rate subscription revenue", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5020, "kpi_eligible": true},
+        {"code": "SAAS_NEW_ARR", "name": "New ARR (Bookings)", "description": "New ARR added in period", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5025, "kpi_eligible": true},
+        {"code": "SAAS_EXPANSION_ARR", "name": "Expansion ARR", "description": "Upsell/cross-sell ARR", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5030, "kpi_eligible": true},
+        {"code": "SAAS_CHURN_ARR", "name": "Churn ARR", "description": "Lost ARR from cancellations/downgrades", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5035, "kpi_eligible": true},
+        {"code": "SAAS_NRR", "name": "Net Revenue Retention (NRR)", "description": "Expansion minus churn over starting ARR", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5040, "kpi_eligible": true},
+        {"code": "SAAS_GRR", "name": "Gross Revenue Retention (GRR)", "description": "Retention excluding expansion", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5045, "kpi_eligible": true},
+        {"code": "SAAS_CHURN_RATE", "name": "Churn Rate %", "description": "Periodic customer or revenue churn", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5050, "kpi_eligible": true},
+        {"code": "SAAS_CAC", "name": "Customer Acquisition Cost (CAC)", "description": "S&M spend / new customers", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5060, "kpi_eligible": true},
+        {"code": "SAAS_LTV", "name": "Customer Lifetime Value (LTV)", "description": "Expected lifetime gross profit per customer", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5070, "kpi_eligible": true},
+        {"code": "SAAS_LTV_CAC", "name": "LTV/CAC Ratio", "description": "Unit economics ratio", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5080, "kpi_eligible": true},
+        {"code": "SAAS_PAYBACK_PERIOD", "name": "CAC Payback Period (Months)", "description": "Months to recover CAC", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5090, "kpi_eligible": true},
+        {"code": "SAAS_MAGIC_NUMBER", "name": "Magic Number", "description": "New ARR / S&M spend", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5100, "kpi_eligible": true},
+        {"code": "SAAS_RULE_OF_40", "name": "Rule of 40", "description": "Growth rate % + profit margin %", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5110, "kpi_eligible": true},
+        {"code": "SAAS_LOGO_COUNT", "name": "Customer Count", "description": "Total paying customer logos", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5120, "kpi_eligible": true},
+        {"code": "SAAS_ARPU", "name": "Average Revenue per User (ARPU)", "description": "ARR / customers", "statement_type": "KPI", "financial_statement_section": "KPI", "sort_order": 5130, "kpi_eligible": true}
+      ]
+    }
+  ]
+}

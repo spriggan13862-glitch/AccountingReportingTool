@@ -1,0 +1,365 @@
+{
+  "code": "nonprofit",
+  "name": "Nonprofit",
+  "description": "Nonprofit organization reporting taxonomy (ASC 958)",
+  "industry": "nonprofit",
+  "version": "2026",
+  "nodes": [
+    {
+      "code": "BS",
+      "name": "Statement of Financial Position",
+      "description": "Nonprofit balance sheet",
+      "statement_type": "Balance Sheet",
+      "sort_order": 1000,
+      "children": [
+        {
+          "code": "ASSETS",
+          "name": "Assets",
+          "description": "Total assets",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Assets",
+          "normal_balance": "debit",
+          "sort_order": 1100,
+          "children": [
+            {
+              "code": "CURRENT_ASSETS",
+              "name": "Current Assets",
+              "description": "Short-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1110,
+              "children": [
+                {"code": "CASH", "name": "Cash", "description": "Operating cash", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1111},
+                {"code": "CASH_EQUIV", "name": "Cash Equivalents", "description": "Short-term liquid", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1112},
+                {"code": "RESTRICTED_CASH", "name": "Restricted Cash (Donor-Restricted)", "description": "Cash restricted by donors", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1113, "gaap_reference": "ASC 958"},
+                {"code": "NP_PLEDGE_RECEIVABLE", "name": "Pledges Receivable - Current", "description": "Promises to give due within 1 year", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1114, "gaap_reference": "ASC 958-605"},
+                {"code": "AR", "name": "Accounts Receivable - Program Fees", "description": "Earned program service fees", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1120},
+                {"code": "AR_ALLOWANCE", "name": "Allowance for Uncollectible Receivables", "description": "AR allowance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1121},
+                {"code": "NP_GRANT_RECEIVABLE", "name": "Grants Receivable - Current", "description": "Grant payments due within 1 year", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1122},
+                {"code": "INVENTORY", "name": "Inventory", "description": "Goods/supplies held", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1130},
+                {"code": "INVENTORY_RAW", "name": "Raw Materials", "description": "Raw materials", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1131},
+                {"code": "INVENTORY_WIP", "name": "Work in Process", "description": "WIP", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1132},
+                {"code": "INVENTORY_FG", "name": "Finished Goods", "description": "Finished goods for sale (thrift, merchandise)", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1133},
+                {"code": "PREPAID", "name": "Prepaid Expenses", "description": "Prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1140},
+                {"code": "PREPAID_INSURANCE", "name": "Prepaid Insurance", "description": "Prepaid insurance", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1141},
+                {"code": "PREPAID_RENT", "name": "Prepaid Rent", "description": "Rent prepayments", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1142},
+                {"code": "OTHER_CURRENT_ASSET", "name": "Other Current Assets", "description": "Misc current assets", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1150}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_ASSETS",
+              "name": "Non-Current Assets",
+              "description": "Long-term assets",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Assets",
+              "normal_balance": "debit",
+              "sort_order": 1200,
+              "children": [
+                {"code": "NP_PLEDGE_RECEIVABLE_LT", "name": "Pledges Receivable - Long Term", "description": "Long-term promises to give (at present value)", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1205, "gaap_reference": "ASC 958-605"},
+                {"code": "NP_ENDOWMENT_INVESTMENTS", "name": "Endowment Investments", "description": "Investments held for endowment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1206, "gaap_reference": "ASC 958-320"},
+                {"code": "NP_BENEFICIAL_INTEREST", "name": "Beneficial Interest in Trusts", "description": "Beneficial interests in perpetual or split-interest trusts", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1207},
+                {"code": "PPE", "name": "Property, Plant and Equipment", "description": "PPE total", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1210},
+                {"code": "PPE_LAND", "name": "Land", "description": "Land owned", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1211},
+                {"code": "PPE_BUILDINGS", "name": "Buildings", "description": "Owned buildings", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1212},
+                {"code": "PPE_EQUIPMENT", "name": "Equipment", "description": "Program/office equipment", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1213},
+                {"code": "PPE_FURNITURE", "name": "Furniture and Fixtures", "description": "Furniture", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1214},
+                {"code": "PPE_VEHICLES", "name": "Vehicles", "description": "Vehicles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1215},
+                {"code": "PPE_LEASEHOLD", "name": "Leasehold Improvements", "description": "Leasehold improvements", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1216},
+                {"code": "PPE_ACCUM_DEPR", "name": "Accumulated Depreciation", "description": "PPE accumulated depreciation", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "credit", "sort_order": 1217},
+                {"code": "INTANGIBLE", "name": "Intangible Assets", "description": "Intangibles", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1220},
+                {"code": "GOODWILL", "name": "Goodwill", "description": "Goodwill", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1221},
+                {"code": "ROU_ASSET", "name": "Right-of-Use Asset", "description": "Lease ROU asset", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1230},
+                {"code": "DEFERRED_TAX_ASSET", "name": "Deferred Tax Asset (UBI)", "description": "DTA on unrelated business income", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1240},
+                {"code": "OTHER_LT_ASSET", "name": "Other Non-Current Assets", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Assets", "normal_balance": "debit", "sort_order": 1260}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "LIABILITIES",
+          "name": "Liabilities",
+          "description": "Total liabilities",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Liabilities",
+          "normal_balance": "credit",
+          "sort_order": 1300,
+          "children": [
+            {
+              "code": "CURRENT_LIABILITIES",
+              "name": "Current Liabilities",
+              "description": "Short-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1310,
+              "children": [
+                {"code": "AP", "name": "Accounts Payable", "description": "Vendor AP", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1311},
+                {"code": "ACCRUED_LIABILITIES", "name": "Accrued Liabilities", "description": "General accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1312},
+                {"code": "ACCRUED_PAYROLL", "name": "Accrued Payroll", "description": "Comp accruals", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1313},
+                {"code": "CREDIT_CARD", "name": "Credit Card Payable", "description": "Card balances", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1314},
+                {"code": "SALES_TAX_PAYABLE", "name": "Sales Tax Payable", "description": "Sales tax (UBI)", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1317},
+                {"code": "PAYROLL_TAX_PAYABLE", "name": "Payroll Tax Payable", "description": "Payroll taxes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1318},
+                {"code": "INCOME_TAX_PAYABLE", "name": "UBI Tax Payable", "description": "Unrelated business income tax", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1319},
+                {"code": "DEFERRED_REVENUE", "name": "Deferred Revenue (Exchange Transactions)", "description": "Exchange revenue not yet earned", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1320},
+                {"code": "NP_REFUNDABLE_ADVANCES", "name": "Refundable Advances", "description": "Conditional grants pending condition satisfaction", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1321, "gaap_reference": "ASC 958-605"},
+                {"code": "CUSTOMER_DEPOSITS", "name": "Event Registration Deposits", "description": "Event/program advance payments", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1322},
+                {"code": "CURRENT_LEASE_LIABILITY", "name": "Lease Liability - Current", "description": "Current lease portion", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1323},
+                {"code": "CURRENT_LTD", "name": "Current Portion of Long-Term Debt", "description": "Current LTD", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1324},
+                {"code": "LINE_OF_CREDIT", "name": "Line of Credit", "description": "Revolver drawn", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1325},
+                {"code": "NOTES_PAYABLE", "name": "Notes Payable - Current", "description": "Short-term notes", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1326},
+                {"code": "OTHER_CURRENT_LIABILITY", "name": "Other Current Liabilities", "description": "Other short-term", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1330}
+              ]
+            },
+            {
+              "code": "NON_CURRENT_LIABILITIES",
+              "name": "Non-Current Liabilities",
+              "description": "Long-term obligations",
+              "statement_type": "Balance Sheet",
+              "financial_statement_section": "Liabilities",
+              "normal_balance": "credit",
+              "sort_order": 1400,
+              "children": [
+                {"code": "LONG_TERM_DEBT", "name": "Long-Term Debt", "description": "Long-term notes/bonds", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1410},
+                {"code": "LEASE_LIABILITY", "name": "Lease Liability - Non-Current", "description": "Long-term lease obligation", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1420},
+                {"code": "DEFERRED_TAX_LIABILITY", "name": "Deferred Tax Liability", "description": "DTL (UBI)", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1430},
+                {"code": "NP_SPLIT_INTEREST_OBLIGATIONS", "name": "Split-Interest Agreement Obligations", "description": "Annuity/charitable remainder obligations", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1440},
+                {"code": "OTHER_LT_LIABILITY", "name": "Other Non-Current Liabilities", "description": "Other LT", "statement_type": "Balance Sheet", "financial_statement_section": "Liabilities", "normal_balance": "credit", "sort_order": 1460}
+              ]
+            }
+          ]
+        },
+        {
+          "code": "NET_ASSETS",
+          "name": "Net Assets",
+          "description": "Nonprofit net assets (ASC 958)",
+          "statement_type": "Balance Sheet",
+          "financial_statement_section": "Equity",
+          "normal_balance": "credit",
+          "sort_order": 1500,
+          "gaap_reference": "ASC 958-210",
+          "children": [
+            {"code": "NP_NET_ASSETS_WITHOUT_RESTRICTIONS", "name": "Net Assets Without Donor Restrictions", "description": "Unrestricted net assets", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1510, "gaap_reference": "ASC 958-210"},
+            {"code": "NP_NET_ASSETS_BOARD_DESIGNATED", "name": "Board-Designated Net Assets", "description": "Internally designated by governing board", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1515},
+            {"code": "NP_NET_ASSETS_WITH_RESTRICTIONS", "name": "Net Assets With Donor Restrictions", "description": "Donor-restricted net assets (purpose, time, perpetual)", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1520, "gaap_reference": "ASC 958-210"},
+            {"code": "NP_NET_ASSETS_PURPOSE_RESTRICTED", "name": "Purpose-Restricted Net Assets", "description": "Restricted for specific program/purpose", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1521},
+            {"code": "NP_NET_ASSETS_TIME_RESTRICTED", "name": "Time-Restricted Net Assets", "description": "Restricted for future period", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1522},
+            {"code": "NP_NET_ASSETS_PERPETUAL", "name": "Perpetually-Restricted Net Assets", "description": "Held in perpetuity (endowment corpus)", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1523},
+            {"code": "RETAINED_EARNINGS", "name": "Retained Earnings (Operating)", "description": "For nonprofits maintaining op surplus tracking", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1540},
+            {"code": "COMMON_STOCK", "name": "Common Stock", "description": "Not typically used for nonprofits", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1545},
+            {"code": "PREFERRED_STOCK", "name": "Preferred Stock", "description": "Not typically used for nonprofits", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1546},
+            {"code": "APIC", "name": "Additional Paid-In Capital", "description": "Not typically used for nonprofits", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1547},
+            {"code": "TREASURY_STOCK", "name": "Treasury Stock", "description": "Not typically used for nonprofits", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1548},
+            {"code": "MEMBER_EQUITY", "name": "Member Equity", "description": "If member-based nonprofit", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1570},
+            {"code": "OWNER_EQUITY", "name": "Owner's Equity", "description": "Not typically applicable", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 1580},
+            {"code": "OWNER_DRAW", "name": "Owner's Draw", "description": "Not typically applicable", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1581},
+            {"code": "DISTRIBUTIONS", "name": "Distributions", "description": "Not typically applicable", "statement_type": "Balance Sheet", "financial_statement_section": "Equity", "normal_balance": "debit", "sort_order": 1590}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "IS",
+      "name": "Statement of Activities",
+      "description": "Revenue and expense by classification",
+      "statement_type": "Income Statement",
+      "sort_order": 2000,
+      "children": [
+        {
+          "code": "REVENUE",
+          "name": "Revenue and Support",
+          "description": "Revenue from contributions and earned",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Revenue",
+          "normal_balance": "credit",
+          "sort_order": 2100,
+          "children": [
+            {"code": "NP_CONTRIB_REV_NO_RESTRICTION", "name": "Contributions Revenue - Without Donor Restrictions", "description": "Unrestricted contributions revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2110, "gaap_reference": "ASC 958-605"},
+            {"code": "NP_CONTRIB_REV_WITH_RESTRICTION", "name": "Contributions Revenue - With Donor Restrictions", "description": "Donor-restricted contributions revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2115, "gaap_reference": "ASC 958-605"},
+            {"code": "NP_GRANT_REVENUE", "name": "Grant Revenue", "description": "Foundation and government grants", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2120, "gaap_reference": "ASC 958-605"},
+            {"code": "NP_GOVERNMENT_GRANT_REVENUE", "name": "Government Grant Revenue", "description": "Federal/state/local grants", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2121},
+            {"code": "NP_PROGRAM_SERVICE_REVENUE", "name": "Program Service Revenue", "description": "Fees earned for program services (exchange transactions)", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2130, "gaap_reference": "ASC 606"},
+            {"code": "NP_MEMBERSHIP_DUES", "name": "Membership Dues", "description": "Member dues revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2135},
+            {"code": "NP_SPECIAL_EVENTS_REVENUE", "name": "Special Events Revenue", "description": "Galas, auctions, fundraising events", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2140},
+            {"code": "NP_INKIND_CONTRIB_REVENUE", "name": "In-Kind Contributions Revenue", "description": "Donated goods/services revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2145, "gaap_reference": "ASC 958-605"},
+            {"code": "REVENUE_SALES", "name": "Merchandise Sales (Thrift/Shop)", "description": "Resale and merchandise revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2150},
+            {"code": "REVENUE_SERVICE", "name": "Other Service Revenue", "description": "Other exchange service revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2155},
+            {"code": "REVENUE_SUBSCRIPTION", "name": "Subscription Revenue", "description": "Publications or member subscriptions", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2160},
+            {"code": "REVENUE_LICENSE", "name": "License Revenue", "description": "Licensing income (e.g., curriculum)", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2165},
+            {"code": "REVENUE_PROF_SERVICES", "name": "Consulting Services Revenue", "description": "Consulting services revenue", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2170},
+            {"code": "RENTAL_INCOME", "name": "Rental Income", "description": "Facility rental income", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2175},
+            {"code": "NP_NET_ASSETS_RELEASED_FROM_RESTR", "name": "Net Assets Released from Restrictions", "description": "Release of donor restrictions (timing/purpose met)", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2180, "gaap_reference": "ASC 958-225"}
+          ]
+        },
+        {
+          "code": "COGS_SECTION",
+          "name": "Cost of Goods Sold (Merchandise/Thrift)",
+          "description": "Direct cost of resold goods",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Cost of Revenue",
+          "normal_balance": "debit",
+          "sort_order": 2200,
+          "children": [
+            {"code": "COGS", "name": "Cost of Merchandise Sold", "description": "Total cost of goods sold", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2210},
+            {"code": "COGS_MATERIALS", "name": "Materials", "description": "Materials cost", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2220},
+            {"code": "COGS_LABOR", "name": "Direct Labor", "description": "Direct labor", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2230},
+            {"code": "COGS_OVERHEAD", "name": "Overhead", "description": "Allocated overhead", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2240},
+            {"code": "COGS_HOSTING", "name": "Platform Hosting", "description": "Online services hosting", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2250},
+            {"code": "PAYMENT_PROCESSING_FEES", "name": "Donation Processing Fees", "description": "Donation/payment processing fees", "statement_type": "Income Statement", "financial_statement_section": "Cost of Revenue", "normal_balance": "debit", "sort_order": 2260}
+          ]
+        },
+        {"code": "GROSS_PROFIT", "name": "Gross Profit", "description": "Revenue less direct costs", "statement_type": "Income Statement", "financial_statement_section": "Revenue", "normal_balance": "credit", "sort_order": 2300},
+        {
+          "code": "NP_PROGRAM_EXPENSES",
+          "name": "Program Services Expenses",
+          "description": "Direct mission expense (by program)",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2400,
+          "gaap_reference": "ASC 958-720",
+          "children": [
+            {"code": "NP_PROGRAM_A_EXPENSE", "name": "Program A Expense", "description": "First program area total expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2410},
+            {"code": "NP_PROGRAM_B_EXPENSE", "name": "Program B Expense", "description": "Second program area total expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2420},
+            {"code": "NP_PROGRAM_C_EXPENSE", "name": "Program C Expense", "description": "Third program area total expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2430}
+          ]
+        },
+        {
+          "code": "NP_SUPPORTING_EXPENSES",
+          "name": "Supporting Services Expenses",
+          "description": "Management & General and Fundraising",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2500,
+          "gaap_reference": "ASC 958-720",
+          "children": [
+            {"code": "NP_MANAGEMENT_GENERAL", "name": "Management and General Expense", "description": "G&A and management costs (by functional class)", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2510},
+            {"code": "NP_FUNDRAISING_EXPENSE", "name": "Fundraising Expense", "description": "Donor cultivation and solicitation cost", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2520}
+          ]
+        },
+        {
+          "code": "OPEX",
+          "name": "Natural Expense Classification",
+          "description": "Expenses by natural category (cross-tabbed with functional)",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Operating Expenses",
+          "normal_balance": "debit",
+          "sort_order": 2600,
+          "children": [
+            {"code": "SALARIES_WAGES", "name": "Salaries and Wages", "description": "Salaries and wages", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2610},
+            {"code": "PAYROLL_TAXES", "name": "Payroll Taxes", "description": "Employer payroll taxes", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2611},
+            {"code": "EMPLOYEE_BENEFITS", "name": "Employee Benefits", "description": "Benefits", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2612},
+            {"code": "RENT_EXPENSE", "name": "Occupancy Cost", "description": "Rent and occupancy", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2620},
+            {"code": "UTILITIES", "name": "Utilities", "description": "Utilities", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2621},
+            {"code": "TELECOM", "name": "Telecommunications", "description": "Phone/data", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2622},
+            {"code": "SOFTWARE_EXPENSE", "name": "Software and IT", "description": "Software/IT", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2623},
+            {"code": "OFFICE_SUPPLIES", "name": "Supplies", "description": "Office and program supplies", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2624},
+            {"code": "PROFESSIONAL_FEES", "name": "Professional Fees", "description": "Accounting/consulting", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2630},
+            {"code": "LEGAL_FEES", "name": "Legal Fees", "description": "Legal services", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2631},
+            {"code": "TRAVEL_EXPENSE", "name": "Travel", "description": "Travel costs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2640},
+            {"code": "MEALS_ENTERTAINMENT", "name": "Meals", "description": "Meals", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2641},
+            {"code": "MARKETING_EXPENSE", "name": "Marketing and Outreach", "description": "Communications/marketing", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2650},
+            {"code": "DEPRECIATION_EXPENSE", "name": "Depreciation", "description": "Depreciation expense", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2660},
+            {"code": "AMORTIZATION_EXPENSE", "name": "Amortization", "description": "Amortization", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2661},
+            {"code": "INSURANCE_EXPENSE", "name": "Insurance", "description": "Insurance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2670},
+            {"code": "BAD_DEBT_EXPENSE", "name": "Pledge Write-Offs", "description": "Pledge/AR write-offs", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2680},
+            {"code": "REPAIRS_MAINTENANCE", "name": "Repairs and Maintenance", "description": "Maintenance", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2681},
+            {"code": "BANK_FEES", "name": "Bank Fees", "description": "Banking fees", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2682},
+            {"code": "NP_GRANTS_AWARDED", "name": "Grants Awarded to Other Organizations", "description": "Grants made to other entities", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2690},
+            {"code": "RD_EXPENSE", "name": "Research and Development", "description": "Research and development", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2695},
+            {"code": "OTHER_EXPENSE", "name": "Other Operating Expense", "description": "Misc opex", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "debit", "sort_order": 2700}
+          ]
+        },
+        {"code": "OPERATING_INCOME", "name": "Change in Net Assets from Operations", "description": "Operating result", "statement_type": "Income Statement", "financial_statement_section": "Operating Expenses", "normal_balance": "credit", "sort_order": 2800},
+        {
+          "code": "OTHER_INCOME_EXPENSE",
+          "name": "Non-Operating Items",
+          "description": "Non-operating gains/losses",
+          "statement_type": "Income Statement",
+          "financial_statement_section": "Other Income Expense",
+          "normal_balance": "credit",
+          "sort_order": 2900,
+          "children": [
+            {"code": "INTEREST_INCOME", "name": "Investment Income", "description": "Investment income (unrestricted)", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2910},
+            {"code": "INTEREST_EXPENSE", "name": "Interest Expense", "description": "Debt interest", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "debit", "sort_order": 2920},
+            {"code": "GAIN_ON_SALE", "name": "Gain on Sale of Assets/Investments", "description": "Asset/investment disposal gains", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2930},
+            {"code": "OTHER_INCOME", "name": "Other Income", "description": "Misc non-op income", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2940},
+            {"code": "NP_ENDOWMENT_INVESTMENT_RETURN", "name": "Investment Return on Endowments", "description": "Endowment investment return", "statement_type": "Income Statement", "financial_statement_section": "Other Income Expense", "normal_balance": "credit", "sort_order": 2950}
+          ]
+        },
+        {"code": "INCOME_TAX_EXPENSE", "name": "UBI Tax Expense", "description": "Unrelated business income tax", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "debit", "sort_order": 2960},
+        {"code": "NET_INCOME", "name": "Change in Net Assets", "description": "Equivalent to net income", "statement_type": "Income Statement", "financial_statement_section": "Income Taxes", "normal_balance": "credit", "sort_order": 2980}
+      ]
+    },
+    {
+      "code": "CF",
+      "name": "Statement of Cash Flows",
+      "description": "Cash flow",
+      "statement_type": "Cash Flow",
+      "sort_order": 3000,
+      "children": [
+        {
+          "code": "CF_OPERATING",
+          "name": "Operating Cash Flow",
+          "description": "Cash from operations",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Operating",
+          "normal_balance": "credit",
+          "sort_order": 3100,
+          "cash_flow_classification": "operating",
+          "children": [
+            {"code": "CF_NET_INCOME", "name": "Change in Net Assets", "description": "Starting line", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3110, "cash_flow_classification": "operating"},
+            {"code": "CF_DEPRECIATION", "name": "Depreciation and Amortization", "description": "D&A add-back", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3120, "cash_flow_classification": "operating"},
+            {"code": "CF_AR_CHANGE", "name": "Change in Receivables/Pledges", "description": "Receivables WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3140, "cash_flow_classification": "operating"},
+            {"code": "CF_AP_CHANGE", "name": "Change in AP and Accrued", "description": "AP/Accrued WC change", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3160, "cash_flow_classification": "operating"},
+            {"code": "CF_REFUNDABLE_ADVANCES_CHANGE", "name": "Change in Refundable Advances", "description": "Conditional contributions WC", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Operating", "normal_balance": "credit", "sort_order": 3170, "cash_flow_classification": "operating"}
+          ]
+        },
+        {
+          "code": "CF_INVESTING",
+          "name": "Investing Cash Flow",
+          "description": "Investing activity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Investing",
+          "normal_balance": "credit",
+          "sort_order": 3200,
+          "cash_flow_classification": "investing",
+          "children": [
+            {"code": "CF_PPE_PURCHASE", "name": "Purchases of PPE", "description": "PPE capex", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3210, "cash_flow_classification": "investing"},
+            {"code": "CF_INVESTMENT_PURCHASE", "name": "Purchases of Investments", "description": "Investment purchases", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "debit", "sort_order": 3220, "cash_flow_classification": "investing"},
+            {"code": "CF_INVESTMENT_SALE", "name": "Proceeds from Investment Sales", "description": "Investment proceeds", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Investing", "normal_balance": "credit", "sort_order": 3230, "cash_flow_classification": "investing"}
+          ]
+        },
+        {
+          "code": "CF_FINANCING",
+          "name": "Financing Cash Flow",
+          "description": "Financing activity",
+          "statement_type": "Cash Flow",
+          "financial_statement_section": "Cash Flow Financing",
+          "normal_balance": "credit",
+          "sort_order": 3300,
+          "cash_flow_classification": "financing",
+          "children": [
+            {"code": "CF_DEBT_PROCEEDS", "name": "Proceeds from Debt", "description": "New borrowings", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3310, "cash_flow_classification": "financing"},
+            {"code": "CF_DEBT_REPAYMENT", "name": "Repayment of Debt", "description": "Debt principal payments", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "debit", "sort_order": 3320, "cash_flow_classification": "financing"},
+            {"code": "CF_ENDOWMENT_CONTRIBUTIONS", "name": "Contributions Restricted for Endowment", "description": "Permanently restricted contributions received", "statement_type": "Cash Flow", "financial_statement_section": "Cash Flow Financing", "normal_balance": "credit", "sort_order": 3330, "cash_flow_classification": "financing"}
+          ]
+        }
+      ]
+    },
+    {
+      "code": "EQUITY_STMT",
+      "name": "Statement of Changes in Net Assets",
+      "description": "Net assets roll-forward",
+      "statement_type": "Equity",
+      "sort_order": 4000,
+      "children": [
+        {"code": "EQ_BEGINNING", "name": "Beginning Net Assets", "description": "Opening net assets", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4010},
+        {"code": "EQ_NET_INCOME", "name": "Change in Net Assets", "description": "Period change", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4020},
+        {"code": "EQ_RECLASS_RESTRICTIONS", "name": "Reclassifications - Restrictions Released", "description": "Movement between restricted/unrestricted", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4030},
+        {"code": "EQ_ENDING", "name": "Ending Net Assets", "description": "Closing net assets", "statement_type": "Equity", "financial_statement_section": "Equity", "normal_balance": "credit", "sort_order": 4040}
+      ]
+    }
+  ]
+}
