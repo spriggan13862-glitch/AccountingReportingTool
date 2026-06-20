@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint E · Accounting Working View',
+    date: '2026-06-19',
+    items: [
+      'New Accounting Working View on Financial Statements page: accountant/advisor hierarchy',
+      'FSLI lines expand to show underlying COA accounts with debit-normal signs',
+      'Revenue shows as negative in AWV (credit balance), expenses positive',
+      'Accounts expand to show journal entries affecting each account',
+      'Create AJE button directly from account line in AWV',
+      'Toggle between Accounting View and Financial Statement Presentation',
+    ],
+  },
+  {
     version: 'Sprint D · Accounting Balance Engine',
     date: '2026-06-19',
     items: [

@@ -33,6 +33,10 @@ from app.api.schemas import (
     TrendReportOut,
     TrendRowOut,
     BalanceComputeResult,
+    AccountingWorkingViewResponse,
+    AwvSection,
+    AwvTaxonomyRow,
+    AwvAccountRow,
 )
 from app.models.report_definition import ReportDefinition, ReportLine, ReportColumn
 from app.services.financial_statement_service import (
@@ -390,6 +394,331 @@ def export_close_package(
         io.BytesIO(data),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Accounting Working View
+# ---------------------------------------------------------------------------
+
+@router.get("/accounting-view", response_model=AccountingWorkingViewResponse)
+def get_accounting_working_view(
+    entity_id: int = Query(...),
+    period_id: int | None = Query(None),
+    view_id: int | None = Query(None),
+    scenario_ids: str = Query("", description="Comma-separated scenario IDs"),
+    db: Session = Depends(get_db),
+):
+    import datetime
+    from decimal import Decimal
+    from collections import defaultdict
+
+    from app.models.account import Account
+    from app.models.reporting_taxonomy import ReportingTaxonomyLine
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_period import AccountingPeriod
+    from app.services.fsli_mapping_service import resolve_fsli
+    from app.services.balance_engine import (
+        get_accounting_signed_balance,
+        get_awv_display_amount,
+        IMPORT_SOURCES,
+        ACCOUNT_TYPE_SECTION,
+        SECTION_ORDER,
+    )
+
+    sids: list[int] = [int(x) for x in scenario_ids.split(",") if x.strip()] if scenario_ids else []
+
+    # Resolve as_of_date and period
+    as_of_date_str: str | None = None
+    period_start: datetime.date | None = None
+    if period_id is not None:
+        period = db.query(AccountingPeriod).filter(AccountingPeriod.id == period_id).first()
+        if period:
+            as_of_date_str = str(period.end_date)
+            period_start = period.start_date
+    if as_of_date_str is None:
+        as_of_date_str = datetime.date.today().isoformat()
+
+    # Default scenario: use scenario 1 when none supplied
+    if not sids:
+        sids = [1]
+
+    # Load all accounts for entity
+    accounts = db.query(Account).filter(Account.entity_id == entity_id).all()
+    account_ids = [a.id for a in accounts]
+
+    if not account_ids:
+        return AccountingWorkingViewResponse(
+            sections=[],
+            entity_id=entity_id,
+            period_id=period_id,
+            view_id=view_id,
+            as_of_date=as_of_date_str,
+            net_income=0.0,
+        )
+
+    # Aggregate JE lines by account for ALL posted JEs in this entity/scenario up to as_of_date
+    as_of = datetime.date.fromisoformat(as_of_date_str)
+
+    def _sum_je_lines(source_filter=None, exclude_sources=None, statuses=("posted",)):
+        filters = [
+            JournalEntryLine.entity_id == entity_id,
+            JournalEntry.entry_date <= as_of,
+            JournalEntry.scenario_id.in_(sids),
+            JournalEntry.status.in_(list(statuses)),
+        ]
+        if source_filter is not None:
+            filters.append(JournalEntry.source.in_(list(source_filter)))
+        if exclude_sources is not None:
+            filters.append(JournalEntry.source.notin_(list(exclude_sources)))
+
+        rows = (
+            db.query(
+                JournalEntryLine.account_id,
+                JournalEntry.id.label("je_id"),
+                JournalEntry.je_number,
+                JournalEntry.entry_date,
+                JournalEntry.description,
+                JournalEntry.source,
+                JournalEntryLine.debit,
+                JournalEntryLine.credit,
+            )
+            .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
+            .filter(*filters)
+            .all()
+        )
+        return rows
+
+    # Import-sourced rows (baseline TB)
+    import_rows = _sum_je_lines(source_filter=IMPORT_SOURCES)
+    # AJE rows (posted non-import)
+    aje_rows = _sum_je_lines(exclude_sources=IMPORT_SOURCES)
+    # Draft AJE rows
+    draft_rows = _sum_je_lines(exclude_sources=IMPORT_SOURCES, statuses=("draft",))
+
+    # Build per-account debit/credit aggregates
+    def _aggregate(rows):
+        acc: dict[int, tuple[Decimal, Decimal]] = defaultdict(lambda: (Decimal("0"), Decimal("0")))
+        for r in rows:
+            d, c = acc[r.account_id]
+            acc[r.account_id] = (d + (r.debit or Decimal("0")), c + (r.credit or Decimal("0")))
+        return acc
+
+    import_agg = _aggregate(import_rows)
+    aje_agg = _aggregate(aje_rows)
+    draft_agg = _aggregate(draft_rows)
+
+    # Build per-account JE list (import + aje combined)
+    je_by_account: dict[int, list[dict]] = defaultdict(list)
+    for r in import_rows + aje_rows:
+        je_by_account[r.account_id].append({
+            "je_id": r.je_id,
+            "description": r.description or "",
+            "amount": float((r.debit or Decimal("0")) - (r.credit or Decimal("0"))),
+        })
+
+    # Resolve FSLI mappings and load taxonomy lines
+    taxonomy_line_ids: set[int] = set()
+    account_fsli: dict[int, int | None] = {}
+    for acc in accounts:
+        tl_id = resolve_fsli(acc.id, entity_id, view_id, db)
+        account_fsli[acc.id] = tl_id
+        if tl_id is not None:
+            taxonomy_line_ids.add(tl_id)
+
+    taxonomy_lines_map: dict[int, ReportingTaxonomyLine] = {}
+    if taxonomy_line_ids:
+        for tl in db.query(ReportingTaxonomyLine).filter(ReportingTaxonomyLine.id.in_(list(taxonomy_line_ids))).all():
+            taxonomy_lines_map[tl.id] = tl
+
+    # Build AwvAccountRow for each account
+    awv_accounts: list[AwvAccountRow] = []
+    for acc in accounts:
+        imp_d, imp_c = import_agg.get(acc.id, (Decimal("0"), Decimal("0")))
+        aje_d, aje_c = aje_agg.get(acc.id, (Decimal("0"), Decimal("0")))
+        drft_d, drft_c = draft_agg.get(acc.id, (Decimal("0"), Decimal("0")))
+
+        imp_bal = get_accounting_signed_balance(acc.account_type, float(imp_d), float(imp_c))
+        aje_bal = get_accounting_signed_balance(acc.account_type, float(aje_d), float(aje_c))
+        drft_bal = get_accounting_signed_balance(acc.account_type, float(drft_d), float(drft_c))
+
+        total_d = imp_d + aje_d
+        total_c = imp_c + aje_c
+        acct_bal = get_accounting_signed_balance(acc.account_type, float(total_d), float(total_c))
+        awv_disp = get_awv_display_amount(acc.account_type, acct_bal)
+        adj_bal = imp_bal + aje_bal + drft_bal
+
+        awv_accounts.append(AwvAccountRow(
+            account_id=acc.id,
+            account_number=acc.account_number,
+            account_name=acc.account_name,
+            account_type=acc.account_type,
+            normal_balance=acc.normal_balance,
+            imported_balance=imp_bal,
+            accounting_balance=acct_bal,
+            awv_display_amount=awv_disp,
+            posted_adj=aje_bal,
+            draft_adj=drft_bal,
+            adjusted_balance=adj_bal,
+            journal_entries=je_by_account.get(acc.id, []),
+        ))
+
+    # Group accounts under taxonomy lines
+    # Accounts with no mapping go to an "Unmapped" bucket per section
+    tl_accounts: dict[int | None, list[AwvAccountRow]] = defaultdict(list)
+    for awv_acc, acc in zip(awv_accounts, accounts):
+        tl_id = account_fsli[acc.id]
+        tl_accounts[tl_id].append(awv_acc)
+
+    # Determine section for each taxonomy line
+    def _section_for_type(account_type: str) -> str:
+        return ACCOUNT_TYPE_SECTION.get(account_type.lower(), "Other")
+
+    def _section_label(section: str) -> str:
+        return {
+            "Assets": "assets",
+            "Liabilities": "liabilities",
+            "Equity": "equity",
+            "Revenue": "revenue",
+            "Expenses": "expenses",
+        }.get(section, section.lower())
+
+    STATEMENT_FOR_SECTION = {
+        "Assets": "balance_sheet",
+        "Liabilities": "balance_sheet",
+        "Equity": "balance_sheet",
+        "Revenue": "income_statement",
+        "Expenses": "income_statement",
+    }
+
+    # Build AwvTaxonomyRow list
+    taxonomy_rows: list[AwvTaxonomyRow] = []
+
+    for tl_id, acct_rows in tl_accounts.items():
+        if tl_id is not None and tl_id in taxonomy_lines_map:
+            tl = taxonomy_lines_map[tl_id]
+            section_label = tl.section or _section_label(_section_for_type(acct_rows[0].account_type if acct_rows else "asset"))
+            line_name = tl.name
+            sort_order = tl.sort_order
+            is_subtotal = tl.is_subtotal
+            statement_type = tl.statement_type
+        else:
+            # Unmapped accounts: group by their account type section
+            if not acct_rows:
+                continue
+            sec = _section_for_type(acct_rows[0].account_type)
+            section_label = _section_label(sec)
+            line_name = "Unmapped"
+            sort_order = 9999
+            is_subtotal = False
+            statement_type = STATEMENT_FOR_SECTION.get(sec)
+
+        imp_total = sum(r.imported_balance for r in acct_rows)
+        aje_total = sum(r.posted_adj for r in acct_rows)
+        drft_total = sum(r.draft_adj for r in acct_rows)
+        acct_total = sum(r.accounting_balance for r in acct_rows)
+        awv_total = sum(r.awv_display_amount for r in acct_rows)
+        adj_total = sum(r.adjusted_balance for r in acct_rows)
+
+        taxonomy_rows.append(AwvTaxonomyRow(
+            taxonomy_line_id=tl_id,
+            line_name=line_name,
+            sort_order=sort_order,
+            is_subtotal=is_subtotal,
+            accounting_balance=acct_total,
+            awv_display_amount=awv_total,
+            imported_balance=imp_total,
+            posted_adj=aje_total,
+            draft_adj=drft_total,
+            adjusted_balance=adj_total,
+            accounts=sorted(acct_rows, key=lambda a: a.account_number),
+        ))
+
+    # Group taxonomy rows into sections
+    # Determine section for each taxonomy row by looking at the taxonomy line section field
+    section_rows: dict[str, list[AwvTaxonomyRow]] = defaultdict(list)
+    for tr in taxonomy_rows:
+        if tr.taxonomy_line_id is not None and tr.taxonomy_line_id in taxonomy_lines_map:
+            tl = taxonomy_lines_map[tr.taxonomy_line_id]
+            raw_sec = tl.section or ""
+            # Normalize to canonical label
+            sec_key = raw_sec.lower().strip()
+        else:
+            # Unmapped: derive from account types in the row
+            sample_type = tr.accounts[0].account_type if tr.accounts else "asset"
+            sec_key = _section_label(_section_for_type(sample_type))
+        section_rows[sec_key].append(tr)
+
+    SECTION_LABEL_MAP = {
+        "assets": "Assets",
+        "asset": "Assets",
+        "liabilities": "Liabilities",
+        "liability": "Liabilities",
+        "equity": "Equity",
+        "revenue": "Revenue",
+        "income": "Revenue",
+        "expenses": "Expenses",
+        "expense": "Expenses",
+        "cogs": "Expenses",
+        "other_income": "Revenue",
+        "other_expense": "Expenses",
+    }
+
+    SECTION_STATEMENT_MAP = {
+        "assets": "balance_sheet",
+        "liabilities": "balance_sheet",
+        "equity": "balance_sheet",
+        "revenue": "income_statement",
+        "expenses": "income_statement",
+    }
+
+    canonical_order = ["assets", "liabilities", "equity", "revenue", "expenses"]
+    sections_out: list[AwvSection] = []
+    for sec_key in canonical_order:
+        if sec_key not in section_rows:
+            continue
+        rows_in_sec = sorted(section_rows[sec_key], key=lambda r: (r.sort_order, r.line_name))
+        sections_out.append(AwvSection(
+            section=sec_key,
+            label=SECTION_LABEL_MAP.get(sec_key, sec_key.title()),
+            statement_type=SECTION_STATEMENT_MAP.get(sec_key),
+            taxonomy_lines=rows_in_sec,
+        ))
+
+    # Remaining sections not in canonical_order
+    for sec_key, rows_in_sec in section_rows.items():
+        if sec_key in canonical_order:
+            continue
+        sections_out.append(AwvSection(
+            section=sec_key,
+            label=SECTION_LABEL_MAP.get(sec_key, sec_key.title()),
+            statement_type=SECTION_STATEMENT_MAP.get(sec_key),
+            taxonomy_lines=sorted(rows_in_sec, key=lambda r: (r.sort_order, r.line_name)),
+        ))
+
+    # Net income: sum of revenue accounting_balance - cogs - expenses
+    revenue_bal = sum(
+        r.accounting_balance
+        for sec in sections_out if sec.section in ("revenue", "income")
+        for tr in sec.taxonomy_lines
+        for r in tr.accounts
+    )
+    expense_bal = sum(
+        r.accounting_balance
+        for sec in sections_out if sec.section in ("expenses", "cogs")
+        for tr in sec.taxonomy_lines
+        for r in tr.accounts
+    )
+    net_income = revenue_bal - expense_bal
+
+    return AccountingWorkingViewResponse(
+        sections=sections_out,
+        entity_id=entity_id,
+        period_id=period_id,
+        view_id=view_id,
+        as_of_date=as_of_date_str,
+        net_income=net_income,
     )
 
 

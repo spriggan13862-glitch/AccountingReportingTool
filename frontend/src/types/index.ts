@@ -1416,3 +1416,52 @@ export interface WizardStep {
   label: string
   status: WizardStepStatus
 }
+
+// ---------------------------------------------------------------------------
+// Sprint E — Accounting Working View
+// ---------------------------------------------------------------------------
+
+export interface AwvAccountRow {
+  account_id: number
+  account_number: string
+  account_name: string
+  account_type: string
+  normal_balance: string
+  imported_balance: number
+  accounting_balance: number
+  awv_display_amount: number
+  posted_adj: number
+  draft_adj: number
+  adjusted_balance: number
+  journal_entries: Array<{ je_id: number; description: string; amount: number }>
+}
+
+export interface AwvTaxonomyRow {
+  taxonomy_line_id: number | null
+  line_name: string
+  sort_order: number
+  is_subtotal: boolean
+  accounting_balance: number
+  awv_display_amount: number
+  imported_balance: number
+  posted_adj: number
+  draft_adj: number
+  adjusted_balance: number
+  accounts: AwvAccountRow[]
+}
+
+export interface AwvSection {
+  section: string
+  label: string
+  statement_type: string | null
+  taxonomy_lines: AwvTaxonomyRow[]
+}
+
+export interface AccountingWorkingViewResponse {
+  sections: AwvSection[]
+  entity_id: number
+  period_id: number | null
+  view_id: number | null
+  as_of_date: string | null
+  net_income: number
+}

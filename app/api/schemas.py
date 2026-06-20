@@ -2539,3 +2539,52 @@ class FsLineBalanceOut(BaseModel):
     posted_adj: float
     draft_adj: float
     adjusted_balance: float
+
+
+# ---------------------------------------------------------------------------
+# Sprint E — Accounting Working View
+# ---------------------------------------------------------------------------
+
+class AwvAccountRow(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    account_type: str
+    normal_balance: str
+    imported_balance: float
+    accounting_balance: float
+    awv_display_amount: float
+    posted_adj: float
+    draft_adj: float
+    adjusted_balance: float
+    journal_entries: list[dict]
+
+
+class AwvTaxonomyRow(BaseModel):
+    taxonomy_line_id: int | None
+    line_name: str
+    sort_order: int
+    is_subtotal: bool
+    accounting_balance: float
+    awv_display_amount: float
+    imported_balance: float
+    posted_adj: float
+    draft_adj: float
+    adjusted_balance: float
+    accounts: list[AwvAccountRow]
+
+
+class AwvSection(BaseModel):
+    section: str
+    label: str
+    statement_type: str | None
+    taxonomy_lines: list[AwvTaxonomyRow]
+
+
+class AccountingWorkingViewResponse(BaseModel):
+    sections: list[AwvSection]
+    entity_id: int
+    period_id: int | None
+    view_id: int | None
+    as_of_date: str | None
+    net_income: float

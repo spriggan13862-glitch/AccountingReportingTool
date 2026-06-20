@@ -7,6 +7,7 @@ import type {
   TrendRow,
   ReportDefinition,
   ReportDefinitionCreate,
+  AccountingWorkingViewResponse,
 } from '@/types'
 
 export const financialStatementsApi = {
@@ -48,5 +49,23 @@ export const financialStatementsApi = {
       watermark,
     })
     return `/api/v1/financial-statements/export/close-package?${params}`
+  },
+
+  getAccountingWorkingView: (params: {
+    entityId: number
+    periodId?: number
+    viewId?: number
+    scenarioIds?: number[]
+  }): Promise<AccountingWorkingViewResponse> => {
+    const qp: Record<string, string> = {
+      entity_id: String(params.entityId),
+    }
+    if (params.periodId !== undefined) qp.period_id = String(params.periodId)
+    if (params.viewId !== undefined) qp.view_id = String(params.viewId)
+    if (params.scenarioIds && params.scenarioIds.length > 0) {
+      qp.scenario_ids = params.scenarioIds.join(',')
+    }
+    return apiClient.get<AccountingWorkingViewResponse>('/financial-statements/accounting-view', { params: qp })
+      .then((r) => r.data)
   },
 }
