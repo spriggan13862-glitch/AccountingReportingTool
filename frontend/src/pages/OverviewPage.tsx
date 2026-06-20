@@ -36,6 +36,17 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint C · Account Parsing & Matching Engine',
+    date: '2026-06-19',
+    items: [
+      'New account label parser: handles 1000 Cash, 1000 - Cash, 1000: Cash, 1000.Cash, 1000 · Cash, 1000 — Cash, subaccounts (1000-01)',
+      'Account matching engine: detects conflicts (AR number matching Inventory) instead of silent mis-match',
+      'Conflict status shown in Mapping Workbench with red warning chip and reason',
+      'New Conflicts filter tab in Mapping Workbench for quick review of flagged lines',
+      'Parent/subaccount relationship detection during matching',
+    ],
+  },
+  {
     version: 'Sprint B · Import Source Logic & Readiness Matrix',
     date: '2026-06-19',
     items: [

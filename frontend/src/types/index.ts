@@ -876,6 +876,19 @@ export interface ImportSuggestion {
   suggested_account_name: string | null
 }
 
+export interface AccountMatchResult {
+  line_id: number
+  raw: string
+  parsed_number: string | null
+  parsed_name: string | null
+  match_status: 'exact' | 'number_only' | 'name_only' | 'parent' | 'conflict' | 'no_match'
+  matched_account_id: number | null
+  matched_account_number: string | null
+  matched_account_name: string | null
+  conflict_reason: string | null
+  confidence: number
+}
+
 // ---------------------------------------------------------------------------
 // M27: Sheet detection + raw preview
 // ---------------------------------------------------------------------------

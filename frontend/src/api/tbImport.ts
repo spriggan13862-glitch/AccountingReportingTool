@@ -7,6 +7,7 @@ import type {
   ImportIssue,
   ImportTemplate,
   ImportSuggestion,
+  AccountMatchResult,
   DetectResult,
   RawPreview,
   ImportReadiness,
@@ -223,4 +224,9 @@ export const tbImportApi = {
 
   getReadiness: (entityId: number) =>
     api.get<ImportReadiness>(`/tb-imports/readiness/${entityId}`).then((r) => r.data),
+
+  parseAndMatch: (batchId: number) =>
+    api
+      .post<AccountMatchResult[]>(`/tb-imports/batches/${batchId}/parse-and-match`)
+      .then((r) => r.data),
 }

@@ -883,6 +883,18 @@ export function ImportWizardPage() {
             </div>
           )}
 
+          {/* Supported account label formats */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-800">
+            <p className="font-semibold mb-1 flex items-center gap-1.5"><Info className="w-3.5 h-3.5 shrink-0" /> Supported account label formats</p>
+            <ul className="space-y-0.5 font-mono text-[11px] text-blue-700">
+              <li>1000 Cash</li>
+              <li>1000 - Cash</li>
+              <li>1000: Cash</li>
+              <li>1000-01 · Operating Account <span className="text-blue-500 font-sans">(subaccounts)</span></li>
+              <li>Account name only <span className="text-blue-500 font-sans">(no number required)</span></li>
+            </ul>
+          </div>
+
           {(!colMapping.account_number) && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded p-3">
               <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />

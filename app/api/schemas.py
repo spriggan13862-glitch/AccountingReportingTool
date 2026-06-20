@@ -1590,6 +1590,29 @@ class ImportReadinessStatus(BaseModel):
     missing_for_fs_presentation: list[str]
 
 
+# ---------------------------------------------------------------------------
+# Sprint C — Account Parsing & Matching Engine
+# ---------------------------------------------------------------------------
+
+class ParsedAccountResult(BaseModel):
+    raw: str
+    account_number: str | None = None
+    account_name: str | None = None
+
+
+class AccountMatchResult(BaseModel):
+    line_id: int
+    raw: str
+    parsed_number: str | None = None
+    parsed_name: str | None = None
+    match_status: str  # exact/number_only/name_only/parent/conflict/no_match
+    matched_account_id: int | None = None
+    matched_account_number: str | None = None
+    matched_account_name: str | None = None
+    conflict_reason: str | None = None
+    confidence: float
+
+
 
 # ---------------------------------------------------------------------------
 # M24: Close Management

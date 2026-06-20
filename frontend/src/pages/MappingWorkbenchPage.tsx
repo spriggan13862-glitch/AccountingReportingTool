@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Check, SkipForward, ArrowLeft, Lightbulb, Search,
-  Filter, Download, ChevronDown, Plus, X,
+  Filter, Download, ChevronDown, Plus, X, AlertTriangle,
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { accountsApi } from '@/api/accounts'
@@ -16,7 +16,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { GridColumn, BatchAction, RowAction } from '@/components/data-grid/types'
-import type { ImportLine, ImportSuggestion, Account, ReportingTaxonomyLine } from '@/types'
+import type { ImportLine, ImportSuggestion, Account, AccountMatchResult, ReportingTaxonomyLine } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Account search combobox
@@ -205,16 +205,49 @@ function looksLikeTotalRow(line: ImportLine): boolean {
   return (hasNoAccount && hasLargeAmount) || nameIsTotal
 }
 
-function getMappingStatusLabel(line: ImportLine, accountMap: Record<number, Account>): React.ReactNode {
+function getMappingStatusLabel(
+  line: ImportLine,
+  accountMap: Record<number, Account>,
+  matchResult?: AccountMatchResult,
+): React.ReactNode {
   if (line.mapping_status === 'skipped') {
     return <span className="text-xs text-gray-400 italic">Excluded</span>
   }
+
+  // Show conflict chip regardless of mapping status
+  if (matchResult?.match_status === 'conflict') {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded" data-testid="conflict-chip">
+          <AlertTriangle className="w-3 h-3 shrink-0" /> Number conflict
+        </span>
+        {matchResult.conflict_reason && (
+          <span className="text-[10px] text-red-600 leading-tight">{matchResult.conflict_reason}</span>
+        )}
+      </div>
+    )
+  }
+
   if (line.resolved_account_id && accountMap[line.resolved_account_id]) {
     const acct = accountMap[line.resolved_account_id]
+    const isNameOnly = matchResult?.match_status === 'name_only'
+    const isParent = matchResult?.match_status === 'parent'
     return (
-      <div className="text-xs">
-        <span className="font-mono text-gray-700 font-semibold">{acct.account_number}</span>
-        <span className="ml-1 text-gray-500">{acct.account_name}</span>
+      <div className="text-xs flex flex-col gap-0.5">
+        <div>
+          <span className="font-mono text-gray-700 font-semibold">{acct.account_number}</span>
+          <span className="ml-1 text-gray-500">{acct.account_name}</span>
+        </div>
+        {isNameOnly && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-orange-700 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded w-max" data-testid="name-match-chip">
+            Name match — verify
+          </span>
+        )}
+        {isParent && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded w-max" data-testid="parent-match-chip">
+            Parent account match
+          </span>
+        )}
       </div>
     )
   }
@@ -288,6 +321,12 @@ export function MappingWorkbenchPage() {
     enabled: !!batchId,
   })
 
+  const { data: matchResults } = useQuery({
+    queryKey: ['import-match-results', batchId],
+    queryFn: () => tbImportApi.parseAndMatch(batchId),
+    enabled: !!batchId,
+  })
+
   const { data: taxonomyLines = [] } = useQuery({
     queryKey: ['reporting-taxonomy'],
     queryFn: () => reportingTaxonomyApi.list(),
@@ -323,6 +362,9 @@ export function MappingWorkbenchPage() {
   const suggestMap: Record<number, ImportSuggestion> = {}
   suggestions?.forEach((s: ImportSuggestion) => { suggestMap[s.line_id] = s })
 
+  const matchMap: Record<number, AccountMatchResult> = {}
+  matchResults?.forEach((m: AccountMatchResult) => { matchMap[m.line_id] = m })
+
   // Derived: filter lines
   const lines: ImportLine[] = allLines ?? []
 
@@ -330,6 +372,7 @@ export function MappingWorkbenchPage() {
   const suggestCount = lines.filter(
     (l) => l.mapping_status === 'unmapped' && suggestMap[l.id]?.suggested_account_id != null
   ).length
+  const conflictCount = lines.filter((l) => matchMap[l.id]?.match_status === 'conflict').length
 
   // Mutations
   const mapMutation = useMutation({
@@ -338,6 +381,7 @@ export function MappingWorkbenchPage() {
     onSuccess: (_, { lineId }) => {
       queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
       queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['import-match-results', batchId] })
       setSelectedAccounts((p) => { const n = { ...p }; delete n[lineId]; return n })
       setEditingLines((p) => { const n = { ...p }; delete n[lineId]; return n })
       setApiError(null)
@@ -447,8 +491,12 @@ export function MappingWorkbenchPage() {
 
   const gridData = useMemo(() => {
     return lines.filter((l) => {
-      if (!showMapped && l.mapping_status !== 'unmapped') return false
-      if (colFilters.status !== 'all' && l.mapping_status !== colFilters.status) return false
+      if (!showMapped && l.mapping_status !== 'unmapped' && colFilters.status !== 'conflict') return false
+      if (colFilters.status === 'conflict') {
+        if (matchMap[l.id]?.match_status !== 'conflict') return false
+      } else if (colFilters.status !== 'all' && l.mapping_status !== colFilters.status) {
+        return false
+      }
       if (colFilters.sourceAccount) {
         const q = colFilters.sourceAccount.toLowerCase()
         if (!(l.raw_account_number?.toLowerCase().includes(q) ?? false) &&
@@ -484,6 +532,16 @@ export function MappingWorkbenchPage() {
         <span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
           {(batch?.row_count ?? 0) - unmappedCount} mapped
         </span>
+        {conflictCount > 0 && (
+          <button
+            type="button"
+            onClick={() => { setColFilters((p) => ({ ...p, status: 'conflict' })); setShowMapped(true) }}
+            className="bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1 hover:bg-red-200 transition-colors"
+            data-testid="conflicts-filter-badge"
+          >
+            <AlertTriangle className="w-3 h-3" /> {conflictCount} conflict{conflictCount !== 1 ? 's' : ''}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -582,13 +640,14 @@ export function MappingWorkbenchPage() {
       sortValue: (line: ImportLine) => line.resolved_account_id ? (accountMap[line.resolved_account_id]?.account_number ?? '') : '',
       filterValue: (line: ImportLine) => {
         if (line.mapping_status === 'skipped') return 'excluded'
+        if (matchMap[line.id]?.match_status === 'conflict') return 'conflict'
         if (line.resolved_account_id && accountMap[line.resolved_account_id]) {
           const a = accountMap[line.resolved_account_id]
           return `${a.account_number} ${a.account_name}`
         }
         return looksLikeTotalRow(line) ? 'total header row' : 'will create new'
       },
-      render: (line: ImportLine) => getMappingStatusLabel(line, accountMap),
+      render: (line: ImportLine) => getMappingStatusLabel(line, accountMap, matchMap[line.id]),
     },
     {
       key: 'fsli',
@@ -949,13 +1008,19 @@ export function MappingWorkbenchPage() {
             />
             <select
               value={colFilters.status}
-              onChange={(e) => setColFilters((p) => ({ ...p, status: e.target.value }))}
+              onChange={(e) => {
+                const v = e.target.value
+                setColFilters((p) => ({ ...p, status: v }))
+                if (v === 'conflict') setShowMapped(true)
+              }}
               className="text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              data-testid="status-filter-select"
             >
               <option value="all">All statuses</option>
               <option value="unmapped">Unmapped</option>
               <option value="mapped">Mapped</option>
               <option value="skipped">Skipped</option>
+              {conflictCount > 0 && <option value="conflict">Conflicts ({conflictCount})</option>}
             </select>
             <input
               type="text"

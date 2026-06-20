@@ -40,6 +40,7 @@ from app.services.storage_service import StorageBackend
 from app.services.organization_service import get_organization_or_raise
 from app.services.document_service import upload_document, attach_document
 from app.api.schemas import (
+    AccountMatchResult,
     BatchPostRequest,
     BulkMapRequest,
     ColumnMappingUpdate,
@@ -359,6 +360,48 @@ def get_suggestions(batch_id: int, db: Session = Depends(get_db)):
         return svc.suggest_mappings(db, batch_id)
     except ImportBatchNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/batches/{batch_id}/parse-and-match", response_model=list[AccountMatchResult])
+def parse_and_match(batch_id: int, db: Session = Depends(get_db)):
+    """
+    Parse raw account labels for all unmapped lines and run the matching engine.
+    Returns match status, conflict reasons, and confidence for each line.
+    """
+    from app.services.account_parser import parse_account_label
+    from app.services.account_matching import find_best_match
+    from app.models.import_line import ImportLine
+
+    try:
+        batch = svc.get_batch(db, batch_id)
+    except ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id, ImportLine.mapping_status == "unmapped")
+        .order_by(ImportLine.line_number)
+        .all()
+    )
+
+    results: list[AccountMatchResult] = []
+    for line in lines:
+        raw = f"{line.raw_account_number or ''} {line.raw_account_name or ''}".strip()
+        parsed = parse_account_label(raw)
+        match = find_best_match(parsed, batch.entity_id, db)
+        results.append(AccountMatchResult(
+            line_id=line.id,
+            raw=raw,
+            parsed_number=parsed.account_number,
+            parsed_name=parsed.account_name,
+            match_status=match.status.value,
+            matched_account_id=match.matched_account.id if match.matched_account else None,
+            matched_account_number=match.matched_account.account_number if match.matched_account else None,
+            matched_account_name=match.matched_account.account_name if match.matched_account else None,
+            conflict_reason=match.conflict_reason,
+            confidence=match.confidence,
+        ))
+    return results
 
 
 # ---------------------------------------------------------------------------
