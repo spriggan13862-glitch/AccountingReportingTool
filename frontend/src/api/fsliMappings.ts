@@ -1,4 +1,5 @@
 import api from './client'
+import type { FsliEffectiveMapping } from '@/types'
 
 export interface FsliMapping {
   entity_id: number | null
@@ -9,6 +10,11 @@ export interface FsliMapping {
   account_number: string
   account_name: string
   taxonomy_line_name: string | null
+}
+
+export interface FsliPropagateResult {
+  propagated_count: number
+  accounts_updated: number[]
 }
 
 export const fsliMappingsApi = {
@@ -38,5 +44,42 @@ export const fsliMappingsApi = {
   ): Promise<{ migrated: number }> =>
     api
       .post<{ migrated: number }>(`/fsli-mappings/${entityId}/${viewId}/migrate-from-accounts`)
+      .then((r) => r.data),
+
+  listWithInheritance: (entityId: number, viewId: number): Promise<FsliEffectiveMapping[]> =>
+    api
+      .get<FsliEffectiveMapping[]>(`/fsli-mappings/${entityId}/${viewId}/with-inheritance`)
+      .then((r) => r.data),
+
+  propagateToChildren: (
+    entityId: number,
+    viewId: number,
+    parentAccountId: number,
+    taxonomyLineId: number,
+    overwriteExisting: boolean = false,
+  ): Promise<FsliPropagateResult> =>
+    api
+      .post<FsliPropagateResult>(
+        `/fsli-mappings/${entityId}/${viewId}/propagate/${parentAccountId}`,
+        { taxonomy_line_id: taxonomyLineId, overwrite_existing: overwriteExisting },
+      )
+      .then((r) => r.data),
+
+  toggleLock: (entityId: number, viewId: number, accountId: number, locked: boolean): Promise<FsliMapping> =>
+    api
+      .put<FsliMapping>(`/fsli-mappings/${entityId}/${viewId}/${accountId}`, { locked })
+      .then((r) => r.data),
+
+  copyFromView: (entityId: number, targetViewId: number, sourceViewId: number): Promise<{ copied: number }> =>
+    api
+      .post<{ copied: number }>(`/fsli-mappings/${entityId}/${targetViewId}/copy-from/${sourceViewId}`)
+      .then((r) => r.data),
+
+  bulkAssign: (entityId: number, viewId: number, accountIds: number[], taxonomyLineId: number): Promise<{ updated: number }> =>
+    api
+      .post<{ updated: number }>(`/fsli-mappings/${entityId}/${viewId}/bulk-assign`, {
+        account_ids: accountIds,
+        taxonomy_line_id: taxonomyLineId,
+      })
       .then((r) => r.data),
 }

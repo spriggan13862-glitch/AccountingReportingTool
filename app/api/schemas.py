@@ -1491,6 +1491,29 @@ class BulkMapRequest(BaseModel):
     mappings: list[dict]  # [{"line_id": N, "account_id": M}]
 
 
+class ExcludeLinesRequest(BaseModel):
+    line_ids: list[int]
+    reason: str = 'manual'
+
+
+class AssignParentRequest(BaseModel):
+    line_ids: list[int]
+    parent_account_id: int
+
+
+class BulkAssignFsliRequest(BaseModel):
+    line_ids: list[int]
+    taxonomy_line_id: int
+    entity_id: int
+    view_id: int
+
+
+class DetectedTotalRow(BaseModel):
+    line_id: int
+    reason: str
+    confidence: float
+
+
 class CreateAccountFromLineRequest(BaseModel):
     account_number: str
     account_name: str
@@ -2330,6 +2353,7 @@ class ViewAccountOverrideCreate(BaseModel):
     taxonomy_line_id: int | None = None
     display_label: str | None = None
     entity_id: int | None = None
+    locked: bool = False
 
 
 class ViewAccountOverrideOut(BaseModel):
@@ -2340,6 +2364,7 @@ class ViewAccountOverrideOut(BaseModel):
     account_id: int
     taxonomy_line_id: int | None = None
     display_label: str | None = None
+    locked: bool = False
     created_by: str | None = None
     created_at: datetime.datetime
 
@@ -2357,10 +2382,45 @@ class FsliMappingOut(BaseModel):
 
 class FsliMappingUpsert(BaseModel):
     taxonomy_line_id: int | None = None
+    locked: bool | None = None
 
 
 class FsliMigrationResult(BaseModel):
     migrated: int
+
+
+class FsliEffectiveMapping(BaseModel):
+    account_id: int
+    account_number: str
+    account_name: str
+    taxonomy_line_id: int | None
+    taxonomy_line_name: str | None
+    mapping_source: str  # explicit/parent/grandparent/legacy/none
+    inherited_from_account_id: int | None
+    inherited_from_account_number: str | None
+
+
+class FsliPropagateRequest(BaseModel):
+    taxonomy_line_id: int
+    overwrite_existing: bool = False
+
+
+class FsliPropagateResult(BaseModel):
+    propagated_count: int
+    accounts_updated: list[int]
+
+
+class FsliCopyFromViewResult(BaseModel):
+    copied: int
+
+
+class FsliBulkAssignRequest(BaseModel):
+    account_ids: list[int]
+    taxonomy_line_id: int
+
+
+class FsliBulkAssignResult(BaseModel):
+    updated: int
 
 
 class ViewComparisonRow(BaseModel):

@@ -13,6 +13,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { WorkspaceCrossLinks } from '@/components/ui/WorkspaceCrossLinks'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { ErrorState } from '@/components/ui/ErrorState'
+import { FilterBar } from '@/components/data-grid'
 import { useToast } from '@/providers/ToastProvider'
 import { useFormatCurrency } from '@/hooks/useFormatCurrency'
 import { cn } from '@/utils/cn'
@@ -249,12 +250,21 @@ export function AdjustmentWorkspacePage() {
   const toast = useToast()
   const fmt = useFormatCurrency()
 
-  // Filters
+  // Filters (passed to API)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterOverlay, setFilterOverlay] = useState('')
   const [filterMateriality, setFilterMateriality] = useState('')
   const [filterPackage, setFilterPackage] = useState<number | undefined>()
+  // Local filter bar state (applied client-side on sortedItems)
+  const [fbDescription, setFbDescription] = useState('')
+  const [fbStatus, setFbStatus] = useState<string[]>([])
+  const [fbNIMin, setFbNIMin] = useState('')
+  const [fbNIMax, setFbNIMax] = useState('')
+  const [fbBSMin, setFbBSMin] = useState('')
+  const [fbBSMax, setFbBSMax] = useState('')
+  const [fbDateFrom, setFbDateFrom] = useState('')
+  const [fbDateTo, setFbDateTo] = useState('')
 
   // UI state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -368,6 +378,22 @@ export function AdjustmentWorkspacePage() {
       return sortDir === 'asc' ? cmp : -cmp
     })
   }, [items, sortKey, sortDir])
+
+  const filteredItems = useMemo(() => {
+    return sortedItems.filter((item) => {
+      if (fbDescription && !(item.description ?? '').toLowerCase().includes(fbDescription.toLowerCase())) return false
+      if (fbStatus.length > 0 && !fbStatus.includes(item.status)) return false
+      const ni = item.impact.ni_impact
+      if (fbNIMin && ni < parseFloat(fbNIMin)) return false
+      if (fbNIMax && ni > parseFloat(fbNIMax)) return false
+      const bs = item.impact.asset_impact + item.impact.liability_impact + item.impact.equity_impact
+      if (fbBSMin && bs < parseFloat(fbBSMin)) return false
+      if (fbBSMax && bs > parseFloat(fbBSMax)) return false
+      if (fbDateFrom && item.entry_date < fbDateFrom) return false
+      if (fbDateTo && item.entry_date > fbDateTo) return false
+      return true
+    })
+  }, [sortedItems, fbDescription, fbStatus, fbNIMin, fbNIMax, fbBSMin, fbBSMax, fbDateFrom, fbDateTo])
 
   function SortTh({ col, label, className }: { col: string; label: string; className?: string }) {
     const active = sortKey === col
@@ -528,6 +554,60 @@ export function AdjustmentWorkspacePage() {
           )}
         </div>
 
+        {/* Column filter bar */}
+        {(() => {
+          const fbActiveCount = [fbDescription, fbNIMin, fbNIMax, fbBSMin, fbBSMax, fbDateFrom, fbDateTo].filter(Boolean).length + fbStatus.length
+          const clearFb = () => {
+            setFbDescription(''); setFbStatus([]); setFbNIMin(''); setFbNIMax(''); setFbBSMin(''); setFbBSMax(''); setFbDateFrom(''); setFbDateTo('')
+          }
+          return (
+            <FilterBar
+              data-testid="adj-filter-bar"
+              clearButtonTestId="adj-filter-clear"
+              activeCount={fbActiveCount}
+              onClearAll={clearFb}
+              filters={[
+                {
+                  key: 'adj-filter-description',
+                  label: 'Description',
+                  type: 'text',
+                  value: fbDescription,
+                  onChange: setFbDescription,
+                },
+                {
+                  key: 'adj-filter-status',
+                  label: 'Status',
+                  type: 'checklist',
+                  value: fbStatus,
+                  onChange: setFbStatus,
+                  options: ['draft', 'posted', 'reversed'],
+                },
+                {
+                  key: 'adj-filter-ni-impact',
+                  label: 'NI Impact',
+                  type: 'numeric-range',
+                  value: { min: fbNIMin, max: fbNIMax },
+                  onChange: (v: { min?: string; max?: string }) => { setFbNIMin(v.min ?? ''); setFbNIMax(v.max ?? '') },
+                },
+                {
+                  key: 'adj-filter-bs-impact',
+                  label: 'BS Impact',
+                  type: 'numeric-range',
+                  value: { min: fbBSMin, max: fbBSMax },
+                  onChange: (v: { min?: string; max?: string }) => { setFbBSMin(v.min ?? ''); setFbBSMax(v.max ?? '') },
+                },
+                {
+                  key: 'adj-filter-date',
+                  label: 'Date',
+                  type: 'date-range',
+                  value: { from: fbDateFrom, to: fbDateTo },
+                  onChange: (v: { from?: string; to?: string }) => { setFbDateFrom(v.from ?? ''); setFbDateTo(v.to ?? '') },
+                },
+              ]}
+            />
+          )
+        })()}
+
         {/* Multi-select bar */}
         <MultiImpactBar selectedIds={Array.from(selectedIds)} fmt={fmt} />
 
@@ -565,7 +645,7 @@ export function AdjustmentWorkspacePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sortedItems.length === 0 && !isLoading && (
+                {filteredItems.length === 0 && !isLoading && (
                   <tr>
                     <td colSpan={13} className="px-3 py-8 text-center text-slate-400">
                       No adjustments match the current filters.
@@ -573,15 +653,15 @@ export function AdjustmentWorkspacePage() {
                   </tr>
                 )}
                 {(() => {
-                  const totalDr = sortedItems.reduce((s, i) => s + i.total_debit, 0)
-                  const totalCr = sortedItems.reduce((s, i) => s + i.total_credit, 0)
-                  const totalNI = sortedItems.reduce((s, i) => s + i.impact.ni_impact, 0)
-                  const totalBS = sortedItems.reduce((s, i) => s + i.impact.asset_impact + i.impact.liability_impact + i.impact.equity_impact, 0)
-                  return sortedItems.length > 1 ? (
+                  const totalDr = filteredItems.reduce((s, i) => s + i.total_debit, 0)
+                  const totalCr = filteredItems.reduce((s, i) => s + i.total_credit, 0)
+                  const totalNI = filteredItems.reduce((s, i) => s + i.impact.ni_impact, 0)
+                  const totalBS = filteredItems.reduce((s, i) => s + i.impact.asset_impact + i.impact.liability_impact + i.impact.equity_impact, 0)
+                  return filteredItems.length > 1 ? (
                     <tr className="bg-slate-100 border-t-2 border-slate-300 text-[10px] font-bold text-slate-600">
                       <td colSpan={2} />
                       <td colSpan={6} className="px-3 py-2 uppercase tracking-wide text-slate-400">
-                        Total ({sortedItems.length} adjustments)
+                        Total ({filteredItems.length} adjustments)
                       </td>
                       <td className="px-3 py-2 text-right font-mono">{fmt(totalDr)}</td>
                       <td className="px-3 py-2 text-right font-mono">{fmt(totalCr)}</td>
@@ -599,7 +679,7 @@ export function AdjustmentWorkspacePage() {
                     </tr>
                   ) : null
                 })()}
-                {sortedItems.map((item) => {
+                {filteredItems.map((item) => {
                   const isCollapsed = collapsedIds.has(item.id)
                   const hasLines = item.lines && item.lines.length > 0
                   return (

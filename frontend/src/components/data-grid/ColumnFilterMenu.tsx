@@ -7,7 +7,9 @@ interface ColumnFilterMenuProps {
   columnKey: string
   header: string
   sortable: boolean
-  filterType?: 'text' | 'numeric'
+  filterType?: 'text' | 'numeric' | 'checklist'
+  checklistValues?: string[]
+  checklistSelected?: string[]
   sortDir: 'asc' | 'desc' | null
   filterValue: string
   filterMode: ColumnFilterMode
@@ -19,6 +21,7 @@ interface ColumnFilterMenuProps {
   onModeChange: (mode: ColumnFilterMode) => void
   onMinChange: (value: string) => void
   onMaxChange: (value: string) => void
+  onChecklistChange?: (values: string[]) => void
   onClear: () => void
 }
 
@@ -27,6 +30,8 @@ export function ColumnFilterMenu({
   header,
   sortable,
   filterType = 'text',
+  checklistValues = [],
+  checklistSelected = [],
   sortDir,
   filterValue,
   filterMode,
@@ -38,6 +43,7 @@ export function ColumnFilterMenu({
   onModeChange,
   onMinChange,
   onMaxChange,
+  onChecklistChange,
   onClear,
 }: ColumnFilterMenuProps) {
   const [open, setOpen] = useState(false)
@@ -51,7 +57,7 @@ export function ColumnFilterMenu({
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const hasFilter = filterValue.trim() || filterMode !== 'contains' || filterMin.trim() || filterMax.trim()
+  const hasFilter = filterValue.trim() || filterMode !== 'contains' || filterMin.trim() || filterMax.trim() || checklistSelected.length > 0
 
   return (
     <div ref={ref} className="relative inline-flex items-center gap-0.5 w-full">
@@ -176,6 +182,48 @@ export function ColumnFilterMenu({
                   onChange={(e) => onMaxChange(e.target.value)}
                   className="w-full px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-400"
                 />
+              </div>
+            </>
+          )}
+          {filterType === 'checklist' && checklistValues.length > 0 && onChecklistChange && (
+            <>
+              <div className="border-t border-gray-100" />
+              <div className="flex items-center justify-between px-1 pb-0.5">
+                <button
+                  type="button"
+                  onClick={() => onChecklistChange(checklistValues)}
+                  className="text-[10px] text-indigo-600 hover:underline"
+                  data-testid={`checklist-select-all-${columnKey}`}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChecklistChange([])}
+                  className="text-[10px] text-slate-400 hover:underline"
+                  data-testid={`checklist-clear-${columnKey}`}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                {checklistValues.map((val) => (
+                  <label key={val} className="flex items-center gap-2 px-2 py-1 cursor-pointer rounded hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={checklistSelected.includes(val)}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...checklistSelected, val]
+                          : checklistSelected.filter((v) => v !== val)
+                        onChecklistChange(next)
+                      }}
+                      className="text-indigo-600 rounded"
+                      data-testid={`checklist-item-${columnKey}-${val}`}
+                    />
+                    <span className="capitalize">{val}</span>
+                  </label>
+                ))}
               </div>
             </>
           )}

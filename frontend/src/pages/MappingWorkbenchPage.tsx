@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Check, SkipForward, ArrowLeft, Lightbulb, Search,
-  Filter, Download, ChevronDown, Plus, X, AlertTriangle,
+  Filter, Download, ChevronDown, Plus, X, AlertTriangle, GitBranch,
 } from 'lucide-react'
 import { tbImportApi } from '@/api/tbImport'
 import { accountsApi } from '@/api/accounts'
@@ -16,7 +16,7 @@ import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { GridColumn, BatchAction, RowAction } from '@/components/data-grid/types'
-import type { ImportLine, ImportSuggestion, Account, AccountMatchResult, ReportingTaxonomyLine } from '@/types'
+import type { ImportLine, ImportSuggestion, Account, AccountMatchResult, ReportingTaxonomyLine, FsliEffectiveMapping } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Account search combobox
@@ -349,6 +349,18 @@ export function MappingWorkbenchPage() {
     enabled: !!entityId,
   })
 
+  const { data: inheritanceData = [] } = useQuery({
+    queryKey: ['fsli-inheritance', entityId, resolvedViewId],
+    queryFn: () => fsliMappingsApi.listWithInheritance(entityId, resolvedViewId!),
+    enabled: !!entityId && !!resolvedViewId,
+  })
+
+  const inheritanceMap = useMemo(() => {
+    const map: Record<number, FsliEffectiveMapping> = {}
+    inheritanceData.forEach((item) => { map[item.account_id] = item })
+    return map
+  }, [inheritanceData])
+
   const accountMap = useMemo(() => {
     const map: Record<number, Account> = {}
     if (Array.isArray(entityAccounts)) {
@@ -655,39 +667,77 @@ export function MappingWorkbenchPage() {
       render: (line: ImportLine) => {
         const acct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
         if (!acct) return <span className="text-xs text-gray-300 italic">—</span>
+        const eff = inheritanceMap[acct.id]
+        const isInherited = eff && (eff.mapping_source === 'parent' || eff.mapping_source === 'grandparent')
+        const currentValue = eff?.taxonomy_line_id ?? acct.reporting_taxonomy_line_id ?? ''
         return (
-          <select
-            value={acct.reporting_taxonomy_line_id ?? ''}
-            onChange={(e) => {
-              const val = e.target.value ? Number(e.target.value) : null
-              updateFsliMutation.mutate({ accountId: acct.id, taxonomyLineId: val })
-              // Propagate to child accounts (e.g. 1000-01, 1000.1) that have no FSLI yet
-              const parentNum = acct.account_number
-              if (val !== null && parentNum && resolvedViewId) {
-                const children = Object.values(accountMap).filter((a) =>
-                  a.id !== acct.id &&
-                  !a.reporting_taxonomy_line_id &&
-                  (a.account_number.startsWith(parentNum + '-') ||
-                   a.account_number.startsWith(parentNum + '.') ||
-                   a.account_number.startsWith(parentNum + ':'))
-                )
-                if (children.length > 0) {
-                  Promise.all(children.map((child) => fsliMappingsApi.upsert(entityId, resolvedViewId, child.id, val)))
-                    .then(() => {
+          <div className="flex flex-col gap-0.5">
+            <select
+              value={currentValue}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null
+                if (!resolvedViewId) return
+                updateFsliMutation.mutate({ accountId: acct.id, taxonomyLineId: val })
+                if (val !== null) {
+                  fsliMappingsApi.propagateToChildren(entityId, resolvedViewId, acct.id, val, false)
+                    .then((res) => {
                       queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
-                      toast(`FSLI propagated to ${children.length} child account${children.length === 1 ? '' : 's'}`, 'info')
+                      queryClient.invalidateQueries({ queryKey: ['fsli-inheritance', entityId, resolvedViewId] })
+                      if (res.propagated_count > 0) {
+                        toast(`Mapped. Propagated to ${res.propagated_count} child account${res.propagated_count === 1 ? '' : 's'}.`, 'info')
+                      }
                     })
+                    .catch(() => undefined)
                 }
-              }
-            }}
-            className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-indigo-700 bg-indigo-50 focus:outline-none focus:ring-1 focus:ring-indigo-300 min-w-[120px] max-w-[180px]"
-          >
-            <option value="">— Select FSLI —</option>
-            {taxonomyLines.map((t: ReportingTaxonomyLine) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
+              }}
+              className={`text-xs border rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-300 min-w-[120px] max-w-[180px] ${
+                isInherited
+                  ? 'border-gray-200 text-gray-400 bg-gray-50 italic'
+                  : 'border-gray-200 text-indigo-700 bg-indigo-50'
+              }`}
+            >
+              <option value="">— Select FSLI —</option>
+              {taxonomyLines.map((t: ReportingTaxonomyLine) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            {isInherited && (
+              <span className="text-[10px] text-gray-400 italic">inherited</span>
+            )}
+          </div>
         )
+      },
+    },
+    {
+      key: 'inherited_from',
+      header: 'Inherited From',
+      render: (line: ImportLine) => {
+        const acct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
+        if (!acct) return <span className="text-xs text-gray-300">—</span>
+        const eff = inheritanceMap[acct.id]
+        if (!eff) return <span className="text-xs text-gray-300">—</span>
+        if (eff.mapping_source === 'explicit') {
+          return (
+            <span className="inline-flex items-center text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+              Explicit
+            </span>
+          )
+        }
+        if (eff.mapping_source === 'parent' || eff.mapping_source === 'grandparent') {
+          return (
+            <span className="text-xs text-blue-600" title={`Inherited from ${eff.inherited_from_account_number}`}>
+              ↑ {eff.inherited_from_account_number}
+            </span>
+          )
+        }
+        if (eff.mapping_source === 'legacy') {
+          return (
+            <span className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
+              Legacy
+            </span>
+          )
+        }
+        return <span className="text-xs text-gray-400 italic">— Unmapped</span>
       },
     },
     {
@@ -859,6 +909,43 @@ export function MappingWorkbenchPage() {
       icon: SkipForward,
       hidden: (row) => row.mapping_status !== 'unmapped',
       onClick: (row) => skipMutation.mutate(row.id),
+    },
+    {
+      key: 'propagate_fsli',
+      label: 'Propagate FSLI to Children',
+      icon: GitBranch,
+      hidden: (row) => {
+        if (!row.resolved_account_id || !resolvedViewId) return true
+        const acct = accountMap[row.resolved_account_id]
+        if (!acct) return true
+        const eff = inheritanceMap[acct.id]
+        if (!eff || !eff.taxonomy_line_id) return true
+        // Only show if account has children
+        const num = acct.account_number
+        const hasChildren = Object.values(accountMap).some(
+          (a) => a.id !== acct.id && (
+            a.parent_account_id === acct.id ||
+            a.account_number.startsWith(num + '-') ||
+            a.account_number.startsWith(num + '.') ||
+            a.account_number.startsWith(num + ':')
+          )
+        )
+        return !hasChildren
+      },
+      onClick: (row) => {
+        if (!row.resolved_account_id || !resolvedViewId) return
+        const acct = accountMap[row.resolved_account_id]
+        if (!acct) return
+        const eff = inheritanceMap[acct.id]
+        if (!eff?.taxonomy_line_id) return
+        fsliMappingsApi.propagateToChildren(entityId, resolvedViewId, acct.id, eff.taxonomy_line_id, true)
+          .then((res) => {
+            queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
+            queryClient.invalidateQueries({ queryKey: ['fsli-inheritance', entityId, resolvedViewId] })
+            toast(`Propagated to ${res.propagated_count} child account${res.propagated_count === 1 ? '' : 's'}.`, 'success')
+          })
+          .catch((err: Error) => setApiError(err.message))
+      },
     },
   ]
 

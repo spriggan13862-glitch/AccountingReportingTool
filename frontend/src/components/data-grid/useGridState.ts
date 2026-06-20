@@ -23,6 +23,7 @@ export function useGridState<T>(
     columnFilterModes: {},
     columnFilterMin: {},
     columnFilterMax: {},
+    columnFilterChecklists: {},
   })
 
   // Filtered rows (global search + per-column filters)
@@ -46,6 +47,7 @@ export function useGridState<T>(
       ...Object.keys(state.columnFilterModes),
       ...Object.keys(state.columnFilterMin),
       ...Object.keys(state.columnFilterMax),
+      ...Object.keys(state.columnFilterChecklists),
     ])
 
     for (const key of allFilterKeys) {
@@ -84,10 +86,20 @@ export function useGridState<T>(
           return true
         })
       }
+
+      const checklist = state.columnFilterChecklists[key]
+      if (checklist && checklist.length > 0) {
+        rows = rows.filter((row) => {
+          const text = col.filterValue
+            ? col.filterValue(row)
+            : String(col.sortValue?.(row) ?? '')
+          return checklist.includes(text)
+        })
+      }
     }
 
     return rows
-  }, [data, state.search, state.columnFilters, columns])
+  }, [data, state.search, state.columnFilters, state.columnFilterChecklists, columns])
 
   // Sorted rows
   const sorted = useMemo(() => {
@@ -192,19 +204,28 @@ export function useGridState<T>(
     }))
   }, [])
 
+  const setColumnFilterChecklist = useCallback((key: string, values: string[]) => {
+    setState((s) => ({
+      ...s,
+      columnFilterChecklists: { ...s.columnFilterChecklists, [key]: values },
+      page: 1,
+    }))
+  }, [])
+
   const clearColumnFilter = useCallback((key: string) => {
     setState((s) => {
       const filters = { ...s.columnFilters }
       const modes = { ...s.columnFilterModes }
       const mins = { ...s.columnFilterMin }
       const maxs = { ...s.columnFilterMax }
-      delete filters[key]; delete modes[key]; delete mins[key]; delete maxs[key]
-      return { ...s, columnFilters: filters, columnFilterModes: modes, columnFilterMin: mins, columnFilterMax: maxs, page: 1 }
+      const checklists = { ...s.columnFilterChecklists }
+      delete filters[key]; delete modes[key]; delete mins[key]; delete maxs[key]; delete checklists[key]
+      return { ...s, columnFilters: filters, columnFilterModes: modes, columnFilterMin: mins, columnFilterMax: maxs, columnFilterChecklists: checklists, page: 1 }
     })
   }, [])
 
   const clearFilters = useCallback(() => {
-    setState((s) => ({ ...s, search: '', columnFilters: {}, columnFilterModes: {}, columnFilterMin: {}, columnFilterMax: {}, page: 1 }))
+    setState((s) => ({ ...s, search: '', columnFilters: {}, columnFilterModes: {}, columnFilterMin: {}, columnFilterMax: {}, columnFilterChecklists: {}, page: 1 }))
   }, [])
 
   const activeFilterCount = useMemo(() => {
@@ -213,8 +234,9 @@ export function useGridState<T>(
     count += Object.values(state.columnFilterModes).filter(Boolean).length
     count += Object.values(state.columnFilterMin).filter(Boolean).length
     count += Object.values(state.columnFilterMax).filter(Boolean).length
+    count += Object.values(state.columnFilterChecklists).filter((v) => v.length > 0).length
     return count
-  }, [state.search, state.columnFilters, state.columnFilterModes, state.columnFilterMin, state.columnFilterMax])
+  }, [state.search, state.columnFilters, state.columnFilterModes, state.columnFilterMin, state.columnFilterMax, state.columnFilterChecklists])
 
   return {
     state,
@@ -235,6 +257,7 @@ export function useGridState<T>(
     setColumnFilterMode,
     setColumnFilterMin,
     setColumnFilterMax,
+    setColumnFilterChecklist,
     clearColumnFilter,
     clearFilters,
   }

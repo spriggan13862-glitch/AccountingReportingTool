@@ -8,6 +8,7 @@ import type {
   ImportTemplate,
   ImportSuggestion,
   AccountMatchResult,
+  DetectedTotalRow,
   DetectResult,
   RawPreview,
   ImportReadiness,
@@ -228,5 +229,39 @@ export const tbImportApi = {
   parseAndMatch: (batchId: number) =>
     api
       .post<AccountMatchResult[]>(`/tb-imports/batches/${batchId}/parse-and-match`)
+      .then((r) => r.data),
+
+  excludeLines: (batchId: number, lineIds: number[], reason: string = 'manual') =>
+    api
+      .post<ImportLine[]>(`/tb-imports/batches/${batchId}/exclude-lines`, { line_ids: lineIds, reason })
+      .then(() => undefined),
+
+  detectTotalRows: (batchId: number) =>
+    api
+      .get<DetectedTotalRow[]>(`/tb-imports/batches/${batchId}/detect-total-rows`)
+      .then((r) => r.data),
+
+  assignParent: (batchId: number, lineIds: number[], parentAccountId: number) =>
+    api
+      .post<{ updated: number }>(`/tb-imports/batches/${batchId}/assign-parent`, {
+        line_ids: lineIds,
+        parent_account_id: parentAccountId,
+      })
+      .then((r) => r.data),
+
+  bulkAssignFsli: (
+    batchId: number,
+    lineIds: number[],
+    taxonomyLineId: number,
+    entityId: number,
+    viewId: number,
+  ) =>
+    api
+      .post<{ updated: number }>(`/tb-imports/batches/${batchId}/bulk-assign-fsli`, {
+        line_ids: lineIds,
+        taxonomy_line_id: taxonomyLineId,
+        entity_id: entityId,
+        view_id: viewId,
+      })
       .then((r) => r.data),
 }

@@ -41,12 +41,16 @@ from app.services.organization_service import get_organization_or_raise
 from app.services.document_service import upload_document, attach_document
 from app.api.schemas import (
     AccountMatchResult,
+    AssignParentRequest,
     BatchPostRequest,
+    BulkAssignFsliRequest,
     BulkMapRequest,
     ColumnMappingUpdate,
     CreateAccountFromLineRequest,
     CreateTemplateRequest,
+    DetectedTotalRow,
     DetectResult,
+    ExcludeLinesRequest,
     ImportBatchOut,
     ImportIssueOut,
     ImportLineOut,
@@ -486,6 +490,186 @@ def bulk_map(
     except (ImportBatchNotFoundError, ImportBatchStateError, ImportBatchError) as exc:
         db.rollback()
         raise _batch_error_to_http(exc)
+
+
+@router.post("/batches/{batch_id}/exclude-lines", response_model=list[ImportLineOut])
+def exclude_lines(
+    batch_id: int,
+    body: ExcludeLinesRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Mark a set of import lines as skipped (excluded from posting)."""
+    try:
+        svc.get_batch(db, batch_id)
+    except ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    from app.models.import_line import ImportLine
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id, ImportLine.id.in_(body.line_ids))
+        .all()
+    )
+    for line in lines:
+        line.mapping_status = "skipped"
+        line.notes = f"Excluded: {body.reason}"
+    db.commit()
+    for line in lines:
+        db.refresh(line)
+    return lines
+
+
+@router.get("/batches/{batch_id}/detect-total-rows", response_model=list[DetectedTotalRow])
+def detect_total_rows(batch_id: int, db: Session = Depends(get_db)):
+    """
+    Heuristically detect total/header/blank rows in the import batch.
+    Returns rows likely to be totals, subtotals, headers, or blanks that should be excluded.
+    """
+    try:
+        svc.get_batch(db, batch_id)
+    except ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    from app.models.import_line import ImportLine
+    from app.services.account_parser import parse_account_label
+    import statistics
+
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id)
+        .order_by(ImportLine.line_number)
+        .all()
+    )
+
+    # Compute median absolute amount across lines that have amounts
+    amounts = []
+    for line in lines:
+        amt = float(line.debit or 0) + float(line.credit or 0)
+        if amt > 0:
+            amounts.append(amt)
+    median_amt = statistics.median(amounts) if amounts else 0
+
+    _TOTAL_PREFIXES = ("total", "subtotal", "grand total", "check", "sum", "net total", "less")
+
+    results: list[DetectedTotalRow] = []
+    for line in lines:
+        if line.mapping_status == "skipped":
+            continue
+
+        name = (line.raw_account_name or "").strip()
+        number = (line.raw_account_number or "").strip()
+        amt = float(line.debit or 0) + float(line.credit or 0)
+
+        reason: str | None = None
+        confidence: float = 0.0
+
+        name_lower = name.lower()
+
+        if any(name_lower.startswith(p) for p in _TOTAL_PREFIXES):
+            reason = "total_row"
+            confidence = 0.95
+        elif not number and not name and amt > 0:
+            reason = "blank_account_with_amount"
+            confidence = 0.85
+        elif not number and name and name == name.upper() and not any(c.isdigit() for c in name):
+            reason = "header_row"
+            confidence = 0.75
+        elif not number and name_lower.startswith("total"):
+            reason = "total_row"
+            confidence = 0.90
+        elif median_amt > 0 and amt > median_amt * 5:
+            parsed = parse_account_label(f"{number} {name}".strip())
+            if not parsed.account_number:
+                reason = "possible_total_large_amount"
+                confidence = 0.60
+
+        if reason:
+            results.append(DetectedTotalRow(line_id=line.id, reason=reason, confidence=confidence))
+
+    return results
+
+
+@router.post("/batches/{batch_id}/assign-parent", response_model=dict)
+def assign_parent(
+    batch_id: int,
+    body: AssignParentRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Set parent_account_id on the resolved accounts for the given import lines."""
+    try:
+        svc.get_batch(db, batch_id)
+    except ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    from app.models.import_line import ImportLine
+    from app.models.account import Account
+
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id, ImportLine.id.in_(body.line_ids))
+        .all()
+    )
+    updated = 0
+    for line in lines:
+        if line.resolved_account_id:
+            account = db.get(Account, line.resolved_account_id)
+            if account:
+                account.parent_account_id = body.parent_account_id
+                updated += 1
+    db.commit()
+    return {"updated": updated}
+
+
+@router.post("/batches/{batch_id}/bulk-assign-fsli", response_model=dict)
+def bulk_assign_fsli(
+    batch_id: int,
+    body: BulkAssignFsliRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Create or update ViewAccountOverride records for the resolved accounts in the given import lines."""
+    try:
+        svc.get_batch(db, batch_id)
+    except ImportBatchNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    from app.models.import_line import ImportLine
+    from app.models.view_account_override import ViewAccountOverride
+    import datetime as _dt
+
+    lines = (
+        db.query(ImportLine)
+        .filter(ImportLine.batch_id == batch_id, ImportLine.id.in_(body.line_ids))
+        .all()
+    )
+    updated = 0
+    for line in lines:
+        if not line.resolved_account_id:
+            continue
+        existing = (
+            db.query(ViewAccountOverride)
+            .filter(
+                ViewAccountOverride.entity_id == body.entity_id,
+                ViewAccountOverride.view_id == body.view_id,
+                ViewAccountOverride.account_id == line.resolved_account_id,
+            )
+            .first()
+        )
+        if existing:
+            existing.taxonomy_line_id = body.taxonomy_line_id
+            existing.updated_at = _dt.datetime.utcnow()
+        else:
+            db.add(ViewAccountOverride(
+                entity_id=body.entity_id,
+                view_id=body.view_id,
+                account_id=line.resolved_account_id,
+                taxonomy_line_id=body.taxonomy_line_id,
+            ))
+        updated += 1
+    db.commit()
+    return {"updated": updated}
 
 
 @router.post("/batches/{batch_id}/create-account/{line_id}")

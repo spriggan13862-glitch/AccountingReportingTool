@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext, Fragment } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -17,7 +17,7 @@ import { Breadcrumb } from '@/components/ui/Breadcrumb'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
 import { CreateAccountModal } from '@/components/ui/CreateAccountModal'
-import { BatchActionBar } from '@/components/data-grid'
+import { BatchActionBar, FilterBar } from '@/components/data-grid'
 import { useToast } from '@/providers/ToastProvider'
 import { useWorkspace } from '@/providers/WorkspaceProvider'
 import type { Account, AccountNode, ReportingTaxonomyLine } from '@/types'
@@ -1673,6 +1673,13 @@ export function ChartOfAccountsPage() {
   const [globalSearch, setGlobalSearch] = useState('')
   const [showInactive, setShowInactive] = useState(false)
   const [mappingFilter, setMappingFilter] = useState<'' | 'mapped' | 'unmapped'>('')
+  // Filter bar state
+  const [fbAccountNumber, setFbAccountNumber] = useState('')
+  const [fbAccountName, setFbAccountName] = useState('')
+  const [fbAccountType, setFbAccountType] = useState<string[]>([])
+  const [fbNormalBalance, setFbNormalBalance] = useState<string[]>([])
+  const [fbMappingStatus, setFbMappingStatus] = useState<string[]>([])
+  const [fbActive, setFbActive] = useState<string[]>([])
   // Column sort — key corresponds to AccountNode field; null = natural tree order
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -2127,7 +2134,18 @@ export function ChartOfAccountsPage() {
       const mappingMatch = !mappingFilter ||
         (mappingFilter === 'mapped' && !!node.reporting_taxonomy_line_id) ||
         (mappingFilter === 'unmapped' && !node.reporting_taxonomy_line_id)
-      if (typeMatch && statusMatch && searchMatch && mappingMatch) return [{ ...node, children: filteredChildren }]
+      // Filter bar filters
+      const fbNumMatch = !fbAccountNumber || node.account_number.toLowerCase().includes(fbAccountNumber.toLowerCase())
+      const fbNameMatch = !fbAccountName || node.account_name.toLowerCase().includes(fbAccountName.toLowerCase())
+      const fbTypeMatch = fbAccountType.length === 0 || fbAccountType.includes(node.account_type)
+      const fbNBMatch = fbNormalBalance.length === 0 || fbNormalBalance.includes(node.normal_balance)
+      const nodeMappingStatus = node.reporting_taxonomy_line_id ? 'mapped' : 'unmapped'
+      const fbMappingMatch = fbMappingStatus.length === 0 || fbMappingStatus.includes(nodeMappingStatus)
+      const nodeActive = node.active !== false ? 'active' : 'inactive'
+      const fbActiveMatch = fbActive.length === 0 || fbActive.includes(nodeActive)
+      const allMatch = typeMatch && statusMatch && searchMatch && mappingMatch &&
+        fbNumMatch && fbNameMatch && fbTypeMatch && fbNBMatch && fbMappingMatch && fbActiveMatch
+      if (allMatch) return [{ ...node, children: filteredChildren }]
       if (filteredChildren.length > 0) return [{ ...node, children: filteredChildren }]
       return []
     })
@@ -2436,6 +2454,98 @@ export function ChartOfAccountsPage() {
               </div>
             )}
           </div>
+
+          {/* Column filter bar */}
+          {(() => {
+            const fbActiveCount = [
+              fbAccountNumber,
+              fbAccountName,
+            ].filter(Boolean).length + fbAccountType.length + fbNormalBalance.length + fbMappingStatus.length + fbActive.length
+            return (
+              <Fragment>
+                <FilterBar
+                  data-testid="coa-filter-bar"
+                  activeCount={fbActiveCount}
+                  onClearAll={() => {
+                    setFbAccountNumber('')
+                    setFbAccountName('')
+                    setFbAccountType([])
+                    setFbNormalBalance([])
+                    setFbMappingStatus([])
+                    setFbActive([])
+                  }}
+                  filters={[
+                    {
+                      key: 'coa-filter-account-number',
+                      label: 'Acct #',
+                      type: 'text',
+                      value: fbAccountNumber,
+                      onChange: setFbAccountNumber,
+                    },
+                    {
+                      key: 'coa-filter-account-name',
+                      label: 'Account Name',
+                      type: 'text',
+                      value: fbAccountName,
+                      onChange: setFbAccountName,
+                    },
+                    {
+                      key: 'coa-filter-account-type',
+                      label: 'Account Type',
+                      type: 'checklist',
+                      value: fbAccountType,
+                      onChange: setFbAccountType,
+                      options: ['asset', 'liability', 'equity', 'revenue', 'cogs', 'expense'],
+                    },
+                    {
+                      key: 'coa-filter-normal-balance',
+                      label: 'Normal Balance',
+                      type: 'checklist',
+                      value: fbNormalBalance,
+                      onChange: setFbNormalBalance,
+                      options: ['debit', 'credit'],
+                    },
+                    {
+                      key: 'coa-filter-mapping-status',
+                      label: 'Mapping Status',
+                      type: 'checklist',
+                      value: fbMappingStatus,
+                      onChange: setFbMappingStatus,
+                      options: ['mapped', 'unmapped'],
+                    },
+                    {
+                      key: 'coa-filter-active',
+                      label: 'Active',
+                      type: 'checklist',
+                      value: fbActive,
+                      onChange: setFbActive,
+                      options: ['active', 'inactive'],
+                    },
+                  ]}
+                />
+                {fbActiveCount > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-indigo-600 pl-1">
+                    <span data-testid="coa-active-filter-count">{fbActiveCount} filter{fbActiveCount > 1 ? 's' : ''} active</span>
+                    <button
+                      type="button"
+                      data-testid="coa-filter-clear"
+                      onClick={() => {
+                        setFbAccountNumber('')
+                        setFbAccountName('')
+                        setFbAccountType([])
+                        setFbNormalBalance([])
+                        setFbMappingStatus([])
+                        setFbActive([])
+                      }}
+                      className="underline hover:no-underline"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                )}
+              </Fragment>
+            )
+          })()}
 
           {/* Selection summary */}
           {selectedIds.size > 0 && (

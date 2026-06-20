@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw, Clock, Upload, Shield, Download } from 'lucide-react'
+import { CheckCircle, AlertCircle, XCircle, ArrowLeft, RotateCcw, Clock, Upload, Shield, Download, Scan, EyeOff } from 'lucide-react'
 import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { tbImportApi } from '@/api/tbImport'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { AccountingDataGrid } from '@/components/data-grid'
-import type { ImportBatch, ImportLine, ImportIssue, RawPreview } from '@/types'
+import type { ImportBatch, ImportLine, ImportIssue, RawPreview, DetectedTotalRow } from '@/types'
 
 type Tab = 'lines' | 'issues' | 'preview' | 'mapping'
 
@@ -166,6 +166,8 @@ export function ImportReviewPage() {
   const [jeNumber, setJeNumber] = useState('')
   const [notes, setNotes] = useState('')
   const [showPostForm, setShowPostForm] = useState(false)
+  const [selectedLineIds, setSelectedLineIds] = useState<Set<number>>(new Set())
+  const [detectedTotals, setDetectedTotals] = useState<DetectedTotalRow[]>([])
 
   const { data: batch } = useQuery({
     queryKey: ['import-batch', batchId],
@@ -216,6 +218,28 @@ export function ImportReviewPage() {
     mutationFn: () => tbImportApi.rollbackBatch(batchId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+      setApiError(null)
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  const detectTotalsMutation = useMutation({
+    mutationFn: () => tbImportApi.detectTotalRows(batchId),
+    onSuccess: (rows) => {
+      setDetectedTotals(rows)
+      setApiError(null)
+    },
+    onError: (err: Error) => setApiError(err.message),
+  })
+
+  const excludeLinesMutation = useMutation({
+    mutationFn: (args: { lineIds: number[]; reason: string }) =>
+      tbImportApi.excludeLines(batchId, args.lineIds, args.reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['import-batch', batchId] })
+      setSelectedLineIds(new Set())
+      setDetectedTotals([])
       setApiError(null)
     },
     onError: (err: Error) => setApiError(err.message),
@@ -401,78 +425,163 @@ export function ImportReviewPage() {
 
       {/* Lines tab */}
       {tab === 'lines' && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-          <AccountingDataGrid
-            columns={[
-              {
-                key: 'line_number',
-                header: '#',
-                sortable: true,
-                sortValue: (l: ImportLine) => l.line_number,
-                className: 'w-12 text-gray-400',
-                render: (l: ImportLine) => <span>{l.line_number}</span>,
-              },
-              {
-                key: 'raw_account_number',
-                header: 'Source Acct #',
-                sortable: true,
-                sortValue: (l: ImportLine) => l.raw_account_number || '',
-                className: 'font-mono text-gray-700',
-                render: (l: ImportLine) => <span>{l.raw_account_number || '—'}</span>,
-              },
-              {
-                key: 'raw_account_name',
-                header: 'Source Acct Name',
-                sortable: true,
-                sortValue: (l: ImportLine) => l.raw_account_name || '',
-                className: 'text-gray-600',
-                render: (l: ImportLine) => <span>{l.raw_account_name || '—'}</span>,
-              },
-              {
-                key: 'debit',
-                header: 'Debit',
-                sortable: true,
-                sortValue: (l: ImportLine) => parseFloat(l.debit || '0'),
-                className: 'text-right font-mono',
-                render: (l: ImportLine) => (
-                  <span>
-                    {Number(l.debit) > 0 ? fmtCompact(Number(l.debit)) : '—'}
-                  </span>
-                ),
-              },
-              {
-                key: 'credit',
-                header: 'Credit',
-                sortable: true,
-                sortValue: (l: ImportLine) => parseFloat(l.credit || '0'),
-                className: 'text-right font-mono',
-                render: (l: ImportLine) => (
-                  <span>
-                    {Number(l.credit) > 0 ? fmtCompact(Number(l.credit)) : '—'}
-                  </span>
-                ),
-              },
-              {
-                key: 'mapping_status',
-                header: 'Status',
-                sortable: true,
-                sortValue: (l: ImportLine) => l.mapping_status,
-                render: (l: ImportLine) => (
-                  <span className="flex items-center gap-1.5">
-                    <MappingStatusDot status={l.mapping_status} />
-                    <span className="capitalize text-gray-600">{l.mapping_status}</span>
-                  </span>
-                ),
-              },
-            ]}
-            data={lines ?? []}
-            rowKey={(l: ImportLine) => l.id}
-            selectionEnabled={false}
-            pageSize={50}
-            loading={lines === undefined}
-            exportFilename={`batch_${batchId}_lines`}
-            data-testid="lines-grid"
-          />
+        <div className="space-y-2">
+          {/* Toolbar: detect total rows + batch actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={detectTotalsMutation.isPending}
+              onClick={() => detectTotalsMutation.mutate()}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+              data-testid="detect-total-rows-btn"
+            >
+              <Scan className="w-3.5 h-3.5" />
+              {detectTotalsMutation.isPending ? 'Detecting…' : 'Detect Total Rows'}
+            </button>
+
+            {detectedTotals.length > 0 && (
+              <button
+                type="button"
+                disabled={excludeLinesMutation.isPending}
+                onClick={() =>
+                  excludeLinesMutation.mutate({
+                    lineIds: detectedTotals.map((r) => r.line_id),
+                    reason: 'total_row',
+                  })
+                }
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-yellow-300 rounded bg-yellow-50 text-yellow-800 hover:bg-yellow-100 disabled:opacity-50"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                Exclude {detectedTotals.length} detected row{detectedTotals.length !== 1 ? 's' : ''}
+              </button>
+            )}
+
+            {selectedLineIds.size > 0 && (
+              <>
+                <span className="text-xs text-gray-500 px-1">{selectedLineIds.size} selected</span>
+                <button
+                  type="button"
+                  disabled={excludeLinesMutation.isPending}
+                  onClick={() =>
+                    excludeLinesMutation.mutate({
+                      lineIds: Array.from(selectedLineIds),
+                      reason: 'manual',
+                    })
+                  }
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-300 rounded bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                >
+                  <EyeOff className="w-3.5 h-3.5" /> Exclude Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLineIds(new Set())}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-1"
+                >
+                  Clear
+                </button>
+              </>
+            )}
+          </div>
+
+          {detectedTotals.length > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-xs text-yellow-800">
+              Detected {detectedTotals.length} likely total/header row{detectedTotals.length !== 1 ? 's' : ''}.
+              Rows highlighted in yellow. Click "Exclude … detected rows" to skip them all.
+            </div>
+          )}
+
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-auto max-h-[60vh]">
+              <table className="w-full text-sm border-collapse" data-testid="lines-grid">
+                <thead className="sticky top-0 z-10 bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200 w-8">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={selectedLineIds.size > 0 && (lines ?? []).filter(l => l.mapping_status !== 'skipped').every(l => selectedLineIds.has(l.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedLineIds(new Set((lines ?? []).filter(l => l.mapping_status !== 'skipped').map(l => l.id)))
+                          } else {
+                            setSelectedLineIds(new Set())
+                          }
+                        }}
+                      />
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200 w-12">#</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Source Acct #</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Source Acct Name</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Debit</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-600 border-b border-gray-200">Credit</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b border-gray-200">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines === undefined ? (
+                    <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-400">Loading…</td></tr>
+                  ) : lines.length === 0 ? (
+                    <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-400">No lines found.</td></tr>
+                  ) : (
+                    lines.map((l) => {
+                      const isDetected = detectedTotals.some((d) => d.line_id === l.id)
+                      const isSelected = selectedLineIds.has(l.id)
+                      return (
+                        <tr
+                          key={l.id}
+                          className={`border-b border-gray-100 last:border-0 transition-colors ${
+                            isDetected
+                              ? 'bg-yellow-50'
+                              : isSelected
+                                ? 'bg-indigo-50'
+                                : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="px-3 py-2 w-8">
+                            <input
+                              type="checkbox"
+                              className="rounded"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                setSelectedLineIds((prev) => {
+                                  const next = new Set(prev)
+                                  if (e.target.checked) next.add(l.id)
+                                  else next.delete(l.id)
+                                  return next
+                                })
+                              }}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-gray-400 text-xs w-12">{l.line_number}</td>
+                          <td className="px-3 py-2 font-mono text-gray-700 text-xs">{l.raw_account_number || '—'}</td>
+                          <td className="px-3 py-2 text-gray-600 text-xs">
+                            {l.raw_account_name || '—'}
+                            {isDetected && (
+                              <span className="ml-2 text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                                {detectedTotals.find((d) => d.line_id === l.id)?.reason.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-700">
+                            {Number(l.debit) > 0 ? fmtCompact(Number(l.debit)) : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-xs text-gray-700">
+                            {Number(l.credit) > 0 ? fmtCompact(Number(l.credit)) : '—'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="flex items-center gap-1.5">
+                              <MappingStatusDot status={l.mapping_status} />
+                              <span className="capitalize text-gray-600 text-xs">{l.mapping_status}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

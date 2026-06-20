@@ -36,6 +36,41 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint I · Import Review & Mapping Workflow',
+    date: '2026-06-19',
+    items: [
+      'Import review: auto-detect total/header rows with one-click bulk exclude',
+      'Batch actions: exclude multiple lines, assign parent account, assign FSLI in bulk',
+      'Validation severity: only blocking errors (OUT_OF_BALANCE, MISSING_ACCOUNT, UNMAPPED_REQUIRED, INVALID_AMOUNT) prevent posting; warnings grouped separately',
+      'Import table: vertical scroll with sticky column headers',
+      'Batch parent account assignment: select lines and assign parent in one step',
+      'Bulk FSLI assignment from import review: map multiple accounts to taxonomy line',
+    ],
+  },
+  {
+    version: 'Sprint H · Taxonomy Mapping Workbench Rebuild',
+    date: '2026-06-19',
+    items: [
+      'New standalone Taxonomy Mapping Workbench at /taxonomy/mapping',
+      'Full table with Excel-style filters on every column: Account #, Name, Type, Status, FSLI',
+      'Per-reporting-view: switch between GAAP, Tax, Management views with isolated mappings',
+      'Bulk FSLI assignment: select multiple accounts and assign FSLI in one action',
+      'Copy from view: copy all mappings from one reporting view to another',
+      'Account lock: lock specific accounts to prevent bulk overwrites',
+    ],
+  },
+  {
+    version: 'Sprint G · Parent/Subaccount FSLI Inheritance',
+    date: '2026-06-19',
+    items: [
+      'FSLI mapping now supports parent account inheritance: map 1000 Cash → all children inherit automatically',
+      'Inheritance chain: explicit override → parent account → grandparent → legacy account field',
+      'New "Inherited From" column in Mapping Workbench shows whether mapping is explicit or inherited',
+      'Propagate button: assign FSLI to all unmapped children of a parent account',
+      'Reporting view isolation preserved: inheritance only within the same entity + view',
+    ],
+  },
+  {
     version: 'Sprint F · Financial Statement Presentation View',
     date: '2026-06-19',
     items: [

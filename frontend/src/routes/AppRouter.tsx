@@ -64,6 +64,7 @@ import { SetupPage } from '@/pages/SetupPage'
 import { QuickBooksConnectPage } from '@/pages/QuickBooksConnectPage'
 import { QuickBooksCallbackPage } from '@/pages/QuickBooksCallbackPage'
 import { IntelligenceDashboardPage } from '@/pages/IntelligenceDashboardPage'
+import { TaxonomyMappingWorkbenchPage } from '@/pages/TaxonomyMappingWorkbenchPage'
 
 function AuthedShell() {
   return (
@@ -196,6 +197,9 @@ export function AppRouter() {
           <Route path="setup/settings" element={<Navigate replace to="/setup?tab=settings" />} />
           <Route path="setup/help" element={<HelpCenterPage />} />
           <Route path="setup/taxonomy-admin" element={<Navigate replace to="/setup?tab=taxonomy" />} />
+
+          {/* ── TAXONOMY MAPPING WORKBENCH ────────────────────────────────── */}
+          <Route path="taxonomy/mapping" element={<TaxonomyMappingWorkbenchPage />} />
 
           {/* ── QUICKBOOKS ────────────────────────────────────────────────── */}
           <Route path="quickbooks/connect" element={<QuickBooksConnectPage />} />

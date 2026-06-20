@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Layers,
   Link2,
+  Map,
   Package,
   Settings2,
   SlidersHorizontal,
@@ -56,6 +57,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { id: 'import', label: 'Import Center', to: '/import', icon: Upload, badgeKey: 'import-unmapped' },
       { id: 'mapping', label: 'Mapping Center', to: '/mapping', icon: Link2 },
+      { id: 'taxonomy-mapping', label: 'Taxonomy Mapping', to: '/taxonomy/mapping', icon: Map },
     ],
   },
   {

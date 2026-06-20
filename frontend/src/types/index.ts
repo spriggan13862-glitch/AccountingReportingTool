@@ -149,6 +149,18 @@ export interface FsliMapping {
   taxonomy_line_name: string | null
 }
 
+export interface FsliEffectiveMapping {
+  account_id: number
+  account_number: string
+  account_name: string
+  taxonomy_line_id: number | null
+  taxonomy_line_name: string | null
+  mapping_source: 'explicit' | 'parent' | 'grandparent' | 'legacy' | 'none'
+  inherited_from_account_id: number | null
+  inherited_from_account_number: string | null
+  locked?: boolean
+}
+
 export interface ReportingTaxonomyView {
   id: number
   code: string
@@ -886,6 +898,12 @@ export interface AccountMatchResult {
   matched_account_number: string | null
   matched_account_name: string | null
   conflict_reason: string | null
+  confidence: number
+}
+
+export interface DetectedTotalRow {
+  line_id: number
+  reason: string
   confidence: number
 }
 

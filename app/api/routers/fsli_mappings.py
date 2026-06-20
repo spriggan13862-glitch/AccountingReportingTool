@@ -7,14 +7,28 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.api.schemas import FsliMappingOut, FsliMappingUpsert, FsliMigrationResult
+from app.api.schemas import (
+    FsliBulkAssignRequest,
+    FsliBulkAssignResult,
+    FsliCopyFromViewResult,
+    FsliEffectiveMapping,
+    FsliMappingOut,
+    FsliMappingUpsert,
+    FsliMigrationResult,
+    FsliPropagateRequest,
+    FsliPropagateResult,
+)
 from app.models.account import Account
 from app.models.reporting_taxonomy import ReportingTaxonomyLine
 from app.models.view_account_override import ViewAccountOverride
 from app.services.fsli_mapping_service import (
+    bulk_assign_fsli,
     bulk_migrate_from_account_field,
+    copy_fsli_mappings_from_view,
     delete_fsli_mapping,
+    get_effective_fsli_for_all_accounts,
     list_fsli_mappings,
+    propagate_fsli_to_children,
     upsert_fsli_mapping,
 )
 
@@ -63,7 +77,8 @@ def upsert_mapping(
         raise HTTPException(status_code=404, detail="Account not found")
     if account.entity_id != entity_id:
         raise HTTPException(status_code=400, detail="Account does not belong to this entity")
-    override = upsert_fsli_mapping(entity_id, view_id, account_id, body.taxonomy_line_id, db)
+    locked = getattr(body, 'locked', None)
+    override = upsert_fsli_mapping(entity_id, view_id, account_id, body.taxonomy_line_id, db, locked=locked)
     return _enrich(override, db)
 
 
@@ -87,3 +102,69 @@ def migrate_from_accounts(
 ):
     migrated = bulk_migrate_from_account_field(entity_id, view_id, db)
     return FsliMigrationResult(migrated=migrated)
+
+
+@router.get("/{entity_id}/{view_id}/with-inheritance", response_model=list[FsliEffectiveMapping])
+def list_with_inheritance(
+    entity_id: int,
+    view_id: int,
+    db: Session = Depends(get_db),
+):
+    rows = get_effective_fsli_for_all_accounts(entity_id, view_id, db)
+    return [FsliEffectiveMapping(**row) for row in rows]
+
+
+@router.post(
+    "/{entity_id}/{view_id}/propagate/{parent_account_id}",
+    response_model=FsliPropagateResult,
+)
+def propagate_to_children(
+    entity_id: int,
+    view_id: int,
+    parent_account_id: int,
+    body: FsliPropagateRequest,
+    db: Session = Depends(get_db),
+):
+    parent = db.query(Account).get(parent_account_id)
+    if not parent:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if parent.entity_id != entity_id:
+        raise HTTPException(status_code=400, detail="Account does not belong to this entity")
+
+    count, updated_ids = propagate_fsli_to_children(
+        parent_account_id,
+        entity_id,
+        view_id,
+        body.taxonomy_line_id,
+        db,
+        body.overwrite_existing,
+    )
+    return FsliPropagateResult(propagated_count=count, accounts_updated=updated_ids)
+
+
+@router.post(
+    "/{entity_id}/{target_view_id}/copy-from/{source_view_id}",
+    response_model=FsliCopyFromViewResult,
+)
+def copy_from_view(
+    entity_id: int,
+    target_view_id: int,
+    source_view_id: int,
+    db: Session = Depends(get_db),
+):
+    copied = copy_fsli_mappings_from_view(entity_id, target_view_id, source_view_id, db)
+    return FsliCopyFromViewResult(copied=copied)
+
+
+@router.post(
+    "/{entity_id}/{view_id}/bulk-assign",
+    response_model=FsliBulkAssignResult,
+)
+def bulk_assign(
+    entity_id: int,
+    view_id: int,
+    body: FsliBulkAssignRequest,
+    db: Session = Depends(get_db),
+):
+    updated = bulk_assign_fsli(entity_id, view_id, body.account_ids, body.taxonomy_line_id, db)
+    return FsliBulkAssignResult(updated=updated)

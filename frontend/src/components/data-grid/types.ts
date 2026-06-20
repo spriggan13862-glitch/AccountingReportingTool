@@ -21,8 +21,10 @@ export interface GridColumn<T> {
   hidden?: boolean
   sortable?: boolean
   filterable?: boolean
-  /** 'text' for contains filter (default), 'numeric' for min/max range */
-  filterType?: 'text' | 'numeric'
+  /** 'text' for contains filter (default), 'numeric' for min/max range, 'checklist' for enum selection */
+  filterType?: 'text' | 'numeric' | 'checklist'
+  /** Static list of values for checklist filter mode */
+  checklistValues?: string[]
   /** Sorting + global search: extract comparable primitive */
   sortValue?: (row: T) => string | number | null | undefined
   /** Override search text (defaults to sortValue) */
@@ -76,6 +78,8 @@ export interface GridState {
   columnFilterModes: Record<string, ColumnFilterMode>
   columnFilterMin: Record<string, string>
   columnFilterMax: Record<string, string>
+  /** Selected values for checklist filters; key → array of selected option strings */
+  columnFilterChecklists: Record<string, string[]>
 }
 
 // ---------------------------------------------------------------------------
