@@ -36,10 +36,21 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint O · Taxonomy Depth Expansion + Production Seeding Clarification',
+    date: '2026-06-20',
+    items: [
+      'Taxonomy depth expanded to accountant/controller-grade: US GAAP 444 nodes (was 160), IFRS 359 (was 161), Management 201 (was 146), Healthcare 246 (was 159), Financial Services 256 (was 186). Total across 11 system taxonomies: 2,456 nodes.',
+      'US GAAP coverage now includes per-category PPE accumulated depreciation, ASC 606 performance obligations, ASC 842 lease components, ASC 326 CECL, ASC 805 business combinations, ASC 815 derivatives, AOCI breakouts, segment reporting, S&M/R&D/G&A operating expense pods.',
+      'IFRS coverage now includes IAS 41 biological assets, IAS 40 investment property, IFRS 9 financial instruments (amortized cost / FVOCI / FVPL / ECL stages), IFRS 15 revenue, IFRS 16 leases (ROU subtypes), IAS 19 employee benefits, IAS 36 impairment (CGU/VIU), IAS 12 income tax, IAS 21 foreign currency, IAS 37 provisions.',
+      'Seeder now refuses staging/production environments without --confirm-environment flag. Database URL is redacted in logs.',
+      'Correction: previous note describing the local SQLite as "production" was incorrect — this codebase has no deployed production database. The seeded DB is the local dev SQLite at accounting.db.',
+    ],
+  },
+  {
     version: 'Sprint O · Default Taxonomy Foundation',
     date: '2026-06-20',
     items: [
-      'New Taxonomy Library at /taxonomy/library — 11 system taxonomies seeded (US GAAP, IFRS, Management, SaaS, Healthcare, Manufacturing, Construction, Real Estate, Financial Services, Nonprofit, SPAC/Public) totaling 1,762 nodes',
+      'New Taxonomy Library at /taxonomy/library — 11 system taxonomies seeded (US GAAP, IFRS, Management, SaaS, Healthcare, Manufacturing, Construction, Real Estate, Financial Services, Nonprofit, SPAC/Public).',
       'Multi-taxonomy mapping: any account can map to many taxonomies simultaneously (GAAP + IFRS + Management + Industry)',
       'Taxonomy downloads: export any taxonomy as CSV, Excel, or JSON',
       'Clone system taxonomy: create user-editable copies with preserved lineage (e.g. "US GAAP - Acme Corp")',

@@ -119,14 +119,14 @@ def seed_taxonomy(session_factory):
 # ---------------------------------------------------------------------------
 
 def test_list_taxonomies_empty(client):
-    r = client.get("/taxonomies")
+    r = client.get("/api/v1/taxonomies")
     assert r.status_code == 200
     assert r.json() == []
 
 
 def test_get_taxonomy_tree(client, seed_taxonomy):
     tx_id = seed_taxonomy["taxonomy_id"]
-    r = client.get(f"/taxonomies/{tx_id}/tree")
+    r = client.get(f"/api/v1/taxonomies/{tx_id}/tree")
     assert r.status_code == 200
     tree = r.json()
     assert len(tree) == 1
@@ -140,7 +140,7 @@ def test_get_taxonomy_tree(client, seed_taxonomy):
 def test_clone_system_taxonomy(client, seed_taxonomy):
     tx_id = seed_taxonomy["taxonomy_id"]
     r = client.post(
-        f"/taxonomies/{tx_id}/clone",
+        f"/api/v1/taxonomies/{tx_id}/clone",
         json={"name": "My Custom GAAP", "code": "my_custom_gaap"},
     )
     assert r.status_code == 201
@@ -154,7 +154,7 @@ def test_clone_system_taxonomy(client, seed_taxonomy):
 def test_edit_system_node_rejected(client, seed_taxonomy):
     root_id = seed_taxonomy["root_id"]
     r = client.patch(
-        f"/taxonomies/nodes/{root_id}",
+        f"/api/v1/taxonomies/nodes/{root_id}",
         json={"name": "Hacked Assets"},
     )
     assert r.status_code == 409
@@ -164,7 +164,7 @@ def test_edit_system_node_rejected(client, seed_taxonomy):
 def test_edit_cloned_node_succeeds(client, seed_taxonomy, session_factory):
     tx_id = seed_taxonomy["taxonomy_id"]
     clone_resp = client.post(
-        f"/taxonomies/{tx_id}/clone",
+        f"/api/v1/taxonomies/{tx_id}/clone",
         json={"name": "Editable Clone", "code": "editable_clone"},
     )
     assert clone_resp.status_code == 201
@@ -181,7 +181,7 @@ def test_edit_cloned_node_succeeds(client, seed_taxonomy, session_factory):
     db.close()
 
     r = client.patch(
-        f"/taxonomies/nodes/{cloned_node_id}",
+        f"/api/v1/taxonomies/nodes/{cloned_node_id}",
         json={"name": "Current Assets (Renamed)"},
     )
     assert r.status_code == 200
@@ -190,7 +190,7 @@ def test_edit_cloned_node_succeeds(client, seed_taxonomy, session_factory):
 
 def test_export_csv(client, seed_taxonomy):
     tx_id = seed_taxonomy["taxonomy_id"]
-    r = client.get(f"/taxonomies/{tx_id}/export/csv")
+    r = client.get(f"/api/v1/taxonomies/{tx_id}/export/csv")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/csv")
     assert "us_gaap_test_taxonomy.csv" in r.headers.get("content-disposition", "")
@@ -202,7 +202,7 @@ def test_export_csv(client, seed_taxonomy):
 
 def test_export_json(client, seed_taxonomy):
     tx_id = seed_taxonomy["taxonomy_id"]
-    r = client.get(f"/taxonomies/{tx_id}/export/json")
+    r = client.get(f"/api/v1/taxonomies/{tx_id}/export/json")
     assert r.status_code == 200
     payload = r.json()
     assert payload["code"] == "us_gaap_test"
@@ -229,7 +229,7 @@ def test_create_account_mapping(client, seed_taxonomy, session_factory):
     node_id = seed_taxonomy["child1_id"]
 
     r = client.post(
-        "/taxonomies/mappings",
+        "/api/v1/taxonomies/mappings",
         json={
             "account_id": account_id,
             "taxonomy_id": tx_id,
@@ -244,7 +244,7 @@ def test_create_account_mapping(client, seed_taxonomy, session_factory):
     assert mapping["account_id"] == account_id
     assert mapping["taxonomy_node_id"] == node_id
 
-    r2 = client.get(f"/taxonomies/mappings/account/{account_id}")
+    r2 = client.get(f"/api/v1/taxonomies/mappings/account/{account_id}")
     assert r2.status_code == 200
     listed = r2.json()
     assert len(listed) == 1

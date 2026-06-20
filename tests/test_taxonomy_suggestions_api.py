@@ -2,9 +2,9 @@
 Sprint O6 — Taxonomy mapping suggestion API tests.
 
 Covers:
-  - GET  /taxonomies/suggest/{account_id}  (single account, multi-taxonomy)
-  - POST /taxonomies/suggest/bulk
-  - POST /taxonomies/suggest/apply
+  - GET  /api/v1/taxonomies/suggest/{account_id}  (single account, multi-taxonomy)
+  - POST /api/v1/taxonomies/suggest/bulk
+  - POST /api/v1/taxonomies/suggest/apply
 """
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ def test_suggest_returns_for_known_account(client, session_factory):
     tx_id = seed["taxonomy_id"]
     db.close()
 
-    r = client.get(f"/taxonomies/suggest/{aid}", params={"taxonomy_ids": str(tx_id)})
+    r = client.get(f"/api/v1/taxonomies/suggest/{aid}", params={"taxonomy_ids": str(tx_id)})
     assert r.status_code == 200, r.text
     body = r.json()
     assert len(body) == 1
@@ -128,7 +128,7 @@ def test_suggest_unknown_account_404(client, session_factory):
     tx_id = seed["taxonomy_id"]
     db.close()
 
-    r = client.get("/taxonomies/suggest/9999", params={"taxonomy_ids": str(tx_id)})
+    r = client.get("/api/v1/taxonomies/suggest/9999", params={"taxonomy_ids": str(tx_id)})
     assert r.status_code == 404
 
 
@@ -142,7 +142,7 @@ def test_bulk_suggest_multi_account(client, session_factory):
     db.close()
 
     r = client.post(
-        "/taxonomies/suggest/bulk",
+        "/api/v1/taxonomies/suggest/bulk",
         json={
             "account_ids": [a1, a2, a3],
             "taxonomy_ids": [seed_a["taxonomy_id"], seed_b["taxonomy_id"]],
@@ -166,7 +166,7 @@ def test_apply_suggestions_creates_mappings(client, session_factory):
     db.close()
 
     r = client.post(
-        "/taxonomies/suggest/apply",
+        "/api/v1/taxonomies/suggest/apply",
         json={
             "suggestions": [
                 {"account_id": a1, "taxonomy_id": tx_id, "taxonomy_node_id": cash_node, "confidence_score": 0.9},
@@ -205,7 +205,7 @@ def test_apply_suggestions_skips_existing(client, session_factory):
     db.close()
 
     r = client.post(
-        "/taxonomies/suggest/apply",
+        "/api/v1/taxonomies/suggest/apply",
         json={
             "suggestions": [
                 {"account_id": aid, "taxonomy_id": tx_id, "taxonomy_node_id": cash_node, "confidence_score": 0.9},
