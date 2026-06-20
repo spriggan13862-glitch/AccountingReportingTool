@@ -136,6 +136,7 @@ vi.mock('@/components/ui/CreateAccountModal', () => ({
 
 vi.mock('@/components/data-grid', () => ({
   BatchActionBar: () => null,
+  FilterBar: () => null,
 }))
 
 vi.mock('@/components/ui/PageLayout', () => ({
