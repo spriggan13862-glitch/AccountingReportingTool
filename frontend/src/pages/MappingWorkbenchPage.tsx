@@ -11,10 +11,12 @@ import { accountsApi } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import { reportingViewsApi } from '@/api/reportingViews'
 import { fsliMappingsApi } from '@/api/fsliMappings'
+import { taxonomyLibraryApi } from '@/api/taxonomyLibrary'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
 import { AccountingDataGrid } from '@/components/data-grid'
+import { TaxonomySuggestionPanel } from '@/components/taxonomy/TaxonomySuggestionPanel'
 import type { GridColumn, BatchAction, RowAction } from '@/components/data-grid/types'
 import type { ImportLine, ImportSuggestion, Account, AccountMatchResult, ReportingTaxonomyLine, FsliEffectiveMapping } from '@/types'
 
@@ -299,6 +301,16 @@ export function MappingWorkbenchPage() {
   const [isBatchMapOpen, setIsBatchMapOpen] = useState(false)
   const [batchMapLines, setBatchMapLines] = useState<ImportLine[]>([])
   const [batchMapAccount, setBatchMapAccount] = useState<Account | null>(null)
+
+  // Sprint O6 — Auto-map taxonomies state
+  const [isAutoMapOpen, setIsAutoMapOpen] = useState(false)
+  const [autoMapTaxonomyIds, setAutoMapTaxonomyIds] = useState<number[]>([])
+  const [autoMapRunning, setAutoMapRunning] = useState(false)
+
+  const { data: availableTaxonomies = [] } = useQuery({
+    queryKey: ['taxonomies-list'],
+    queryFn: () => taxonomyLibraryApi.list(),
+  })
 
   // Row refs for keyboard nav
   const rowInputRefs = useRef<Record<number, React.RefObject<HTMLInputElement>>>({})
@@ -1016,6 +1028,18 @@ export function MappingWorkbenchPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => {
+              setAutoMapTaxonomyIds(availableTaxonomies.filter((t) => t.is_system).map((t) => t.id))
+              setAutoMapRunning(false)
+              setIsAutoMapOpen(true)
+            }}
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 font-medium"
+            data-testid="auto-map-taxonomies-btn"
+          >
+            <Lightbulb className="w-3.5 h-3.5" /> Auto-Map Taxonomies
+          </button>
+          <button
+            type="button"
             onClick={handleExportMappingIssues}
             className="flex items-center gap-1 text-xs px-2.5 py-1.5 border border-gray-300 text-gray-600 rounded hover:bg-gray-50 font-medium"
             data-testid="export-mapping-issues-btn"
@@ -1212,6 +1236,85 @@ export function MappingWorkbenchPage() {
                 Apply Mapping
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {isAutoMapOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto space-y-4" data-testid="auto-map-modal">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">Auto-Map Taxonomies</h3>
+              <button
+                type="button"
+                onClick={() => { setIsAutoMapOpen(false); setAutoMapRunning(false) }}
+                className="text-gray-400 hover:text-gray-600"
+                data-testid="auto-map-close-btn"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {!autoMapRunning ? (
+              <>
+                <p className="text-xs text-gray-500">
+                  Select the taxonomies to suggest mappings for. The rule engine will analyze each
+                  account in this batch and propose the best taxonomy node match.
+                </p>
+                <div className="border border-gray-200 rounded p-3 max-h-64 overflow-y-auto">
+                  {availableTaxonomies.length === 0 ? (
+                    <p className="text-xs text-gray-400">No taxonomies available.</p>
+                  ) : (
+                    availableTaxonomies.map((tx) => (
+                      <label key={tx.id} className="flex items-center gap-2 py-1 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={autoMapTaxonomyIds.includes(tx.id)}
+                          onChange={(e) => {
+                            setAutoMapTaxonomyIds((prev) =>
+                              e.target.checked ? [...prev, tx.id] : prev.filter((id) => id !== tx.id),
+                            )
+                          }}
+                          data-testid={`auto-map-taxonomy-${tx.id}`}
+                        />
+                        <span className="font-medium text-gray-700">{tx.name}</span>
+                        {tx.is_system && (
+                          <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">system</span>
+                        )}
+                        {tx.industry && (
+                          <span className="text-[10px] text-gray-400">{tx.industry}</span>
+                        )}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAutoMapOpen(false)}
+                    className="px-3 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={autoMapTaxonomyIds.length === 0}
+                    onClick={() => setAutoMapRunning(true)}
+                    className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+                    data-testid="run-suggestions-btn"
+                  >
+                    Run Suggestions
+                  </button>
+                </div>
+              </>
+            ) : (
+              <TaxonomySuggestionPanel
+                accountIds={Array.from(new Set(lines.map((l) => l.resolved_account_id).filter((x): x is number => x != null)))}
+                taxonomyIds={autoMapTaxonomyIds}
+                onApplied={() => {
+                  queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+                  queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
+                }}
+              />
+            )}
           </div>
         </div>
       )}

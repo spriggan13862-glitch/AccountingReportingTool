@@ -2838,3 +2838,43 @@ class AccountTaxonomyMappingCreate(BaseModel):
 
 class AccountTaxonomyMappingBulkRequest(BaseModel):
     mappings: list[AccountTaxonomyMappingCreate]
+
+
+# ---------------------------------------------------------------------------
+# Sprint O6 — Mapping Suggestions
+# ---------------------------------------------------------------------------
+
+class MappingSuggestionOut(BaseModel):
+    taxonomy_id: int
+    taxonomy_code: str
+    taxonomy_node_id: int
+    node_code: str
+    node_name: str
+    confidence_score: float
+    reason: str
+
+
+class BulkSuggestRequest(BaseModel):
+    account_ids: list[int]
+    taxonomy_ids: list[int]
+
+
+class BulkSuggestResult(BaseModel):
+    suggestions: dict[int, list[MappingSuggestionOut]]
+
+
+class SuggestionToApply(BaseModel):
+    account_id: int
+    taxonomy_id: int
+    taxonomy_node_id: int
+    confidence_score: float | None = None
+
+
+class ApplySuggestionsRequest(BaseModel):
+    suggestions: list[SuggestionToApply]
+    overwrite_existing: bool = False
+
+
+class ApplySuggestionsResult(BaseModel):
+    applied: int
+    skipped: int

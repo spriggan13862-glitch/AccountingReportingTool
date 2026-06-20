@@ -54,6 +54,16 @@ export interface AccountTaxonomyMapping {
   is_primary: boolean
 }
 
+export interface MappingSuggestion {
+  taxonomy_id: number
+  taxonomy_code: string
+  taxonomy_node_id: number
+  node_code: string
+  node_name: string
+  confidence_score: number
+  reason: string
+}
+
 export const taxonomyLibraryApi = {
   list: (includeInactive = false): Promise<Taxonomy[]> =>
     api.get<Taxonomy[]>('/taxonomies', { params: { include_inactive: includeInactive } }).then((r) => r.data),
@@ -102,4 +112,28 @@ export const taxonomyLibraryApi = {
 
   deleteMapping: (mappingId: number): Promise<void> =>
     api.delete(`/taxonomies/mappings/${mappingId}`).then(() => undefined),
+
+  suggest: (accountId: number, taxonomyIds: number[]): Promise<MappingSuggestion[]> =>
+    api
+      .get<MappingSuggestion[]>(`/taxonomies/suggest/${accountId}`, {
+        params: { taxonomy_ids: taxonomyIds.join(',') },
+      })
+      .then((r) => r.data),
+
+  bulkSuggest: (body: {
+    account_ids: number[]
+    taxonomy_ids: number[]
+  }): Promise<{ suggestions: Record<number, MappingSuggestion[]> }> =>
+    api.post('/taxonomies/suggest/bulk', body).then((r) => r.data),
+
+  applySuggestions: (body: {
+    suggestions: Array<{
+      account_id: number
+      taxonomy_id: number
+      taxonomy_node_id: number
+      confidence_score?: number
+    }>
+    overwrite_existing?: boolean
+  }): Promise<{ applied: number; skipped: number }> =>
+    api.post('/taxonomies/suggest/apply', body).then((r) => r.data),
 }

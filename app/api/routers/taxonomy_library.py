@@ -19,6 +19,11 @@ from app.api.schemas import (
     AccountTaxonomyMappingBulkRequest,
     AccountTaxonomyMappingCreate,
     AccountTaxonomyMappingOut,
+    ApplySuggestionsRequest,
+    ApplySuggestionsResult,
+    BulkSuggestRequest,
+    BulkSuggestResult,
+    MappingSuggestionOut,
     TaxonomyCloneRequest,
     TaxonomyDetailOut,
     TaxonomyNodeCreate,
@@ -27,6 +32,7 @@ from app.api.schemas import (
     TaxonomyNodeUpdate,
     TaxonomyOut,
 )
+from app.models.account import Account
 from app.models.taxonomy import (
     AccountTaxonomyMapping,
     Taxonomy,
@@ -36,6 +42,11 @@ from app.services import taxonomy_library_service as svc
 from app.services.taxonomy_library_service import (
     TaxonomyImmutableError,
     TaxonomyNotFoundError,
+    map_account,
+)
+from app.services.taxonomy_mapping_rules import (
+    bulk_suggest_mappings,
+    suggest_mappings_for_taxonomies,
 )
 
 try:
@@ -376,3 +387,84 @@ def list_account_mappings(account_id: int, db: Session = Depends(get_db)):
 def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
     svc.delete_account_mapping(db, mapping_id)
     return None
+
+
+# ---------------------------------------------------------------------------
+# Sprint O6 — Mapping suggestions (rule engine driven)
+# ---------------------------------------------------------------------------
+
+def _to_suggestion_out(s) -> MappingSuggestionOut:
+    return MappingSuggestionOut(
+        taxonomy_id=s.taxonomy_id,
+        taxonomy_code=s.taxonomy_code,
+        taxonomy_node_id=s.taxonomy_node_id,
+        node_code=s.node_code,
+        node_name=s.node_name,
+        confidence_score=s.confidence_score,
+        reason=s.reason,
+    )
+
+
+@router.get("/suggest/{account_id}", response_model=list[MappingSuggestionOut])
+def suggest_mappings(
+    account_id: int,
+    taxonomy_ids: str = Query(..., description="Comma-separated taxonomy IDs"),
+    db: Session = Depends(get_db),
+):
+    """Return suggested taxonomy mappings for one account across multiple taxonomies."""
+    account = db.query(Account).filter_by(id=account_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    tx_ids = [int(x) for x in taxonomy_ids.split(",") if x.strip()]
+    suggestions = suggest_mappings_for_taxonomies(account, tx_ids, db)
+    return [_to_suggestion_out(s) for s in suggestions]
+
+
+@router.post("/suggest/bulk", response_model=BulkSuggestResult)
+def bulk_suggest(
+    body: BulkSuggestRequest,
+    db: Session = Depends(get_db),
+):
+    """Suggest mappings for many accounts x many taxonomies. Returns {account_id: [suggestions]}."""
+    accounts = db.query(Account).filter(Account.id.in_(body.account_ids)).all()
+    result = bulk_suggest_mappings(accounts, body.taxonomy_ids, db)
+    return BulkSuggestResult(
+        suggestions={
+            aid: [_to_suggestion_out(s) for s in sugs]
+            for aid, sugs in result.items()
+        }
+    )
+
+
+@router.post("/suggest/apply", response_model=ApplySuggestionsResult)
+def apply_suggestions(
+    body: ApplySuggestionsRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk apply suggestions. Each suggestion becomes an AccountTaxonomyMapping
+    with mapping_source='ai_suggested'. Existing mappings are NOT overwritten
+    unless body.overwrite_existing=True.
+    """
+    applied = 0
+    skipped = 0
+    for sug in body.suggestions:
+        existing = (
+            db.query(AccountTaxonomyMapping)
+            .filter_by(account_id=sug.account_id, taxonomy_id=sug.taxonomy_id)
+            .first()
+        )
+        if existing and not body.overwrite_existing:
+            skipped += 1
+            continue
+        map_account(
+            db,
+            sug.account_id,
+            sug.taxonomy_id,
+            sug.taxonomy_node_id,
+            mapping_source="ai_suggested",
+            mapping_type="rule",
+            confidence_score=sug.confidence_score,
+        )
+        applied += 1
+    return ApplySuggestionsResult(applied=applied, skipped=skipped)
