@@ -36,6 +36,19 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint O · Default Taxonomy Foundation',
+    date: '2026-06-20',
+    items: [
+      'New Taxonomy Library at /taxonomy/library — 11 system taxonomies seeded (US GAAP, IFRS, Management, SaaS, Healthcare, Manufacturing, Construction, Real Estate, Financial Services, Nonprofit, SPAC/Public) totaling 1,762 nodes',
+      'Multi-taxonomy mapping: any account can map to many taxonomies simultaneously (GAAP + IFRS + Management + Industry)',
+      'Taxonomy downloads: export any taxonomy as CSV, Excel, or JSON',
+      'Clone system taxonomy: create user-editable copies with preserved lineage (e.g. "US GAAP - Acme Corp")',
+      'System taxonomies are immutable — direct edits are rejected; users prompted to clone',
+      'Auto-Map Taxonomies in Mapping Workbench: rule engine suggests mappings using keyword + number-range + account-type matching with color-coded confidence chips',
+      'Chart of Accounts detail panel: new Multi-Taxonomy Mappings section shows + edits all of an account’s mappings across taxonomies',
+    ],
+  },
+  {
     version: 'Sprint M · Consolidation Model Update',
     date: '2026-06-19',
     items: [
