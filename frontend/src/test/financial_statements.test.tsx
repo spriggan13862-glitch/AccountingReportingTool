@@ -176,9 +176,9 @@ describe('Milestone 20: Financial Statement Engine', () => {
 
   it('DrilldownPanel renders breadcrumbs when taxonomyLines are provided', () => {
     const taxonomyLines = [
-      { id: 10, code: 'ROOT', name: 'Assets', parent_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 1, hierarchy_depth: 0, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
-      { id: 11, code: 'CHILD', name: 'Current Assets', parent_id: 10, section: 'asset', statement_type: 'balance_sheet', sort_order: 2, hierarchy_depth: 1, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
-      { id: 12, code: 'CASH', name: 'Cash and Equivalents', parent_id: 11, section: 'asset', statement_type: 'balance_sheet', sort_order: 3, hierarchy_depth: 2, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
+      { id: 10, code: 'ROOT', name: 'Assets', parent_id: null, reporting_view_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 1, hierarchy_depth: 0, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
+      { id: 11, code: 'CHILD', name: 'Current Assets', parent_id: 10, reporting_view_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 2, hierarchy_depth: 1, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
+      { id: 12, code: 'CASH', name: 'Cash and Equivalents', parent_id: 11, reporting_view_id: null, section: 'asset', statement_type: 'balance_sheet', sort_order: 3, hierarchy_depth: 2, is_subtotal: false, normal_balance: 'debit', sign_behavior: 'positive', active: true, editable: false, system_defined: true, sec_xbrl_tag: null, short_name: null, description: null },
     ]
     render(
       <DrilldownPanel

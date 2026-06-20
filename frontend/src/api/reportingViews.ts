@@ -17,6 +17,7 @@ export interface ViewUpdate {
 
 export interface ViewAccountOverride {
   id: number
+  entity_id: number | null
   view_id: number
   account_id: number
   taxonomy_line_id: number | null

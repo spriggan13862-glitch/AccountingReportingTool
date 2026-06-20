@@ -36,6 +36,18 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Sprint A · Domain Model Correction',
+    date: '2026-06-19',
+    items: [
+      'Account identity (COA) is now separated from financial statement presentation (FSLI/taxonomy)',
+      'FSLI mappings are now per-entity and per-reporting-view: same account can map to different taxonomy lines in GAAP vs Tax vs Management',
+      'New FSLI Mapping API: entity_id + view_id + account_id → taxonomy_line_id replaces global account field',
+      'Mapping Workbench shows active reporting view and saves mappings to that view specifically',
+      'Taxonomy lines can now be view-specific (reporting_view_id) or shared across all views',
+      'Migration endpoint available to back-populate view-specific mappings from legacy account field',
+    ],
+  },
+  {
     version: 'v20 · Import UX + Global Column Filters + Validation Clarity',
     date: '2026-06-19',
     items: [

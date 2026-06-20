@@ -202,6 +202,7 @@ class ReportingTaxonomyLineOut(BaseModel):
     normal_balance: str | None = None
     sign_behavior: str | None = None
     parent_id: int | None = None
+    reporting_view_id: int | None = None
     description: str | None = None
     active: bool = True
     editable: bool = True
@@ -220,6 +221,7 @@ class ReportingTaxonomyLineCreate(BaseModel):
     normal_balance: str | None = None
     sign_behavior: str = "positive"
     parent_id: int | None = None
+    reporting_view_id: int | None = None
     description: str | None = None
     active: bool = True
     editable: bool = True
@@ -236,6 +238,7 @@ class ReportingTaxonomyLineUpdate(BaseModel):
     normal_balance: str | None = None
     sign_behavior: str | None = None
     parent_id: int | None = None
+    reporting_view_id: int | None = None
     description: str | None = None
     active: bool | None = None
     editable: bool | None = None
@@ -2286,17 +2289,38 @@ class DeliverableDashboard(BaseModel):
 class ViewAccountOverrideCreate(BaseModel):
     taxonomy_line_id: int | None = None
     display_label: str | None = None
+    entity_id: int | None = None
 
 
 class ViewAccountOverrideOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    entity_id: int | None = None
     view_id: int
     account_id: int
     taxonomy_line_id: int | None = None
     display_label: str | None = None
     created_by: str | None = None
     created_at: datetime.datetime
+
+
+class FsliMappingOut(BaseModel):
+    entity_id: int | None
+    view_id: int
+    account_id: int
+    taxonomy_line_id: int | None
+    display_label: str | None
+    account_number: str
+    account_name: str
+    taxonomy_line_name: str | None
+
+
+class FsliMappingUpsert(BaseModel):
+    taxonomy_line_id: int | None = None
+
+
+class FsliMigrationResult(BaseModel):
+    migrated: int
 
 
 class ViewComparisonRow(BaseModel):

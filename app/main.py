@@ -30,6 +30,7 @@ from app.api.routers import (
     entities,
     financial_statements,
     fs_reporting,
+    fsli_mappings,
     journal_entries,
     organizations,
     preview,
@@ -340,6 +341,7 @@ app.include_router(scenarios.router, prefix=API_PREFIX)
 app.include_router(reporting_taxonomy.router, prefix=API_PREFIX)
 app.include_router(reporting_taxonomy.views_router, prefix=API_PREFIX)
 app.include_router(reporting_taxonomy.settings_router, prefix=API_PREFIX)
+app.include_router(fsli_mappings.router, prefix=API_PREFIX)
 app.include_router(coa_import.router, prefix=API_PREFIX)
 app.include_router(pdf_import.router, prefix=API_PREFIX)
 app.include_router(accounting_intelligence.router, prefix=API_PREFIX)

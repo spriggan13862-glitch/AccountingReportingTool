@@ -427,11 +427,18 @@ def clone_view(view_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @views_router.get("/{view_id}/overrides", response_model=list[ViewAccountOverrideOut])
-def list_overrides(view_id: int, db: Session = Depends(get_db)):
+def list_overrides(
+    view_id: int,
+    entity_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
     view = db.query(ReportingTaxonomyView).get(view_id)
     if not view:
         raise HTTPException(status_code=404, detail="Reporting view not found")
-    return db.query(ViewAccountOverride).filter_by(view_id=view_id).all()
+    q = db.query(ViewAccountOverride).filter_by(view_id=view_id)
+    if entity_id is not None:
+        q = q.filter_by(entity_id=entity_id)
+    return q.all()
 
 
 @views_router.put("/{view_id}/overrides/{account_id}", response_model=ViewAccountOverrideOut)
@@ -441,11 +448,14 @@ def set_override(
     body: ViewAccountOverrideCreate,
     db: Session = Depends(get_db),
 ):
+    from app.models.account import Account as AccountModel
     view = db.query(ReportingTaxonomyView).get(view_id)
     if not view:
         raise HTTPException(status_code=404, detail="Reporting view not found")
+    account = db.query(AccountModel).get(account_id)
+    resolved_entity_id = body.entity_id if body.entity_id is not None else (account.entity_id if account else None)
     existing = db.query(ViewAccountOverride).filter_by(
-        view_id=view_id, account_id=account_id
+        entity_id=resolved_entity_id, view_id=view_id, account_id=account_id
     ).first()
     if existing:
         existing.taxonomy_line_id = body.taxonomy_line_id
@@ -454,6 +464,7 @@ def set_override(
         db.refresh(existing)
         return existing
     override = ViewAccountOverride(
+        entity_id=resolved_entity_id,
         view_id=view_id,
         account_id=account_id,
         taxonomy_line_id=body.taxonomy_line_id,

@@ -130,11 +130,23 @@ export interface ReportingTaxonomyLine {
   normal_balance: string | null
   sign_behavior: string | null
   parent_id: number | null
+  reporting_view_id: number | null
   description: string | null
   active: boolean
   editable: boolean
   system_defined: boolean
   sec_xbrl_tag: string | null
+}
+
+export interface FsliMapping {
+  entity_id: number | null
+  view_id: number
+  account_id: number
+  taxonomy_line_id: number | null
+  display_label: string | null
+  account_number: string
+  account_name: string
+  taxonomy_line_name: string | null
 }
 
 export interface ReportingTaxonomyView {

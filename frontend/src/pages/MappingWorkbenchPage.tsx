@@ -9,6 +9,8 @@ import {
 import { tbImportApi } from '@/api/tbImport'
 import { accountsApi } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
+import { reportingViewsApi } from '@/api/reportingViews'
+import { fsliMappingsApi } from '@/api/fsliMappings'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { useToast } from '@/providers/ToastProvider'
@@ -248,6 +250,9 @@ export function MappingWorkbenchPage() {
   const [apiError, setApiError] = useState<string | null>(null)
   const fmtAmount = useFormatCurrency()
 
+  // Active reporting view for FSLI assignments
+  const [activeViewId, setActiveViewId] = useState<number | null>(null)
+
   // Filters
   const [showMapped, setShowMapped] = useState(false)
   const [colFilters, setColFilters] = useState({ sourceAccount: '', fsliText: '', status: 'all' })
@@ -288,7 +293,16 @@ export function MappingWorkbenchPage() {
     queryFn: () => reportingTaxonomyApi.list(),
   })
 
+  const { data: reportingViews = [] } = useQuery({
+    queryKey: ['reporting-views'],
+    queryFn: () => reportingViewsApi.list(),
+  })
+
   const entityId = batch?.entity_id ?? 0
+
+  // Default activeViewId to the is_default view once views load
+  const defaultView = reportingViews.find((v) => v.is_default) ?? reportingViews[0] ?? null
+  const resolvedViewId = activeViewId ?? defaultView?.id ?? null
 
   const { data: entityAccounts = [] } = useQuery({
     queryKey: ['accounts-all', entityId],
@@ -356,8 +370,10 @@ export function MappingWorkbenchPage() {
   })
 
   const updateFsliMutation = useMutation({
-    mutationFn: ({ accountId, taxonomyLineId }: { accountId: number; taxonomyLineId: number | null }) =>
-      accountsApi.update(accountId, { reporting_taxonomy_line_id: taxonomyLineId }),
+    mutationFn: ({ accountId, taxonomyLineId }: { accountId: number; taxonomyLineId: number | null }) => {
+      if (!resolvedViewId) return Promise.reject(new Error('No reporting view selected'))
+      return fsliMappingsApi.upsert(entityId, resolvedViewId, accountId, taxonomyLineId)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
       toast('FSLI mapping updated', 'success')
@@ -588,7 +604,7 @@ export function MappingWorkbenchPage() {
               updateFsliMutation.mutate({ accountId: acct.id, taxonomyLineId: val })
               // Propagate to child accounts (e.g. 1000-01, 1000.1) that have no FSLI yet
               const parentNum = acct.account_number
-              if (val !== null && parentNum) {
+              if (val !== null && parentNum && resolvedViewId) {
                 const children = Object.values(accountMap).filter((a) =>
                   a.id !== acct.id &&
                   !a.reporting_taxonomy_line_id &&
@@ -597,7 +613,7 @@ export function MappingWorkbenchPage() {
                    a.account_number.startsWith(parentNum + ':'))
                 )
                 if (children.length > 0) {
-                  Promise.all(children.map((child) => accountsApi.update(child.id, { reporting_taxonomy_line_id: val })))
+                  Promise.all(children.map((child) => fsliMappingsApi.upsert(entityId, resolvedViewId, child.id, val)))
                     .then(() => {
                       queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
                       toast(`FSLI propagated to ${children.length} child account${children.length === 1 ? '' : 's'}`, 'info')
@@ -878,6 +894,29 @@ export function MappingWorkbenchPage() {
       }
     >
       {apiError && <ErrorBanner message={apiError} />}
+
+      {/* Reporting view selector */}
+      <div className="flex items-center gap-3 mb-3">
+        <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Reporting View:</label>
+        <select
+          value={resolvedViewId ?? ''}
+          onChange={(e) => setActiveViewId(e.target.value ? Number(e.target.value) : null)}
+          className="text-xs border border-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+          data-testid="reporting-view-selector"
+        >
+          {reportingViews.map((v) => (
+            <option key={v.id} value={v.id}>{v.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* FSLI view-scoped info banner */}
+      {defaultView && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-3 text-xs text-amber-800" data-testid="fsli-view-info-banner">
+          FSLI mappings in this workbench are saved to: <strong>{reportingViews.find((v) => v.id === resolvedViewId)?.name ?? '…'}</strong>.
+          Switch the view to map the same accounts differently for GAAP vs Tax vs Management.
+        </div>
+      )}
 
       {/* Mapping explanation */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 text-xs text-blue-800">

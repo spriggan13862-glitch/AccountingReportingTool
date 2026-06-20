@@ -14,10 +14,15 @@ class ViewAccountOverride(Base):
     """
     __tablename__ = "view_account_overrides"
     __table_args__ = (
-        UniqueConstraint("view_id", "account_id", name="uq_vao_view_account"),
+        UniqueConstraint("entity_id", "view_id", "account_id", name="uq_vao_entity_view_account"),
     )
 
     id = Column(Integer, primary_key=True)
+    entity_id = Column(
+        Integer,
+        ForeignKey("entities.id", ondelete="CASCADE"),
+        nullable=True,
+    )
     view_id = Column(
         Integer,
         ForeignKey("reporting_taxonomy_views.id", ondelete="CASCADE"),

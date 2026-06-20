@@ -31,6 +31,7 @@ class ReportingTaxonomyLine(Base):
     # sign_behavior: how to display values (positive=normal, negative=inverted, contra=contra-account)
     sign_behavior = Column(String(20), nullable=True, default="positive")
     parent_id = Column(Integer, ForeignKey("reporting_taxonomy_lines.id"), nullable=True)
+    reporting_view_id = Column(Integer, ForeignKey("reporting_taxonomy_views.id"), nullable=True)
     description = Column(Text, nullable=True)
     active = Column(Boolean, nullable=False, default=True)
     editable = Column(Boolean, nullable=False, default=True)
