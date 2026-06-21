@@ -1756,7 +1756,10 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
                 "likely_tb_score": score,
                 "headers": sh_headers,
                 "preview_rows": sh_rows,
-                "detected_mapping": auto_detect_column_mapping(sh_headers),
+                # DEFECT C fix: pass preview rows so data-shape inference can
+                # identify combined-account / amount columns when header text
+                # alone doesn't match an alias.
+                "detected_mapping": auto_detect_column_mapping(sh_headers, sh_rows),
                 "raw_rows": sh_raw_rows,
                 "auto_header_row_idx": auto_header_row_idx,
             })
@@ -1776,7 +1779,9 @@ def detect_file(file_content: bytes, filename: str) -> dict[str, Any]:
         sheets = []
 
     source_format = detect_source_format(filename, headers)
-    detected_mapping = auto_detect_column_mapping(headers)
+    # DEFECT C fix: pass raw_rows so data-shape inference identifies
+    # combined-account columns even when headers are generic.
+    detected_mapping = auto_detect_column_mapping(headers, raw_rows)
     unmapped_headers = [h for h in headers if h not in detected_mapping.values()]
 
     # Confidence: each mapped standard field adds to score

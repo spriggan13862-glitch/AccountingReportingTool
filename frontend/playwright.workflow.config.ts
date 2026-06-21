@@ -83,6 +83,21 @@ export default defineConfig({
       testMatch: '**/tb_wizard_simplified.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'cpa-verification',
+      testMatch: '**/cpa_workflow_verification.spec.ts',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1000 } },
+    },
+    {
+      name: 'cpa-api-verification',
+      testMatch: '**/cpa_api_verification.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'cpa-wizard-walkthrough',
+      testMatch: '**/cpa_wizard_walkthrough.spec.ts',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 1000 } },
+    },
   ],
   webServer: [
     {

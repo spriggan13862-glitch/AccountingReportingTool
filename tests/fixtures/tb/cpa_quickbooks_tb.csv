@@ -1,0 +1,48 @@
+,Account,Debit,,Credit
+,1000 · Cash,0,,
+,1000-01 · FHB - MLI Operating,20.16,,
+,1000-02 · FHB - MLI Merch Acct# 7624,2.38,,
+,1000-03 · FHB - MLI Payroll,745.33,,
+,1000-04 · FHB - LM Op(Old) #7764,3068.39,,
+,1100 · Accounts Receivable,18432.50,,
+,1110 · Allowance for Doubtful Accounts,,,425.00
+,1200 · Inventory - Finished Goods,42100.00,,
+,1300 · Prepaid Insurance,3600.00,,
+,1310 · Prepaid Rent,4500.00,,
+,1500 · Property Plant and Equipment,125000.00,,
+,1510 · Equipment,28500.00,,
+,1520 · Vehicles,42000.00,,
+,1590 · Accumulated Depreciation,,,38420.00
+,1700 · Goodwill,15000.00,,
+,2000 · Accounts Payable,,,12450.75
+,2100 · Accrued Payroll,,,8200.00
+,2110 · Accrued Vacation,,,3100.00
+,2200 · Credit Card - Amex,,,1842.55
+,2300 · Sales Tax Payable,,,2150.25
+,2400 · Payroll Tax Payable,,,1845.00
+,2500 · Notes Payable - Short Term,,,15000.00
+,2700 · Long-Term Debt,,,85000.00
+,2900 · Deferred Revenue,,,6750.00
+,3000 · Common Stock,,,1000.00
+,3100 · Additional Paid-in Capital,,,99000.00
+,3200 · Retained Earnings,,,42850.92
+,4000 · Sales Revenue,,,485000.00
+,4100 · Service Revenue,,,68500.00
+,4900 · Sales Discounts,2400.00,,
+,5000 · Cost of Goods Sold,195000.00,,
+,5100 · Direct Labor,82000.00,,
+,5200 · Manufacturing Overhead,28400.00,,
+,6000 · Salaries and Wages,142500.00,,
+,6100 · Payroll Taxes,12275.00,,
+,6200 · Employee Benefits,18900.00,,
+,6300 · Rent Expense,36000.00,,
+,6400 · Utilities,4820.00,,
+,6500 · Professional Fees,8500.00,,
+,6600 · Marketing Expense,12400.00,,
+,6700 · Office Supplies,2150.00,,
+,6800 · Travel Expense,3850.00,,
+,6900 · Insurance Expense,4200.00,,
+,7000 · Depreciation Expense,12450.00,,
+,7200 · Interest Expense,5100.00,,
+,7300 · Bank Fees,420.00,,
+,9000 · Income Tax Expense,18500.00,,

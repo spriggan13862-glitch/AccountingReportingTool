@@ -589,6 +589,10 @@ function AccountLookup({ batchId, lineId, field }: { batchId: number; lineId: nu
 }
 
 const COLUMN_ALIASES: Record<string, string[]> = {
+  account_combined: [
+    "account", "account / name", "account name / number",
+    "account_combined", "account # / name", "account number / name",
+  ],
   account_number: [
     "account_number", "account #", "account no", "account no.", "account number",
     "acct #", "acct no", "acct", "num", "gl account", "gl #", "code",
@@ -652,7 +656,16 @@ function inferColumnType(values: string[]): 'amount' | 'account_combined' | 'acc
   return 'text'
 }
 
-function detectTbMapping(headers: string[], rows?: string[][]): Record<string, string> {
+// DEFECT B fix: rows may arrive as arrays-of-arrays OR arrays-of-dicts.
+// Backend's preview_rows for CSVs is array-of-dicts keyed by header. We accept both.
+type SampleRow = string[] | Record<string, string | undefined | null>
+
+function pickCell(row: SampleRow, colIdx: number, header: string): string {
+  if (Array.isArray(row)) return String(row[colIdx] ?? '')
+  return String((row as Record<string, unknown>)[header] ?? '')
+}
+
+function detectTbMapping(headers: string[], rows?: SampleRow[]): Record<string, string> {
   const mapping: Record<string, string> = {}
   const usedColumns = new Set<string>()
 
@@ -665,12 +678,12 @@ function detectTbMapping(headers: string[], rows?: string[][]): Record<string, s
     }
   })
 
-  // Second pass: data inference for un-matched columns (Agent 3.2)
+  // Second pass: data inference for un-matched columns
   if (rows && rows.length > 0) {
     const sample = rows.slice(0, 50)
     headers.forEach((h, colIdx) => {
       if (usedColumns.has(h)) return
-      const colValues = sample.map((row) => row[colIdx] ?? '')
+      const colValues = sample.map((row) => pickCell(row, colIdx, h))
       const inferred = inferColumnType(colValues)
       if (inferred === 'account_combined' && !mapping.account_combined && !mapping.account_number) {
         mapping.account_combined = h
@@ -978,7 +991,16 @@ export function TrialBalanceImportPage() {
 
       {apiError && <ErrorBanner message={apiError} />}
 
-      <div className="mt-6 max-w-4xl mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6" data-testid="tb-import-form">
+      {/* Step 3 (Suggest FS Lines) and step 4 (Review Exceptions) carry
+          dense tables with filter + threshold controls and need the full
+          viewport width; the narrower steps (Upload, Sheet, Column Mapping,
+          Post) read better centered at 4xl. */}
+      <div
+        className={`mt-6 mx-auto bg-white border border-gray-200 rounded-xl shadow-sm p-6 ${
+          step === 3 || step === 4 ? 'max-w-screen-2xl' : 'max-w-4xl'
+        }`}
+        data-testid="tb-import-form"
+      >
         
         {/* Step 0: Upload */}
         {step === 0 && (
