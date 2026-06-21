@@ -63,8 +63,8 @@ export function CrlStatementsPage() {
 
   return (
     <PageLayout
-      title="Statements by Reporting Line"
-      subtitle="Roll the trial balance up to the Common Reporting Line layer — the canonical reporting boundary"
+      title="Statements by FSLI"
+      subtitle="Roll the trial balance up to the Financial Statement Line Item layer — the canonical reporting boundary"
     >
       <div className="space-y-4">
         {/* Controls */}
@@ -96,7 +96,7 @@ export function CrlStatementsPage() {
           </div>
           <div className="text-[11px] text-gray-500 flex items-start gap-1.5">
             <BookOpen className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span>Reads through the CRL precedence chain: direct CRL → Sprint O → legacy taxonomy.</span>
+            <span>Reads the canonical Account → FSLI mapping that the wizard and Mapping Center write.</span>
           </div>
         </div>
 
@@ -196,7 +196,7 @@ function CrlStatementBody({ data }: { data: CrlStatementResponse }) {
               <table className="w-full text-xs">
                 <thead className="bg-white border-b border-gray-100">
                   <tr className="text-left text-gray-500">
-                    <th className="px-3 py-1.5 font-semibold">Reporting Line</th>
+                    <th className="px-3 py-1.5 font-semibold">FSLI</th>
                     <th className="px-3 py-1.5 font-semibold w-20 text-right">Accounts</th>
                     <th className="px-3 py-1.5 font-semibold w-32 text-right">Own</th>
                     <th className="px-3 py-1.5 font-semibold w-32 text-right">Total (incl. children)</th>

@@ -307,10 +307,10 @@ describe('COAImportPage — M34', () => {
     })
   })
 
-  it('shows Reporting Line column header with help icon', async () => {
+  it('shows FSLI column header with help icon', async () => {
     await renderAndUpload()
     await waitFor(() => {
-      expect(screen.getByText('Reporting Line')).toBeTruthy()
+      expect(screen.getByText('FSLI')).toBeTruthy()
     })
   })
 

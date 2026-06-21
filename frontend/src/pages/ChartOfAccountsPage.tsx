@@ -56,7 +56,7 @@ type OptionalCol = 'detail_type' | 'reporting_taxonomy_line_id' | 'conflict' | '
 
 const ALL_OPTIONAL_COLS: { key: OptionalCol; label: string }[] = [
   { key: 'detail_type', label: 'Detail Type' },
-  { key: 'reporting_taxonomy_line_id', label: 'Reporting Line' },
+  { key: 'reporting_taxonomy_line_id', label: 'FSLI' },
   { key: 'conflict', label: 'Conflict' },
   { key: 'parent_account_id', label: 'Parent' },
 ]
@@ -2146,7 +2146,7 @@ export function ChartOfAccountsPage() {
       label: 'Export CSV',
       icon: History,
       onClick: (rows: AccountNode[]) => {
-        const lines = ['Account Number,Account Name,Type,Detail Type,Status,Reporting Line']
+        const lines = ['Account Number,Account Name,Type,Detail Type,Status,FSLI']
         rows.forEach((r) => {
           const tl = taxonomyLines.find((t) => t.id === r.reporting_taxonomy_line_id)?.name ?? ''
           lines.push(`${r.account_number},"${r.account_name}",${r.account_type},"${r.detail_type ?? ''}",${r.account_status},"${tl}"`)
@@ -2768,7 +2768,7 @@ export function ChartOfAccountsPage() {
                         ['account_type', 'Type', 'w-24', false],
                         ['detail_type', 'Detail Type', 'w-36', true],
                         ['account_status', 'Status', 'w-24', false],
-                        ['reporting_taxonomy_line_id', 'Reporting Line', 'w-44', true],
+                        ['reporting_taxonomy_line_id', 'FSLI', 'w-44', true],
                         ['conflict', 'Conflict', 'w-24', true],
                         ['parent_account_id', 'Parent', 'w-28', true],
                       ] as [string, string, string, boolean][]).filter(([key, , , optional]) =>

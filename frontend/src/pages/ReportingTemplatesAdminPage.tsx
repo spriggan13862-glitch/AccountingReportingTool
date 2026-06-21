@@ -90,7 +90,7 @@ export function ReportingTemplatesAdminPage() {
           </button>
         </div>
         <p className="text-[11px] text-gray-500">
-          Templates expose a subset of the CRL catalog for a given client or industry. System templates are read-only.
+          Templates expose a subset of the FSLI catalog for a given client or industry. System templates are read-only.
         </p>
 
         {showCreate && (
@@ -376,7 +376,7 @@ function TemplateMembershipEditor({
                   <tr className="text-left text-gray-500">
                     <th className="px-3 py-1 font-semibold w-8">Inc</th>
                     <th className="px-3 py-1 font-semibold w-40">Code</th>
-                    <th className="px-3 py-1 font-semibold">CRL Name</th>
+                    <th className="px-3 py-1 font-semibold">FSLI Name</th>
                     <th className="px-3 py-1 font-semibold w-48">Display Override (optional)</th>
                     <th className="px-3 py-1 font-semibold w-16">Order</th>
                   </tr>
@@ -404,7 +404,7 @@ function TemplateMembershipEditor({
                             disabled={isSystem || !included}
                             value={sel?.display_label ?? ''}
                             onChange={(e) => setLabel(c.id, e.target.value)}
-                            placeholder={included ? '— use CRL name —' : ''}
+                            placeholder={included ? '— use FSLI name —' : ''}
                             className="w-full border border-gray-200 rounded h-6 px-1.5 text-xs disabled:bg-gray-50 disabled:text-gray-400"
                           />
                         </td>

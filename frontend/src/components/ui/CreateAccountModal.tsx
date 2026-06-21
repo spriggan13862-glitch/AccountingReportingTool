@@ -325,7 +325,7 @@ export function CreateAccountModal({ entityId, existingAccounts, onClose, onCrea
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Reporting Line / FSLI <span className="text-red-500">*</span>
+                    FSLI <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={reportingLineId}

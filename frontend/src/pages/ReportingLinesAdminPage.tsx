@@ -136,11 +136,12 @@ export function ReportingLinesAdminPage() {
     <div className="p-6 space-y-5" data-testid="reporting-lines-admin">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-base font-semibold text-gray-800">Reporting Lines</h2>
+          <h2 className="text-base font-semibold text-gray-800">FSLIs</h2>
           <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-            The Common Reporting Line (CRL) catalog drives every financial statement, consolidation,
-            and KPI. System CRLs are read-only — editing one creates an org-specific clone that
-            shadows the system row. Codes are immutable; only display name and ordering are editable.
+            The Financial Statement Line Item (FSLI) catalog drives every financial statement,
+            consolidation, and KPI. System FSLIs are read-only — editing one creates an
+            org-specific clone that shadows the system row. Codes are immutable; only display
+            name and ordering are editable.
           </p>
         </div>
         <button
@@ -149,7 +150,7 @@ export function ReportingLinesAdminPage() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded"
           data-testid="create-crl-btn"
         >
-          <Plus className="w-3.5 h-3.5" /> Custom Reporting Line
+          <Plus className="w-3.5 h-3.5" /> Custom FSLI
         </button>
       </div>
 
@@ -343,17 +344,21 @@ function CreateCrlForm({
   onSubmit: (body: CrlCreatePayload) => void
   submitting: boolean
 }) {
-  const [code, setCode] = useState('CRL_')
+  const [codeSuffix, setCodeSuffix] = useState('')
   const [name, setName] = useState('')
   const [section, setSection] = useState(SECTIONS[0])
   const [statementType, setStatementType] = useState(STATEMENT_TYPES[0])
   const [normalBalance, setNormalBalance] = useState<'debit' | 'credit' | ''>('')
   const [sortOrder, setSortOrder] = useState<number>(900)
 
+  // Internal code format requires a fixed prefix; we hide it from the user
+  // and prepend on submit so the UI never shows the internal token.
+  const CODE_PREFIX = 'CRL_'
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
     onSubmit({
-      code: code.trim().toUpperCase(),
+      code: CODE_PREFIX + codeSuffix.trim().toUpperCase().replace(/^CRL_/, ''),
       name: name.trim(),
       section,
       statement_type: statementType,
@@ -371,7 +376,7 @@ function CreateCrlForm({
     >
       <div className="flex items-start gap-2 text-xs text-indigo-800">
         <AlertCircle className="w-3.5 h-3.5 mt-0.5" />
-        <span>Custom CRLs are scoped to your organization. Codes must start with <code className="bg-indigo-100 px-1 rounded">CRL_</code> and are immutable once created.</span>
+        <span>Custom FSLIs are scoped to your organization. Codes are immutable once created.</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="text-xs font-semibold text-gray-700">
@@ -379,10 +384,10 @@ function CreateCrlForm({
           <input
             type="text"
             required
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
+            value={codeSuffix}
+            onChange={(e) => setCodeSuffix(e.target.value)}
             className="mt-1 w-full border border-gray-300 rounded h-8 px-2 text-xs font-mono"
-            placeholder="CRL_ACME_SOMETHING"
+            placeholder="ACME_FOUNDER_LOANS"
             data-testid="create-crl-code"
           />
         </label>

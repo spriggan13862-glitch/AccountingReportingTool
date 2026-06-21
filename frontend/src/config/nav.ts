@@ -67,7 +67,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     defaultOpen: true,
     items: [
       { id: 'statements', label: 'Financial Statements', to: '/statements', icon: BarChart2, end: true },
-      { id: 'statements-crl', label: 'By Reporting Line', to: '/statements/crl', icon: BarChart2 },
+      { id: 'statements-crl', label: 'By FSLI', to: '/statements/crl', icon: BarChart2 },
       { id: 'bridge', label: 'Bridge', to: '/bridge', icon: TrendingUp },
       { id: 'adjustments', label: 'Adjustment Workbench', to: '/adjustments', icon: SlidersHorizontal, badgeKey: 'draft-je' },
       { id: 'intelligence', label: 'Intelligence', to: '/intelligence', icon: Brain },

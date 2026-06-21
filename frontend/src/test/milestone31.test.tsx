@@ -186,7 +186,7 @@ describe('MappingWorkbenchPage — M31 fixes', () => {
       // banner uses exact text "Entity COA Account" which only appears there
       expect(screen.getAllByText(/Source Account/i).length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('Entity COA Account')).toBeTruthy()
-      expect(screen.getByText('Reporting Line')).toBeTruthy()
+      expect(screen.getByText('FSLI')).toBeTruthy()
     })
   })
 

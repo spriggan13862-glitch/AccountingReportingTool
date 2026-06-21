@@ -271,11 +271,11 @@ function SuggestCrlStep({
     <div className="space-y-6" data-testid="suggest-crl-step">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Suggest Common Reporting Lines</h3>
+          <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Suggest FSLIs</h3>
           <p className="text-xs text-gray-500 mt-1">
-            Match each imported account to a Common Reporting Line (CRL) — the canonical layer
-            that drives every financial statement view. Sub-line detail and industry overlays
-            still come from the underlying taxonomy.
+            Match each imported account to a Financial Statement Line Item (FSLI) — the
+            classification that drives every financial statement. Sub-line detail and industry
+            overlays are still available via the advanced taxonomy view.
           </p>
         </div>
         <button
@@ -319,7 +319,7 @@ function SuggestCrlStep({
             className="w-full text-sm border border-gray-300 rounded h-9 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             data-testid="suggest-crl-template-select"
           >
-            <option value="">— All CRLs (no template filter) —</option>
+            <option value="">— All FSLIs (no template filter) —</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>{t.name}{t.code === 'smb_general' ? ' (default)' : ''}</option>
             ))}
@@ -408,9 +408,9 @@ function SuggestCrlStep({
                   </th>
                   <th className="px-3 py-2 font-semibold">Account #</th>
                   <th className="px-3 py-2 font-semibold">Account Name</th>
-                  <th className="px-3 py-2 font-semibold">Suggested CRL</th>
+                  <th className="px-3 py-2 font-semibold">Suggested FSLI</th>
                   <th className="px-3 py-2 font-semibold w-24">Confidence</th>
-                  <th className="px-3 py-2 font-semibold w-56">Selected CRL</th>
+                  <th className="px-3 py-2 font-semibold w-56">Selected FSLI</th>
                   <th className="px-3 py-2 font-semibold w-1/4">Reason</th>
                 </tr>
               </thead>
@@ -487,7 +487,7 @@ function SuggestCrlStep({
 
           {/* Apply controls */}
           <div className="flex items-center gap-3 flex-wrap border-t border-gray-100 pt-4">
-            <label className="text-xs font-semibold text-gray-700">When an account already has a CRL:</label>
+            <label className="text-xs font-semibold text-gray-700">When an account already has an FSLI:</label>
             <select
               value={applyMode}
               onChange={(e) => setApplyMode(e.target.value as typeof applyMode)}
@@ -1219,7 +1219,7 @@ const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
   { label: 'Sheet', desc: 'Select workbook sheet' },
   { label: 'Column Mapping', desc: 'Verify ledger fields' },
-  { label: 'Map to Reporting Lines', desc: 'Match accounts to Common Reporting Lines' },
+  { label: 'Map to FSLIs', desc: 'Match accounts to Financial Statement Line Items' },
   { label: 'Review Exceptions', desc: 'Resolve issues' },
   { label: 'Post to Ledger', desc: 'Commit journal entry' },
 ]
@@ -1911,7 +1911,7 @@ export function TrialBalanceImportPage() {
                 className="text-[11px] text-indigo-600 hover:text-indigo-800 underline"
                 data-testid="show-crl-picker-btn"
               >
-                ▴ Back to Common Reporting Lines
+                ▴ Back to FSLIs
               </button>
             </div>
             <SuggestFsliStep
@@ -1955,7 +1955,7 @@ export function TrialBalanceImportPage() {
                     className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-semibold rounded transition-colors"
                     data-testid="resolve-mappings-in-wizard-btn"
                   >
-                    Back to Reporting Lines
+                    Back to FSLIs
                   </button>
                   <button
                     type="button"
@@ -2028,7 +2028,7 @@ export function TrialBalanceImportPage() {
                 onClick={() => setStep(3)}
                 className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-655 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" /> Back to Reporting Lines
+                <ChevronLeft className="w-4 h-4" /> Back to FSLIs
               </button>
 
               <button

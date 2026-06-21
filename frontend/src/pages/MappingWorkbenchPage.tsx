@@ -169,7 +169,7 @@ function CreateAccountForm({ onSubmit, onCancel, isPending, defaultNumber = '', 
           onChange={(e) => setTaxLineId(e.target.value ? Number(e.target.value) : '')}
           className="border border-gray-300 rounded px-2 py-1.5 text-sm col-span-2"
         >
-          <option value="">— Select Reporting Line (optional) —</option>
+          <option value="">— Select FSLI (optional) —</option>
           {taxonomyLines.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name} ({t.code})
@@ -1219,7 +1219,7 @@ export function MappingWorkbenchPage() {
     },
     {
       key: 'fsli',
-      header: 'FSLI / Reporting Line',
+      header: 'FSLI',
       render: (line: ImportLine) => {
         const acct = line.resolved_account_id ? accountMap[line.resolved_account_id] : null
         // Agent 3.9: even for unmatched/new-COA-candidate rows, allow FSLI

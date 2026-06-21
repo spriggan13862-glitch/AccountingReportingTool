@@ -423,8 +423,8 @@ export function COAImportPage() {
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-gray-500">
-                Accounts will be created or updated. QB Tax Line drives Reporting / FSLI assignment.
-                Use the Reporting Line column below to override before importing.
+                Accounts will be created or updated. QB Tax Line drives FSLI assignment.
+                Use the FSLI column below to override before importing.
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -522,7 +522,7 @@ export function COAImportPage() {
               },
               {
                 key: 'reporting_line',
-                header: 'Reporting Line',
+                header: 'FSLI',
                 sortable: true,
                 sortValue: (r: COAImportPreviewRow) => {
                   const overrideId = overrides[r.row_index]
