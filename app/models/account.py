@@ -57,6 +57,15 @@ class Account(Base):
         Integer, ForeignKey("reporting_taxonomy_lines.id"), nullable=True
     )
 
+    # CRL-B: primary reporting classification (preferred over the legacy
+    # reporting_taxonomy_line_id and the Sprint O AccountTaxonomyMapping
+    # path; see crl_resolver.resolve_crl_for_account for precedence).
+    common_reporting_line_id = Column(
+        Integer, ForeignKey("common_reporting_lines.id"), nullable=True
+    )
+    crl_state = Column(String(20), nullable=False, default="unclassified")
+    # enum: 'assigned' | 'needs_review' | 'unclassified'
+
     # Schema enforcement — canonical COA fields
     is_header = Column(Boolean, nullable=False, default=False)
     is_postable = Column(Boolean, nullable=False, default=True)

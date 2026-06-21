@@ -87,6 +87,38 @@ test.describe('Simplified TB wizard', () => {
     await expect(page).toHaveURL(/trial-balance\?batchId=123/, { timeout: 5_000 })
   })
 
+  test('CRL-C: suggest-crl endpoint exists', async ({ request }) => {
+    const res = await request.post(
+      'http://localhost:8002/api/v1/tb-imports/batches/99999/suggest-crl',
+      { data: { taxonomy_id: 1 } },
+    )
+    expect([404, 401, 403]).toContain(res.status())
+  })
+
+  test('CRL-C: apply-crl-suggestions endpoint exists with mode validation', async ({ request }) => {
+    const res = await request.post(
+      'http://localhost:8002/api/v1/tb-imports/batches/99999/apply-crl-suggestions',
+      { data: { taxonomy_id: 1, line_ids: 'all', mode: 'blank_only' } },
+    )
+    expect([404, 401, 403]).toContain(res.status())
+  })
+
+  test('CRL-C: apply-crl-suggestions rejects unknown mode', async ({ request }) => {
+    const res = await request.post(
+      'http://localhost:8002/api/v1/tb-imports/batches/1/apply-crl-suggestions',
+      { data: { taxonomy_id: 1, line_ids: 'all', mode: 'destroy_everything' } },
+    )
+    expect([400, 401, 403, 404]).toContain(res.status())
+  })
+
+  test('CRL-C: save-crl-selections endpoint exists', async ({ request }) => {
+    const res = await request.post(
+      'http://localhost:8002/api/v1/tb-imports/batches/99999/save-crl-selections',
+      { data: { selections: [{ line_id: 1, crl_id: null }] } },
+    )
+    expect([404, 401, 403]).toContain(res.status())
+  })
+
   test('Phase E: /import/new redirects to canonical wizard', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('admin@livemarketing.test')

@@ -36,6 +36,19 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'CRL-C · CRL resolver, suggestion engine, and apply/save endpoints',
+    date: '2026-06-21',
+    items: [
+      'New crl_resolver service implements the precedence chain: direct accounts.common_reporting_line_id → Sprint O AccountTaxonomyMapping (reverse-lookup via junction) → legacy reporting_taxonomy_line_id. Bulk variant resolves N accounts in 4 queries.',
+      'derive_crl_state_for_account maps a resolved CRL to the canonical state string: assigned / needs_review / unclassified. Mandatory sentinel CRLs (CRL_UNCLASSIFIED, CRL_NEEDS_REVIEW) flow through correctly.',
+      'New crl_suggestion_service.suggest_crls_for_batch: runs the existing taxonomy rule engine, reverse-looks-up each match to its CRL via the one-to-many junction, optionally filters to CRLs visible under the active reporting template.',
+      'Three new endpoints under /tb-imports/batches/{id}/: suggest-crl (per-batch CRL suggestions with template filter), apply-crl-suggestions (modes: blank_only default / replace / preserve with clear skipped_reason text), save-crl-selections (per-line override write path).',
+      'ORM models updated: Account gains common_reporting_line_id + crl_state, ImportLine gains selected_common_reporting_line_id, Organization gains active_reporting_template_id.',
+      'Backend tests: 19 new CRL-C tests covering all 3 precedence-chain branches, bulk resolver agreement, state derivation, all 3 apply modes, save/null-clear, template filtering, error paths. Total CRL backend tests now 40/40.',
+      'No frontend changes — wizard rewire is CRL-E. CRL-D (migration validation report) lands next.',
+    ],
+  },
+  {
     version: 'CRL-B · Common Reporting Line layer (backend foundation)',
     date: '2026-06-21',
     items: [

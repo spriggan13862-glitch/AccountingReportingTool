@@ -69,3 +69,9 @@ class ImportLine(Base):
     selected_fsli_taxonomy_node_id = Column(
         Integer, ForeignKey("taxonomy_nodes.id"), nullable=True,
     )
+
+    # CRL-B: wizard step 4 writes here; post_batch transfers onto
+    # accounts.common_reporting_line_id when the Account is created.
+    selected_common_reporting_line_id = Column(
+        Integer, ForeignKey("common_reporting_lines.id"), nullable=True,
+    )

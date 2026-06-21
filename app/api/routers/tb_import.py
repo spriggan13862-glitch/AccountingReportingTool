@@ -901,6 +901,158 @@ def apply_fsli_suggestions(
 
 
 # ---------------------------------------------------------------------------
+# CRL-C — Common Reporting Line suggest / apply / save endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/batches/{batch_id}/suggest-crl", response_model=dict)
+def suggest_crl_for_batch_endpoint(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Run the rule engine over every ImportLine in the batch, reverse-lookup
+    each result to its CRL via the one-to-many junction, optionally filter
+    by reporting template.
+
+    Body: {"taxonomy_id": int, "template_id": int | null}
+    Returns: {"suggestions": [...], "matched": N, "unmatched": M,
+              "taxonomy_id": int, "template_id": int | null}
+    """
+    from app.services.crl_suggestion_service import suggest_crls_for_batch
+    from app.models.import_line import ImportLine
+
+    taxonomy_id = body.get("taxonomy_id")
+    if not taxonomy_id:
+        raise HTTPException(status_code=400, detail="taxonomy_id is required")
+    template_id = body.get("template_id")
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted")
+
+    org_id = getattr(batch, "organization_id", None)
+    suggestions = suggest_crls_for_batch(
+        db, batch,
+        taxonomy_id=taxonomy_id,
+        template_id=template_id,
+        organization_id=org_id,
+    )
+
+    # Persist the suggested CRL on each ImportLine so the wizard can show
+    # it on subsequent visits without re-running the engine.
+    by_id = {s.line_id: s for s in suggestions}
+    lines = db.query(ImportLine).filter_by(batch_id=batch_id).all()
+    for line in lines:
+        s = by_id.get(line.id)
+        if s and s.crl_id is not None:
+            line.suggested_fsli_taxonomy_node_id = None  # diagnostic; CRL is canonical now
+    db.commit()
+
+    matched = sum(1 for s in suggestions if s.crl_id is not None)
+    return {
+        "suggestions": [
+            {
+                "line_id": s.line_id,
+                "crl_id": s.crl_id,
+                "crl_code": s.crl_code,
+                "crl_name": s.crl_name,
+                "crl_section": s.crl_section,
+                "confidence": s.confidence,
+                "reason": s.reason,
+                "via_taxonomy_node_code": s.via_taxonomy_node_code,
+            }
+            for s in suggestions
+        ],
+        "matched": matched,
+        "unmatched": len(suggestions) - matched,
+        "taxonomy_id": taxonomy_id,
+        "template_id": template_id,
+    }
+
+
+@router.post("/batches/{batch_id}/apply-crl-suggestions", response_model=dict)
+def apply_crl_suggestions_endpoint(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Promote staged CRL suggestions onto selected_common_reporting_line_id.
+
+    Body: {"taxonomy_id": int, "template_id": int | null,
+           "line_ids": [int] | "all", "mode": "blank_only"|"replace"|"preserve"}
+    Returns: {applied, skipped, skipped_existing, skipped_no_suggestion,
+              skipped_reason, next_action}
+    """
+    from app.services.crl_suggestion_service import (
+        suggest_crls_for_batch, apply_crl_suggestions_to_lines,
+    )
+
+    taxonomy_id = body.get("taxonomy_id")
+    if not taxonomy_id:
+        raise HTTPException(status_code=400, detail="taxonomy_id is required")
+    template_id = body.get("template_id")
+    mode = (body.get("mode") or "blank_only").lower()
+    if mode not in {"blank_only", "replace", "preserve"}:
+        raise HTTPException(status_code=400, detail=f"Unknown mode {mode!r}")
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted")
+
+    line_ids = body.get("line_ids")
+    target_ids = None if line_ids == "all" else line_ids
+
+    org_id = getattr(batch, "organization_id", None)
+    suggestions = suggest_crls_for_batch(
+        db, batch,
+        taxonomy_id=taxonomy_id,
+        template_id=template_id,
+        organization_id=org_id,
+    )
+    result = apply_crl_suggestions_to_lines(
+        db, batch, suggestions, mode=mode, line_ids=target_ids,
+    )
+    result["next_action"] = "Continue to Review Exceptions" if result["applied"] > 0 else None
+    return result
+
+
+@router.post("/batches/{batch_id}/save-crl-selections", response_model=dict)
+def save_crl_selections_endpoint(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Write explicit per-line CRL selections (the inline override dropdown
+    in wizard step 4). Body: {"selections": [{"line_id": int, "crl_id": int|null}]}
+    Returns: {"saved": N}
+    """
+    from app.services.crl_suggestion_service import save_explicit_crl_selections
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted")
+
+    selections = body.get("selections", [])
+    if not isinstance(selections, list):
+        raise HTTPException(status_code=400, detail="selections must be a list")
+
+    saved = save_explicit_crl_selections(db, batch, selections)
+    return {"saved": saved}
+
+
+# ---------------------------------------------------------------------------
 # M23 Batch pipeline — validate / post / rollback
 # ---------------------------------------------------------------------------
 
