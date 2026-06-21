@@ -1,24 +1,31 @@
 import { useSearchParams } from 'react-router-dom'
-import { Building2, Calendar, GitBranch, List, BarChart3, Settings, Layers, FolderOpen } from 'lucide-react'
+import {
+  Building2, Calendar, GitBranch, List, BarChart3, Settings, Layers,
+  FolderOpen, BookOpen, LayoutTemplate,
+} from 'lucide-react'
 import { EntitiesPage } from './EntitiesPage'
 import { PeriodsPage } from './PeriodsPage'
 import { ChartOfAccountsPage } from './ChartOfAccountsPage'
 import { TaxonomyAdminPage } from './TaxonomyAdminPage'
 import { ReportingViewWorkspacePage } from './ReportingViewWorkspacePage'
 import { ReportingSettingsPage } from './ReportingSettingsPage'
+import { ReportingLinesAdminPage } from './ReportingLinesAdminPage'
+import { ReportingTemplatesAdminPage } from './ReportingTemplatesAdminPage'
 import { ScenarioManagerPage } from './ScenarioManagerPage'
 import { DocumentsPage } from './DocumentsPage'
 import { cn } from '@/utils/cn'
 
 const TABS = [
-  { id: 'entities',       label: 'Entities',          icon: Building2,  },
-  { id: 'periods',        label: 'Periods',            icon: Calendar,   },
-  { id: 'scenarios',      label: 'Scenarios',          icon: Layers,     },
-  { id: 'coa',            label: 'Chart of Accounts',  icon: List,       },
-  { id: 'taxonomy',       label: 'Taxonomy Admin',     icon: GitBranch,  },
-  { id: 'reporting-views',label: 'Reporting Views',    icon: BarChart3,  },
-  { id: 'documents',      label: 'Documents',          icon: FolderOpen, },
-  { id: 'settings',       label: 'Settings',           icon: Settings,   },
+  { id: 'entities',          label: 'Entities',           icon: Building2,        },
+  { id: 'periods',           label: 'Periods',            icon: Calendar,         },
+  { id: 'scenarios',         label: 'Scenarios',          icon: Layers,           },
+  { id: 'coa',               label: 'Chart of Accounts',  icon: List,             },
+  { id: 'reporting-lines',   label: 'Reporting Lines',    icon: BookOpen,         },
+  { id: 'reporting-templates', label: 'Reporting Templates', icon: LayoutTemplate, },
+  { id: 'taxonomy',          label: 'Taxonomy Admin',     icon: GitBranch,        },
+  { id: 'reporting-views',   label: 'Reporting Views',    icon: BarChart3,        },
+  { id: 'documents',         label: 'Documents',          icon: FolderOpen,       },
+  { id: 'settings',          label: 'Display Settings',   icon: Settings,         },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -58,6 +65,8 @@ export function SetupPage() {
         {tab === 'periods' && <PeriodsPage />}
         {tab === 'scenarios' && <ScenarioManagerPage />}
         {tab === 'coa' && <ChartOfAccountsPage />}
+        {tab === 'reporting-lines' && <ReportingLinesAdminPage />}
+        {tab === 'reporting-templates' && <ReportingTemplatesAdminPage />}
         {tab === 'taxonomy' && <TaxonomyAdminPage />}
         {tab === 'reporting-views' && <ReportingViewWorkspacePage />}
         {tab === 'documents' && <DocumentsPage />}

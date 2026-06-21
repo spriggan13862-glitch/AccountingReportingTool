@@ -187,6 +187,98 @@ test.describe('Simplified TB wizard', () => {
     ).toBeVisible({ timeout: 5_000 })
   })
 
+  test('CRL-F: create custom CRL endpoint rejects non-prefixed code', async ({ request }) => {
+    const res = await request.post(
+      'http://localhost:8002/api/v1/common-reporting-lines/',
+      {
+        data: {
+          code: 'BAD_CODE',
+          name: 'Bad',
+          section: 'Assets',
+          statement_type: 'Balance Sheet',
+          organization_id: 1,
+        },
+      },
+    )
+    // 400 when seeded + auth, 401/403 when auth-gated; never 500.
+    expect([400, 401, 403]).toContain(res.status())
+  })
+
+  test('CRL-F: PATCH system CRL without org_id returns 409', async ({ request }) => {
+    // CRL_CASH should exist as a system row at a low id. We don't know the
+    // exact id, so probe the list first.
+    const listRes = await request.get('http://localhost:8002/api/v1/common-reporting-lines/')
+    if (listRes.status() !== 200) {
+      test.skip(true, 'auth-gated env')
+      return
+    }
+    const body = await listRes.json() as { id: number; code: string }[]
+    const cash = body.find((r) => r.code === 'CRL_CASH')
+    if (!cash) {
+      test.skip(true, 'CRL_CASH not seeded')
+      return
+    }
+    const patchRes = await request.patch(
+      `http://localhost:8002/api/v1/common-reporting-lines/${cash.id}`,
+      { data: { name: 'Renamed' } },
+    )
+    expect(patchRes.status()).toBe(409)
+  })
+
+  test('CRL-F: DELETE system template returns 409', async ({ request }) => {
+    const tplRes = await request.get('http://localhost:8002/api/v1/common-reporting-lines/templates')
+    if (tplRes.status() !== 200) {
+      test.skip(true, 'auth-gated env')
+      return
+    }
+    const templates = await tplRes.json() as { id: number; code: string }[]
+    const smb = templates.find((t) => t.code === 'smb_general')
+    if (!smb) {
+      test.skip(true, 'smb_general not seeded')
+      return
+    }
+    const delRes = await request.delete(
+      `http://localhost:8002/api/v1/common-reporting-lines/templates/${smb.id}`,
+    )
+    expect(delRes.status()).toBe(409)
+  })
+
+  test('CRL-F: Settings → Reporting Lines tab renders', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/setup?tab=reporting-lines')
+    await expect(page.getByTestId('reporting-lines-admin')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /reporting lines/i }).first()).toBeVisible()
+  })
+
+  test('CRL-F: Settings → Reporting Templates tab renders', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/setup?tab=reporting-templates')
+    await expect(page.getByTestId('reporting-templates-admin')).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('CRL-F: What\'s New mentions Reporting Lines admin', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/overview')
+    const toggle = page.getByRole('button', { name: /what's new/i })
+    await toggle.scrollIntoViewIfNeeded()
+    await toggle.click()
+    await expect(
+      page.getByText(/Reporting Lines admin|Settings.*Reporting Lines/i).first(),
+    ).toBeVisible({ timeout: 5_000 })
+  })
+
   test('Phase E: /import/new redirects to canonical wizard', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('admin@livemarketing.test')

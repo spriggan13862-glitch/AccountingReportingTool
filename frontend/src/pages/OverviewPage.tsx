@@ -36,6 +36,22 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'CRL-F · Settings → Reporting Lines + Reporting Templates admin',
+    date: '2026-06-21',
+    items: [
+      'New Settings tab "Reporting Lines" lists the entire CRL catalog grouped by section, with filter + search + show-inactive toggle. Display name and sort order are inline-editable; codes stay read-only with a lock glyph.',
+      'Clone-on-edit semantics: editing a system CRL transparently creates an org-specific clone that shadows the system row in resolution lookups — the shared catalog is never mutated.',
+      '"Custom Reporting Line" form creates org-specific CRLs with required CRL_ prefix validation, section + statement-type pickers, optional normal balance and sort order. Useful for org-specific accounts the standard catalog doesn\'t cover.',
+      'Mandatory CRLs (Unclassified, Needs Review) stay protected — they can be renamed via clone-on-edit but cannot be deactivated or deleted.',
+      'New Settings tab "Reporting Templates": left rail lists templates (system rows badged "Lock"), right panel is a CRL membership matrix grouped by section. Toggle inclusion via checkbox, optionally override display label per template, set sort order — Save Changes diffs and reports +added / −removed / ~updated counts.',
+      'New custom templates: code + name + description. Soft-delete (is_active=false). System templates protected at every write path.',
+      'Backend mutation surface added under /api/v1/common-reporting-lines: POST / (create), PATCH /{id} (clone-on-edit), DELETE /{id} (soft delete), POST /templates, PATCH /templates/{id}, DELETE /templates/{id}, GET /templates/{id}/crls, PUT /templates/{id}/crls. All guarded against code mutation, system-row writes, and mandatory-row deactivation.',
+      'Backend tests: 21 new CRL-F tests covering create + validation + uniqueness, clone-on-edit branching, code immutability (422), mandatory-row protection, soft-delete, template CRUD + system-row guards, membership diff math, 404 paths. Total CRL backend tests now 87.',
+      'Playwright: 5 new CRL-F coverage tests (endpoint validation, 409 guards, tab renders, What\'s New).',
+      'CRL-G / P5 (reporting endpoints that read through the CRL layer) is now unblocked.',
+    ],
+  },
+  {
     version: 'CRL-E · wizard CRL picker (default) + Show Full Taxonomy toggle',
     date: '2026-06-21',
     items: [

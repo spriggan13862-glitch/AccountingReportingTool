@@ -106,7 +106,7 @@ def test_list_response_shape_matches_frontend_contract(client, seeded):
     expected_keys = {
         "id", "code", "name", "description", "parent_crl_id", "section",
         "statement_type", "normal_balance", "sort_order", "is_system",
-        "is_mandatory", "organization_id",
+        "is_mandatory", "is_active", "organization_id",
     }
     assert expected_keys.issubset(row.keys())
     assert row["is_system"] is True
