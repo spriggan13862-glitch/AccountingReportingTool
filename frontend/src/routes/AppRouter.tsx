@@ -28,8 +28,10 @@ import { FinancialImpactWorkspacePage } from '@/pages/FinancialImpactWorkspacePa
 import { DeliverablesWorkspacePage } from '@/pages/DeliverablesWorkspacePage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
-import { ImportWizardPage } from '@/pages/ImportWizardPage'
-import { ImportReviewPage } from '@/pages/ImportReviewPage'
+// Phase E: ImportWizardPage (duplicate 7-step wizard) deleted in favor of
+// the canonical TrialBalanceImportPage. The /import/new route now redirects.
+// Phase E: ImportReviewPage deleted — /import/:id and /client-data/imports/:id
+// now resolve to ImportReviewRedirect → wizard at Review Exceptions step.
 import { ImportReviewRedirect } from '@/pages/ImportReviewRedirect'
 import { MappingWorkbenchPage } from '@/pages/MappingWorkbenchPage'
 import { CloseDashboardPage } from '@/pages/CloseDashboardPage'
@@ -239,7 +241,7 @@ export function AppRouter() {
           {/* Routes with query strings kept as direct routes (not redirects) */}
           <Route path="pdf-import" element={<PDFImportPage />} />
           <Route path="coa-import" element={<COAImportPage />} />
-          <Route path="import/new" element={<ImportWizardPage />} />
+          <Route path="import/new" element={<Navigate replace to="/client-data/imports/trial-balance" />} />
           <Route path="import/:id/advanced-mapping" element={<MappingWorkbenchPage />} />
           <Route path="import/:id/mapping" element={<MappingWorkbenchPage />} />
           <Route path="import/:id" element={<ImportReviewRedirect />} />
