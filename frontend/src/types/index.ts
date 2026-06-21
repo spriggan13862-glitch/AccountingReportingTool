@@ -864,6 +864,8 @@ export interface ImportLine {
   suggested_fsli_confidence?: number | null
   suggested_fsli_reason?: string | null
   selected_fsli_taxonomy_node_id?: number | null
+  // CRL-E: explicit Common Reporting Line selection from wizard step 4 CRL picker
+  selected_common_reporting_line_id?: number | null
 }
 
 export interface ImportIssue {

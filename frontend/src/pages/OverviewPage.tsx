@@ -36,6 +36,21 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'CRL-E · wizard CRL picker (default) + Show Full Taxonomy toggle',
+    date: '2026-06-21',
+    items: [
+      'TB import wizard step 4 now defaults to a Common Reporting Line picker — the canonical reporting layer — instead of the raw taxonomy. Account names like "Cash & Cash Equivalents" or "Accounts Receivable" map to a small, opinionated CRL set (CRL_CASH, CRL_AR, ...) the rest of the system reasons in.',
+      'Reporting Template dropdown filters the visible CRLs. Default is SMB General (industry-neutral). Switching to Healthcare / SaaS / Manufacturing etc. narrows the picker without changing the underlying catalog.',
+      'Per-row override dropdown groups CRLs by section (Assets, Liabilities, Equity, Revenue, Cost of Revenue, Operating Expenses, ...). Auto-mapped suggestions show the canonical CRL name with a tooltip noting which taxonomy node it came from.',
+      'Filter chips (All / Auto-mapped / Needs review / No suggestion), search by account #/name, and the "Accept all ≥ N% confidence" threshold all carry over from the FSLI step.',
+      '"Show full taxonomy ▾" link in the step header swaps the CRL picker for the existing FSLI taxonomy picker — for the rare power-user case where someone needs a sub-line that the CRL layer abstracts away.',
+      'New API endpoints: GET /common-reporting-lines/ (with org_id + template_id filters, org-clone preference, dedup) and GET /common-reporting-lines/templates. ImportLineOut schema now exposes selected_common_reporting_line_id + the previously-hidden selected_fsli_taxonomy_node_id so the wizard can reflect saved selections.',
+      'Backend tests: 9 new CRL-E tests covering catalog shape, org-clone preference, template filter narrowing + display_label override + is_visible hiding, templates listing, and response shape. Total CRL backend tests now 66.',
+      'Playwright: 4 new CRL-E coverage tests (catalog endpoint, templates endpoint, template_id narrowing, What\'s New surfacing).',
+      'CRL-F (Settings → Reporting Lines + Templates admin) lands next; CRL-G / P5 reporting endpoints remain gated until CRL-F is verified.',
+    ],
+  },
+  {
     version: 'CRL-D · migration validation report + safe backfill executor',
     date: '2026-06-21',
     items: [

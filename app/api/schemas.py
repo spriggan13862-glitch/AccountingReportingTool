@@ -1435,6 +1435,11 @@ class ImportLineOut(BaseModel):
     mapped_by_user_id: int | None = None
     suggested_account_id: int | None = None
     notes: str | None = None
+    suggested_fsli_taxonomy_node_id: int | None = None
+    suggested_fsli_confidence: Decimal | None = None
+    suggested_fsli_reason: str | None = None
+    selected_fsli_taxonomy_node_id: int | None = None
+    selected_common_reporting_line_id: int | None = None
 
 
 class ImportIssueOut(BaseModel):

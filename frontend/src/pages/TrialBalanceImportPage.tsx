@@ -9,6 +9,8 @@ import {
 import api from '@/api/client'
 import { tbImportApi } from '@/api/tbImport'
 import { taxonomyLibraryApi } from '@/api/taxonomyLibrary'
+import { commonReportingLinesApi } from '@/api/commonReportingLines'
+import type { CommonReportingLine, ReportingTemplate } from '@/api/commonReportingLines'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -51,6 +53,519 @@ interface ApplyFsliResponse {
 }
 
 type StepFilter = 'all' | 'auto-mapped' | 'needs-review' | 'no-suggestion'
+
+// ---------------------------------------------------------------------------
+// CRL-E — Suggest Common Reporting Lines step (default view at step 3)
+//
+// Mirrors the FSLI flow but writes to selected_common_reporting_line_id.
+// Power users can flip to the full taxonomy via the parent step's toggle.
+// ---------------------------------------------------------------------------
+
+function SuggestCrlStep({
+  batchId,
+  onBack,
+  onContinue,
+  onShowFullTaxonomy,
+}: {
+  batchId: number
+  onBack: () => void
+  onContinue: () => void
+  onShowFullTaxonomy: () => void
+}) {
+  const toast = useToast()
+  const queryClient = useQueryClient()
+  const { org } = useOrg()
+  const orgId = org?.id ?? null
+
+  const [selectedTaxonomyId, setSelectedTaxonomyId] = useState<number | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null)
+  const [applyMode, setApplyMode] = useState<'blank_only' | 'replace' | 'preserve'>('blank_only')
+  const [suggestResult, setSuggestResult] = useState<Awaited<ReturnType<typeof commonReportingLinesApi.suggestForBatch>> | null>(null)
+  const [applyResult, setApplyResult] = useState<Awaited<ReturnType<typeof commonReportingLinesApi.applyForBatch>> | null>(null)
+  const [checkedLines, setCheckedLines] = useState<Set<number>>(new Set())
+  const [overrides, setOverrides] = useState<Record<number, number | null>>({})
+  const [filter, setFilter] = useState<StepFilter>('all')
+  const [search, setSearch] = useState('')
+  const [acceptThreshold, setAcceptThreshold] = useState<number>(80)
+
+  const { data: taxonomies = [], isLoading: taxonomiesLoading } = useQuery({
+    queryKey: ['taxonomies-list'],
+    queryFn: () => taxonomyLibraryApi.list(),
+  })
+  const systemTaxonomies = useMemo(
+    () => taxonomies.filter((t) => t.is_system),
+    [taxonomies],
+  )
+
+  const { data: templates = [] } = useQuery<ReportingTemplate[]>({
+    queryKey: ['reporting-templates', orgId],
+    queryFn: () => commonReportingLinesApi.listTemplates({
+      organization_id: orgId ?? undefined,
+    }),
+  })
+
+  const { data: crls = [] } = useQuery<CommonReportingLine[]>({
+    queryKey: ['common-reporting-lines', orgId, selectedTemplateId],
+    queryFn: () => commonReportingLinesApi.list({
+      organization_id: orgId ?? undefined,
+      template_id: selectedTemplateId ?? undefined,
+    }),
+  })
+
+  // Default to US GAAP taxonomy and SMB General template once both load.
+  useEffect(() => {
+    if (!selectedTaxonomyId && systemTaxonomies.length > 0) {
+      const usgaap = systemTaxonomies.find((t) => t.code === 'us_gaap')
+      setSelectedTaxonomyId((usgaap ?? systemTaxonomies[0]).id)
+    }
+  }, [systemTaxonomies, selectedTaxonomyId])
+
+  useEffect(() => {
+    if (selectedTemplateId === null && templates.length > 0) {
+      const smb = templates.find((t) => t.code === 'smb_general')
+      if (smb) setSelectedTemplateId(smb.id)
+    }
+  }, [templates, selectedTemplateId])
+
+  const runSuggestions = useMutation({
+    mutationFn: async () => {
+      if (!selectedTaxonomyId) throw new Error('Pick a taxonomy first')
+      return commonReportingLinesApi.suggestForBatch(batchId, {
+        taxonomy_id: selectedTaxonomyId,
+        template_id: selectedTemplateId,
+      })
+    },
+    onSuccess: (data) => {
+      setSuggestResult(data)
+      const matchedLineIds = data.suggestions
+        .filter((s) => s.crl_id !== null)
+        .map((s) => s.line_id)
+      setCheckedLines(new Set(matchedLineIds))
+      setApplyResult(null)
+      toast(`${data.matched} of ${data.suggestions.length} accounts matched to a reporting line`, 'success')
+    },
+    onError: (e: Error) => toast(`Failed to suggest: ${e.message}`, 'error'),
+  })
+
+  const apply = useMutation({
+    mutationFn: async (mode: typeof applyMode) => {
+      if (!selectedTaxonomyId) throw new Error('Pick a taxonomy first')
+      const lineIds: number[] | 'all' = mode === 'replace' || checkedLines.size === 0
+        ? 'all'
+        : Array.from(checkedLines)
+      return commonReportingLinesApi.applyForBatch(batchId, {
+        taxonomy_id: selectedTaxonomyId,
+        template_id: selectedTemplateId,
+        line_ids: lineIds,
+        mode,
+      })
+    },
+    onSuccess: (data) => {
+      setApplyResult(data)
+      if (data.applied > 0) {
+        toast(`Applied ${data.applied} reporting line${data.applied === 1 ? '' : 's'}.`, 'success')
+      } else if (data.skipped_reason) {
+        toast(data.skipped_reason, 'info')
+      }
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+    },
+    onError: (e: Error) => toast(`Failed to apply: ${e.message}`, 'error'),
+  })
+
+  const saveOverride = useMutation({
+    mutationFn: async (sel: { line_id: number; crl_id: number | null }) =>
+      commonReportingLinesApi.saveSelections(batchId, { selections: [sel] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] }),
+    onError: (e: Error) => toast(`Failed to save selection: ${e.message}`, 'error'),
+  })
+
+  const acceptAboveThreshold = useMutation({
+    mutationFn: async () => {
+      if (!suggestResult) return { saved: 0 }
+      const minConf = acceptThreshold / 100
+      const selections = suggestResult.suggestions
+        .filter((s) => s.crl_id !== null && (s.confidence ?? 0) >= minConf)
+        .map((s) => ({ line_id: s.line_id, crl_id: s.crl_id }))
+      if (selections.length === 0) return { saved: 0 }
+      return commonReportingLinesApi.saveSelections(batchId, { selections })
+    },
+    onSuccess: (data) => {
+      toast(`Accepted ${data.saved} suggestion${data.saved === 1 ? '' : 's'} ≥ ${acceptThreshold}% confidence.`, 'success')
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+    },
+    onError: (e: Error) => toast(`Failed to accept: ${e.message}`, 'error'),
+  })
+
+  // CRLs grouped by section for the per-row override dropdown.
+  const crlOptionsBySection = useMemo(() => {
+    const grouped: Record<string, CommonReportingLine[]> = {}
+    for (const crl of crls) {
+      const key = crl.section || '—'
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(crl)
+    }
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+    }
+    return grouped
+  }, [crls])
+
+  const { data: lines = [] } = useQuery({
+    queryKey: ['import-lines', batchId],
+    queryFn: () => tbImportApi.getBatchLines(batchId),
+    staleTime: 5_000,
+  })
+
+  function effectiveSelection(lineId: number): number | null {
+    if (lineId in overrides) return overrides[lineId]
+    const line = lines.find((l) => l.id === lineId)
+    return line?.selected_common_reporting_line_id ?? null
+  }
+
+  function selectAll() {
+    if (!suggestResult) return
+    setCheckedLines(new Set(
+      suggestResult.suggestions
+        .filter((s) => s.crl_id !== null)
+        .map((s) => s.line_id),
+    ))
+  }
+  function deselectAll() {
+    setCheckedLines(new Set())
+  }
+  function toggleLine(lineId: number) {
+    setCheckedLines((p) => {
+      const next = new Set(p)
+      if (next.has(lineId)) next.delete(lineId)
+      else next.add(lineId)
+      return next
+    })
+  }
+
+  const matched = suggestResult?.matched ?? 0
+  const unmatched = suggestResult?.unmatched ?? 0
+  const total = matched + unmatched
+  const visibleSuggestions = suggestResult?.suggestions ?? []
+  const matchedVisible = visibleSuggestions.filter((s) => s.crl_id !== null)
+
+  const filteredSuggestions = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return visibleSuggestions.filter((s) => {
+      const sel = effectiveSelection(s.line_id)
+      const hasSuggestion = s.crl_id !== null
+      if (filter === 'auto-mapped' && sel == null) return false
+      if (filter === 'needs-review' && sel != null) return false
+      if (filter === 'no-suggestion' && hasSuggestion) return false
+      if (term) {
+        const line = lines.find((l) => l.id === s.line_id)
+        const num = (line?.raw_account_number ?? '').toLowerCase()
+        const name = (line?.raw_account_name ?? '').toLowerCase()
+        if (!num.includes(term) && !name.includes(term)) return false
+      }
+      return true
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSuggestions, filter, search, lines, overrides])
+
+  return (
+    <div className="space-y-6" data-testid="suggest-crl-step">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Suggest Common Reporting Lines</h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Match each imported account to a Common Reporting Line (CRL) — the canonical layer
+            that drives every financial statement view. Sub-line detail and industry overlays
+            still come from the underlying taxonomy.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onShowFullTaxonomy}
+          className="text-[11px] text-indigo-600 hover:text-indigo-800 underline whitespace-nowrap"
+          data-testid="show-full-taxonomy-btn"
+        >
+          Show full taxonomy ▾
+        </button>
+      </div>
+
+      {/* Taxonomy + template selectors */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-2">Underlying taxonomy</label>
+          {taxonomiesLoading ? (
+            <div className="flex items-center gap-2 text-xs text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+          ) : systemTaxonomies.length === 0 ? (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
+              No system taxonomies seeded. Run <code className="bg-amber-100 px-1 rounded">python scripts/seed_taxonomies.py</code>.
+            </div>
+          ) : (
+            <select
+              value={selectedTaxonomyId ?? ''}
+              onChange={(e) => setSelectedTaxonomyId(Number(e.target.value))}
+              className="w-full text-sm border border-gray-300 rounded h-9 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              data-testid="suggest-crl-taxonomy-select"
+            >
+              {systemTaxonomies.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}{t.code === 'us_gaap' ? ' (default)' : ''}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 mb-2">Reporting template</label>
+          <select
+            value={selectedTemplateId ?? ''}
+            onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full text-sm border border-gray-300 rounded h-9 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            data-testid="suggest-crl-template-select"
+          >
+            <option value="">— All CRLs (no template filter) —</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}{t.code === 'smb_general' ? ' (default)' : ''}</option>
+            ))}
+          </select>
+        </div>
+        <div className="md:col-span-2">
+          <button
+            type="button"
+            onClick={() => runSuggestions.mutate()}
+            disabled={!selectedTaxonomyId || runSuggestions.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors"
+            data-testid="run-crl-suggestions-btn"
+          >
+            {runSuggestions.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {runSuggestions.isPending ? 'Suggesting…' : 'Run Suggestions'}
+          </button>
+        </div>
+      </div>
+
+      {/* Results table */}
+      {suggestResult && (
+        <div className="space-y-3" data-testid="suggest-crl-results">
+          <div className="flex items-center gap-3 text-xs text-gray-700 flex-wrap">
+            <span className="font-semibold">{matched} of {total} auto-mapped</span>
+            <span className="text-gray-400">·</span>
+            <span>{unmatched} need review</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap" data-testid="suggest-crl-filter-bar">
+            {(['all', 'auto-mapped', 'needs-review', 'no-suggestion'] as StepFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border ${filter === f
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}
+                data-testid={`crl-filter-chip-${f}`}
+              >
+                {f === 'all' ? 'All' : f === 'auto-mapped' ? 'Auto-mapped' : f === 'needs-review' ? 'Needs review' : 'No suggestion'}
+              </button>
+            ))}
+            <input
+              type="text"
+              placeholder="Search account # or name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="ml-2 text-xs border border-gray-300 rounded h-7 px-2 w-56"
+              data-testid="suggest-crl-search"
+            />
+            <div className="flex items-center gap-1 ml-auto text-xs">
+              <label className="text-gray-600">Accept all ≥</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={acceptThreshold}
+                onChange={(e) => setAcceptThreshold(Math.max(0, Math.min(100, Number(e.target.value))))}
+                className="w-14 border border-gray-300 rounded h-7 px-1.5"
+                data-testid="crl-accept-threshold-input"
+              />
+              <span>%</span>
+              <button
+                type="button"
+                onClick={() => acceptAboveThreshold.mutate()}
+                disabled={acceptAboveThreshold.isPending}
+                className="ml-2 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded disabled:opacity-50"
+                data-testid="crl-accept-above-threshold-btn"
+              >
+                Accept matching
+              </button>
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg overflow-auto max-h-[400px]">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 sticky top-0 z-10">
+                <tr className="border-b border-gray-200 text-left">
+                  <th className="px-3 py-2 w-8">
+                    <input
+                      type="checkbox"
+                      checked={matchedVisible.length > 0 && checkedLines.size === matchedVisible.length}
+                      onChange={(e) => e.target.checked ? selectAll() : deselectAll()}
+                      data-testid="suggest-crl-select-all"
+                    />
+                  </th>
+                  <th className="px-3 py-2 font-semibold">Account #</th>
+                  <th className="px-3 py-2 font-semibold">Account Name</th>
+                  <th className="px-3 py-2 font-semibold">Suggested CRL</th>
+                  <th className="px-3 py-2 font-semibold w-24">Confidence</th>
+                  <th className="px-3 py-2 font-semibold w-56">Selected CRL</th>
+                  <th className="px-3 py-2 font-semibold w-1/4">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSuggestions.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center px-3 py-6 text-gray-400">
+                    {visibleSuggestions.length === 0 ? 'No accounts in this batch yet.' : 'No rows match the current filter.'}
+                  </td></tr>
+                ) : filteredSuggestions.map((s) => {
+                  const isMatch = s.crl_id !== null
+                  const confPct = s.confidence != null ? Math.round(s.confidence * 100) : 0
+                  const confColor = confPct >= 85 ? 'bg-emerald-100 text-emerald-700'
+                    : confPct >= 55 ? 'bg-amber-100 text-amber-700'
+                    : 'bg-rose-100 text-rose-700'
+                  const sel = effectiveSelection(s.line_id)
+                  return (
+                    <tr key={s.line_id} className="border-t border-gray-100" data-testid={`suggest-crl-row-${s.line_id}`}>
+                      <td className="px-3 py-2">
+                        {isMatch ? (
+                          <input
+                            type="checkbox"
+                            checked={checkedLines.has(s.line_id)}
+                            onChange={() => toggleLine(s.line_id)}
+                            data-testid={`suggest-crl-checkbox-${s.line_id}`}
+                          />
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-gray-700"><AccountLookup batchId={batchId} lineId={s.line_id} field="number" /></td>
+                      <td className="px-3 py-2 text-gray-800"><AccountLookup batchId={batchId} lineId={s.line_id} field="name" /></td>
+                      <td className="px-3 py-2">
+                        {isMatch ? (
+                          <span className="font-medium text-indigo-700" title={s.via_taxonomy_node_code ? `via ${s.via_taxonomy_node_code}` : undefined}>
+                            {s.crl_name}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 italic">No match</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {isMatch && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${confColor}`}>
+                            {confPct}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={sel ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value ? Number(e.target.value) : null
+                            setOverrides((p) => ({ ...p, [s.line_id]: v }))
+                            saveOverride.mutate({ line_id: s.line_id, crl_id: v })
+                          }}
+                          className="text-xs border border-gray-300 rounded px-1.5 py-0.5 w-full"
+                          data-testid={`crl-override-${s.line_id}`}
+                        >
+                          <option value="">— None —</option>
+                          {Object.entries(crlOptionsBySection).map(([section, opts]) => (
+                            <optgroup key={section} label={section}>
+                              {opts.map((c) => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2 text-gray-600">{s.reason ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Apply controls */}
+          <div className="flex items-center gap-3 flex-wrap border-t border-gray-100 pt-4">
+            <label className="text-xs font-semibold text-gray-700">When an account already has a CRL:</label>
+            <select
+              value={applyMode}
+              onChange={(e) => setApplyMode(e.target.value as typeof applyMode)}
+              className="text-xs border border-gray-300 rounded px-2 py-1"
+              data-testid="crl-apply-mode-select"
+            >
+              <option value="blank_only">Apply only to blank</option>
+              <option value="replace">Replace existing</option>
+              <option value="preserve">Preserve (same as blank only)</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => apply.mutate(applyMode)}
+              disabled={apply.isPending || checkedLines.size === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded disabled:opacity-50"
+              data-testid="crl-apply-selected-btn"
+            >
+              Apply Selected ({checkedLines.size})
+            </button>
+            <button
+              type="button"
+              onClick={() => apply.mutate(applyMode)}
+              disabled={apply.isPending || matched === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded disabled:opacity-50"
+              data-testid="crl-apply-all-btn"
+            >
+              Apply All Matched ({matched})
+            </button>
+          </div>
+
+          {applyResult && (
+            <div
+              className={`rounded-lg p-4 border ${applyResult.applied > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}
+              data-testid="crl-apply-result-banner"
+            >
+              <p className="text-sm font-semibold text-gray-800">
+                {applyResult.applied} reporting line{applyResult.applied === 1 ? '' : 's'} applied
+                {applyResult.skipped > 0 && `, ${applyResult.skipped} skipped`}.
+              </p>
+              {applyResult.skipped_reason && (
+                <p className="text-xs text-gray-600 mt-1">{applyResult.skipped_reason}</p>
+              )}
+              {applyResult.next_action && (
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded"
+                  data-testid="crl-continue-to-review-btn"
+                >
+                  {applyResult.next_action} <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer nav */}
+      <div className="flex justify-between border-t border-gray-100 pt-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-semibold rounded hover:bg-gray-50"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Column Mapping
+        </button>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 text-xs font-semibold rounded hover:bg-gray-50"
+          data-testid="crl-skip-to-review-btn"
+        >
+          Skip to Review Exceptions <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function SuggestFsliStep({
   batchId,
@@ -704,7 +1219,7 @@ const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
   { label: 'Sheet', desc: 'Select workbook sheet' },
   { label: 'Column Mapping', desc: 'Verify ledger fields' },
-  { label: 'Suggest FS Lines', desc: 'Match accounts to financial statement lines' },
+  { label: 'Map to Reporting Lines', desc: 'Match accounts to Common Reporting Lines' },
   { label: 'Review Exceptions', desc: 'Resolve issues' },
   { label: 'Post to Ledger', desc: 'Commit journal entry' },
 ]
@@ -734,6 +1249,9 @@ export function TrialBalanceImportPage() {
   const resumeBatchId = resumeBatchIdParam ? Number(resumeBatchIdParam) : null
 
   const [step, setStep] = useState(resumeBatchId ? 4 : 0)
+  // CRL-E: step 3 defaults to the CRL picker; power users can flip to the
+  // full taxonomy picker for the rare sub-line case.
+  const [step3View, setStep3View] = useState<'crl' | 'taxonomy'>('crl')
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
@@ -1372,13 +1890,36 @@ export function TrialBalanceImportPage() {
           )
         })()}
 
-        {/* Step 3 (NEW): Suggest Financial Statement Lines — simplified TB wizard */}
-        {step === 3 && (
-          <SuggestFsliStep
+        {/* Step 3: CRL picker (default) or full taxonomy picker (toggle).
+            CRL-E surfaces the Common Reporting Line layer as the default
+            since it's the canonical reporting boundary; SuggestFsliStep
+            stays available for taxonomy-level overrides. */}
+        {step === 3 && step3View === 'crl' && (
+          <SuggestCrlStep
             batchId={batchId!}
             onBack={() => setStep(2)}
             onContinue={() => setStep(4)}
+            onShowFullTaxonomy={() => setStep3View('taxonomy')}
           />
+        )}
+        {step === 3 && step3View === 'taxonomy' && (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setStep3View('crl')}
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 underline"
+                data-testid="show-crl-picker-btn"
+              >
+                ▴ Back to Common Reporting Lines
+              </button>
+            </div>
+            <SuggestFsliStep
+              batchId={batchId!}
+              onBack={() => setStep(2)}
+              onContinue={() => setStep(4)}
+            />
+          </div>
         )}
 
         {/* Step 4 (was 3): Review Exceptions */}
@@ -1414,7 +1955,7 @@ export function TrialBalanceImportPage() {
                     className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-semibold rounded transition-colors"
                     data-testid="resolve-mappings-in-wizard-btn"
                   >
-                    Back to Suggest FS Lines
+                    Back to Reporting Lines
                   </button>
                   <button
                     type="button"
@@ -1487,7 +2028,7 @@ export function TrialBalanceImportPage() {
                 onClick={() => setStep(3)}
                 className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-655 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" /> Back to FS Lines
+                <ChevronLeft className="w-4 h-4" /> Back to Reporting Lines
               </button>
 
               <button

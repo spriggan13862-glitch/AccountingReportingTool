@@ -119,6 +119,74 @@ test.describe('Simplified TB wizard', () => {
     expect([404, 401, 403]).toContain(res.status())
   })
 
+  test('CRL-E: GET /common-reporting-lines/ returns the system catalog', async ({ request }) => {
+    const res = await request.get('http://localhost:8002/api/v1/common-reporting-lines/')
+    // 200 when seeded, 401/403 when auth required; never 404 (route must exist).
+    expect([200, 401, 403]).toContain(res.status())
+    if (res.status() === 200) {
+      const body = await res.json()
+      expect(Array.isArray(body)).toBe(true)
+      // 72 system CRLs after a clean seed; allow >=72 if org clones present.
+      expect(body.length).toBeGreaterThanOrEqual(72)
+      const codes = body.map((r: { code: string }) => r.code)
+      expect(codes).toContain('CRL_CASH')
+      expect(codes).toContain('CRL_UNCLASSIFIED')
+      expect(codes).toContain('CRL_NEEDS_REVIEW')
+    }
+  })
+
+  test('CRL-E: GET /common-reporting-lines/templates lists 8 system templates', async ({ request }) => {
+    const res = await request.get('http://localhost:8002/api/v1/common-reporting-lines/templates')
+    expect([200, 401, 403]).toContain(res.status())
+    if (res.status() === 200) {
+      const body = await res.json()
+      expect(Array.isArray(body)).toBe(true)
+      const codes = body.map((r: { code: string }) => r.code)
+      expect(codes).toContain('smb_general')
+    }
+  })
+
+  test('CRL-E: template_id filter narrows results', async ({ request }) => {
+    const allRes = await request.get('http://localhost:8002/api/v1/common-reporting-lines/')
+    const tplRes = await request.get('http://localhost:8002/api/v1/common-reporting-lines/templates')
+    if (allRes.status() !== 200 || tplRes.status() !== 200) {
+      test.skip(true, 'auth-gated env — skipping live data assertions')
+      return
+    }
+    const templates = await tplRes.json() as { id: number; code: string }[]
+    const smb = templates.find((t) => t.code === 'smb_general')
+    if (!smb) {
+      test.skip(true, 'smb_general template not seeded')
+      return
+    }
+    const filteredRes = await request.get(
+      `http://localhost:8002/api/v1/common-reporting-lines/?template_id=${smb.id}`,
+    )
+    expect(filteredRes.status()).toBe(200)
+    const filtered = await filteredRes.json()
+    const all = await allRes.json()
+    // Template filter must not return more rows than the full catalog.
+    expect(filtered.length).toBeLessThanOrEqual(all.length)
+    // Mandatory rows must remain reachable.
+    const codes = filtered.map((r: { code: string }) => r.code)
+    expect(codes).toContain('CRL_UNCLASSIFIED')
+  })
+
+  test('CRL-E: What\'s New mentions Common Reporting Lines', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/overview')
+    const toggle = page.getByRole('button', { name: /what's new/i })
+    await toggle.scrollIntoViewIfNeeded()
+    await toggle.click()
+    await expect(
+      page.getByText(/Common Reporting Lines|CRL picker/i).first(),
+    ).toBeVisible({ timeout: 5_000 })
+  })
+
   test('Phase E: /import/new redirects to canonical wizard', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('admin@livemarketing.test')

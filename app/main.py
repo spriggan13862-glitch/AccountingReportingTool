@@ -42,6 +42,7 @@ from app.api.routers import (
     scenarios,
     setup,
     taxonomy_library,
+    common_reporting_lines,
 
     tb_import,
     users,
@@ -355,6 +356,11 @@ app.include_router(deliverable_workspace.router, prefix=API_PREFIX)
 app.include_router(quickbooks.router, prefix=API_PREFIX)
 app.include_router(dev.router, prefix=API_PREFIX)
 app.include_router(taxonomy_library.router, prefix=f"{API_PREFIX}/taxonomies", tags=["taxonomies"])
+app.include_router(
+    common_reporting_lines.router,
+    prefix=f"{API_PREFIX}/common-reporting-lines",
+    tags=["common-reporting-lines"],
+)
 
 
 # ---------------------------------------------------------------------------
