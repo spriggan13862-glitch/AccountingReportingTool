@@ -30,6 +30,7 @@ import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
 import { ImportCenterPage } from '@/pages/ImportCenterPage'
 import { ImportWizardPage } from '@/pages/ImportWizardPage'
 import { ImportReviewPage } from '@/pages/ImportReviewPage'
+import { ImportReviewRedirect } from '@/pages/ImportReviewRedirect'
 import { MappingWorkbenchPage } from '@/pages/MappingWorkbenchPage'
 import { CloseDashboardPage } from '@/pages/CloseDashboardPage'
 import { CloseChecklistPage } from '@/pages/CloseChecklistPage'
@@ -122,7 +123,7 @@ export function AppRouter() {
           <Route path="client-data/imports/journal-entries" element={<JournalEntryImportPage />} />
           <Route path="client-data/imports/generic" element={<ImportCenterPage />} />
           <Route path="client-data/imports/:id/mapping" element={<MappingWorkbenchPage />} />
-          <Route path="client-data/imports/:id" element={<ImportReviewPage />} />
+          <Route path="client-data/imports/:id" element={<ImportReviewRedirect />} />
           <Route path="client-data/documents" element={<DocumentsPage />} />
           <Route path="client-data/chart-of-accounts" element={<ChartOfAccountsPage />} />
           <Route path="client-data/taxonomy-mapping" element={<TaxonomyAdminPage />} />
@@ -235,7 +236,7 @@ export function AppRouter() {
           <Route path="coa-import" element={<COAImportPage />} />
           <Route path="import/new" element={<ImportWizardPage />} />
           <Route path="import/:id/mapping" element={<MappingWorkbenchPage />} />
-          <Route path="import/:id" element={<ImportReviewPage />} />
+          <Route path="import/:id" element={<ImportReviewRedirect />} />
           <Route path="import" element={<Navigate replace to="/client-data/imports" />} />
           <Route path="import-center" element={<Navigate replace to="/client-data/imports" />} />
           <Route path="imports/trial-balance" element={<Navigate replace to="/client-data/imports/trial-balance" />} />

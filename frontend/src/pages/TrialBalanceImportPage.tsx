@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
@@ -18,8 +18,9 @@ import { useWorkspace } from '@/providers/WorkspaceProvider'
 import { useToast } from '@/providers/ToastProvider'
 import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
+import { IssuesPanel } from '@/components/import/IssuesPanel'
 import type { WizardStep } from '@/components/import-wizard/types'
-import type { SheetInfo } from '@/types'
+import type { SheetInfo, ImportIssue } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Simplified TB wizard — Suggest Financial Statement Lines step
@@ -713,8 +714,13 @@ export function TrialBalanceImportPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
   const { activeEntity } = useWorkspace()
+  // Phase C: support ?batchId=N to resume an existing batch on the
+  // Review Exceptions step (where the deprecated /import/:id route redirects).
+  const [searchParams] = useSearchParams()
+  const resumeBatchIdParam = searchParams.get('batchId')
+  const resumeBatchId = resumeBatchIdParam ? Number(resumeBatchIdParam) : null
 
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(resumeBatchId ? 4 : 0)
   const [file, setFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [entityId, setEntityId] = useState<number | ''>(activeEntity?.id ?? '')
@@ -726,9 +732,17 @@ export function TrialBalanceImportPage() {
   const [headerRowIndex, setHeaderRowIndex] = useState<number>(0)
   const [colMapping, setColMapping] = useState<Record<string, string>>({})
   
-  const [batchId, setBatchId] = useState<number | null>(null)
+  const [batchId, setBatchId] = useState<number | null>(resumeBatchId)
   const [validationIssues, setValidationIssues] = useState<any[]>([])
   const [validationPreviewRows, setValidationPreviewRows] = useState<any[]>([])
+
+  // On resume, fetch the batch's validation issues so the IssuesPanel renders.
+  useEffect(() => {
+    if (resumeBatchId) {
+      tbImportApi.getBatchIssues(resumeBatchId).then((iss) => setValidationIssues(iss ?? [])).catch(() => undefined)
+      tbImportApi.getRawPreview(resumeBatchId, 100).then((p) => setValidationPreviewRows(p?.rows ?? [])).catch(() => undefined)
+    }
+  }, [resumeBatchId])
   
   const [jeNumber, setJeNumber] = useState('')
   const [notes, setNotes] = useState('')
@@ -1356,6 +1370,10 @@ export function TrialBalanceImportPage() {
 
             {/* Totals summary */}
             <ReviewExceptionsSummary batchId={batchId!} previewRows={validationPreviewRows} validationIssues={validationIssues} />
+
+            {/* Phase C: IssuesPanel — grouped severities + collapsible warnings + CSV export.
+                Replaces the dedicated ImportReviewPage's central tab. */}
+            <IssuesPanel batchId={batchId!} issues={validationIssues as unknown as ImportIssue[]} />
             
             {/* Unmapped accounts warning CTA banner */}
             {validationIssues.some(i => i.code === 'IMPORT_MISSING_MAPPING') && (
