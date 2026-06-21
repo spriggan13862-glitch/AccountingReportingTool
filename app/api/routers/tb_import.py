@@ -785,6 +785,47 @@ def suggest_fsli_for_batch(
     }
 
 
+@router.post("/batches/{batch_id}/save-fsli-selections", response_model=dict)
+def save_fsli_selections(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Phase B: write explicit per-line FSLI selections. Used when the user
+    overrides a system suggestion in the wizard step 4 inline dropdown.
+
+    Body: {"selections": [{"line_id": int, "taxonomy_node_id": int | null}]}
+    Returns: {"saved": N}
+    """
+    from app.models.import_line import ImportLine
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted")
+
+    selections = body.get("selections", [])
+    if not isinstance(selections, list):
+        raise HTTPException(status_code=400, detail="selections must be a list")
+
+    saved = 0
+    for sel in selections:
+        line_id = sel.get("line_id")
+        node_id = sel.get("taxonomy_node_id")  # may be null to clear
+        if line_id is None:
+            continue
+        line = db.query(ImportLine).filter_by(id=line_id, batch_id=batch_id).first()
+        if not line:
+            continue
+        line.selected_fsli_taxonomy_node_id = node_id
+        saved += 1
+    db.commit()
+    return {"saved": saved}
+
+
 @router.post("/batches/{batch_id}/apply-fsli-suggestions", response_model=dict)
 def apply_fsli_suggestions(
     batch_id: int,

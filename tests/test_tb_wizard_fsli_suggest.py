@@ -225,6 +225,78 @@ def test_apply_replace_mode_overwrites_existing(client, fixture, Session):
     s.close()
 
 
+# ---------------------------------------------------------------------------
+# Phase B: save-fsli-selections (per-line override endpoint)
+# ---------------------------------------------------------------------------
+
+def test_save_fsli_selections_writes_explicit_overrides(client, fixture, Session):
+    """Phase B: when the user picks a different FSLI in the inline dropdown,
+    the override is persisted to selected_fsli_taxonomy_node_id."""
+    # Reuse a node ID from the seeded taxonomy via suggest first.
+    client.post(
+        f"/api/v1/tb-imports/batches/{fixture['batch_id']}/suggest-fsli",
+        json={"taxonomy_id": fixture["taxonomy_id"]},
+    )
+    s = Session()
+    line0 = s.query(ImportLine).filter_by(id=fixture["line_ids"][0]).first()
+    suggested_node = line0.suggested_fsli_taxonomy_node_id
+    # Pick a DIFFERENT node from the taxonomy
+    other_node = s.query(TaxonomyNode).filter(
+        TaxonomyNode.taxonomy_id == fixture["taxonomy_id"],
+        TaxonomyNode.id != suggested_node,
+    ).first()
+    s.close()
+
+    r = client.post(
+        f"/api/v1/tb-imports/batches/{fixture['batch_id']}/save-fsli-selections",
+        json={"selections": [
+            {"line_id": fixture["line_ids"][0], "taxonomy_node_id": other_node.id},
+        ]},
+    )
+    assert r.status_code == 200
+    assert r.json()["saved"] == 1
+
+    s = Session()
+    line0 = s.query(ImportLine).filter_by(id=fixture["line_ids"][0]).first()
+    assert line0.selected_fsli_taxonomy_node_id == other_node.id
+    s.close()
+
+
+def test_save_fsli_selections_clears_with_null(client, fixture, Session):
+    """Passing taxonomy_node_id=null clears the selection."""
+    client.post(
+        f"/api/v1/tb-imports/batches/{fixture['batch_id']}/suggest-fsli",
+        json={"taxonomy_id": fixture["taxonomy_id"]},
+    )
+    client.post(
+        f"/api/v1/tb-imports/batches/{fixture['batch_id']}/apply-fsli-suggestions",
+        json={"line_ids": "all", "mode": "blank_only"},
+    )
+    # Now clear line 0
+    r = client.post(
+        f"/api/v1/tb-imports/batches/{fixture['batch_id']}/save-fsli-selections",
+        json={"selections": [
+            {"line_id": fixture["line_ids"][0], "taxonomy_node_id": None},
+        ]},
+    )
+    assert r.status_code == 200
+    s = Session()
+    line0 = s.query(ImportLine).filter_by(id=fixture["line_ids"][0]).first()
+    assert line0.selected_fsli_taxonomy_node_id is None
+    s.close()
+
+
+def test_save_fsli_selections_blocked_on_posted_batch(client, fixture, Session):
+    s = Session()
+    s.query(ImportBatch).filter_by(id=fixture["batch_id"]).update({"status": "posted"})
+    s.commit(); s.close()
+    r = client.post(
+        f"/api/v1/tb-imports/batches/{fixture['batch_id']}/save-fsli-selections",
+        json={"selections": [{"line_id": fixture["line_ids"][0], "taxonomy_node_id": 1}]},
+    )
+    assert r.status_code == 409
+
+
 def test_apply_all_skipped_returns_clear_reason(client, fixture, Session):
     """Hard stop: 'Applied 0, skipped 184 (existing mapping preserved)' must
     now include an actionable reason that mentions 'Replace existing'."""

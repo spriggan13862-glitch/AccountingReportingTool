@@ -49,6 +49,8 @@ interface ApplyFsliResponse {
   next_action: string | null
 }
 
+type StepFilter = 'all' | 'auto-mapped' | 'needs-review' | 'no-suggestion'
+
 function SuggestFsliStep({
   batchId,
   onBack,
@@ -59,11 +61,19 @@ function SuggestFsliStep({
   onContinue: () => void
 }) {
   const toast = useToast()
+  const queryClient = useQueryClient()
   const [selectedTaxonomyId, setSelectedTaxonomyId] = useState<number | null>(null)
   const [applyMode, setApplyMode] = useState<'blank_only' | 'replace' | 'preserve'>('blank_only')
   const [suggestResult, setSuggestResult] = useState<SuggestFsliResponse | null>(null)
   const [applyResult, setApplyResult] = useState<ApplyFsliResponse | null>(null)
   const [checkedLines, setCheckedLines] = useState<Set<number>>(new Set())
+
+  // Phase B: per-row override state (in-memory map of line_id → chosen node_id)
+  const [overrides, setOverrides] = useState<Record<number, number | null>>({})
+  // Phase B: filter + search + threshold
+  const [filter, setFilter] = useState<StepFilter>('all')
+  const [search, setSearch] = useState('')
+  const [acceptThreshold, setAcceptThreshold] = useState<number>(80)
 
   const { data: taxonomies = [], isLoading: taxonomiesLoading } = useQuery({
     queryKey: ['taxonomies-list'],
@@ -122,9 +132,86 @@ function SuggestFsliStep({
       } else if (data.skipped_reason) {
         toast(data.skipped_reason, 'info')
       }
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
     },
     onError: (e: Error) => toast(`Failed to apply: ${e.message}`, 'error'),
   })
+
+  // Phase B: persist per-row overrides whenever the dropdown changes.
+  const saveOverride = useMutation({
+    mutationFn: async (sel: { line_id: number; taxonomy_node_id: number | null }) => {
+      await api.post(
+        `/tb-imports/batches/${batchId}/save-fsli-selections`,
+        { selections: [sel] },
+      )
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] }),
+    onError: (e: Error) => toast(`Failed to save selection: ${e.message}`, 'error'),
+  })
+
+  // Phase B: accept all suggestions whose confidence meets the threshold.
+  const acceptAboveThreshold = useMutation({
+    mutationFn: async () => {
+      if (!suggestResult) return { saved: 0 }
+      const minConf = acceptThreshold / 100
+      const selections = suggestResult.suggestions
+        .filter((s) => s.suggested_fsli_taxonomy_node_id !== null
+          && (s.confidence ?? 0) >= minConf)
+        .map((s) => ({
+          line_id: s.line_id,
+          taxonomy_node_id: s.suggested_fsli_taxonomy_node_id,
+        }))
+      if (selections.length === 0) return { saved: 0 }
+      const res = await api.post<{ saved: number }>(
+        `/tb-imports/batches/${batchId}/save-fsli-selections`,
+        { selections },
+      )
+      return res.data
+    },
+    onSuccess: (data) => {
+      toast(`Accepted ${data.saved} suggestion${data.saved === 1 ? '' : 's'} ≥ ${acceptThreshold}% confidence.`, 'success')
+      queryClient.invalidateQueries({ queryKey: ['import-lines', batchId] })
+    },
+    onError: (e: Error) => toast(`Failed to accept: ${e.message}`, 'error'),
+  })
+
+  // Fetch the taxonomy nodes so the per-row override dropdown has options.
+  const { data: taxonomyTree = [] } = useQuery({
+    queryKey: ['taxonomy-tree', selectedTaxonomyId],
+    queryFn: () => selectedTaxonomyId ? taxonomyLibraryApi.tree(selectedTaxonomyId) : Promise.resolve([]),
+    enabled: !!selectedTaxonomyId,
+  })
+
+  // Flatten the tree to a sorted list of leaf nodes grouped by section.
+  const taxonomyNodeOptions = useMemo(() => {
+    type Node = { id: number; name: string; code: string; section: string }
+    const out: Node[] = []
+    function walk(node: any, parentSection: string) {
+      const section = node.financial_statement_section ?? parentSection ?? ''
+      const children = node.children ?? []
+      if (children.length === 0) {
+        out.push({ id: node.id, name: node.name, code: node.code, section })
+      } else {
+        for (const c of children) walk(c, section)
+      }
+    }
+    for (const root of (taxonomyTree as any[])) walk(root, root?.financial_statement_section ?? '')
+    out.sort((a, b) => a.section.localeCompare(b.section) || a.name.localeCompare(b.name))
+    return out
+  }, [taxonomyTree])
+
+  // Pull live import lines so the dropdown reflects the currently-saved selection.
+  const { data: lines = [] } = useQuery({
+    queryKey: ['import-lines', batchId],
+    queryFn: () => tbImportApi.getBatchLines(batchId),
+    staleTime: 5_000,
+  })
+
+  function effectiveSelection(lineId: number): number | null {
+    if (lineId in overrides) return overrides[lineId]
+    const line = lines.find((l) => l.id === lineId)
+    return line?.selected_fsli_taxonomy_node_id ?? null
+  }
 
   function selectAll() {
     if (!suggestResult) return
@@ -151,6 +238,26 @@ function SuggestFsliStep({
   const total = matched + unmatched
   const visibleSuggestions = suggestResult?.suggestions ?? []
   const matchedVisible = visibleSuggestions.filter((s) => s.suggested_fsli_taxonomy_node_id !== null)
+
+  // Phase B: filter + search applied to the suggestion list.
+  const filteredSuggestions = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return visibleSuggestions.filter((s) => {
+      const sel = effectiveSelection(s.line_id)
+      const hasSuggestion = s.suggested_fsli_taxonomy_node_id !== null
+      if (filter === 'auto-mapped' && sel == null) return false
+      if (filter === 'needs-review' && sel != null) return false
+      if (filter === 'no-suggestion' && hasSuggestion) return false
+      if (term) {
+        const line = lines.find((l) => l.id === s.line_id)
+        const num = (line?.raw_account_number ?? '').toLowerCase()
+        const name = (line?.raw_account_name ?? '').toLowerCase()
+        if (!num.includes(term) && !name.includes(term)) return false
+      }
+      return true
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSuggestions, filter, search, lines, overrides])
 
   return (
     <div className="space-y-6" data-testid="suggest-fsli-step">
@@ -198,12 +305,57 @@ function SuggestFsliStep({
       {/* Results table */}
       {suggestResult && (
         <div className="space-y-3" data-testid="suggest-fsli-results">
-          <div className="flex items-center gap-4 text-xs text-gray-700 flex-wrap">
-            <span className="font-semibold">{matched} matched</span>
+          {/* Phase B: counters + filter chips + search + threshold */}
+          <div className="flex items-center gap-3 text-xs text-gray-700 flex-wrap">
+            <span className="font-semibold">{matched} of {total} auto-mapped</span>
             <span className="text-gray-400">·</span>
-            <span>{unmatched} unmatched</span>
-            <span className="text-gray-400">·</span>
-            <span>{total} total accounts</span>
+            <span>{unmatched} need review</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap" data-testid="suggest-fsli-filter-bar">
+            {(['all', 'auto-mapped', 'needs-review', 'no-suggestion'] as StepFilter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`text-[11px] px-2.5 py-1 rounded-full border ${filter === f
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}
+                data-testid={`filter-chip-${f}`}
+              >
+                {f === 'all' ? 'All' : f === 'auto-mapped' ? 'Auto-mapped' : f === 'needs-review' ? 'Needs review' : 'No suggestion'}
+              </button>
+            ))}
+            <input
+              type="text"
+              placeholder="Search account # or name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="ml-2 text-xs border border-gray-300 rounded h-7 px-2 w-56"
+              data-testid="suggest-fsli-search"
+            />
+            <div className="flex items-center gap-1 ml-auto text-xs">
+              <label className="text-gray-600">Accept all ≥</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={acceptThreshold}
+                onChange={(e) => setAcceptThreshold(Math.max(0, Math.min(100, Number(e.target.value))))}
+                className="w-14 border border-gray-300 rounded h-7 px-1.5"
+                data-testid="accept-threshold-input"
+              />
+              <span>%</span>
+              <button
+                type="button"
+                onClick={() => acceptAboveThreshold.mutate()}
+                disabled={acceptAboveThreshold.isPending}
+                className="ml-2 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded disabled:opacity-50"
+                data-testid="accept-above-threshold-btn"
+              >
+                Accept matching
+              </button>
+            </div>
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-auto max-h-[400px]">
@@ -222,18 +374,22 @@ function SuggestFsliStep({
                   <th className="px-3 py-2 font-semibold">Account Name</th>
                   <th className="px-3 py-2 font-semibold">Suggested FS Line</th>
                   <th className="px-3 py-2 font-semibold w-24">Confidence</th>
-                  <th className="px-3 py-2 font-semibold w-1/3">Reason</th>
+                  <th className="px-3 py-2 font-semibold w-56">Selected FS Line</th>
+                  <th className="px-3 py-2 font-semibold w-1/4">Reason</th>
                 </tr>
               </thead>
               <tbody>
-                {visibleSuggestions.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center px-3 py-6 text-gray-400">No accounts in this batch yet.</td></tr>
-                ) : visibleSuggestions.map((s) => {
+                {filteredSuggestions.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center px-3 py-6 text-gray-400">
+                    {visibleSuggestions.length === 0 ? 'No accounts in this batch yet.' : 'No rows match the current filter.'}
+                  </td></tr>
+                ) : filteredSuggestions.map((s) => {
                   const isMatch = s.suggested_fsli_taxonomy_node_id !== null
                   const confPct = s.confidence != null ? Math.round(s.confidence * 100) : 0
                   const confColor = confPct >= 85 ? 'bg-emerald-100 text-emerald-700'
                     : confPct >= 55 ? 'bg-amber-100 text-amber-700'
                     : 'bg-rose-100 text-rose-700'
+                  const sel = effectiveSelection(s.line_id)
                   return (
                     <tr key={s.line_id} className="border-t border-gray-100" data-testid={`suggest-fsli-row-${s.line_id}`}>
                       <td className="px-3 py-2">
@@ -261,6 +417,23 @@ function SuggestFsliStep({
                             {confPct}%
                           </span>
                         )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={sel ?? ''}
+                          onChange={(e) => {
+                            const v = e.target.value ? Number(e.target.value) : null
+                            setOverrides((p) => ({ ...p, [s.line_id]: v }))
+                            saveOverride.mutate({ line_id: s.line_id, taxonomy_node_id: v })
+                          }}
+                          className="text-xs border border-gray-300 rounded px-1.5 py-0.5 w-full"
+                          data-testid={`fsli-override-${s.line_id}`}
+                        >
+                          <option value="">— None —</option>
+                          {taxonomyNodeOptions.map((n) => (
+                            <option key={n.id} value={n.id}>{n.section ? `${n.section} · ${n.name}` : n.name}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-3 py-2 text-gray-600">{s.reason ?? '—'}</td>
                     </tr>
