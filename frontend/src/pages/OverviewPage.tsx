@@ -36,6 +36,22 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'CRL-B · Common Reporting Line layer (backend foundation)',
+    date: '2026-06-21',
+    items: [
+      'New Common Reporting Line (CRL) layer becomes the primary reporting classification for imported accounts — between the Entity COA and the detailed Taxonomy Nodes. Industry-neutral, ~70 lines covering 95% of SMB statements.',
+      'Five-layer architecture: Source Account → Entity COA → CRL → Taxonomy Node(s) → Reporting View → Financial Statements.',
+      '72 CRLs seeded with immutable CRL_ codes (CRL_CASH, CRL_AR, CRL_PAYROLL_EXPENSE, ...) and editable display names. Report logic, migrations, templates, rollups, consolidations, bridges, and reporting views reference codes, not labels.',
+      '17 sub-lines via parent_crl_id hierarchy (Salaries / Payroll Taxes / Bonuses / Commissions / Stock-Based Comp under Payroll Expense; Audit / Tax / Legal / Consulting under Professional Fees; etc.).',
+      'Two mandatory system CRLs — Unclassified, Needs Review — so no posted account ever has NULL classification.',
+      'One-to-many CRL → Taxonomy Node junction: CRL_CASH maps to CASH + CASH_EQUIV; CRL_SUBSCRIPTION_REVENUE maps to REVENUE_SUBSCRIPTION + REVENUE_LICENSE. Industry overlays (Healthcare, SaaS, Construction) attach beneath each CRL via this junction.',
+      '8 system reporting templates (SMB General default + Healthcare, SaaS, Manufacturing, Construction, Real Estate, Nonprofit, SPAC/Public). Templates expose CRL subsets without changing the catalog.',
+      'Code immutability enforced at the service layer: update_crl raises CrlImmutableCodeError if a caller tries to change the code field. Display name is freely editable.',
+      'Architecture doc: docs/architecture/COMMON_REPORTING_LINE_LAYER.md (v2 approved).',
+      'Wizard / Settings UI and downstream FS rollups land in CRL-C through CRL-F. CRL-G / P5 reporting endpoints are gated until CRL-F is complete and verified.',
+    ],
+  },
+  {
     version: 'TB Import workflow redesign · one wizard, six steps, ~2-minute import',
     date: '2026-06-21',
     items: [

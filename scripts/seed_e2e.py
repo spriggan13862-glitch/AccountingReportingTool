@@ -166,6 +166,14 @@ def seed() -> None:
         total_nodes = sum(results.values())
         print(f"[seed_e2e] System taxonomies seeded: {len(results)} taxonomies, {total_nodes} nodes.")
 
+        # CRL-B: Common Reporting Line catalog + reporting templates
+        from app.services.crl_service import seed_crl_catalog
+        crl_stats = seed_crl_catalog(db)
+        print(f"[seed_e2e] CRL catalog seeded: "
+              f"{crl_stats['crls_inserted']} CRLs, "
+              f"{crl_stats['templates_inserted']} templates, "
+              f"{crl_stats['junctions_created']} CRL-Taxonomy junctions.")
+
         db.commit()
         print("[seed_e2e] Seed complete.")
         print(f"[seed_e2e]   Credentials: admin@livemarketing.test / Test1234!")
