@@ -132,19 +132,27 @@ def taxonomy_balance_sheet(
     as_of_date: datetime.date,
     scenario_ids: list[int] = Query(default=[]),
     view_id: int | None = Query(default=None),
+    organization_id: int | None = Query(default=None),
     data_view: str = Query(default="adjusted"),
     db: Session = Depends(get_db),
 ):
-    """Balance sheet using ReportingTaxonomyLine hierarchy (COA-import path).
-    Optionally apply per-view account overrides when view_id is provided.
+    """
+    Balance sheet for the legacy /statements page. After Correction 15
+    this reads the canonical Account → FSLI (CRL) mapping first; the
+    legacy reporting_taxonomy_line_id field is fallback only.
+
+    Optionally apply per-view account overrides when view_id is provided
+    (overrides win over both canonical and legacy — they represent an
+    explicit per-view user choice).
     data_view: 'as_reported' | 'adjusted' (default) | 'pro_forma'
-    Auto-seeds taxonomy if the table is empty (new installation or fresh test DB).
+    Auto-seeds taxonomy if the table is empty (fresh test DB).
     """
     get_or_seed(db)
     overrides = _load_view_overrides(db, view_id) if view_id else None
     rows = get_taxonomy_fs_statement(
         db, entity_id, as_of_date, scenario_ids, statement_type="balance_sheet",
         view_overrides=overrides, source_filter=_source_filter_for(data_view),
+        organization_id=organization_id,
     )
     return [_tax_fs_out(r) for r in rows]
 
@@ -155,19 +163,24 @@ def taxonomy_income_statement(
     as_of_date: datetime.date,
     scenario_ids: list[int] = Query(default=[]),
     view_id: int | None = Query(default=None),
+    organization_id: int | None = Query(default=None),
     data_view: str = Query(default="adjusted"),
     db: Session = Depends(get_db),
 ):
-    """Income statement using ReportingTaxonomyLine hierarchy (COA-import path).
+    """
+    Income statement for the legacy /statements page. After Correction 15
+    this reads the canonical Account → FSLI (CRL) mapping first; the
+    legacy reporting_taxonomy_line_id field is fallback only.
+
     Optionally apply per-view account overrides when view_id is provided.
     data_view: 'as_reported' | 'adjusted' (default) | 'pro_forma'
-    Auto-seeds taxonomy if the table is empty (new installation or fresh test DB).
     """
     get_or_seed(db)
     overrides = _load_view_overrides(db, view_id) if view_id else None
     rows = get_taxonomy_fs_statement(
         db, entity_id, as_of_date, scenario_ids, statement_type="income_statement",
         view_overrides=overrides, source_filter=_source_filter_for(data_view),
+        organization_id=organization_id,
     )
     return [_tax_fs_out(r) for r in rows]
 

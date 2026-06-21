@@ -29,7 +29,12 @@ from typing import Sequence
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
+from app.models.common_reporting_line import (
+    CommonReportingLine,
+    CommonReportingLineTaxonomyNode,
+)
 from app.models.reporting_taxonomy import ReportingTaxonomyLine
+from app.services.crl_resolver import resolve_crl_map
 from app.services.reporting_service import get_trial_balance
 from app.services import presentation_service
 
@@ -138,6 +143,70 @@ def _resolve_taxonomy_id(
     return None
 
 
+# Correction 15 — canonical-first resolver for the taxonomy statement path.
+# Precedence:
+#   1. accounts.common_reporting_line_id (canonical FSLI store) — mapped to
+#      a ReportingTaxonomyLine via the common_reporting_line_taxonomy_nodes
+#      junction (preferring is_primary), then by code → reporting_taxonomy_lines.
+#   2. AccountTaxonomyMapping / accounts.reporting_taxonomy_line_id, with
+#      parent-account inheritance — the legacy fallback used before CRL-B.
+#   3. Otherwise None (account goes to the unmapped bucket as before).
+def _build_canonical_taxonomy_resolver(
+    db: Session,
+    entity_accounts: list[Account],
+    accounts_by_id: dict[int, Account],
+    lines_by_code: dict[str, ReportingTaxonomyLine],
+    organization_id: int | None,
+):
+    """
+    Returns a callable account → taxonomy_line_id|None that honors the
+    canonical precedence.
+    """
+    crl_map = resolve_crl_map(db, entity_accounts, organization_id=organization_id)
+
+    # For every CRL we resolved, pre-compute its preferred taxonomy_line_id
+    # (via junction → reporting_taxonomy_lines.code match).
+    used_crl_ids = {c.id for c in crl_map.values() if c is not None}
+    crl_to_taxonomy_line_id: dict[int, int | None] = {}
+    if used_crl_ids:
+        # Load all junction rows for the used CRLs in one query, prefer is_primary,
+        # then earliest sort_order.
+        junction_rows = (
+            db.query(CommonReportingLineTaxonomyNode)
+            .filter(CommonReportingLineTaxonomyNode.crl_id.in_(used_crl_ids))
+            .order_by(
+                CommonReportingLineTaxonomyNode.is_primary.desc(),
+                CommonReportingLineTaxonomyNode.sort_order,
+            )
+            .all()
+        )
+        # Keep the first node code per CRL (already sorted is_primary-first).
+        first_code_for_crl: dict[int, str] = {}
+        for r in junction_rows:
+            if r.crl_id not in first_code_for_crl:
+                first_code_for_crl[r.crl_id] = r.taxonomy_node_code
+        # Map node code → ReportingTaxonomyLine.id by code match.
+        for crl_id in used_crl_ids:
+            code = first_code_for_crl.get(crl_id)
+            if code is None:
+                crl_to_taxonomy_line_id[crl_id] = None
+                continue
+            line = lines_by_code.get(code)
+            crl_to_taxonomy_line_id[crl_id] = line.id if line else None
+
+    def resolve(account: Account) -> int | None:
+        # 1. canonical via CRL → preferred taxonomy code → reporting_taxonomy_line
+        crl = crl_map.get(account.id)
+        if crl is not None:
+            line_id = crl_to_taxonomy_line_id.get(crl.id)
+            if line_id is not None:
+                return line_id
+        # 2. legacy: direct/inherited reporting_taxonomy_line_id
+        return _resolve_taxonomy_id(account, accounts_by_id)
+
+    return resolve
+
+
 def get_taxonomy_fs_statement(
     db: Session,
     entity_id: int,
@@ -146,6 +215,7 @@ def get_taxonomy_fs_statement(
     statement_type: str,            # "balance_sheet" or "income_statement"
     view_overrides: dict[int, int] | None = None,  # account_id → taxonomy_line_id
     source_filter: Sequence[str] | None = None,
+    organization_id: int | None = None,
 ) -> list[TaxonomyFsRow]:
     """
     Build FS output using ReportingTaxonomyLine + Account.reporting_taxonomy_line_id.
@@ -187,6 +257,19 @@ def get_taxonomy_fs_statement(
         .all()
     )
     accounts_by_id: dict[int, Account] = {a.id: a for a in entity_accounts}
+    lines_by_code: dict[str, ReportingTaxonomyLine] = {
+        l.code: l for l in all_lines
+    }
+
+    # Correction 15 — canonical-first resolver. Precedence:
+    #   1. accounts.common_reporting_line_id (resolver chain, then map to a
+    #      ReportingTaxonomyLine via the CRL → taxonomy-node junction)
+    #   2. accounts.reporting_taxonomy_line_id with parent inheritance (legacy)
+    # The view_overrides map still wins over both — it represents an explicit
+    # per-view choice the user made in Advanced Taxonomy Override.
+    canonical_resolve = _build_canonical_taxonomy_resolver(
+        db, entity_accounts, accounts_by_id, lines_by_code, organization_id,
+    )
 
     # Get trial balance
     tb_rows = get_trial_balance(db, entity_id, as_of_date, list(scenario_ids), source_filter=source_filter)
@@ -201,7 +284,7 @@ def get_taxonomy_fs_statement(
             override_tid = view_overrides[account.id]
             tax_id = override_tid if override_tid is not None else None
         else:
-            tax_id = _resolve_taxonomy_id(account, accounts_by_id)
+            tax_id = canonical_resolve(account)
         if tax_id is None or tax_id not in lines_in_scope:
             continue
         tb_row = tb_by_account_id.get(account.id)

@@ -349,6 +349,25 @@ test.describe('Simplified TB wizard', () => {
     expect([200, 401, 403]).toContain(res.status())
   })
 
+  test('Correction 15: legacy /taxonomy/balance-sheet accepts organization_id', async ({ request }) => {
+    // After Correction 15 the legacy endpoint takes organization_id so the
+    // canonical resolver can prefer org-specific CRL clones. 400/422 would
+    // mean the schema rejected the new field.
+    const res = await request.get(
+      'http://localhost:8002/api/v1/financial-statements/taxonomy/balance-sheet'
+      + '?entity_id=999999&as_of_date=2026-01-31&organization_id=1',
+    )
+    expect([200, 401, 403, 404]).toContain(res.status())
+  })
+
+  test('Correction 15: legacy /taxonomy/income-statement accepts organization_id', async ({ request }) => {
+    const res = await request.get(
+      'http://localhost:8002/api/v1/financial-statements/taxonomy/income-statement'
+      + '?entity_id=999999&as_of_date=2026-01-31&organization_id=1',
+    )
+    expect([200, 401, 403, 404]).toContain(res.status())
+  })
+
   test('Correction 3: PATCH /accounts accepts common_reporting_line_id', async ({ request }) => {
     // 404 for unknown id is fine — proves Pydantic validation accepted the field.
     const res = await request.patch(
