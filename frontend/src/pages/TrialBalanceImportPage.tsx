@@ -1042,6 +1042,33 @@ function SuggestFsliStep({
   )
 }
 
+/**
+ * Correction 10: Review Exceptions reads the canonical Account → FSLI
+ * staging field (selected_common_reporting_line_id), the same field the
+ * wizard's step-4 picker, Mapping Center, and post_batch all read/write.
+ * Reading the older selected_fsli_taxonomy_node_id field would show
+ * accepted mappings as still-unmapped.
+ *
+ * Pure so the unit test (test/correction_10_review_exceptions.test.tsx)
+ * can exercise the counting rules without mounting React Query.
+ */
+export function computeReviewExceptionStats(
+  lines: Array<{
+    mapping_status: string
+    selected_common_reporting_line_id?: number | null
+  }>,
+  validationIssues: Array<{ severity: string; code: string }>,
+) {
+  const totalImported = lines.length
+  const autoMapped = lines.filter((l) => l.selected_common_reporting_line_id != null).length
+  const needsReview = lines.filter((l) =>
+    l.mapping_status === 'unmapped' || l.selected_common_reporting_line_id == null
+  ).length
+  const excluded = lines.filter((l) => l.mapping_status === 'skipped').length
+  const errors = validationIssues.filter((i) => i.severity === 'error').length
+  return { totalImported, autoMapped, needsReview, excluded, errors }
+}
+
 function ReviewExceptionsSummary({
   batchId,
   previewRows,
@@ -1056,13 +1083,8 @@ function ReviewExceptionsSummary({
     queryFn: () => tbImportApi.getBatchLines(batchId),
     staleTime: 15_000,
   })
-  const totalImported = lines.length
-  const autoMapped = lines.filter((l) => l.selected_fsli_taxonomy_node_id != null).length
-  const needsReview = lines.filter((l) =>
-    l.mapping_status === 'unmapped' || l.selected_fsli_taxonomy_node_id == null
-  ).length
-  const excluded = lines.filter((l) => l.mapping_status === 'skipped').length
-  const errors = validationIssues.filter((i) => i.severity === 'error').length
+  const { totalImported, autoMapped, needsReview, excluded, errors } =
+    computeReviewExceptionStats(lines, validationIssues)
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs" data-testid="review-exceptions-summary">
       <SummaryStat label="Total imported" value={totalImported} color="gray" />
