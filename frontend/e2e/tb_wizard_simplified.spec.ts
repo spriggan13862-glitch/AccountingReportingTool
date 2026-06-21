@@ -329,6 +329,37 @@ test.describe('Simplified TB wizard', () => {
     ).toBeVisible({ timeout: 5_000 })
   })
 
+  test('Correction 3: /mapping renders Mapping Center', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/mapping')
+    await expect(page.getByTestId('mapping-center')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /Mapping Center/i }).first()).toBeVisible()
+  })
+
+  test('Correction 3: bulk-fsli endpoint exists', async ({ request }) => {
+    const res = await request.post(
+      'http://localhost:8002/api/v1/accounts/bulk-fsli',
+      { data: { account_ids: [], common_reporting_line_id: null } },
+    )
+    // Empty list returns 200 [], or auth gates 401/403; never 404 for the route.
+    expect([200, 401, 403]).toContain(res.status())
+  })
+
+  test('Correction 3: PATCH /accounts accepts common_reporting_line_id', async ({ request }) => {
+    // 404 for unknown id is fine — proves Pydantic validation accepted the field.
+    const res = await request.patch(
+      'http://localhost:8002/api/v1/accounts/999999',
+      { data: { common_reporting_line_id: null } },
+    )
+    // 404 (account not found) or 401/403 (auth); the wrong answer would be 422
+    // which would mean the schema rejected our field.
+    expect([404, 401, 403]).toContain(res.status())
+  })
+
   test('Phase E: /import/new redirects to canonical wizard', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('admin@livemarketing.test')

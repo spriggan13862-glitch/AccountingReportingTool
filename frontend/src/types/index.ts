@@ -106,6 +106,9 @@ export interface Account {
   tax_line: string | null
   source_system: string | null
   reporting_taxonomy_line_id: number | null
+  /** Canonical Account → FSLI mapping (CRL layer). */
+  common_reporting_line_id?: number | null
+  crl_state?: string
   is_header: boolean
   is_postable: boolean
   fs_sign_convention: number | null

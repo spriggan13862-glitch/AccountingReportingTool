@@ -121,6 +121,7 @@ class AccountUpdate(BaseModel):
     tax_line: str | None = None
     account_status: str | None = None     # active/inactive/archived/deprecated
     reporting_taxonomy_line_id: int | None = None
+    common_reporting_line_id: int | None = None  # canonical Account→FSLI mapping
     parent_account_id: int | None = None
     active: bool | None = None
     is_header: bool | None = None
@@ -150,6 +151,8 @@ class AccountOut(BaseModel):
     tax_line: str | None = None
     source_system: str | None = None
     reporting_taxonomy_line_id: int | None = None
+    common_reporting_line_id: int | None = None  # canonical Account→FSLI mapping
+    crl_state: str = "unclassified"
     is_header: bool = False
     is_postable: bool = True
     fs_sign_convention: int | None = None

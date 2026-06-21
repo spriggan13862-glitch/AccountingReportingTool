@@ -34,6 +34,7 @@ export interface AccountUpdate {
   tax_line?: string | null
   account_status?: string
   reporting_taxonomy_line_id?: number | null
+  common_reporting_line_id?: number | null
   parent_account_id?: number | null
   active?: boolean
   is_header?: boolean
@@ -105,6 +106,13 @@ export const accountsApi = {
 
   bulkUpdate: (ids: number[], patch: AccountUpdate) =>
     api.patch<Account[]>('/accounts/bulk', { ids, patch }).then((r) => r.data),
+
+  /** Bulk assign (or clear with null) the canonical Account → FSLI mapping. */
+  bulkAssignFsli: (accountIds: number[], commonReportingLineId: number | null) =>
+    api.post<Account[]>('/accounts/bulk-fsli', {
+      account_ids: accountIds,
+      common_reporting_line_id: commonReportingLineId,
+    }).then((r) => r.data),
 
   backfillPaths: (entityId?: number): Promise<{ updated: number }> =>
     api.post('/accounts/backfill-paths', null, { params: entityId != null ? { entity_id: entityId } : {} }).then((r) => r.data),

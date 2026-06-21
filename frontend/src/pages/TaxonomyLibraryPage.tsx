@@ -131,8 +131,16 @@ export function TaxonomyLibraryPage() {
   return (
     <PageLayout
       title="Taxonomy Library"
-      subtitle="System and custom chart-of-accounts taxonomies"
+      subtitle="Reference & admin. You don't need to edit taxonomies to import a trial balance."
     >
+      <div className="bg-slate-50 border border-slate-200 rounded px-3 py-2 mb-3 text-[11px] text-slate-700 flex items-start gap-2" data-testid="taxonomy-library-banner">
+        <span className="font-semibold">Reference only.</span>
+        <span>
+          View, clone, or export taxonomies here. For account-to-FSLI mapping, use the wizard or{' '}
+          <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
+        </span>
+      </div>
+
       {listQuery.isError && (
         <ErrorBanner message={(listQuery.error as Error)?.message || 'Failed to load taxonomies'} />
       )}

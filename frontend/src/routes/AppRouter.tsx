@@ -25,6 +25,7 @@ import { ConsolidationsPage } from '@/pages/ConsolidationsPage'
 import { TrialBalancesPage } from '@/pages/TrialBalancesPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
 import { CrlStatementsPage } from '@/pages/CrlStatementsPage'
+import { MappingCenterPage } from '@/pages/MappingCenterPage'
 import { FinancialImpactWorkspacePage } from '@/pages/FinancialImpactWorkspacePage'
 import { DeliverablesWorkspacePage } from '@/pages/DeliverablesWorkspacePage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
@@ -100,7 +101,7 @@ export function AppRouter() {
 
           {/* ── CANONICAL ROUTES (Phase 2 nav model) ──────────────────────── */}
           <Route path="import" element={<ImportCenterPage />} />
-          <Route path="mapping" element={<TaxonomyAdminPage />} />
+          <Route path="mapping" element={<MappingCenterPage />} />
           <Route path="statements" element={<FinancialStatementsPage />} />
           <Route path="statements/crl" element={<CrlStatementsPage />} />
           <Route path="bridge" element={<AdjustmentBridgePage />} />

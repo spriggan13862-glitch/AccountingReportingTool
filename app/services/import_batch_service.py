@@ -1440,22 +1440,37 @@ def post_batch(
     )
 
     # Transfer staged FSLI selection from ImportLine onto the Account before
-    # we post. The wizard's "Suggest Financial Statement Lines" step writes
-    # selected_fsli_taxonomy_node_id; post-time we promote it.
+    # we post. Two parallel writes:
+    #   1. selected_common_reporting_line_id → account.common_reporting_line_id
+    #      (CRL layer — the canonical Account→FSLI store)
+    #   2. selected_fsli_taxonomy_node_id    → account.reporting_taxonomy_line_id
+    #      (legacy taxonomy back-compat for old reporting paths)
+    # The CRL write is the canonical one; the legacy write keeps pre-CRL
+    # reporting views working.
     from app.models.taxonomy import TaxonomyNode  # local to avoid cycles
     from app.models.reporting_taxonomy import ReportingTaxonomyLine
     for line in lines:
-        if line.resolved_account_id is None or line.selected_fsli_taxonomy_node_id is None:
+        if line.resolved_account_id is None:
             continue
         account = db.get(Account, line.resolved_account_id)
         if account is None:
             continue
-        # Only set if not already mapped — never silently overwrite a manual mapping.
+
+        # Canonical: CRL transfer. Never silently overwrite a manual mapping
+        # on the Account — only set if it's currently null.
+        if (
+            line.selected_common_reporting_line_id is not None
+            and account.common_reporting_line_id is None
+        ):
+            account.common_reporting_line_id = line.selected_common_reporting_line_id
+            account.crl_state = "assigned"
+
+        # Legacy back-compat: FSLI taxonomy node → reporting_taxonomy_line_id.
+        if line.selected_fsli_taxonomy_node_id is None:
+            continue
         node = db.get(TaxonomyNode, line.selected_fsli_taxonomy_node_id)
         if node is None:
             continue
-        # We map the Sprint O TaxonomyNode back to a legacy ReportingTaxonomyLine
-        # by code when possible; if no matching line exists we leave it alone.
         existing_legacy = (
             db.query(ReportingTaxonomyLine)
             .filter_by(code=node.code)

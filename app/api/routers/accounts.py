@@ -196,6 +196,39 @@ def bulk_update_accounts(body: AccountBulkUpdate, db: Session = Depends(get_db))
             setattr(acct, key, value)
         if "account_status" in patch:
             acct.active = patch["account_status"] == "active"
+        if "common_reporting_line_id" in patch:
+            acct.crl_state = "assigned" if patch["common_reporting_line_id"] is not None else "unclassified"
+    db.flush()
+    for acct in accounts:
+        db.refresh(acct)
+    return accounts
+
+
+# ---------------------------------------------------------------------------
+# Correction 3 — focused Account → FSLI mapping endpoint (Mapping Center)
+# ---------------------------------------------------------------------------
+
+class BulkFsliAssign(BaseModel):
+    account_ids: list[int]
+    common_reporting_line_id: int | None
+
+
+@router.post("/bulk-fsli", response_model=list[AccountOut])
+def bulk_assign_fsli(body: BulkFsliAssign, db: Session = Depends(get_db)):
+    """
+    Bulk assign (or clear) the canonical Account → FSLI mapping for many
+    accounts at once. Used by Mapping Center's bulk-assign action and the
+    wizard's "Apply All Matched" path. Setting common_reporting_line_id=null
+    clears the mapping and sets crl_state back to 'unclassified'.
+    """
+    if not body.account_ids:
+        return []
+    accounts = db.query(Account).filter(Account.id.in_(body.account_ids)).all()
+    for acct in accounts:
+        acct.common_reporting_line_id = body.common_reporting_line_id
+        acct.crl_state = (
+            "assigned" if body.common_reporting_line_id is not None else "unclassified"
+        )
     db.flush()
     for acct in accounts:
         db.refresh(acct)
@@ -330,6 +363,11 @@ def update_account(account_id: int, body: AccountUpdate, db: Session = Depends(g
         account.reporting_taxonomy_line_id = new_tax_id
         if old_tax_id != new_tax_id:
             propagate_taxonomy_to_children(account.id, old_tax_id, new_tax_id, db)
+    if "common_reporting_line_id" in body.model_fields_set:
+        # Canonical Account → FSLI mapping. Setting/clearing this is what
+        # Mapping Center, the wizard, and the by-FSLI statements all read.
+        account.common_reporting_line_id = body.common_reporting_line_id
+        account.crl_state = "assigned" if body.common_reporting_line_id is not None else "unclassified"
     if body.parent_account_id is not None:
         account.parent_account_id = body.parent_account_id
     if body.active is not None:

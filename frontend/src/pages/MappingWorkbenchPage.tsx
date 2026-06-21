@@ -1623,8 +1623,8 @@ export function MappingWorkbenchPage() {
 
   return (
     <PageLayout
-      title="Mapping Workbench"
-      subtitle={batch ? `${batch.filename} · ${unmappedCount} of ${batch.row_count ?? 0} lines unmapped` : 'Loading…'}
+      title="Advanced Mapping (per batch)"
+      subtitle={batch ? `${batch.filename} · ${unmappedCount} of ${batch.row_count ?? 0} lines unmapped — power-user editor; most mapping is done in the wizard or Mapping Center` : 'Loading…'}
       actions={
         <div className="flex items-center gap-2">
           <button
@@ -1672,6 +1672,14 @@ export function MappingWorkbenchPage() {
         </div>
       }
     >
+      <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3 text-[11px] text-amber-900 flex items-start gap-2" data-testid="advanced-mapping-banner">
+        <span className="font-semibold">Advanced editor.</span>
+        <span>
+          This is the per-batch power-user editor. Normal mapping happens in the wizard's step 4
+          or in <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
+        </span>
+      </div>
+
       {apiError && <ErrorBanner message={apiError} />}
 
       {/* Issue 7 — FSLI source banner + selector */}

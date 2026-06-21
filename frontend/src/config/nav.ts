@@ -58,7 +58,6 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     items: [
       { id: 'import', label: 'Import Center', to: '/import', icon: Upload, badgeKey: 'import-unmapped' },
       { id: 'mapping', label: 'Mapping Center', to: '/mapping', icon: Link2 },
-      { id: 'taxonomy-mapping', label: 'Taxonomy Mapping', to: '/taxonomy/mapping', icon: Map },
     ],
   },
   {
@@ -96,6 +95,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
       { id: 'admin-documents', label: 'Documents', to: '/admin/documents', icon: FolderOpen },
       { id: 'admin-settings', label: 'Settings', to: '/admin/settings', icon: Settings2 },
       { id: 'taxonomy-library', label: 'Taxonomy Library', to: '/taxonomy/library', icon: Library },
+      { id: 'advanced-taxonomy-override', label: 'Advanced Taxonomy Override', to: '/taxonomy/mapping', icon: Map },
     ],
   },
 ]

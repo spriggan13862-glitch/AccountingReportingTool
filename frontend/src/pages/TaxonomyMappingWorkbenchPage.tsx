@@ -425,8 +425,8 @@ export function TaxonomyMappingWorkbenchPage() {
 
   return (
     <PageLayout
-      title="Taxonomy Mapping Workbench"
-      subtitle="Map accounts to FSLI taxonomy lines per reporting view"
+      title="Advanced Taxonomy Override"
+      subtitle="Power-user editor for per-view taxonomy overrides. Most users do mapping in Mapping Center."
       actions={
         <div className="flex items-center gap-2">
           <button
@@ -452,6 +452,13 @@ export function TaxonomyMappingWorkbenchPage() {
       }
     >
       <div className="space-y-3" data-testid="taxonomy-mapping-workbench">
+        <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2" data-testid="advanced-override-banner">
+          <span className="font-semibold">Advanced editor.</span>
+          <span>
+            You're in the per-view taxonomy override editor. For normal account-to-FSLI mapping, use{' '}
+            <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
+          </span>
+        </div>
         {/* View selector + search + stats bar */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
