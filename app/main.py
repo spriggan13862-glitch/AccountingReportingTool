@@ -43,6 +43,7 @@ from app.api.routers import (
     setup,
     taxonomy_library,
     common_reporting_lines,
+    crl_financial_statements,
 
     tb_import,
     users,
@@ -360,6 +361,11 @@ app.include_router(
     common_reporting_lines.router,
     prefix=f"{API_PREFIX}/common-reporting-lines",
     tags=["common-reporting-lines"],
+)
+app.include_router(
+    crl_financial_statements.router,
+    prefix=f"{API_PREFIX}/financial-statements/crl",
+    tags=["financial-statements-crl"],
 )
 
 

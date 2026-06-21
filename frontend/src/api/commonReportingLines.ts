@@ -68,6 +68,46 @@ export interface TemplateUpdatePayload {
   organization_id?: number
 }
 
+// ── CRL-G / P5 reporting types ────────────────────────────────────────────
+export interface CrlStatementRow {
+  crl_id: number
+  crl_code: string
+  crl_name: string
+  section: string
+  statement_type: string
+  parent_crl_id: number | null
+  normal_balance: string | null
+  sort_order: number
+  is_mandatory: boolean
+  is_system: boolean
+  depth: number
+  account_count: number
+  own_signed_balance: string
+  total_signed_balance: string
+  display_balance: string
+}
+
+export interface CrlStatementResponse {
+  rows: CrlStatementRow[]
+  sections: string[]
+  total_accounts: number
+  classified_accounts: number
+  unclassified_accounts: number
+  needs_review_accounts: number
+  accounts_outside_template: number
+  template_id: number | null
+  statement_type: string | null
+}
+
+export interface CrlStatementParams {
+  entity_id: number
+  as_of_date: string
+  scenario_ids?: number[]
+  organization_id?: number
+  template_id?: number
+  data_view?: 'as_reported' | 'adjusted' | 'pro_forma'
+}
+
 export interface ReportingTemplate {
   id: number
   code: string
@@ -182,4 +222,21 @@ export const commonReportingLinesApi = {
       `/common-reporting-lines/templates/${templateId}/crls`,
       body,
     ).then((r) => r.data),
+
+  // ── CRL-G / P5: reporting reads through the CRL layer ────────────────
+  trialBalance: (params: CrlStatementParams): Promise<CrlStatementResponse> =>
+    api.get<CrlStatementResponse>('/financial-statements/crl/trial-balance', { params })
+      .then((r) => r.data),
+
+  balanceSheet: (params: CrlStatementParams): Promise<CrlStatementResponse> =>
+    api.get<CrlStatementResponse>('/financial-statements/crl/balance-sheet', { params })
+      .then((r) => r.data),
+
+  incomeStatement: (params: CrlStatementParams): Promise<CrlStatementResponse> =>
+    api.get<CrlStatementResponse>('/financial-statements/crl/income-statement', { params })
+      .then((r) => r.data),
+
+  cashFlow: (params: CrlStatementParams): Promise<CrlStatementResponse> =>
+    api.get<CrlStatementResponse>('/financial-statements/crl/cash-flow', { params })
+      .then((r) => r.data),
 }

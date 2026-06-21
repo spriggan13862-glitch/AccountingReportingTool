@@ -279,6 +279,56 @@ test.describe('Simplified TB wizard', () => {
     ).toBeVisible({ timeout: 5_000 })
   })
 
+  test('CRL-G: trial-balance endpoint exists', async ({ request }) => {
+    // We don't know a real entity id in this env — but the route should
+    // either return a 200/422/400 (validation), not a 404 for the route itself.
+    const res = await request.get(
+      'http://localhost:8002/api/v1/financial-statements/crl/trial-balance?entity_id=999999&as_of_date=2026-01-31',
+    )
+    expect([200, 401, 403, 422, 400]).toContain(res.status())
+  })
+
+  test('CRL-G: balance-sheet endpoint exists', async ({ request }) => {
+    const res = await request.get(
+      'http://localhost:8002/api/v1/financial-statements/crl/balance-sheet?entity_id=999999&as_of_date=2026-01-31',
+    )
+    expect([200, 401, 403, 422, 400]).toContain(res.status())
+  })
+
+  test('CRL-G: income-statement endpoint exists', async ({ request }) => {
+    const res = await request.get(
+      'http://localhost:8002/api/v1/financial-statements/crl/income-statement?entity_id=999999&as_of_date=2026-01-31',
+    )
+    expect([200, 401, 403, 422, 400]).toContain(res.status())
+  })
+
+  test('CRL-G: /statements/crl page renders controls', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/statements/crl')
+    await expect(page.getByTestId('crl-stmt-tabs')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('crl-stmt-tab-balance-sheet')).toBeVisible()
+    await expect(page.getByTestId('crl-stmt-tab-income-statement')).toBeVisible()
+  })
+
+  test('CRL-G: What\'s New mentions reporting endpoints', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/overview')
+    const toggle = page.getByRole('button', { name: /what's new/i })
+    await toggle.scrollIntoViewIfNeeded()
+    await toggle.click()
+    await expect(
+      page.getByText(/Statements by Reporting Line|CRL-G|read through the CRL layer/i).first(),
+    ).toBeVisible({ timeout: 5_000 })
+  })
+
   test('Phase E: /import/new redirects to canonical wizard', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel(/email/i).fill('admin@livemarketing.test')

@@ -36,6 +36,21 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'CRL-G / P5 · Statements by Reporting Line — reporting endpoints read through the CRL layer',
+    date: '2026-06-21',
+    items: [
+      'Four new endpoints under /api/v1/financial-statements/crl: trial-balance (all sections), balance-sheet, income-statement, cash-flow. Each rolls the posted trial balance up to the Common Reporting Line layer using the precedence chain (direct CRL → Sprint O → legacy taxonomy).',
+      'New service crl_reporting_service.get_crl_statement(): bulk resolves accounts to CRLs, aggregates per-CRL net-debit, rolls children into parents via parent_crl_id hierarchy, flips sign for credit-normal sections (Revenue / Liabilities / Equity / Other Income-Expense) so the rendered statement shows positives.',
+      'Response includes diagnostic counters: total_accounts / classified_accounts / unclassified_accounts (routed to CRL_UNCLASSIFIED sentinel) / needs_review_accounts / accounts_outside_template (when a reporting template is selected).',
+      'template_id filter narrows visible rows to a template\'s CRL set while keeping mandatory sentinels (Unclassified, Needs Review) visible so status banners stay meaningful. Accounts whose CRL is outside the template surface in accounts_outside_template — no silent data loss.',
+      'New page at /statements/crl ("By Reporting Line" in the left nav under Review & Adjust): entity + as-of-date + optional template selector, four tabs (Balance Sheet default / Income Statement / Cash Flow / Trial Balance), color-coded status banner, sections rolled up with depth-aware indent for sub-lines.',
+      'Money values serialize as strings (Decimal) so the frontend can parse with arbitrary precision; sign convention preserved via display_balance vs total_signed_balance.',
+      'Backend tests: 12 new CRL-G tests covering per-CRL aggregation, direct + Sprint O resolution, unclassified fallback counters, credit-normal sign flip, statement-type filter, template-filter exclusion + accounts_outside_template counter, parent rollup math, HTTP endpoint shape, empty-entity zero counts.',
+      'Playwright: 5 new CRL-G coverage tests (4 endpoint existence + page renders + What\'s New).',
+      'Architecture v2 reporting layer is now complete: every CRL phase B → G is implemented and tested. The CRL layer is the canonical reporting boundary the rest of the system reads from.',
+    ],
+  },
+  {
     version: 'CRL-F · Settings → Reporting Lines + Reporting Templates admin',
     date: '2026-06-21',
     items: [

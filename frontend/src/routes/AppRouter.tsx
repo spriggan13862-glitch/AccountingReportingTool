@@ -24,6 +24,7 @@ import { ReconciliationDetailPage } from '@/pages/ReconciliationDetailPage'
 import { ConsolidationsPage } from '@/pages/ConsolidationsPage'
 import { TrialBalancesPage } from '@/pages/TrialBalancesPage'
 import { FinancialStatementsPage } from '@/pages/FinancialStatementsPage'
+import { CrlStatementsPage } from '@/pages/CrlStatementsPage'
 import { FinancialImpactWorkspacePage } from '@/pages/FinancialImpactWorkspacePage'
 import { DeliverablesWorkspacePage } from '@/pages/DeliverablesWorkspacePage'
 import { ReportBuilderPage } from '@/pages/ReportBuilderPage'
@@ -101,6 +102,7 @@ export function AppRouter() {
           <Route path="import" element={<ImportCenterPage />} />
           <Route path="mapping" element={<TaxonomyAdminPage />} />
           <Route path="statements" element={<FinancialStatementsPage />} />
+          <Route path="statements/crl" element={<CrlStatementsPage />} />
           <Route path="bridge" element={<AdjustmentBridgePage />} />
           <Route path="consolidation" element={<ConsolidationsPage />} />
           <Route path="exports" element={<DeliverablesWorkspacePage />} />
