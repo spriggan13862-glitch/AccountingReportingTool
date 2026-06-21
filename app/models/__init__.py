@@ -13,6 +13,7 @@ from app.models.common_reporting_line import (
     ReportingTemplate,
     ReportingTemplateCrl,
 )
+from app.models.crl_migration_acknowledgment import CrlMigrationAcknowledgment
 from app.models.coa_import_batch import COAImportBatch
 from app.models.pdf_import_batch import PDFImportBatch
 from app.models.pdf_import_line import PDFImportLine

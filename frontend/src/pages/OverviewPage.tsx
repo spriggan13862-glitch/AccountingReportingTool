@@ -36,6 +36,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'CRL-D · migration validation report + safe backfill executor',
+    date: '2026-06-21',
+    items: [
+      'Generates a per-organization CRL migration report classifying every account into one of six buckets: ready_to_assign / ambiguous / no_canonical_crl / classification_change / unmapped / already_migrated.',
+      'New CLI: scripts/crl_migration_report.py with --dry-run (produces JSON report), --ack-hash HASH (records admin acknowledgment), --execute (runs the safe backfill).',
+      'Acknowledgment table (crl_migration_acknowledgments) gates destructive writes. The hash binds to the exact account state; if accounts change between ack and execute, the executor refuses with a clear error.',
+      'Safe backfill rules: READY auto-assigns to its CRL; AMBIGUOUS lands on CRL_NEEDS_REVIEW (preserving taxonomy link); NO_CANONICAL and UNMAPPED land on CRL_UNCLASSIFIED; CLASSIFICATION_CHANGE still auto-assigns (flag is diagnostic only); ALREADY_MIGRATED is never touched.',
+      'Report hash is SHA-256 over a deterministic projection (excludes timestamps + human-readable reasons) so it stays stable across runs against the same state.',
+      'Smoke-tested on the dev DB: 367 accounts categorized (148 ready, 36 ambiguous, 16 no-canonical, 167 unmapped); after ack + execute, all 367 land in the correct buckets and the next dry-run reports them all as already_migrated.',
+      'Honors ENVIRONMENT — refuses staging/production without --confirm-environment.',
+      'Backend tests: 17 covering categorization for every bucket, hash stability + state-change detection, acknowledgment gate, backfill assignments, idempotency. CRL backend total now 57.',
+    ],
+  },
+  {
     version: 'CRL-C · CRL resolver, suggestion engine, and apply/save endpoints',
     date: '2026-06-21',
     items: [
