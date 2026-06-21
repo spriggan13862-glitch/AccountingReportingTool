@@ -62,4 +62,38 @@ test.describe('Simplified TB wizard', () => {
     ).toBeVisible({ timeout: 5_000 })
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'whats-new.png'), fullPage: true })
   })
+
+  test('Phase F: redesign What\'s New entry visible', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/overview')
+    const toggle = page.getByRole('button', { name: /what's new/i })
+    await toggle.scrollIntoViewIfNeeded()
+    await toggle.click()
+    await expect(page.getByText(/TB Import workflow redesign/i).first()).toBeVisible({ timeout: 5_000 })
+    await expect(page.getByText(/six steps/i).first()).toBeVisible()
+  })
+
+  test('Phase C: /import/:id redirects to wizard with ?batchId', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/import/123')
+    await expect(page).toHaveURL(/trial-balance\?batchId=123/, { timeout: 5_000 })
+  })
+
+  test('Phase E: /import/new redirects to canonical wizard', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/import/new')
+    await expect(page).toHaveURL(/client-data\/imports\/trial-balance/, { timeout: 5_000 })
+  })
 })

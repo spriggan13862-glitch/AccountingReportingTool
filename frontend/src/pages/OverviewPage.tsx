@@ -36,6 +36,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'TB Import workflow redesign · one wizard, six steps, ~2-minute import',
+    date: '2026-06-21',
+    items: [
+      'Single canonical Trial Balance wizard owns the entire flow: Upload → Worksheet → Column Mapping → Suggest FS Lines → Review Exceptions → Post. No more bouncing between wizard, Mapping Workbench, and Auto-Map modal.',
+      'Wizard step 4 (Suggest FS Lines) absorbed the Auto-Map experience inline: filter chips (All / Auto-mapped / Needs review / No suggestion), search by account number or name, "Accept all ≥ N%" confidence threshold, per-row override dropdown grouped by statement section.',
+      'Wizard step 5 (Review Exceptions) absorbed the deprecated ImportReviewPage: grouped severity issues panel (errors always expanded, warnings/info collapsible), CSV export, "Blocks posting" badges, totals summary (imported / auto-mapped / need review / excluded / errors).',
+      'ImportWizardPage (the duplicate 7-step wizard) deleted. /import/new redirects to the canonical wizard.',
+      'ImportReviewPage deleted. /import/:id and /client-data/imports/:id redirect to the wizard\'s Review Exceptions step via ?batchId=N.',
+      'Mapping Workbench demoted to power-user "Advanced editor" at /import/:id/advanced-mapping. Reachable from a small link in the wizard for the rare cases the wizard cannot handle. No primary nav entry.',
+      'Backend: new POST /tb-imports/batches/{id}/save-fsli-selections endpoint lets the wizard persist per-line FSLI overrides as the user edits them.',
+      'Architecture decision record: docs/architecture/TB_IMPORT_WORKFLOW_REDESIGN.md captures the redesign in full (current/proposed diagrams, screens to eliminate/merge/keep, CPA acceptance flow, retired endpoints).',
+    ],
+  },
+  {
     version: 'Simplified TB wizard · Suggest Financial Statement Lines in-line',
     date: '2026-06-21',
     items: [
