@@ -122,6 +122,11 @@ export function AppRouter() {
           <Route path="client-data/imports/general-ledger" element={<GeneralLedgerImportPage />} />
           <Route path="client-data/imports/journal-entries" element={<JournalEntryImportPage />} />
           <Route path="client-data/imports/generic" element={<ImportCenterPage />} />
+          {/* Phase D: MappingWorkbench moved from /imports/:id/mapping to
+              /imports/:id/advanced-mapping. Old URL kept as redirect so any
+              bookmarks land on the same page. The wizard is now the
+              canonical entry point for mapping; this is the power-user editor. */}
+          <Route path="client-data/imports/:id/advanced-mapping" element={<MappingWorkbenchPage />} />
           <Route path="client-data/imports/:id/mapping" element={<MappingWorkbenchPage />} />
           <Route path="client-data/imports/:id" element={<ImportReviewRedirect />} />
           <Route path="client-data/documents" element={<DocumentsPage />} />
@@ -235,6 +240,7 @@ export function AppRouter() {
           <Route path="pdf-import" element={<PDFImportPage />} />
           <Route path="coa-import" element={<COAImportPage />} />
           <Route path="import/new" element={<ImportWizardPage />} />
+          <Route path="import/:id/advanced-mapping" element={<MappingWorkbenchPage />} />
           <Route path="import/:id/mapping" element={<MappingWorkbenchPage />} />
           <Route path="import/:id" element={<ImportReviewRedirect />} />
           <Route path="import" element={<Navigate replace to="/client-data/imports" />} />

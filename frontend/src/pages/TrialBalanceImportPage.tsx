@@ -1385,13 +1385,25 @@ export function TrialBalanceImportPage() {
                     <p className="text-[10px] text-yellow-600 mt-0.5">Some imported accounts are not mapped to your Chart of Accounts. These must be resolved before posting.</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate(`/import/${batchId}/mapping`)}
-                  className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-semibold rounded shrink-0 transition-colors"
-                >
-                  Resolve Mappings
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-semibold rounded transition-colors"
+                    data-testid="resolve-mappings-in-wizard-btn"
+                  >
+                    Back to Suggest FS Lines
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/import/${batchId}/advanced-mapping`)}
+                    className="text-[11px] text-yellow-700 hover:text-yellow-900 underline"
+                    title="Power-user editor with all filters and bulk actions"
+                    data-testid="advanced-mapping-link"
+                  >
+                    Advanced editor
+                  </button>
+                </div>
               </div>
             )}
 

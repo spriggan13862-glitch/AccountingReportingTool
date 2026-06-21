@@ -222,15 +222,17 @@ export function ImportCenterPage() {
           progress = totalCount ? Math.round(((totalCount - unmappedCount) / totalCount) * 100) : 100
           lastAction = tb.status === 'posted' ? 'Finalized' : tb.status === 'ready_to_post' ? 'Validated' : 'Uploaded'
           
+          // Phase D: Map / Review / View all route to the wizard now
+          // (wizard auto-jumps to Review Exceptions when batchId is on URL).
           if (tb.status === 'mapping_required') {
-            reviewActionText = 'Map Accounts'
-            reviewActionPath = `/import/${tb.id}/mapping`
+            reviewActionText = 'Resume Import'
+            reviewActionPath = `/client-data/imports/trial-balance?batchId=${tb.id}`
           } else if (tb.status === 'ready_to_post') {
             reviewActionText = 'Review & Post'
-            reviewActionPath = `/import/${tb.id}`
+            reviewActionPath = `/client-data/imports/trial-balance?batchId=${tb.id}`
           } else {
             reviewActionText = 'View'
-            reviewActionPath = `/import/${tb.id}`
+            reviewActionPath = `/client-data/imports/trial-balance?batchId=${tb.id}`
           }
         } else {
           reviewActionPath = `/import/${entry.source_id}`
