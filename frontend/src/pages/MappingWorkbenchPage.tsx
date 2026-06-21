@@ -261,7 +261,7 @@ function getMappingStatusLabel(
   if (!line.raw_account_number?.trim()) {
     return <span className="text-xs text-amber-600 italic">Awaiting parent assignment</span>
   }
-  return <span className="text-xs text-indigo-500 italic">Will create new COA account</span>
+  return <span className="text-xs text-indigo-500 italic">New COA account candidate</span>
 }
 
 function guessAccountTypeAndNormal(code: string): { account_type: string; normal_balance: string } {
@@ -1241,9 +1241,9 @@ export function MappingWorkbenchPage() {
         const isInherited = eff && (eff.mapping_source === 'parent' || eff.mapping_source === 'grandparent')
         const currentValue = eff?.taxonomy_line_id ?? acct.reporting_taxonomy_line_id ?? ''
 
-        // Issue 13 — badge source
-        const isSprintO = !!eff?.taxonomy_line_id
-        const isLegacy = !eff?.taxonomy_line_id && acct.reporting_taxonomy_line_id != null
+        // Implementation-detail badges (Sprint O vs Legacy) intentionally
+        // hidden from the user — they don't need to know where the mapping
+        // is stored internally.
 
         return (
           <div className="flex flex-col gap-0.5 py-2">
@@ -1284,12 +1284,6 @@ export function MappingWorkbenchPage() {
               {isInherited && (
                 <span className="text-[10px] text-gray-400 italic">inherited</span>
               )}
-              {isSprintO && (
-                <span className="text-[9px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded" data-testid={`sprint-o-badge-${line.id}`}>Sprint O</span>
-              )}
-              {isLegacy && (
-                <span className="text-[9px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded" data-testid={`legacy-badge-${line.id}`}>Legacy</span>
-              )}
             </div>
           </div>
         )
@@ -1318,9 +1312,10 @@ export function MappingWorkbenchPage() {
           )
         }
         if (eff.mapping_source === 'legacy') {
+          // Hidden implementation detail — surface as "Existing" without revealing the storage.
           return (
-            <span className="text-[10px] text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded">
-              Legacy
+            <span className="text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+              Existing
             </span>
           )
         }

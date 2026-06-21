@@ -859,6 +859,11 @@ export interface ImportLine {
   mapped_at: string | null
   suggested_account_id: number | null
   notes: string | null
+  // Staged FSLI suggestion (simplified TB wizard)
+  suggested_fsli_taxonomy_node_id?: number | null
+  suggested_fsli_confidence?: number | null
+  suggested_fsli_reason?: string | null
+  selected_fsli_taxonomy_node_id?: number | null
 }
 
 export interface ImportIssue {

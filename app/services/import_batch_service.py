@@ -1439,6 +1439,31 @@ def post_batch(
         .all()
     )
 
+    # Transfer staged FSLI selection from ImportLine onto the Account before
+    # we post. The wizard's "Suggest Financial Statement Lines" step writes
+    # selected_fsli_taxonomy_node_id; post-time we promote it.
+    from app.models.taxonomy import TaxonomyNode  # local to avoid cycles
+    from app.models.reporting_taxonomy import ReportingTaxonomyLine
+    for line in lines:
+        if line.resolved_account_id is None or line.selected_fsli_taxonomy_node_id is None:
+            continue
+        account = db.get(Account, line.resolved_account_id)
+        if account is None:
+            continue
+        # Only set if not already mapped — never silently overwrite a manual mapping.
+        node = db.get(TaxonomyNode, line.selected_fsli_taxonomy_node_id)
+        if node is None:
+            continue
+        # We map the Sprint O TaxonomyNode back to a legacy ReportingTaxonomyLine
+        # by code when possible; if no matching line exists we leave it alone.
+        existing_legacy = (
+            db.query(ReportingTaxonomyLine)
+            .filter_by(code=node.code)
+            .first()
+        )
+        if existing_legacy and account.reporting_taxonomy_line_id is None:
+            account.reporting_taxonomy_line_id = existing_legacy.id
+
     # Aggregate by account_id
     totals: dict[int, tuple[Account, Decimal, Decimal]] = {}
     for line in lines:

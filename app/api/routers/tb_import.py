@@ -704,6 +704,162 @@ def create_account_from_line(
 
 
 # ---------------------------------------------------------------------------
+# Agent — Simplified TB wizard: in-wizard FSLI suggestion + apply
+# ---------------------------------------------------------------------------
+
+@router.post("/batches/{batch_id}/suggest-fsli", response_model=dict)
+def suggest_fsli_for_batch(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Run the rule engine over every ImportLine in this batch using its raw
+    account_number + account_name. Returns one suggestion per line (or null
+    if no match). Does NOT require any Account records to exist — works on
+    the imported strings directly so the wizard can suggest FSLI before the
+    user has touched the Mapping Workbench.
+
+    Body: {"taxonomy_id": int}
+    Returns: {"suggestions": [{line_id, suggested_fsli_taxonomy_node_id,
+              confidence, reason, node_code, node_name}], "matched": N,
+              "unmatched": M}
+    """
+    from app.models.taxonomy import Taxonomy
+    from app.models.import_line import ImportLine
+    from app.services.taxonomy_mapping_rules import suggest_mapping_from_strings
+    from app.services.import_batch_service import guess_account_type_and_normal
+
+    taxonomy_id = body.get("taxonomy_id")
+    if not taxonomy_id:
+        raise HTTPException(status_code=400, detail="taxonomy_id is required")
+    taxonomy = db.query(Taxonomy).filter_by(id=taxonomy_id).first()
+    if not taxonomy:
+        raise HTTPException(status_code=404, detail=f"Taxonomy {taxonomy_id} not found")
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted — cannot re-suggest")
+
+    lines = db.query(ImportLine).filter_by(batch_id=batch_id).all()
+    matched = 0
+    out_suggestions: list[dict] = []
+    for line in lines:
+        acct_type, _ = guess_account_type_and_normal(line.raw_account_number, line.raw_account_name)
+        suggestion = suggest_mapping_from_strings(
+            line.raw_account_number, line.raw_account_name, acct_type, taxonomy, db,
+        )
+        if suggestion is None:
+            out_suggestions.append({
+                "line_id": line.id,
+                "suggested_fsli_taxonomy_node_id": None,
+                "confidence": None,
+                "reason": None,
+                "node_code": None,
+                "node_name": None,
+            })
+            continue
+        matched += 1
+        out_suggestions.append({
+            "line_id": line.id,
+            "suggested_fsli_taxonomy_node_id": suggestion.taxonomy_node_id,
+            "confidence": suggestion.confidence_score,
+            "reason": suggestion.reason,
+            "node_code": suggestion.node_code,
+            "node_name": suggestion.node_name,
+        })
+        # Stage on the ImportLine so the next page load shows what was suggested
+        line.suggested_fsli_taxonomy_node_id = suggestion.taxonomy_node_id
+        line.suggested_fsli_confidence = suggestion.confidence_score
+        line.suggested_fsli_reason = suggestion.reason
+    db.commit()
+    return {
+        "suggestions": out_suggestions,
+        "matched": matched,
+        "unmatched": len(lines) - matched,
+        "taxonomy_id": taxonomy_id,
+        "taxonomy_name": taxonomy.name,
+    }
+
+
+@router.post("/batches/{batch_id}/apply-fsli-suggestions", response_model=dict)
+def apply_fsli_suggestions(
+    batch_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_required_user),
+) -> dict:
+    """
+    Promote staged FSLI suggestions to selected_fsli_taxonomy_node_id on each
+    line. Mode controls what happens when a line already has a selected FSLI:
+
+      blank_only (default) — only set on lines whose selected_* is NULL
+      replace              — overwrite any existing selected_* with the suggestion
+      preserve             — never overwrite (synonym of blank_only, included for clarity)
+
+    Body: {"line_ids": [int, ...] | "all", "mode": "blank_only"|"replace"|"preserve"}
+    Returns: {"applied": N, "skipped": M, "skipped_reason": str | None,
+              "next_action": "Continue to Review Exceptions"}
+    """
+    from app.models.import_line import ImportLine
+
+    mode = (body.get("mode") or "blank_only").lower()
+    if mode not in {"blank_only", "replace", "preserve"}:
+        raise HTTPException(status_code=400, detail=f"Unknown mode {mode!r}")
+
+    batch = db.query(ImportBatch).filter_by(id=batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+    if batch.status == "posted":
+        raise HTTPException(status_code=409, detail="Batch is posted")
+
+    line_ids = body.get("line_ids")
+    q = db.query(ImportLine).filter_by(batch_id=batch_id)
+    if line_ids and line_ids != "all":
+        q = q.filter(ImportLine.id.in_(line_ids))
+    lines = q.all()
+
+    applied = 0
+    skipped_existing = 0
+    skipped_no_suggestion = 0
+    for line in lines:
+        if line.suggested_fsli_taxonomy_node_id is None:
+            skipped_no_suggestion += 1
+            continue
+        if line.selected_fsli_taxonomy_node_id is not None and mode != "replace":
+            skipped_existing += 1
+            continue
+        line.selected_fsli_taxonomy_node_id = line.suggested_fsli_taxonomy_node_id
+        applied += 1
+    db.commit()
+
+    skipped = skipped_existing + skipped_no_suggestion
+    reason = None
+    if applied == 0 and skipped_existing > 0:
+        reason = (
+            f"All {skipped_existing} selected accounts already have an FSLI "
+            f"assignment. Choose 'Replace existing' to overwrite them."
+        )
+    elif applied == 0 and skipped_no_suggestion > 0:
+        reason = (
+            f"None of the {skipped_no_suggestion} selected lines had a "
+            f"system-suggested FSLI. Run 'Suggest Financial Statement Lines' "
+            f"again with a different taxonomy basis."
+        )
+    return {
+        "applied": applied,
+        "skipped": skipped,
+        "skipped_existing": skipped_existing,
+        "skipped_no_suggestion": skipped_no_suggestion,
+        "skipped_reason": reason,
+        "next_action": "Continue to Review Exceptions" if applied > 0 else None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # M23 Batch pipeline — validate / post / rollback
 # ---------------------------------------------------------------------------
 

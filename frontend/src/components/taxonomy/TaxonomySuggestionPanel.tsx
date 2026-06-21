@@ -396,7 +396,9 @@ export function TaxonomySuggestionPanel({
                   </td>
                   <td className="px-3 py-2 text-gray-700">{f.suggestion.taxonomy_code}</td>
                   <td className="px-3 py-2 text-gray-800">
-                    <span className="font-mono text-[11px] text-gray-500 mr-1">{f.suggestion.node_code}</span>
+                    {/* Show only the name. The code (e.g. "CASH") used to
+                        render alongside ("CASH Cash"), which was awkward
+                        when name == titleized(code). */}
                     <span>{f.suggestion.node_name}</span>
                   </td>
                   <td className="px-3 py-2">
@@ -419,10 +421,20 @@ export function TaxonomySuggestionPanel({
         className="flex flex-wrap items-center justify-between gap-2 px-2 py-2 bg-gray-50 border border-gray-200 rounded-lg"
         data-testid="suggestion-footer"
       >
-        <div className="text-xs text-gray-700" data-testid="selected-count">
-          {selectedCount} of {sortedSuggestions.length} selected
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-700" data-testid="selected-count">
+            {selectedCount} of {sortedSuggestions.length} selected
+          </span>
+          <button
+            type="button"
+            onClick={toggleAllVisible}
+            className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+            data-testid="suggestion-select-all-btn"
+          >
+            {allVisibleSelected ? 'Deselect all' : 'Select all'}
+          </button>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-600">
+        <div className="flex items-center gap-2 text-xs text-gray-600 flex-wrap">
           <button
             type="button"
             onClick={applySelected}
@@ -463,10 +475,23 @@ export function TaxonomySuggestionPanel({
 
       {lastSummary && (
         <div
-          className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-1.5"
+          className={`text-xs rounded p-3 border ${
+            lastSummary.applied > 0
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-amber-50 border-amber-200 text-amber-800'
+          }`}
           data-testid="apply-summary"
         >
-          Applied {lastSummary.applied}, skipped {lastSummary.skipped} (existing mapping preserved)
+          <p className="font-semibold">
+            {lastSummary.applied} applied
+            {lastSummary.skipped > 0 && `, ${lastSummary.skipped} skipped`}.
+          </p>
+          {lastSummary.applied === 0 && lastSummary.skipped > 0 && (
+            <p className="text-[11px] mt-1">
+              All selected accounts already have a financial statement line. To overwrite,
+              change the apply mode in the wizard's "Suggest Financial Statement Lines" step.
+            </p>
+          )}
         </div>
       )}
     </div>

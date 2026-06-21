@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useFormatCurrencyCompact } from '@/hooks/useFormatCurrency'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Upload, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
-  FileText, Download, Sparkles, RefreshCw, Layers
+  FileText, Download, Sparkles, RefreshCw, Layers, Loader2,
 } from 'lucide-react'
+import api from '@/api/client'
 import { tbImportApi } from '@/api/tbImport'
+import { taxonomyLibraryApi } from '@/api/taxonomyLibrary'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
 import { EntitySelect } from '@/components/ui/EntitySelect'
@@ -18,6 +20,399 @@ import { StepIndicator } from '@/components/import-wizard'
 import { AccountingDataGrid } from '@/components/data-grid'
 import type { WizardStep } from '@/components/import-wizard/types'
 import type { SheetInfo } from '@/types'
+
+// ---------------------------------------------------------------------------
+// Simplified TB wizard — Suggest Financial Statement Lines step
+// ---------------------------------------------------------------------------
+
+interface SuggestFsliResponse {
+  suggestions: Array<{
+    line_id: number
+    suggested_fsli_taxonomy_node_id: number | null
+    confidence: number | null
+    reason: string | null
+    node_code: string | null
+    node_name: string | null
+  }>
+  matched: number
+  unmatched: number
+  taxonomy_id: number
+  taxonomy_name: string
+}
+
+interface ApplyFsliResponse {
+  applied: number
+  skipped: number
+  skipped_existing: number
+  skipped_no_suggestion: number
+  skipped_reason: string | null
+  next_action: string | null
+}
+
+function SuggestFsliStep({
+  batchId,
+  onBack,
+  onContinue,
+}: {
+  batchId: number
+  onBack: () => void
+  onContinue: () => void
+}) {
+  const toast = useToast()
+  const [selectedTaxonomyId, setSelectedTaxonomyId] = useState<number | null>(null)
+  const [applyMode, setApplyMode] = useState<'blank_only' | 'replace' | 'preserve'>('blank_only')
+  const [suggestResult, setSuggestResult] = useState<SuggestFsliResponse | null>(null)
+  const [applyResult, setApplyResult] = useState<ApplyFsliResponse | null>(null)
+  const [checkedLines, setCheckedLines] = useState<Set<number>>(new Set())
+
+  const { data: taxonomies = [], isLoading: taxonomiesLoading } = useQuery({
+    queryKey: ['taxonomies-list'],
+    queryFn: () => taxonomyLibraryApi.list(),
+  })
+  const systemTaxonomies = useMemo(
+    () => taxonomies.filter((t) => t.is_system),
+    [taxonomies],
+  )
+
+  // Default to US GAAP once taxonomies load
+  useEffect(() => {
+    if (!selectedTaxonomyId && systemTaxonomies.length > 0) {
+      const usgaap = systemTaxonomies.find((t) => t.code === 'us_gaap')
+      setSelectedTaxonomyId((usgaap ?? systemTaxonomies[0]).id)
+    }
+  }, [systemTaxonomies, selectedTaxonomyId])
+
+  const runSuggestions = useMutation({
+    mutationFn: async () => {
+      if (!selectedTaxonomyId) throw new Error('Pick a financial statement structure first')
+      const res = await api.post<SuggestFsliResponse>(
+        `/tb-imports/batches/${batchId}/suggest-fsli`,
+        { taxonomy_id: selectedTaxonomyId },
+      )
+      return res.data
+    },
+    onSuccess: (data) => {
+      setSuggestResult(data)
+      // Default-check every matched line so Apply Selected starts with a useful set.
+      const matchedLineIds = data.suggestions
+        .filter((s) => s.suggested_fsli_taxonomy_node_id !== null)
+        .map((s) => s.line_id)
+      setCheckedLines(new Set(matchedLineIds))
+      setApplyResult(null)
+      toast(`${data.matched} of ${data.suggestions.length} accounts matched`, 'success')
+    },
+    onError: (e: Error) => toast(`Failed to suggest: ${e.message}`, 'error'),
+  })
+
+  const apply = useMutation({
+    mutationFn: async (mode: typeof applyMode) => {
+      const lineIds = mode === 'replace' || checkedLines.size === 0
+        ? 'all'
+        : Array.from(checkedLines)
+      const res = await api.post<ApplyFsliResponse>(
+        `/tb-imports/batches/${batchId}/apply-fsli-suggestions`,
+        { line_ids: lineIds, mode },
+      )
+      return res.data
+    },
+    onSuccess: (data) => {
+      setApplyResult(data)
+      if (data.applied > 0) {
+        toast(`Applied ${data.applied} financial statement line${data.applied === 1 ? '' : 's'}.`, 'success')
+      } else if (data.skipped_reason) {
+        toast(data.skipped_reason, 'info')
+      }
+    },
+    onError: (e: Error) => toast(`Failed to apply: ${e.message}`, 'error'),
+  })
+
+  function selectAll() {
+    if (!suggestResult) return
+    setCheckedLines(new Set(
+      suggestResult.suggestions
+        .filter((s) => s.suggested_fsli_taxonomy_node_id !== null)
+        .map((s) => s.line_id),
+    ))
+  }
+  function deselectAll() {
+    setCheckedLines(new Set())
+  }
+  function toggleLine(lineId: number) {
+    setCheckedLines((p) => {
+      const next = new Set(p)
+      if (next.has(lineId)) next.delete(lineId)
+      else next.add(lineId)
+      return next
+    })
+  }
+
+  const matched = suggestResult?.matched ?? 0
+  const unmatched = suggestResult?.unmatched ?? 0
+  const total = matched + unmatched
+  const visibleSuggestions = suggestResult?.suggestions ?? []
+  const matchedVisible = visibleSuggestions.filter((s) => s.suggested_fsli_taxonomy_node_id !== null)
+
+  return (
+    <div className="space-y-6" data-testid="suggest-fsli-step">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Suggest Financial Statement Lines</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          Pick a financial statement structure (US GAAP by default) and we'll suggest the right
+          line for each imported account based on its name, number, and amount.
+        </p>
+      </div>
+
+      {/* Taxonomy basis selector */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 max-w-xl">
+        <label className="block text-xs font-semibold text-gray-700 mb-2">Financial statement structure</label>
+        {taxonomiesLoading ? (
+          <div className="flex items-center gap-2 text-xs text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+        ) : systemTaxonomies.length === 0 ? (
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-3">
+            No system taxonomies seeded. Run <code className="bg-amber-100 px-1 rounded">python scripts/seed_taxonomies.py</code> first.
+          </div>
+        ) : (
+          <select
+            value={selectedTaxonomyId ?? ''}
+            onChange={(e) => setSelectedTaxonomyId(Number(e.target.value))}
+            className="w-full text-sm border border-gray-300 rounded h-9 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            data-testid="suggest-fsli-taxonomy-select"
+          >
+            {systemTaxonomies.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}{t.code === 'us_gaap' ? ' (default)' : ''}</option>
+            ))}
+          </select>
+        )}
+        <button
+          type="button"
+          onClick={() => runSuggestions.mutate()}
+          disabled={!selectedTaxonomyId || runSuggestions.isPending}
+          className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors"
+          data-testid="run-suggestions-btn"
+        >
+          {runSuggestions.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {runSuggestions.isPending ? 'Suggesting…' : 'Run Suggestions'}
+        </button>
+      </div>
+
+      {/* Results table */}
+      {suggestResult && (
+        <div className="space-y-3" data-testid="suggest-fsli-results">
+          <div className="flex items-center gap-4 text-xs text-gray-700 flex-wrap">
+            <span className="font-semibold">{matched} matched</span>
+            <span className="text-gray-400">·</span>
+            <span>{unmatched} unmatched</span>
+            <span className="text-gray-400">·</span>
+            <span>{total} total accounts</span>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg overflow-auto max-h-[400px]">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 sticky top-0 z-10">
+                <tr className="border-b border-gray-200 text-left">
+                  <th className="px-3 py-2 w-8">
+                    <input
+                      type="checkbox"
+                      checked={matchedVisible.length > 0 && checkedLines.size === matchedVisible.length}
+                      onChange={(e) => e.target.checked ? selectAll() : deselectAll()}
+                      data-testid="suggest-fsli-select-all"
+                    />
+                  </th>
+                  <th className="px-3 py-2 font-semibold">Account #</th>
+                  <th className="px-3 py-2 font-semibold">Account Name</th>
+                  <th className="px-3 py-2 font-semibold">Suggested FS Line</th>
+                  <th className="px-3 py-2 font-semibold w-24">Confidence</th>
+                  <th className="px-3 py-2 font-semibold w-1/3">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleSuggestions.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center px-3 py-6 text-gray-400">No accounts in this batch yet.</td></tr>
+                ) : visibleSuggestions.map((s) => {
+                  const isMatch = s.suggested_fsli_taxonomy_node_id !== null
+                  const confPct = s.confidence != null ? Math.round(s.confidence * 100) : 0
+                  const confColor = confPct >= 85 ? 'bg-emerald-100 text-emerald-700'
+                    : confPct >= 55 ? 'bg-amber-100 text-amber-700'
+                    : 'bg-rose-100 text-rose-700'
+                  return (
+                    <tr key={s.line_id} className="border-t border-gray-100" data-testid={`suggest-fsli-row-${s.line_id}`}>
+                      <td className="px-3 py-2">
+                        {isMatch ? (
+                          <input
+                            type="checkbox"
+                            checked={checkedLines.has(s.line_id)}
+                            onChange={() => toggleLine(s.line_id)}
+                            data-testid={`suggest-fsli-checkbox-${s.line_id}`}
+                          />
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-gray-700"><AccountLookup batchId={batchId} lineId={s.line_id} field="number" /></td>
+                      <td className="px-3 py-2 text-gray-800"><AccountLookup batchId={batchId} lineId={s.line_id} field="name" /></td>
+                      <td className="px-3 py-2">
+                        {isMatch ? (
+                          <span className="font-medium text-indigo-700">{s.node_name}</span>
+                        ) : (
+                          <span className="text-gray-400 italic">No match</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {isMatch && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${confColor}`}>
+                            {confPct}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600">{s.reason ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Apply controls */}
+          <div className="flex items-center gap-3 flex-wrap border-t border-gray-100 pt-4">
+            <label className="text-xs font-semibold text-gray-700">When an account already has an FS line:</label>
+            <select
+              value={applyMode}
+              onChange={(e) => setApplyMode(e.target.value as typeof applyMode)}
+              className="text-xs border border-gray-300 rounded px-2 py-1"
+              data-testid="apply-mode-select"
+            >
+              <option value="blank_only">Apply only to blank</option>
+              <option value="replace">Replace existing</option>
+              <option value="preserve">Preserve (same as blank only)</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => apply.mutate(applyMode)}
+              disabled={apply.isPending || checkedLines.size === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded disabled:opacity-50"
+              data-testid="apply-selected-btn"
+            >
+              Apply Selected ({checkedLines.size})
+            </button>
+            <button
+              type="button"
+              onClick={() => apply.mutate(applyMode)}
+              disabled={apply.isPending || matched === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded disabled:opacity-50"
+              data-testid="apply-all-btn"
+            >
+              Apply All Matched ({matched})
+            </button>
+          </div>
+
+          {/* Apply result */}
+          {applyResult && (
+            <div
+              className={`rounded-lg p-4 border ${applyResult.applied > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}
+              data-testid="apply-result-banner"
+            >
+              <p className="text-sm font-semibold text-gray-800">
+                {applyResult.applied} suggestion{applyResult.applied === 1 ? '' : 's'} applied
+                {applyResult.skipped > 0 && `, ${applyResult.skipped} skipped`}.
+              </p>
+              {applyResult.skipped_reason && (
+                <p className="text-xs text-gray-600 mt-1">{applyResult.skipped_reason}</p>
+              )}
+              {applyResult.next_action && (
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded"
+                  data-testid="continue-to-review-btn"
+                >
+                  {applyResult.next_action} <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer nav */}
+      <div className="flex justify-between border-t border-gray-100 pt-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-600 text-xs font-semibold rounded hover:bg-gray-50"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Column Mapping
+        </button>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 text-xs font-semibold rounded hover:bg-gray-50"
+          data-testid="skip-to-review-btn"
+        >
+          Skip to Review Exceptions <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ReviewExceptionsSummary({
+  batchId,
+  previewRows,
+  validationIssues,
+}: {
+  batchId: number
+  previewRows: any[]
+  validationIssues: Array<{ severity: string; code: string }>
+}) {
+  const { data: lines = [] } = useQuery({
+    queryKey: ['import-lines', batchId],
+    queryFn: () => tbImportApi.getBatchLines(batchId),
+    staleTime: 15_000,
+  })
+  const totalImported = lines.length
+  const autoMapped = lines.filter((l) => l.selected_fsli_taxonomy_node_id != null).length
+  const needsReview = lines.filter((l) =>
+    l.mapping_status === 'unmapped' || l.selected_fsli_taxonomy_node_id == null
+  ).length
+  const excluded = lines.filter((l) => l.mapping_status === 'skipped').length
+  const errors = validationIssues.filter((i) => i.severity === 'error').length
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs" data-testid="review-exceptions-summary">
+      <SummaryStat label="Total imported" value={totalImported} color="gray" />
+      <SummaryStat label="Auto-mapped" value={autoMapped} color="emerald" />
+      <SummaryStat label="Need review" value={needsReview} color="amber" />
+      <SummaryStat label="Excluded" value={excluded} color="slate" />
+      <SummaryStat label="Errors" value={errors} color="rose" />
+    </div>
+  )
+}
+
+function SummaryStat({ label, value, color }: { label: string; value: number; color: string }) {
+  const colorMap: Record<string, string> = {
+    gray: 'bg-gray-50 border-gray-200 text-gray-700',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    amber: 'bg-amber-50 border-amber-200 text-amber-800',
+    slate: 'bg-slate-50 border-slate-200 text-slate-700',
+    rose: 'bg-rose-50 border-rose-200 text-rose-800',
+  }
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${colorMap[color] ?? colorMap.gray}`}>
+      <div className="text-[10px] uppercase tracking-wide font-semibold opacity-70">{label}</div>
+      <div className="text-lg font-bold mt-0.5">{value.toLocaleString()}</div>
+    </div>
+  )
+}
+
+// Lightweight account-number / name lookup against /batches/{id}/lines.
+function AccountLookup({ batchId, lineId, field }: { batchId: number; lineId: number; field: 'number' | 'name' }) {
+  const { data: lines = [] } = useQuery({
+    queryKey: ['import-lines', batchId],
+    queryFn: () => tbImportApi.getBatchLines(batchId),
+    staleTime: 30_000,
+  })
+  const line = lines.find((l) => l.id === lineId)
+  if (!line) return <span className="text-gray-300">—</span>
+  if (field === 'number') return <>{line.raw_account_number || '—'}</>
+  return <span title={line.raw_account_name || ''}>{line.raw_account_name || '—'}</span>
+}
 
 const COLUMN_ALIASES: Record<string, string[]> = {
   account_number: [
@@ -122,7 +517,8 @@ const STEPS = [
   { label: 'Upload', desc: 'Select file and workspace context' },
   { label: 'Sheet', desc: 'Select workbook sheet' },
   { label: 'Column Mapping', desc: 'Verify ledger fields' },
-  { label: 'Verify & Validate', desc: 'Check balances & net income' },
+  { label: 'Suggest FS Lines', desc: 'Match accounts to financial statement lines' },
+  { label: 'Review Exceptions', desc: 'Resolve issues' },
   { label: 'Post to Ledger', desc: 'Commit journal entry' },
 ]
 
@@ -321,7 +717,7 @@ export function TrialBalanceImportPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['import-batches', orgId] })
       toast('Trial balance successfully posted to general ledger', 'success')
-      setStep(4)
+      setStep(5)
     },
     onError: (err: Error) => { setApiError(err.message) },
   })
@@ -767,10 +1163,26 @@ export function TrialBalanceImportPage() {
           )
         })()}
 
-        {/* Step 3: Verify & Validate */}
+        {/* Step 3 (NEW): Suggest Financial Statement Lines — simplified TB wizard */}
         {step === 3 && (
+          <SuggestFsliStep
+            batchId={batchId!}
+            onBack={() => setStep(2)}
+            onContinue={() => setStep(4)}
+          />
+        )}
+
+        {/* Step 4 (was 3): Review Exceptions */}
+        {step === 4 && (
           <div className="space-y-6">
-            <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Verification & Validation</h3>
+            <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Review Exceptions</h3>
+            <p className="text-xs text-gray-500">
+              Resolve any issues that block posting. Only exception rows are shown by default;
+              expand "Show all accounts" to see every imported line.
+            </p>
+
+            {/* Totals summary */}
+            <ReviewExceptionsSummary batchId={batchId!} previewRows={validationPreviewRows} validationIssues={validationIssues} />
             
             {/* Unmapped accounts warning CTA banner */}
             {validationIssues.some(i => i.code === 'IMPORT_MISSING_MAPPING') && (
@@ -847,15 +1259,15 @@ export function TrialBalanceImportPage() {
             <div className="flex justify-between border-t border-gray-100 pt-5">
               <button
                 type="button"
-                onClick={() => setStep(2)}
+                onClick={() => setStep(3)}
                 className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-655 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" /> Back to Mapping
+                <ChevronLeft className="w-4 h-4" /> Back to FS Lines
               </button>
-              
+
               <button
                 type="button"
-                onClick={() => setStep(4)}
+                onClick={() => setStep(5)}
                 disabled={validationIssues.some(i => i.severity === 'error')}
                 className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors cursor-pointer animate-pulse-subtle"
               >
@@ -866,8 +1278,8 @@ export function TrialBalanceImportPage() {
           </div>
         )}
 
-        {/* Step 4: Post & Finalize */}
-        {step === 4 && (
+        {/* Step 5 (was 4): Post & Finalize */}
+        {step === 5 && (
           <div className="space-y-6">
             <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Commit & Post to Ledger</h3>
             <p className="text-xs text-gray-500">Upon posting, a balanced journal entry will be recorded in the general ledger for the selected accounting period.</p>
@@ -899,10 +1311,10 @@ export function TrialBalanceImportPage() {
             <div className="flex justify-between border-t border-gray-100 pt-5">
               <button
                 type="button"
-                onClick={() => setStep(3)}
+                onClick={() => setStep(4)}
                 className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-655 text-xs font-semibold rounded hover:bg-gray-50 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" /> Back to Verification
+                <ChevronLeft className="w-4 h-4" /> Back to Review Exceptions
               </button>
               
               <button

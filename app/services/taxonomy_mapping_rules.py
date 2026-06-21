@@ -231,6 +231,61 @@ def _build_suggestion(
     )
 
 
+def suggest_mapping_from_strings(
+    account_number: str | None,
+    account_name: str | None,
+    account_type: str | None,
+    taxonomy: Taxonomy,
+    db: Session,
+) -> Optional[MappingSuggestion]:
+    """
+    Same logic as suggest_mapping() but operates on raw strings instead of
+    an Account ORM row. Used by the TB-import wizard to suggest FSLI BEFORE
+    any Account record exists (the COA may still be just the imported file).
+    """
+    name_lower = (account_name or "").lower()
+    if name_lower:
+        sorted_keywords = sorted(KEYWORD_TO_NODE_CODE.keys(), key=len, reverse=True)
+        for keyword in sorted_keywords:
+            if keyword in name_lower:
+                node_code = KEYWORD_TO_NODE_CODE[keyword]
+                node = _lookup_node(db, taxonomy.id, node_code)
+                if not node:
+                    continue
+                strong = (
+                    name_lower.startswith(keyword)
+                    or (len(keyword) / max(len(name_lower), 1)) >= 0.4
+                )
+                if strong:
+                    return _build_suggestion(taxonomy, node, 0.90, f"keyword match: '{keyword}'")
+                return _build_suggestion(taxonomy, node, 0.75, f"partial keyword match: '{keyword}'")
+
+    raw_number = (account_number or "").strip()
+    if raw_number:
+        try:
+            num = int(raw_number.split("-")[0].split(".")[0])
+        except (ValueError, AttributeError):
+            num = None
+        if num is not None:
+            for start, end, node_code in NUMBER_RANGE_TO_NODE_CODE:
+                if start <= num <= end:
+                    node = _lookup_node(db, taxonomy.id, node_code)
+                    if node:
+                        return _build_suggestion(
+                            taxonomy, node, 0.60,
+                            f"account number range {start}-{end}",
+                        )
+                    break
+
+    acct_type = (account_type or "").lower()
+    if acct_type in ACCOUNT_TYPE_TO_NODE_CODE:
+        node_code = ACCOUNT_TYPE_TO_NODE_CODE[acct_type]
+        node = _lookup_node(db, taxonomy.id, node_code)
+        if node:
+            return _build_suggestion(taxonomy, node, 0.40, f"account_type fallback: '{acct_type}'")
+    return None
+
+
 def suggest_mapping(
     account: Account,
     taxonomy: Taxonomy,

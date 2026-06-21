@@ -57,3 +57,15 @@ class ImportLine(Base):
 
     # Annotation / correction notes from the reviewer
     notes = Column(Text, nullable=True)
+
+    # Staged FSLI / financial statement line — set during the import wizard's
+    # "Suggest Financial Statement Lines" step, transferred onto the Account
+    # at post time. nullable; null means no FSLI staged for this line.
+    suggested_fsli_taxonomy_node_id = Column(
+        Integer, ForeignKey("taxonomy_nodes.id"), nullable=True,
+    )
+    suggested_fsli_confidence = Column(Numeric(4, 3), nullable=True)
+    suggested_fsli_reason = Column(String(200), nullable=True)
+    selected_fsli_taxonomy_node_id = Column(
+        Integer, ForeignKey("taxonomy_nodes.id"), nullable=True,
+    )

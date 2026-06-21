@@ -36,6 +36,20 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Simplified TB wizard · Suggest Financial Statement Lines in-line',
+    date: '2026-06-21',
+    items: [
+      'New wizard step "Suggest FS Lines" lives between Column Mapping and Review Exceptions. Pick a financial statement structure (US GAAP by default), run rule-engine suggestions on every imported account, review them inline, and apply with one click — no need to discover the Auto-Map Taxonomies button in the Mapping Workbench.',
+      'Suggestions work even when no Chart of Accounts exists yet. The rule engine runs on the raw source account number + name + amount, so first-pass FSLI mapping happens before any COA candidate is resolved.',
+      'New backend endpoints: POST /tb-imports/batches/{id}/suggest-fsli runs the rule engine over every ImportLine; POST /apply-fsli-suggestions promotes staged suggestions with a mode selector (blank_only / replace / preserve).',
+      'When all suggestions are skipped because mappings already exist, the response now explains why and points to "Replace existing" — the old "Applied 0, skipped 184" mystery is gone.',
+      'Mapping Workbench terminology cleanup: "Will create new COA account" → "New COA account candidate"; "Legacy" / "Sprint O" implementation badges removed; the inheritance source "legacy" now surfaces as "Existing".',
+      'Auto-Map modal: Deselect-All toggle next to Select-All; suggested node renders just the name (e.g. "Cash") instead of "CASH Cash"; skipped-result banner color-coded with actionable guidance.',
+      'New wizard step at numeric position 3 — existing Verify & Validate moves to step 4 (renamed Review Exceptions, with a totals summary: imported / auto-mapped / need review / excluded / errors). Post to Ledger is now step 5.',
+      'ImportLine model gains suggested_fsli_taxonomy_node_id + selected_fsli_taxonomy_node_id + confidence/reason so staged suggestions survive between wizard steps and transfer onto the Account on post.',
+    ],
+  },
+  {
     version: 'Agent 3 · Mapping Workbench usability + COA/FSLI logic clarity',
     date: '2026-06-20',
     items: [

@@ -78,6 +78,11 @@ export default defineConfig({
       testMatch: '**/tb_import_regression.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'tb-wizard-simplified',
+      testMatch: '**/tb_wizard_simplified.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   webServer: [
     {
