@@ -11,7 +11,7 @@ import { tbImportApi } from '@/api/tbImport'
 import { accountsApi } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import { reportingViewsApi } from '@/api/reportingViews'
-import { fsliMappingsApi } from '@/api/fsliMappings'
+import { fsliMappingsApi, isFsliChangeConfirmation } from '@/api/fsliMappings'
 import { taxonomyLibraryApi } from '@/api/taxonomyLibrary'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { ErrorBanner } from '@/components/ui/ValidationAlert'
@@ -633,12 +633,29 @@ export function MappingWorkbenchPage() {
   })
 
   const updateFsliMutation = useMutation({
-    mutationFn: ({ accountId, taxonomyLineId }: { accountId: number; taxonomyLineId: number | null }) => {
-      if (!resolvedViewId) return Promise.reject(new Error('No reporting view selected'))
-      return fsliMappingsApi.upsert(entityId, resolvedViewId, accountId, taxonomyLineId)
+    mutationFn: async ({ accountId, taxonomyLineId }: { accountId: number; taxonomyLineId: number | null }) => {
+      if (!resolvedViewId) throw new Error('No reporting view selected')
+      try {
+        return await fsliMappingsApi.upsert(entityId, resolvedViewId, accountId, taxonomyLineId)
+      } catch (err) {
+        const detail = isFsliChangeConfirmation(err)
+        if (detail) {
+          const ok = window.confirm(
+            `Saving this taxonomy override will also change the FSLI on this account `
+            + `from "${detail.current_crl_name}" to "${detail.new_crl_name}". Continue?`,
+          )
+          if (!ok) throw new Error('FSLI change cancelled')
+          return await fsliMappingsApi.upsert(
+            entityId, resolvedViewId, accountId, taxonomyLineId,
+            { allowFsliChange: true },
+          )
+        }
+        throw err
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts-all', entityId] })
+      queryClient.invalidateQueries({ queryKey: ['mapping-center-accounts'] })
       toast('FSLI mapping updated', 'success')
     },
     onError: (err: Error) => setApiError(err.message),
@@ -1675,8 +1692,9 @@ export function MappingWorkbenchPage() {
       <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3 text-[11px] text-amber-900 flex items-start gap-2" data-testid="advanced-mapping-banner">
         <span className="font-semibold">Advanced editor.</span>
         <span>
-          This is the per-batch power-user editor. Normal mapping happens in the wizard's step 4
-          or in <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
+          Per-batch power-user editor. <strong>FSLI is the primary classification</strong> — taxonomy assignments here also update the account's canonical FSLI.
+          If a taxonomy pick would change an existing FSLI, you'll be asked to confirm. Normal mapping happens in the wizard's step 4 or in{' '}
+          <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
         </span>
       </div>
 

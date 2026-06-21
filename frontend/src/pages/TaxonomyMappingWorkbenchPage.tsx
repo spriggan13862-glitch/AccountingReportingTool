@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Copy, Lock, Unlock, Save, Search, Tags } from 'lucide-react'
-import { fsliMappingsApi } from '@/api/fsliMappings'
+import { fsliMappingsApi, isFsliChangeConfirmation } from '@/api/fsliMappings'
 import { accountsApi } from '@/api/accounts'
 import { reportingTaxonomyApi } from '@/api/reportingTaxonomy'
 import { reportingViewsApi } from '@/api/reportingViews'
@@ -196,18 +196,38 @@ export function TaxonomyMappingWorkbenchPage() {
   const mappedPct = totalCount > 0 ? Math.round((mappedCount / totalCount) * 100) : 0
 
   const upsertMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       accountId,
       taxonomyLineId,
     }: {
       accountId: number
       taxonomyLineId: number | null
     }) => {
-      if (!resolvedViewId) return Promise.reject(new Error('No view selected'))
-      return fsliMappingsApi.upsert(entityId, resolvedViewId, accountId, taxonomyLineId)
+      if (!resolvedViewId) throw new Error('No view selected')
+      try {
+        return await fsliMappingsApi.upsert(entityId, resolvedViewId, accountId, taxonomyLineId)
+      } catch (err) {
+        const detail = isFsliChangeConfirmation(err)
+        if (detail) {
+          // Correction 14 — server refused to silently change the canonical
+          // FSLI. Ask the user, then retry with allow_fsli_change=true.
+          const ok = window.confirm(
+            `Saving this taxonomy override will also change the FSLI on this account `
+            + `from "${detail.current_crl_name}" to "${detail.new_crl_name}". Continue?`,
+          )
+          if (!ok) throw new Error('FSLI change cancelled')
+          return await fsliMappingsApi.upsert(
+            entityId, resolvedViewId, accountId, taxonomyLineId,
+            { allowFsliChange: true },
+          )
+        }
+        throw err
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fsli-with-inheritance', entityId, resolvedViewId] })
+      // Also refresh the canonical Account lists that Mapping Center reads.
+      queryClient.invalidateQueries({ queryKey: ['mapping-center-accounts'] })
     },
     onError: (err: Error) => toast(err.message, 'error'),
   })
@@ -455,8 +475,10 @@ export function TaxonomyMappingWorkbenchPage() {
         <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-[11px] text-amber-900 flex items-start gap-2" data-testid="advanced-override-banner">
           <span className="font-semibold">Advanced editor.</span>
           <span>
-            You're in the per-view taxonomy override editor. For normal account-to-FSLI mapping, use{' '}
-            <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
+            <strong>FSLI remains the primary financial statement classification.</strong> Taxonomy override is optional detail within the selected FSLI.
+            Saving a taxonomy line on an unmapped account auto-assigns the corresponding FSLI.
+            If the override resolves to a different FSLI than the account already has, you'll be asked to confirm before the FSLI is changed.
+            For normal account-to-FSLI mapping, use <a href="/mapping" className="underline font-semibold">Mapping Center</a>.
           </span>
         </div>
         {/* View selector + search + stats bar */}

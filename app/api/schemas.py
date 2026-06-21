@@ -2391,6 +2391,10 @@ class FsliMappingOut(BaseModel):
 class FsliMappingUpsert(BaseModel):
     taxonomy_line_id: int | None = None
     locked: bool | None = None
+    # Correction 14: confirm an FSLI change when the resolved CRL for
+    # the taxonomy_line_id differs from the account's existing FSLI.
+    allow_fsli_change: bool = False
+    organization_id: int | None = None
 
 
 class FsliMigrationResult(BaseModel):
@@ -2411,6 +2415,8 @@ class FsliEffectiveMapping(BaseModel):
 class FsliPropagateRequest(BaseModel):
     taxonomy_line_id: int
     overwrite_existing: bool = False
+    allow_fsli_change: bool = False
+    organization_id: int | None = None
 
 
 class FsliPropagateResult(BaseModel):
@@ -2425,6 +2431,8 @@ class FsliCopyFromViewResult(BaseModel):
 class FsliBulkAssignRequest(BaseModel):
     account_ids: list[int]
     taxonomy_line_id: int
+    allow_fsli_change: bool = False
+    organization_id: int | None = None
 
 
 class FsliBulkAssignResult(BaseModel):

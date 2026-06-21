@@ -73,6 +73,49 @@ from app.services.import_batch_service import (
 )
 from app.services.tb_import_service import TbImportError, import_trial_balance, preview_tb_import
 
+
+def _wizard_promote_canonical_for_node(db, line, node_id):
+    """
+    Correction 14 — wizard's "Show full taxonomy" advanced path.
+
+    When the user picks a TaxonomyNode in the advanced wizard view, also
+    set ImportLine.selected_common_reporting_line_id (the canonical FSLI
+    staging field) so post_batch transfers the canonical CRL onto the
+    Account. Promotion rules:
+
+      - node_id is None (clear) → leave canonical alone (user must clear
+        the canonical FSLI in Mapping Center if they want to remove it).
+      - node has no CRL junction → leave canonical alone (the node is
+        not part of any FSLI; advanced detail is then orphan).
+      - line has no canonical FSLI yet → promote (Scenario A).
+      - line's canonical FSLI matches resolved CRL → no-op (Scenario B).
+      - line's canonical FSLI differs from resolved CRL → leave the
+        canonical alone. The wizard does not silently change a canonical
+        FSLI; the user must edit it explicitly in Mapping Center
+        (Scenario C — safer fallback for the wizard flow).
+    """
+    if node_id is None:
+        return
+    from app.models.taxonomy import TaxonomyNode
+    from app.models.common_reporting_line import (
+        CommonReportingLine,
+        CommonReportingLineTaxonomyNode,
+    )
+    node = db.get(TaxonomyNode, node_id)
+    if node is None:
+        return
+    junction = (
+        db.query(CommonReportingLineTaxonomyNode)
+        .filter_by(taxonomy_node_code=node.code)
+        .order_by(CommonReportingLineTaxonomyNode.is_primary.desc())
+        .first()
+    )
+    if junction is None:
+        return
+    if line.selected_common_reporting_line_id is None:
+        line.selected_common_reporting_line_id = junction.crl_id
+    # else: matches → no-op; differs → leave alone (no silent change)
+
 router = APIRouter(prefix="/tb-imports", tags=["tb-imports"])
 
 
@@ -821,6 +864,7 @@ def save_fsli_selections(
         if not line:
             continue
         line.selected_fsli_taxonomy_node_id = node_id
+        _wizard_promote_canonical_for_node(db, line, node_id)
         saved += 1
     db.commit()
     return {"saved": saved}
@@ -874,6 +918,7 @@ def apply_fsli_suggestions(
             skipped_existing += 1
             continue
         line.selected_fsli_taxonomy_node_id = line.suggested_fsli_taxonomy_node_id
+        _wizard_promote_canonical_for_node(db, line, line.suggested_fsli_taxonomy_node_id)
         applied += 1
     db.commit()
 

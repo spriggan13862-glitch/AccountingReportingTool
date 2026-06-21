@@ -22,6 +22,7 @@ from app.models.account import Account
 from app.models.reporting_taxonomy import ReportingTaxonomyLine
 from app.models.view_account_override import ViewAccountOverride
 from app.services.fsli_mapping_service import (
+    FsliPromotionConflictError,
     bulk_assign_fsli,
     bulk_migrate_from_account_field,
     copy_fsli_mappings_from_view,
@@ -31,6 +32,20 @@ from app.services.fsli_mapping_service import (
     propagate_fsli_to_children,
     upsert_fsli_mapping,
 )
+
+
+def _conflict_detail(err: FsliPromotionConflictError) -> dict:
+    """Structured 409 body so the UI can render a precise confirmation prompt."""
+    return {
+        "code": "FSLI_CHANGE_REQUIRES_CONFIRMATION",
+        "message": str(err),
+        "account_id": err.account_id,
+        "current_crl_id": err.current_crl_id,
+        "current_crl_name": err.current_crl_name,
+        "new_crl_id": err.new_crl_id,
+        "new_crl_name": err.new_crl_name,
+        "remedy": "Retry with allow_fsli_change=true to apply the change.",
+    }
 
 router = APIRouter(prefix="/fsli-mappings", tags=["fsli-mappings"])
 
@@ -78,7 +93,15 @@ def upsert_mapping(
     if account.entity_id != entity_id:
         raise HTTPException(status_code=400, detail="Account does not belong to this entity")
     locked = getattr(body, 'locked', None)
-    override = upsert_fsli_mapping(entity_id, view_id, account_id, body.taxonomy_line_id, db, locked=locked)
+    try:
+        override = upsert_fsli_mapping(
+            entity_id, view_id, account_id, body.taxonomy_line_id, db,
+            locked=locked,
+            allow_fsli_change=body.allow_fsli_change,
+            organization_id=body.organization_id,
+        )
+    except FsliPromotionConflictError as err:
+        raise HTTPException(status_code=409, detail=_conflict_detail(err))
     return _enrich(override, db)
 
 
@@ -131,14 +154,19 @@ def propagate_to_children(
     if parent.entity_id != entity_id:
         raise HTTPException(status_code=400, detail="Account does not belong to this entity")
 
-    count, updated_ids = propagate_fsli_to_children(
-        parent_account_id,
-        entity_id,
-        view_id,
-        body.taxonomy_line_id,
-        db,
-        body.overwrite_existing,
-    )
+    try:
+        count, updated_ids = propagate_fsli_to_children(
+            parent_account_id,
+            entity_id,
+            view_id,
+            body.taxonomy_line_id,
+            db,
+            body.overwrite_existing,
+            allow_fsli_change=body.allow_fsli_change,
+            organization_id=body.organization_id,
+        )
+    except FsliPromotionConflictError as err:
+        raise HTTPException(status_code=409, detail=_conflict_detail(err))
     return FsliPropagateResult(propagated_count=count, accounts_updated=updated_ids)
 
 
@@ -166,5 +194,12 @@ def bulk_assign(
     body: FsliBulkAssignRequest,
     db: Session = Depends(get_db),
 ):
-    updated = bulk_assign_fsli(entity_id, view_id, body.account_ids, body.taxonomy_line_id, db)
+    try:
+        updated = bulk_assign_fsli(
+            entity_id, view_id, body.account_ids, body.taxonomy_line_id, db,
+            allow_fsli_change=body.allow_fsli_change,
+            organization_id=body.organization_id,
+        )
+    except FsliPromotionConflictError as err:
+        raise HTTPException(status_code=409, detail=_conflict_detail(err))
     return FsliBulkAssignResult(updated=updated)

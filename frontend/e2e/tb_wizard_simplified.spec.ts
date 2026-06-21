@@ -349,6 +349,28 @@ test.describe('Simplified TB wizard', () => {
     expect([200, 401, 403]).toContain(res.status())
   })
 
+  test('Correction 14: fsli-mappings PUT accepts allow_fsli_change flag', async ({ request }) => {
+    // 404 if no such account; 422 would mean Pydantic rejected the new field.
+    const res = await request.put(
+      'http://localhost:8002/api/v1/fsli-mappings/999999/999999/999999',
+      { data: { taxonomy_line_id: null, allow_fsli_change: false } },
+    )
+    expect([200, 400, 404, 401, 403]).toContain(res.status())
+  })
+
+  test('Correction 14: advanced banner mentions FSLI primacy', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/email/i).fill('admin@livemarketing.test')
+    await page.getByLabel(/password/i).fill('Test1234!')
+    await page.getByRole('button', { name: /sign in/i }).click()
+    await expect(page).toHaveURL(/\/$|\/dashboard|\/overview/, { timeout: 10_000 })
+    await page.goto('/taxonomy/mapping')
+    await expect(page.getByTestId('advanced-override-banner')).toContainText(
+      /FSLI remains the primary/i,
+      { timeout: 10_000 },
+    )
+  })
+
   test('Correction 15: legacy /taxonomy/balance-sheet accepts organization_id', async ({ request }) => {
     // After Correction 15 the legacy endpoint takes organization_id so the
     // canonical resolver can prefer org-specific CRL clones. 400/422 would

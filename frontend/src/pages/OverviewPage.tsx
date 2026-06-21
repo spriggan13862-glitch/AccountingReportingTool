@@ -36,6 +36,19 @@ const WORKSPACES = [
 
 const WHATS_NEW = [
   {
+    version: 'Advanced override now sits beneath FSLI (Correction 14)',
+    date: '2026-06-21',
+    items: [
+      'Advanced Taxonomy Override no longer silently diverges from the canonical Account → FSLI mapping. Every advanced write promotes the matching FSLI onto the underlying account.',
+      'Account had no FSLI: advanced override auto-assigns the corresponding FSLI.',
+      'Account already has a matching FSLI: override saved, FSLI unchanged.',
+      'Advanced pick would change an existing FSLI to a different one: server returns 409 with a structured warning, the editor pops a confirmation dialog naming the old and new FSLI, and only proceeds if you say yes.',
+      'Per-batch Advanced Mapping (the per-import power-user editor) wires the same flow: any taxonomy pick keeps Mapping Center, Statements by FSLI, and the per-view detail in agreement.',
+      'Wizard\'s "Show full taxonomy" toggle: picking a taxonomy node also stages the canonical FSLI on the import line, so post_batch transfers a complete classification onto the account.',
+      'Both advanced pages updated with policy banner: "FSLI remains the primary classification — taxonomy override is optional detail within the selected FSLI."',
+    ],
+  },
+  {
     version: 'Naming cleanup · FSLI everywhere in normal UI (Correction 2)',
     date: '2026-06-21',
     items: [

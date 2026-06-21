@@ -1,7 +1,11 @@
 """
 FSLI mapping resolution: entity_id + view_id + account_id → taxonomy_line_id.
-This is the canonical source of truth for account-to-FSLI mapping.
-Account.reporting_taxonomy_line_id is a legacy fallback only.
+
+After Correction 14: every write here also promotes the canonical FSLI
+on the underlying Account (accounts.common_reporting_line_id) so the
+Advanced Taxonomy Override view can never silently diverge from the
+canonical store that the wizard, Mapping Center, and By FSLI statements
+all read.
 """
 from __future__ import annotations
 
@@ -11,7 +15,133 @@ from sqlalchemy.orm import Session
 
 from app.models.view_account_override import ViewAccountOverride
 from app.models.account import Account
+from app.models.common_reporting_line import (
+    CommonReportingLine,
+    CommonReportingLineTaxonomyNode,
+)
 from app.models.reporting_taxonomy import ReportingTaxonomyLine
+
+
+class FsliPromotionConflictError(Exception):
+    """
+    Raised when an advanced taxonomy override would change the account's
+    existing canonical FSLI to a different one. The caller can retry with
+    allow_fsli_change=True to confirm the change.
+    """
+    def __init__(
+        self,
+        *,
+        account_id: int,
+        current_crl_id: int,
+        current_crl_name: str,
+        new_crl_id: int,
+        new_crl_name: str,
+    ):
+        super().__init__(
+            f"Advanced taxonomy override would change account {account_id}'s "
+            f"FSLI from {current_crl_name!r} (id={current_crl_id}) to "
+            f"{new_crl_name!r} (id={new_crl_id}). Retry with "
+            f"allow_fsli_change=true to confirm."
+        )
+        self.account_id = account_id
+        self.current_crl_id = current_crl_id
+        self.current_crl_name = current_crl_name
+        self.new_crl_id = new_crl_id
+        self.new_crl_name = new_crl_name
+
+
+def _crl_for_taxonomy_line_id(
+    db: Session,
+    taxonomy_line_id: int | None,
+    organization_id: int | None = None,
+) -> CommonReportingLine | None:
+    """
+    Resolve a ReportingTaxonomyLine (advanced detail) back to its parent
+    CRL via the common_reporting_line_taxonomy_nodes junction (matched
+    by node code).
+
+    If multiple CRLs reference the same taxonomy code, prefer the row
+    marked is_primary in the junction. Returns None when no CRL maps to
+    the code (e.g. a brand-new custom taxonomy line that hasn't been
+    wired into any FSLI junction yet).
+    """
+    if taxonomy_line_id is None:
+        return None
+    line = db.query(ReportingTaxonomyLine).filter_by(id=taxonomy_line_id).first()
+    if line is None:
+        return None
+    junction = (
+        db.query(CommonReportingLineTaxonomyNode)
+        .filter_by(taxonomy_node_code=line.code)
+        .order_by(CommonReportingLineTaxonomyNode.is_primary.desc())
+        .first()
+    )
+    if junction is None:
+        return None
+    crl = db.query(CommonReportingLine).filter_by(id=junction.crl_id).first()
+    if crl is None:
+        return None
+    # Prefer an org-specific clone if the caller has an org context.
+    if organization_id is not None and crl.organization_id is None:
+        clone = (
+            db.query(CommonReportingLine)
+            .filter_by(code=crl.code, organization_id=organization_id)
+            .first()
+        )
+        if clone is not None:
+            return clone
+    return crl
+
+
+def _maybe_promote_canonical_crl(
+    db: Session,
+    account: Account,
+    taxonomy_line_id: int | None,
+    allow_fsli_change: bool,
+    organization_id: int | None = None,
+) -> None:
+    """
+    Canonical-FSLI promotion rules (Correction 14 preferred approach):
+
+      Scenario A (no current FSLI): always assign the resolved CRL.
+      Scenario B (current FSLI matches resolved CRL): no-op.
+      Scenario C (current FSLI differs from resolved CRL):
+        - if allow_fsli_change: change the canonical FSLI to the new one.
+        - else: raise FsliPromotionConflictError so the caller can ask
+          the user for explicit confirmation.
+
+    Clearing the taxonomy_line_id (=None) is intentionally NOT made to
+    clear the canonical FSLI — clearing the per-view detail does not
+    imply the user wants the canonical removed. To clear the FSLI the
+    user must go to Mapping Center.
+    """
+    if taxonomy_line_id is None:
+        return  # clearing the override does not touch canonical
+    resolved = _crl_for_taxonomy_line_id(db, taxonomy_line_id, organization_id)
+    if resolved is None:
+        return  # no CRL matches this taxonomy code; canonical stays as-is
+
+    current_id = account.common_reporting_line_id
+    if current_id is None:
+        # Scenario A — promote.
+        account.common_reporting_line_id = resolved.id
+        account.crl_state = "assigned"
+        return
+    if current_id == resolved.id:
+        # Scenario B — already aligned.
+        return
+    # Scenario C — conflict.
+    if not allow_fsli_change:
+        current = db.query(CommonReportingLine).filter_by(id=current_id).first()
+        raise FsliPromotionConflictError(
+            account_id=account.id,
+            current_crl_id=current_id,
+            current_crl_name=current.name if current else f"id={current_id}",
+            new_crl_id=resolved.id,
+            new_crl_name=resolved.name,
+        )
+    account.common_reporting_line_id = resolved.id
+    account.crl_state = "assigned"
 
 
 def resolve_fsli(
@@ -61,8 +191,24 @@ def upsert_fsli_mapping(
     db: Session,
     created_by: str | None = None,
     locked: bool | None = None,
+    allow_fsli_change: bool = False,
+    organization_id: int | None = None,
 ) -> ViewAccountOverride:
-    """Create or update the FSLI mapping for entity+view+account."""
+    """
+    Create or update the FSLI mapping for entity+view+account.
+
+    Correction 14: also promotes the canonical FSLI on the underlying
+    Account. Raises FsliPromotionConflictError when the override would
+    change an existing canonical FSLI to a different one unless the
+    caller passes allow_fsli_change=True.
+    """
+    account = db.query(Account).get(account_id)
+    if account is not None:
+        # Promote canonical first so a conflict aborts the write atomically.
+        _maybe_promote_canonical_crl(
+            db, account, taxonomy_line_id, allow_fsli_change, organization_id,
+        )
+
     existing = (
         db.query(ViewAccountOverride)
         .filter_by(entity_id=entity_id, view_id=view_id, account_id=account_id)
@@ -280,6 +426,8 @@ def propagate_fsli_to_children(
     taxonomy_line_id: int,
     db: Session,
     overwrite_existing: bool = False,
+    allow_fsli_change: bool = False,
+    organization_id: int | None = None,
 ) -> tuple[int, list[int]]:
     """
     Assign taxonomy_line_id to all child accounts of parent_account_id
@@ -325,7 +473,11 @@ def propagate_fsli_to_children(
     for child in children:
         if not overwrite_existing and child.id in existing_overrides:
             continue
-        upsert_fsli_mapping(entity_id, view_id, child.id, taxonomy_line_id, db)
+        upsert_fsli_mapping(
+            entity_id, view_id, child.id, taxonomy_line_id, db,
+            allow_fsli_change=allow_fsli_change,
+            organization_id=organization_id,
+        )
         updated_ids.append(child.id)
 
     return len(updated_ids), updated_ids
@@ -377,10 +529,17 @@ def bulk_assign_fsli(
     account_ids: list[int],
     taxonomy_line_id: int,
     db: Session,
+    allow_fsli_change: bool = False,
+    organization_id: int | None = None,
 ) -> int:
     """Assign taxonomy_line_id to multiple accounts in one call.
-    Skips accounts whose mapping is locked.
-    Returns count of accounts updated.
+    Skips accounts whose mapping is locked. Returns count updated.
+
+    Correction 14: propagates canonical FSLI promotion. Raises
+    FsliPromotionConflictError on the first account whose existing
+    canonical FSLI would change — the entire batch aborts so users
+    don't end up with a partial write. Retry with allow_fsli_change=True
+    after confirming.
     """
     locked_account_ids = {
         row.account_id
@@ -393,7 +552,11 @@ def bulk_assign_fsli(
     for account_id in account_ids:
         if account_id in locked_account_ids:
             continue
-        upsert_fsli_mapping(entity_id, view_id, account_id, taxonomy_line_id, db)
+        upsert_fsli_mapping(
+            entity_id, view_id, account_id, taxonomy_line_id, db,
+            allow_fsli_change=allow_fsli_change,
+            organization_id=organization_id,
+        )
         updated += 1
     return updated
 
